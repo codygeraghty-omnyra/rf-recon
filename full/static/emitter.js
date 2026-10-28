@@ -281,7 +281,7 @@ function emitDraw(){
   if(S.emitLayer) S.map.removeLayer(S.emitLayer);
   S.emitLayer=L.layerGroup().addTo(S.map); S.emitHeat=null;
   const e=S.emit; if(!e) return;
-  const r=e.r, g=S.emitLayer, quiet={interactive:false, bubblingMouseEvents:false};
+  const r=e.r, g=S.emitLayer, quiet={interactive:false, bubblingMouseEvents:false, renderer:S.quietR}, live={bubblingMouseEvents:false, renderer:S.dotsR};
   L.circleMarker([r.lat,r.lon],{radius:11, color:"#f0a020", weight:3, fill:false, ...quiet}).addTo(g);
   if(e.tab==="coverage" && e.cov){ const c=e.cov;
     S.emitHeat=L.imageOverlay("data:image/png;base64,"+c.png, c.bounds, {opacity:e.opt.opacity, interactive:false}).addTo(g);
@@ -289,7 +289,7 @@ function emitDraw(){
     if(c.pin) L.polyline([[r.lat,r.lon], S.center],{color:c.pin.margin_db>=0?"#2da44e":"#cf222e", weight:2, ...quiet}).addTo(g); }
   if(e.tab==="network" && e.net){ const n=e.net;
     for(const m of n.mobiles) if(m.lat!=null && m.radius_km) L.circle([m.lat,m.lon],{radius:m.radius_km*1000, color:"#8250df", weight:1, dashArray:"5 5", fillOpacity:.04, ...quiet}).addTo(g);
-    for(const c of n.cochannel) L.circleMarker([c.lat,c.lon],{radius:4, color:"#57606a", weight:1, fillColor:"#8c959f", fillOpacity:.8, bubblingMouseEvents:false}).bindTooltip(`Same channel: ${esc(c.licensee)} ${esc(c.call_sign)} · ${c.dist_mi} mi`).addTo(g);
+    for(const c of n.cochannel) L.circleMarker([c.lat,c.lon],{radius:4, color:"#57606a", weight:1, fillColor:"#8c959f", fillOpacity:.8, ...live}).bindTooltip(`Same channel: ${esc(c.licensee)} ${esc(c.call_sign)} · ${c.dist_mi} mi`).addTo(g);
     for(const m of n.microwave) L.marker([m.lat,m.lon],{icon:L.divIcon({className:"", html:'<div style="width:10px;height:10px;background:#8250df;transform:rotate(45deg);border:1px solid #fff"></div>', iconSize:[10,10]}), bubblingMouseEvents:false})
       .bindTooltip(`Microwave: ${esc(m.call_signs.join(" "))}`).addTo(g);
     for(const s of n.sites){ L.polyline([[r.lat,r.lon],[s.lat,s.lon]],{color:"#1f6feb", weight:1.5, dashArray:"4 4", opacity:.8, ...quiet}).addTo(g);
@@ -298,7 +298,7 @@ function emitDraw(){
   if(e.tab==="cell" && e.cell){ const s=e.cell;
     for(const c of s.cells){ if(c.az_est==null) continue; const pts=[[s.lat,s.lon]];
       for(let a=c.az_est-32; a<=c.az_est+32; a+=8){ const d=0.6/111, k=Math.cos(s.lat*Math.PI/180); pts.push([s.lat+d*Math.cos(a*Math.PI/180), s.lon+d*Math.sin(a*Math.PI/180)/k]); }
-      L.polygon(pts,{color:"#f0a020", weight:1, fillOpacity:.25, bubblingMouseEvents:false}).bindTooltip(`${esc(c.gci)} · sector ${c.sector??"?"} · ${c.az_est}° (est.)`).addTo(g);
+      L.polygon(pts,{color:"#f0a020", weight:1, fillOpacity:.25, ...live}).bindTooltip(`${esc(c.gci)} · sector ${c.sector??"?"} · ${c.az_est}° (est.)`).addTo(g);
       L.circleMarker([c.lat,c.lon],{radius:3, color:"#f0a020", fillOpacity:1, ...quiet}).addTo(g); }
     L.marker([s.lat,s.lon],{icon:pinIcon(), interactive:false}).addTo(g); }
 }

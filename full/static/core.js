@@ -213,7 +213,7 @@ function selectFeature(r, pan){
   if(S.map && r.lat!=null){ if(pan) S.map.panTo([r.lat,r.lon]); const mk=S.markerIndex?.get(`${r.lat},${r.lon}`); if(mk) mk.openPopup(); }
 }
 
-function pinIcon(){ return L.divIcon({className:"", html:'<div class="pinicon" style="width:22px;height:22px"></div>', iconSize:[22,22], iconAnchor:[11,22]}); }
+function pinIcon(){ return L.divIcon({className:"rf-pin", html:'<div class="pinicon" style="width:22px;height:22px"></div>', iconSize:[22,22], iconAnchor:[11,22]}); }
 
 /* ---------- map layers: backgrounds + overlays, kept across searches and visits ---------- */
 const USGS="USGS The National Map";
@@ -269,7 +269,11 @@ function drawMap(rows){
     return d; }});
   new Zoom({position:"topleft"}).addTo(map);
   addMapLayers(map);
-  const canvas=L.canvas({padding:.3});
+  // two drawing layers: the dots (clickable) and the decoration (rings, tracks, overlays) that clicks pass through;
+  // a decoration canvas on top used to swallow every click, so locked-pin clicks on dots did nothing
+  const canvas=L.canvas({padding:.3}); S.dotsR=canvas;
+  S.quietR=L.canvas({padding:.3}).addTo(map);
+  map.whenReady(()=>{ if(S.quietR._container) S.quietR._container.style.pointerEvents="none"; });  // its canvas exists once the map has a view
   S.markerIndex=new Map();
   const sites=new Map();
   for(const r of rows){ if(r.lat==null) continue; const k=`${r.lat},${r.lon}`; if(!sites.has(k)) sites.set(k,[]); sites.get(k).push(r); }
@@ -296,7 +300,7 @@ function drawMap(rows){
       if(b.dataset.em==="measured"){ S.heat.kind="measured"; S.heat.ident=r.ident||String(r.ext_id||"").replace(/^\w+:/,""); S.heat.freq=r.ident||r.ext_id?"":(r.freq_mhz??""); S.heat.signal=titleOf(r); render(); loadHeat(); }
       else emitOpen(r, b.dataset.em); }); });
   // mission GPS tracks
-  if(S.mission?.tracks) for(const t of S.mission.tracks) L.polyline(t,{color:"#fb8500",weight:3,opacity:.8}).addTo(map);
+  if(S.mission?.tracks) for(const t of S.mission.tracks) L.polyline(t,{renderer:S.quietR,color:"#fb8500",weight:3,opacity:.8,interactive:false}).addTo(map);
   L.control.scale({imperial:true, metric:true}).addTo(map);
   // pin lock: when locked, clicks select things on the map and never move the pin (remembered in this browser)
   if(S.pinLocked==null){ try{ S.pinLocked=localStorage.getItem("rfr.pinLocked")==="1"; }catch(e){ S.pinLocked=false; } }
@@ -306,9 +310,12 @@ function drawMap(rows){
     paint(); L.DomEvent.disableClickPropagation(b);
     b.onclick=()=>{ S.pinLocked=!S.pinLocked; try{ localStorage.setItem("rfr.pinLocked", S.pinLocked?"1":"0"); }catch(e){} paint();
       const h=$("#mapHint"); if(h&&S.center) h.textContent=S.pinLocked?"Pin locked: click a dot to see what's there, its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely.";
-      if(S.pinMarker){ S.pinLocked?S.pinMarker.dragging?.disable():S.pinMarker.dragging?.enable(); } };
+      if(S.pinMarker){ S.pinLocked?S.pinMarker.dragging?.disable():S.pinMarker.dragging?.enable(); } map.getContainer().classList.toggle("pin-locked", !!S.pinLocked); };
     return b; }});
   new Lock({position:"topleft"}).addTo(map);
+  // locked: the pin lets clicks through to the dots under it
+  if(!document.getElementById("rfPinCss")) document.head.insertAdjacentHTML("beforeend", '<style id="rfPinCss">.pin-locked .leaflet-marker-icon.rf-pin{pointer-events:none}</style>');
+  map.getContainer().classList.toggle("pin-locked", !!S.pinLocked);
   if(S.center){
     const pin=L.marker(S.center,{draggable:!S.pinLocked, icon:pinIcon(), zIndexOffset:1000}).addTo(map); S.pinMarker=pin;
     pin.on("dragend",()=>{ const p=pin.getLatLng(); $("#loc").value=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`; runSearch(); });
@@ -316,8 +323,8 @@ function drawMap(rows){
     // distance rings, each labelled on its north side
     const ringLabel=(mi,d)=>L.marker([S.center[0]+d/111320, S.center[1]],{interactive:false, icon:L.divIcon({className:"", iconSize:[60,14], iconAnchor:[30,7],
       html:`<span style="font:600 10px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:7px;white-space:nowrap">${+mi.toFixed(2)} mi</span>`})}).addTo(map);
-    for(let d=step, i=1; d<rm-1; d+=step, i++){ L.circle(S.center,{radius:d,color:S.mapStyle==="atak"?"#3ff":"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(map); ringLabel(stepMi*i,d); }
-    L.circle(S.center,{radius:rm,color:"#555",weight:2,fill:false,interactive:false}).addTo(map); ringLabel(S.radius,rm);
+    for(let d=step, i=1; d<rm-1; d+=step, i++){ L.circle(S.center,{renderer:S.quietR,radius:d,color:S.mapStyle==="atak"?"#3ff":"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(map); ringLabel(stepMi*i,d); }
+    L.circle(S.center,{renderer:S.quietR,radius:rm,color:"#555",weight:2,fill:false,interactive:false}).addTo(map); ringLabel(S.radius,rm);
     // live readout: where the cursor is, and how far / which way from the pin
     const Readout=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","legend"); d.id="mapReadout"; d.style.cssText="font:11px ui-monospace,monospace;padding:4px 8px"; d.textContent="Move over the map for position, distance and bearing from the pin"; return d; }});
     new Readout({position:"bottomleft"}).addTo(map);
