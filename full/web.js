@@ -11,6 +11,8 @@ chip.className = "hbtn"; chip.id = "packChip"; chip.title = "Data pack"; chip.te
 $("#missionChip").after(chip);
 chip.onclick = () => setTab("data");
 $('#tabs [data-t="mission"]').style.display = "none";
+const dasTab = $('#tabs [data-t="das"]');  // DAS jobs, contacts and job files live on the PC's server
+if (dasTab) dasTab.style.display = "none";
 $('#tabs [data-t="data"]').textContent = "Packs";
 const run = fn => { try { fn(); } catch (e) { $("#status").textContent = e.message; } };
 $("#csvBtn").onclick = () => run(() => RFPack.exportFile("csv", exportParams()));

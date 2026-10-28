@@ -51,6 +51,7 @@
         DashSkin.swap(function () {
           if (k === 'skin') DashSkin.set(v); else if (k === 'glass') DashSkin.glass(v); else DashSkin.motion(v);
           label(); panel.innerHTML = html();
+          close(true);   // a pick closes the panel (Cody, 10/28); it fades out with the cross-fade
           if (opts.onChange) opts.onChange(k, v);
         });
       });

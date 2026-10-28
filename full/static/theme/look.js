@@ -2,7 +2,7 @@
 // Load after skins.js (skins.js, then this file), then
 //   DashLook.mount(document.querySelector('.topbar-right'), { onChange: () => redrawCharts() });
 // Inlined into a single-file page, escape any closing script tag in the code first (the hub's glass.py does).
-// The panel is a glass popover; Escape or a click outside closes it. Changes cross-fade (DashSkin.swap).
+// The panel is a glass popover; a pick, Escape or a click outside closes it. Changes cross-fade (DashSkin.swap).
 (function () {
   // buttons sit slightly proud and press in, the panel floats, the segment tracks sit recessed (glass.css depth tokens)
   var css = '.dl-look-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--g-border);border-color:var(--c-edges,var(--g-border));background:var(--wash);background-image:var(--c-fill,none);box-shadow:var(--c-depth,none);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:background-color var(--t-hover) ease,box-shadow var(--t-hover) ease,transform var(--t-hover) ease}'
@@ -79,6 +79,7 @@
         DashSkin.swap(function () {
           if (k === 'skin') DashSkin.set(v); else if (k === 'glass') DashSkin.glass(v); else DashSkin.motion(v);
           label(); panel.innerHTML = html();
+          close(true);   // a pick closes the panel (Cody, 10/28); it fades out with the cross-fade
           if (opts.onChange) opts.onChange(k, v);
         });
       });
