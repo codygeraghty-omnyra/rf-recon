@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "74cae7ee22";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "44445407b9";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -391,10 +391,19 @@ function viewList(v) {
   if (!g.length) { v.innerHTML = head("List", where()) + `<div class="card glass empty"><p>${S.center || S.mode === "search" ? "Nothing here with the layers and filters on." : "Tap the map, use where you are, or search."}</p>
     <button class="btn" data-act="map">Open the map</button></div>`; return; }
   v.innerHTML = head("List", `${int(g.length)} entries ${where()}${S.truncated ? ". Showing the first 20,000 licences: zoom in with a smaller radius." : ""}`)
+    + takRow()
     + `<div class="card glass" style="--i:1">${g.slice(0, S.shown).map(itemHtml).join("")}
     ${g.length > S.shown ? `<div class="row" style="justify-content:center;padding-top:10px"><button class="btn small" data-act="more">Show ${Math.min(200, g.length - S.shown)} more</button></div>` : ""}</div>`;
 }
 const head = (title, line) => `<div class="head"><h1>${title}</h1>${line ? `<p>${line}</p>` : ""}</div>`;
+const takRow = () => `<div class="row" style="margin:0 2px 12px"><button class="btn small" data-act="tak" title="TAK data package: a marker per site with its frequencies, and the search ring">Send to ATAK / iTAK</button></div>`;
+async function sendToTak() {  // tak.js: the same data package the PC app makes
+  if (!S.rows.length) { toast("Nothing to send yet: pick a spot or search first."); return; }
+  const area = S.mode === "search" ? `“${S.query}”` : `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi`;
+  const pkg = await RFTak.save({rows: S.rows, center: S.mode === "area" ? S.center : null, radius: S.radius, name: `RF Recon - ${area}`,
+    colorOf, typeOf, fccDate: S.meta?.fcc_built_at});
+  toast(`${pkg.name}: ${int(pkg.sites)} sites${pkg.skipped ? ` (nearest ${int(pkg.sites)})` : ""}. In ATAK or iTAK: Import, then the file.`);
+}
 function viewReport(v) {
   if (!S.db) { v.innerHTML = head("Area report", "") + noPack(); return; }
   if (S.mode !== "area" || !S.center) { v.innerHTML = head("Area report", "") + `<div class="card glass empty"><p>The area report needs a spot: tap the map, use where you are, or search a place.</p>
@@ -413,6 +422,7 @@ function viewReport(v) {
   const st = countBy(radios, r => r.state || "?").find(([s]) => rrStateUrl(s))?.[0];
   const filters = S.fmin != null || S.fmax != null || S.text || S.layerOn.size < Object.keys(LAYERS).length;
   v.innerHTML = head("Area report", `${where()}: <b>${int(freqs.size)}</b> licensed frequencies from <b>${int(lics.size)}</b> licensees, ${digital}% digital${nearest != null && nearest < 1e9 ? `; nearest site ${num(nearest, 2)} mi` : ""}.${filters ? " Filters are on: counts follow them." : ""}`)
+    + takRow()
     + `<div class="kpis">${[[int(freqs.size), "Frequencies"], [int(lics.size), "Licensees"], [bands.length, "Bands"], [techs.length, "Technologies"], [int(towers.length), "Towers"],
       [nearest != null && nearest < 1e9 ? num(nearest, nearest < 10 ? 2 : 1) : "–", "Nearest mi"]].map(([val, k], i) => `<div class="kpi glass" style="--i:${i}"><div class="v">${val}</div><div class="k">${k}</div></div>`).join("")}</div>
     <div class="card glass" style="--i:2"><h2>Bands</h2>${bands.length ? `<div class="tw"><table><thead><tr><th>Band</th><th>MHz</th><th class="n">Freqs</th><th class="n">Nearest</th><th class="n">Best dBm</th></tr></thead><tbody>
@@ -713,6 +723,7 @@ document.addEventListener("click", async e => {
     else if (act === "newlog") logForm();
     else if (act === "logthis") { const r = findRow(a.dataset.fid); logForm({freq_mhz: r?.freq_mhz, sig_type: r?.sig_type, label: r?.licensee || r?.label}); }
     else if (act === "export") exportLog();
+    else if (act === "tak") sendToTak();
     else if (act === "showlog") { const en = S.log.find(x => x.id === +a.dataset.id); if (en) { setTab("map"); setCenter([en.lat, en.lon]); } }
     else if (act === "dellog") { const en = S.log.find(x => x.id === +a.dataset.id); if (!en) return;
       await idb.del("log", en.id); await loadLog(); render();
