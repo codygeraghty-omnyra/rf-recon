@@ -5,7 +5,9 @@ const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtF = f => f == null || f === "" ? "" : Number(f).toFixed(5).replace(/0{1,2}$/, "");
 const num = (v, d=0) => v == null || v === "" || isNaN(v) ? "" : Number(v).toFixed(d);
-const api = async (path, opts) => { const r = await fetch(path, opts); const t = await r.text(); let j; try { j = JSON.parse(t); } catch(e){ throw new Error(t.slice(0,200) || r.statusText); }
+const api = async (path, opts) => { const r = await fetch(path, opts);
+  if(r.status===401 && document.body.classList.contains("remote")){ location.href="/remote/login"; throw new Error("Signed out."); }  // the remote link's session ended
+  const t = await r.text(); let j; try { j = JSON.parse(t); } catch(e){ throw new Error(t.slice(0,200) || r.statusText); }
   if(!r.ok || j.error) throw new Error(j.error || r.statusText); return j; };
 const post = (path, body) => api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{})});
 
@@ -110,7 +112,22 @@ function renderFacets(){
   facet("band", r=>r.band||"Other", $("#fBand"));
   facet("cls", classGroup, $("#fClass"));
   const n=S.chips.cat.size+S.chips.band.size+S.chips.cls.size; $("#moreCount").textContent=n?`· ${n} active`:"";
+  foldNote();
 }
+// Collapse: the filter chips fold away so the map gets the room; folded, the header still says how many are on.
+// Remembered on this browser.
+function foldNote(){
+  const n=S.chips.type.size+S.chips.cat.size+S.chips.band.size+S.chips.cls.size;
+  $("#foldNote").textContent=$("#filters").classList.contains("folded")&&n?`· ${n} filter${n===1?"":"s"} on`:"";
+}
+function setFold(folded){
+  $("#filters").classList.toggle("folded",folded);
+  const b=$("#filterFold"); b.querySelector(".lbl").textContent=folded?"Show filters":"Collapse"; b.setAttribute("aria-expanded",String(!folded));
+  b.title=folded?"Show the layer and signal filters":"Fold the filters away so the map gets the room";
+  foldNote(); try{ localStorage.setItem("rfr.filtersFolded",folded?"1":""); }catch(e){}
+}
+$("#filterFold").onclick=()=>setFold(!$("#filters").classList.contains("folded"));
+try{ if(localStorage.getItem("rfr.filtersFolded")==="1") setFold(true); }catch(e){}
 document.addEventListener("click", e => {
   const lc=e.target.closest(".chip[data-layer]");
   if(lc){ const k=lc.dataset.layer; S.layerOn.has(k)?S.layerOn.delete(k):S.layerOn.add(k); S.shown=600; render(); return; }

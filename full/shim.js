@@ -253,6 +253,7 @@ function heatmap(p) {
       const erp = r.erp_w || r.power_out_w, key = `${r.lat}|${r.lon}|${r.freq_mhz}`;
       if (erp && r.freq_mhz && !seen.has(key)) { seen.add(key); tx.push([r.lat, r.lon, erp, r.freq_mhz]); }
     }
+    if (!tx.length) throw new Error("No licensed transmitters (30 MHz and up, with power on file) match the layers and filters on: predicted heatmaps need some.");
     tx.sort((a, b) => b[2] - a[2]);
     const use = tx.slice(0, 400), sum = fstr(p, "combine") === "sum";
     // level in mW at 0.05 km and beyond: A / d^2, with A from ERP and frequency; one log per cell at the end

@@ -70,6 +70,13 @@ button:disabled{opacity:.5;cursor:default}
 .chip.off{opacity:.45;text-decoration:line-through}
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
 .fgroup{margin-top:8px}
+/* the filter chips fold away (Collapse): rows animate from their height to none, with the kit's motion */
+#filterBody{display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--t-panel) var(--ease)}
+#filterBody>div{min-height:0;overflow:hidden}
+#filters.folded #filterBody{grid-template-rows:0fr}
+#filterFold .chev{display:inline-block;width:7px;height:7px;margin:0 8px 1px 1px;border:solid currentColor;border-width:0 1.6px 1.6px 0;
+  transform:rotate(-135deg) translate(-1px,-1px);transition:transform var(--t-move) var(--ease)}
+#filters.folded #filterFold .chev{transform:rotate(45deg) translate(-2px,-2px)}
 .fgroup h4{margin:0;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px;overflow-x:auto;position:sticky;top:46px;background:var(--bg);z-index:1000}
 .tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 13px;white-space:nowrap;color:var(--muted)}
@@ -260,6 +267,8 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
    satellite, topo, county lines and radar keep their colours */
 :root:not([data-skin="day"]) :is(.leaflet-tile[src*="/tiles/osm/"], .leaflet-tile[src^="/tiles/0"], .leaflet-tile[src^="/tiles/1"], .leaflet-tile[src^="/tiles/2"], .leaflet-tile[src^="/tiles/3"], .leaflet-tile[src^="/tiles/4"], .leaflet-tile[src^="/tiles/5"], .leaflet-tile[src^="/tiles/6"], .leaflet-tile[src^="/tiles/7"], .leaflet-tile[src^="/tiles/8"], .leaflet-tile[src^="/tiles/9"]){filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.86) saturate(.55)}
 @media print{#backdrop{display:none}html{background:#fff}}
+/* signed in through the remote link: view and search only, so the parts that change things or stay on the PC go */
+body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 </style>
 <link rel="stylesheet" href="web.css">
 <link rel="icon" href="../icons/icon-192.png">
@@ -331,8 +340,9 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
 
   <section class="panel no-print" id="filters" style="display:none">
     <div class="row" style="justify-content:space-between">
-      <strong id="resultCount"></strong>
+      <div class="row" style="align-items:center;gap:10px"><strong id="resultCount"></strong><span class="hint" id="foldNote"></span></div>
       <div class="row">
+        <button id="filterFold" aria-expanded="true" aria-controls="filterBody" title="Fold the filters away so the map gets the room"><span class="chev"></span><span class="lbl">Collapse</span></button>
         <button id="clearChips">Clear filters</button>
         <button id="csvBtn">⇩ CSV</button>
         <button id="kmlBtn">⇩ KML</button>
@@ -341,12 +351,14 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
         <button id="printBtn">⎙ Prep sheet</button>
       </div>
     </div>
+    <div id="filterBody"><div>
     <div class="fgroup"><h4>Layers — sources (click to show / hide everywhere)</h4><div class="chips" id="fLayer"></div></div>
     <div class="fgroup"><h4>Signal type</h4><div class="chips" id="fType"></div></div>
     <details id="moreFilters" class="fgroup"><summary class="hint" style="cursor:pointer">More filters — category, band, station type <span id="moreCount"></span></summary>
       <div class="fgroup"><h4>Category</h4><div class="chips" id="fCat"></div></div>
       <div class="fgroup"><h4>Band</h4><div class="chips" id="fBand"></div></div>
       <div class="fgroup"><h4>Station type</h4><div class="chips" id="fClass"></div></div></details>
+    </div></div>
   </section>
 
   <div class="status" id="status">Drop a pin (or pick a county) and Search.</div>
