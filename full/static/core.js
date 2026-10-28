@@ -225,8 +225,22 @@ const BASEMAPS={  // served through /tiles/<src>/ so viewed tiles are cached for
   "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
   "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:19, attribution:USGS},
 };
+// microwave backhaul (FCC licensed links), loaded for the area in view and again as the map moves
+const MwLinks=L.LayerGroup.extend({
+  onAdd(map){ L.LayerGroup.prototype.onAdd.call(this, map); this._map=map; this._load=()=>{ clearTimeout(this._t); this._t=setTimeout(()=>this.load(), 350); };
+    map.on("moveend", this._load); this.load(); },
+  onRemove(map){ map.off("moveend", this._load); L.LayerGroup.prototype.onRemove.call(this, map); },
+  async load(){ const m=this._map; if(!m) return; const b=m.getBounds();
+    if(m.getZoom()<8){ this.clearLayers(); $("#status").textContent="Microwave backhaul: zoom in closer to load the links."; return; }
+    try{ const r=await api(`/api/mwlinks?s=${b.getSouth()}&n=${b.getNorth()}&w=${b.getWest()}&e=${b.getEast()}`); this.clearLayers();
+      if(!r.loaded){ $("#status").textContent="Microwave backhaul isn't loaded: switch on FCC ULS: Microwave in Data & updates and update it."; return; }
+      for(const k of r.links) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:S.dotsR, color:"#8250df", weight:1.8, opacity:.75, bubblingMouseEvents:false})
+        .bindTooltip(`${esc(k.licensee||"")} ${esc(k.call_sign)}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
+      if(r.truncated) $("#status").textContent="Microwave backhaul: showing the first links here; zoom in for all of them."; }catch(e){}
+  }});
 const OVERLAYS={
   "County + state lines":()=>L.tileLayer("/tiles/counties/{z}/{x}/{y}.png",{maxZoom:19, zIndex:5, attribution:"US Census Bureau TIGERweb"}),
+  "Microwave backhaul (FCC)":()=>new MwLinks(),
   // live, so loaded straight from the source and never cached; the 5-minute stamp refreshes it
   "Weather radar (NEXRAD, live)":()=>L.tileLayer("https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?t="+Math.floor(Date.now()/3e5),
     {maxZoom:19, opacity:.6, zIndex:6, attribution:"NEXRAD via Iowa Environmental Mesonet"}),

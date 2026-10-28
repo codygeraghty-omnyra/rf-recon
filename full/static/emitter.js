@@ -229,6 +229,9 @@ function emNetworkBody(el){
       + tbl(["Licensee","Call sign","Service","Frequencies (MHz)"], n.colocated.map(x=>`<tr><td>${esc(x.licensee)}</td><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.service_name||"")}</td><td class="mono">${fl(x.f)}</td></tr>`)))}
     ${sec(`Same channel within ${n.radius_mi} mi (${n.cochannel.length})`, tbl(["Licensee","Call sign","Class","Distance","Where"], n.cochannel.map(x=>`<tr data-ll="${x.lat},${x.lon}" style="cursor:pointer"><td>${esc(x.licensee)}</td><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.station_class||"")}</td><td class="n">${num(x.dist_mi,1)} mi</td><td>${esc([x.city,x.state].filter(Boolean).join(", "))}</td></tr>`)))}
     ${sec(`The licensee's other licences (${n.licences.length})`, tbl(["Call sign","Service","Frequencies","Sites","Where"], n.licences.map(x=>`<tr><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.service_name||"")}</td><td class="n">${x.freqs}</td><td class="n">${x.sites}</td><td>${esc([x.city,x.state].filter(Boolean).join(", "))}</td></tr>`)))}
+    ${(n.mw_links||[]).length?sec(`Microwave backhaul links (${n.mw_links.length})`, tbl(["Call sign","From","To","Length","MHz"], n.mw_links.map(k=>`<tr data-ll="${k.tx_lat},${k.tx_lon}" style="cursor:pointer"><td class="mono">${esc(k.call_sign)}</td>
+      <td>${esc([k.tx_city,k.tx_state].filter(Boolean).join(", "))}${k.tx_reg?` <span class="hint mono">${esc(k.tx_reg)}</span>`:""}</td><td>${esc([k.rx_city,k.rx_state].filter(Boolean).join(", "))}${k.rx_reg?` <span class="hint mono">${esc(k.rx_reg)}</span>`:""}</td>
+      <td class="n">${(k.dist_km/1.609344).toFixed(1)} mi</td><td class="mono">${esc((k.freqs||"").split(",").slice(0,4).join(" "))}</td></tr>`)), true):""}
     ${sec(`Microwave sites (${n.microwave.length})`, n.microwave_loaded?tbl(["Where","Call signs","MHz"], n.microwave.map(m=>`<tr data-ll="${m.lat},${m.lon}" style="cursor:pointer"><td>${esc([m.city,m.state].filter(Boolean).join(", "))}</td><td class="mono">${esc(m.call_signs.join(" "))}</td><td class="mono">${m.freqs.join(" ")}</td></tr>`))
       :'<p class="hint">Microwave licences aren\'t loaded. Turn on “FCC ULS: Microwave” in Data &amp; updates to see the licensee\'s backhaul sites.</p>')}
     ${sec(`Your labels (${n.labels.length})`, tbl(["Call sign","MHz","Alpha tag","Tag","Description","Tone"], n.labels.map(x=>`<tr><td class="mono">${esc(x.call_sign||"")}</td><td class="mono">${fmtF(x.freq_mhz)}</td><td>${esc(x.alpha_tag||"")}</td><td>${esc(x.tag||"")}</td><td>${esc(x.description||"")}</td><td>${esc(x.tone||"")}</td></tr>`)))}
@@ -290,6 +293,8 @@ function emitDraw(){
   if(e.tab==="network" && e.net){ const n=e.net;
     for(const m of n.mobiles) if(m.lat!=null && m.radius_km) L.circle([m.lat,m.lon],{radius:m.radius_km*1000, color:"#8250df", weight:1, dashArray:"5 5", fillOpacity:.04, ...quiet}).addTo(g);
     for(const c of n.cochannel) L.circleMarker([c.lat,c.lon],{radius:4, color:"#57606a", weight:1, fillColor:"#8c959f", fillOpacity:.8, ...live}).bindTooltip(`Same channel: ${esc(c.licensee)} ${esc(c.call_sign)} · ${c.dist_mi} mi`).addTo(g);
+    for(const k of n.mw_links||[]) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{color:"#8250df", weight:2.5, opacity:.85, ...live})
+      .bindTooltip(`Microwave ${esc(k.call_sign)}: ${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?` · ${esc(k.freqs.split(",").slice(0,3).join(", "))} MHz`:""}`, {sticky:true}).addTo(g);
     for(const m of n.microwave) L.marker([m.lat,m.lon],{icon:L.divIcon({className:"", html:'<div style="width:10px;height:10px;background:#8250df;transform:rotate(45deg);border:1px solid #fff"></div>', iconSize:[10,10]}), bubblingMouseEvents:false})
       .bindTooltip(`Microwave: ${esc(m.call_signs.join(" "))}`).addTo(g);
     for(const s of n.sites){ L.polyline([[r.lat,r.lon],[s.lat,s.lon]],{color:"#1f6feb", weight:1.5, dashArray:"4 4", opacity:.8, ...quiet}).addTo(g);
@@ -303,7 +308,7 @@ function emitDraw(){
     L.marker([s.lat,s.lon],{icon:pinIcon(), interactive:false}).addTo(g); }
 }
 function emFit(){ const e=S.emit; if(!e||!S.map) return; const pts=[[e.r.lat,e.r.lon]];
-  if(e.net){ for(const s of e.net.sites) pts.push([s.lat,s.lon]); for(const m of e.net.microwave) pts.push([m.lat,m.lon]); }
+  if(e.net){ for(const s of e.net.sites) pts.push([s.lat,s.lon]); for(const m of e.net.microwave) pts.push([m.lat,m.lon]); for(const k of e.net.mw_links||[]) pts.push([k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]); }
   if(e.cov) pts.push(...e.cov.bounds);
   S.map.fitBounds(L.latLngBounds(pts).pad(.1)); }
 

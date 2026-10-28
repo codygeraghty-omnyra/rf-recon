@@ -631,6 +631,7 @@ async function route(path, p, method, body) {
   if (path === "/network") return network(p);
   if (path === "/cells") return {sites: [], cells: 0, towers_nearby: 0, sources: {}};  // crowd and survey data stay on the PC
   if (path.startsWith("/basemaps")) return basemaps(path, p, method, body);
+  if (path === "/mwlinks") return {links: [], loaded: false};  // backhaul links aren't in packs
   if (path === "/geocode") return geocode(p);
   if (path === "/report/signals") return {counts: {}, rows: [], layers: []};
   if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)
