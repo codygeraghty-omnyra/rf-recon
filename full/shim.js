@@ -590,6 +590,99 @@ function network(p) {
     links: {fcc: r0.usi ? `https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${r0.usi}` : null, radioreference: `https://www.radioreference.com/db/fcc/callsign/${cs}`}};
 }
 
+/* ---------- Search (finder.py) over the pack: places, licences, frequencies, towers, broadcast, aviation, NOAA ---------- */
+const SHARED_PS = ["Public Safety (Gov)"], KIND_WORDS = {fire: ["Fire / EMS", ...SHARED_PS], ems: ["Fire / EMS", ...SHARED_PS], rescue: ["Fire / EMS", ...SHARED_PS],
+  ambulance: ["Fire / EMS", "Hospital / Medical"], police: ["Law Enforcement", ...SHARED_PS], sheriff: ["Law Enforcement", ...SHARED_PS], law: ["Law Enforcement"],
+  911: ["Emergency Mgmt / 911", ...SHARED_PS], dispatch: ["Emergency Mgmt / 911", ...SHARED_PS], emergency: ["Emergency Mgmt / 911", "Fire / EMS"],
+  safety: ["Public Safety (Gov)", "Public Safety (Other)"], hospital: ["Hospital / Medical"], medical: ["Hospital / Medical"], school: ["Schools"], schools: ["Schools"],
+  utility: ["Utilities"], utilities: ["Utilities"], power: ["Utilities"], electric: ["Utilities"], water: ["Utilities"], gas: ["Utilities"], transit: ["Transportation"],
+  bus: ["Transportation"], rail: ["Transportation"], railroad: ["Transportation"], transportation: ["Transportation"], government: ["Local / State Gov"],
+  marine: ["Marine"], paging: ["Paging"], aviation: ["Aviation"], airport: ["Aviation"], business: ["Business / Industrial"]};
+const US_STATES = new Set("AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR GU VI AS MP".split(" "));
+function townKind(ws, lat, lon) {  // "Charlotte fire", "fire Charlotte NC": a place (a state may follow it) and kind words
+  const up = ws.map(w => w.toUpperCase());
+  for (let k = up.length - 1; k > 0; k--) for (let i = 0; i + k <= up.length; i++) {
+    const name = up.slice(i, i + k); let state = null, after = i + k;
+    if (name.every(w => KIND_WORDS[w.toLowerCase()])) continue;
+    if (after < up.length && US_STATES.has(up[after]) && up.length - k > 1) state = up[after++];
+    const rest = [...up.slice(0, i), ...up.slice(after)];
+    if (!rest.some(w => KIND_WORDS[w.toLowerCase()])) continue;
+    const found = q("SELECT * FROM place WHERE name = ? COLLATE NOCASE" + (state ? " AND state = ?" : "") + " ORDER BY n DESC LIMIT 20", [name.join(" "), ...(state ? [state] : [])]);
+    if (found.length) {
+      if (lat != null && lon != null) found.sort((a, b) => distKm(lat, lon, a.lat, a.lon) - distKm(lat, lon, b.lat, b.lon));
+      return [found[0], rest.map(w => w.toLowerCase())];
+    }
+  }
+  return null;
+}
+function byLicensee(items) {  // one row per licensee, listing its call signs; the first (best-ranked or nearest) leads
+  const out = [], by = {};
+  for (const it of items) {
+    const k = (it.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const m = by[k];
+    if (m) { m.call_signs.push(it.call_sign); if (it.sites != null) m.sites = (m.sites || 0) + it.sites; m.rank = Math.min(m.rank ?? 1, it.rank ?? 1); continue; }
+    by[k] = it; it.call_signs = [it.call_sign]; out.push(it);
+  }
+  for (const it of out) {
+    const cs = it.call_signs, s = it.sites;
+    it.sub = cs.length === 1 ? `${cs[0]} · ${it.service}` : `${cs.length} call signs · ${it.service}`;
+    it.facts = [it.category, s ? `${s} site${s === 1 ? "" : "s"}` : "", it.where, cs.length === 1 ? "" : cs.slice(0, 6).join(", ") + (cs.length > 6 ? ` +${cs.length - 6} more` : "")];
+    delete it.sites; delete it.category; delete it.where;
+  }
+  return out;
+}
+function findPack(p) {
+  if (!DB) throw new Error("Load a data pack first.");
+  const qs = fstr(p, "q"); if (qs.length < 2) throw new Error("Type at least two characters.");
+  const t0 = Date.now(), Q = qs.toUpperCase(), lk = `%${qs}%`, lat = fnum(p, "lat"), lon = fnum(p, "lon"), groups = [];
+  const fm = /^\s*(\d{1,5}(?:\.\d{1,6})?)\s*(mhz)?\s*$/i.exec(qs), f = fm && (fm[1].includes(".") || fm[2]) ? +fm[1] : null;
+  const where = (...xs) => xs.filter(Boolean).join(", ");
+  const lic = (r, rank = 1) => ({kind: "licence", title: r.licensee || r.call_sign, call_sign: r.call_sign, service: r.service || "", category: r.category || "",
+    sites: r.sites ?? null, where: where(r.city, r.state), lat: r.lat, lon: r.lon, rank});
+  const add = (key, label, items) => { if (!items.length) return;
+    for (const it of items) it.dist_mi = lat != null && lon != null && it.lat != null ? +(distKm(lat, lon, it.lat, it.lon) / MI_KM).toFixed(1) : null;
+    if (lat != null) items.sort((a, b) => (a.rank ?? 1) - (b.rank ?? 1) || (a.dist_mi ?? 1e9) - (b.dist_mi ?? 1e9));
+    if (key === "licences" || key === "town") items = byLicensee(items);
+    for (const it of items) it.facts = (it.facts || []).filter(Boolean);
+    groups.push({key, label, count: items.length, items: items.slice(0, 25)}); };
+  const pname = r => `${title(r.name)}${r.kind === "county" ? " County" : ""}, ${r.state}`;
+  const ws = (qs.match(/[A-Za-z0-9.'-]+/g) || []).slice(0, 8), tk = f == null && ws.length > 1 ? townKind(ws, lat, lon) : null;
+  let town = [];
+  if (tk) {
+    const [pl, rest] = tk, rmi = pl.kind === "county" ? 20 : 12, [a1, a2, o1, o2] = bbox(pl.lat, pl.lon, rmi), conds = [], args = [], first = new Set();
+    for (const w of rest) {
+      const cats = KIND_WORDS[w] || [];
+      for (const c of cats) if (!SHARED_PS.includes(c) || cats.every(x => SHARED_PS.includes(x))) first.add(c);
+      conds.push(`(${cats.length ? `category IN (${cats.map(() => "?").join(",")}) OR ` : ""}licensee LIKE ?)`); args.push(...cats, `%${w}%`);
+    }
+    town = q(`SELECT call_sign, MAX(licensee) licensee, MAX(service_name) service, MAX(category) category, COUNT(DISTINCT lat || ',' || lon) sites, MAX(lat) lat, MAX(lon) lon,
+        MAX(city) city, MAX(state) state FROM tx WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND ${conds.join(" AND ")} GROUP BY call_sign LIMIT 400`, [a1, a2, o1, o2, ...args])
+      .map(r => Object.assign(lic(r, rest.some(w => (r.licensee || "").toLowerCase().includes(w)) || first.has(r.category) ? 0 : 1), {_d: r.lat != null ? distKm(pl.lat, pl.lon, r.lat, r.lon) : 1e9}))
+      .sort((a, b) => a.rank - b.rank || a._d - b._d);
+    for (const it of town) delete it._d;
+  }
+  const places = q("SELECT * FROM place WHERE name LIKE ? ORDER BY n DESC LIMIT 12", [qs + "%"]);
+  add("places", "Places", (places.length ? places : town.length ? [tk[0]] : []).map(r => ({kind: "place", title: pname(r),
+    sub: r.kind === "county" ? "County" : "Town", lat: r.lat, lon: r.lon, rank: r.name.toUpperCase() === Q ? 0 : 1})));
+  if (town.length) add("town", `${title(tk[1].join(" "))} near ${pname(tk[0])}`, town);
+  if (f == null) add("licences", "Licences", q(`SELECT call_sign, MAX(licensee) licensee, MAX(service_name) service, MAX(category) category, COUNT(DISTINCT lat || ',' || lon) sites,
+      MAX(lat) lat, MAX(lon) lon, MAX(city) city, MAX(state) state FROM tx WHERE call_sign LIKE ? OR licensee LIKE ? GROUP BY call_sign LIMIT 1000`, [Q + "%", lk])
+    .map(r => lic(r, r.call_sign === Q ? 0 : 1)));
+  else add("frequency", `On ${f} MHz`, q(`SELECT call_sign, MAX(licensee) licensee, MAX(service_name) service, MAX(lat) lat, MAX(lon) lon, MAX(city) city, MAX(state) state,
+      MAX(mode) mode FROM tx WHERE freq_mhz BETWEEN ? AND ? GROUP BY call_sign LIMIT 300`, [f - 0.00051, f + 0.00051]).map(r => ({kind: "licence", title: r.licensee || r.call_sign,
+    call_sign: r.call_sign, sub: `${r.call_sign} · ${f} MHz · ${r.service || ""}`, facts: [r.mode, where(r.city, r.state)], lat: r.lat, lon: r.lon})));
+  add("towers", "Towers (FCC ASR)", q("SELECT * FROM tower WHERE reg = ? OR owner LIKE ? LIMIT 60", [qs, lk]).map(r => ({kind: "tower",
+    title: `${r.struct_type || "Structure"} ${r.overall_agl_m ?? "?"} m · ${r.owner || "owner not on file"}`, sub: `ASR ${r.reg}`, lat: r.lat, lon: r.lon,
+    facts: [where(r.street, r.city, r.state)], rank: r.reg === qs ? 0 : 1})));
+  add("broadcast", "Broadcast stations", q("SELECT * FROM bcast WHERE call_sign LIKE ? OR licensee LIKE ? LIMIT 40", [Q + "%", lk]).map(r => ({kind: "broadcast",
+    title: `${r.call_sign} ${r.kind || r.service || ""} ${fmtMhz(r.freq_mhz, r.kind)}`, sub: r.licensee || "", lat: r.lat, lon: r.lon, facts: [where(r.city, r.state)]})));
+  add("aviation", "Aviation (FAA)", q("SELECT * FROM faa WHERE ident = ? OR name LIKE ? LIMIT 40", [Q, lk]).map(r => ({kind: "faa", title: `${r.ident || ""} ${r.name || ""}`.trim(),
+    sub: r.freq_mhz ? `${r.freq_mhz} MHz · ${r.use || r.kind || ""}` : r.kind || "", lat: r.lat, lon: r.lon, facts: [where(r.city, r.state)]})));
+  add("noaa", "NOAA Weather Radio", q("SELECT * FROM nwr WHERE call_sign LIKE ? OR site LIKE ? OR city LIKE ? LIMIT 20", [Q + "%", lk, lk]).map(r => ({kind: "noaa",
+    title: `${r.call_sign} ${r.site || ""}`, sub: `${r.freq_mhz} MHz`, lat: r.lat, lon: r.lon, facts: [where(r.city, r.state)]})));
+  return {query: qs, groups, notes: ["Searching this pack. Crowd data, captures, missions, DAS and the research are on the PC."], took_ms: Date.now() - t0, index: "ready"};
+}
+
 /* ---------- your own base maps (basemaps.py): tile addresses and ATAK map sources, kept in this browser ---------- */
 async function basemaps(path, p, method, body) {
   let maps = [];
@@ -633,6 +726,7 @@ async function route(path, p, method, body) {
   if (path.startsWith("/basemaps")) return basemaps(path, p, method, body);
   if (path === "/mwlinks") return {links: [], loaded: false};  // backhaul links aren't in packs
   if (path === "/fccid") throw new Error("FCC ID look-ups run from RF Recon on the PC.");
+  if (path === "/find") return findPack(p);
   if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
   if (path === "/report/signals") return {counts: {}, rows: [], layers: []};

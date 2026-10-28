@@ -80,14 +80,20 @@ S.views.das = async v => {
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <button class="primary" id="dsNew">+ New job</button>
       <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
-      <label class="inl">Find <input id="dsQ" value="${esc(D.q)}" placeholder="building, address, AHJ, client" style="width:220px"></label>
+      <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
       <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>
       <span class="hint">Files for each job are kept in <span class="mono">${esc(D.folder||"")}</span>.</span></div>
     <p style="margin:2px 2px 10px"><b>${D.jobs.length} job${D.jobs.length===1?"":"s"}</b>${need.length?` · <b style="color:var(--warn)">${need.length} need${need.length===1?"s":""} you</b>`:" · nothing waiting on you"}</p>
     ${need.length?`<div class="panel"><h3>Needs you</h3>${need.slice(0,8).map(([j,t])=>`<div class="row" style="justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(j.name)}</b> <span class="hint">${esc(j.stage)}</span> · ${esc(t)}</span><button data-open="${j.id}">Open</button></div>`).join("")}</div>`:""}
+    <div id="dsFind"></div>
     <div id="dsBody"></div>`;
   const body=$("#dsBody");
+  if(q.length>=2&&window.findRender){  // everything in DAS that matches, above the board (the board below is filtered by name / address / AHJ / client)
+    const box=$("#dsFind"); box.innerHTML='<p class="hint">Searching all DAS data…</p>';
+    api(`/api/das/search?q=${encodeURIComponent(D.q.trim())}`).then(res=>{ if(S.das!==D||D.q.trim().toLowerCase()!==q) return;
+      box.innerHTML='<div class="panel"><h3 style="margin:0">Everything in DAS matching “'+esc(D.q.trim())+'”</h3><div id="dsFindOut"></div></div>'; findRender($("#dsFindOut"), res, D.q.trim()); })
+      .catch(e=>{ box.innerHTML=`<p class="status err">${esc(e.message)}</p>`; }); }
   if(D.view==="contacts") dasContacts(body);
   else if(D.view==="data") dasData(body);
   else if(D.view==="list") body.innerHTML=jobs.length?`<div class="tw"><table><thead><tr><th>Job</th><th>Stage</th><th>Address</th><th>AHJ</th><th>Next step</th><th>Due</th><th>Retest due</th><th>Updated</th></tr></thead><tbody>${
