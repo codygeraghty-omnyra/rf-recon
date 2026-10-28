@@ -238,9 +238,21 @@ const MwLinks=L.LayerGroup.extend({
         .bindTooltip(`${esc(k.licensee||"")} ${esc(k.call_sign)}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
       if(r.truncated) $("#status").textContent="Microwave backhaul: showing the first links here; zoom in for all of them."; }catch(e){}
   }});
+// live ships (AIS via aisstream on the PC): asks every 10 s while the layer is on; the PC stops streaming when nobody asks
+const AisShips=L.LayerGroup.extend({
+  onAdd(map){ L.LayerGroup.prototype.onAdd.call(this, map); this._map=map; this.tick(); this._iv=setInterval(()=>this.tick(), 10000); },
+  onRemove(map){ clearInterval(this._iv); L.LayerGroup.prototype.onRemove.call(this, map); },
+  async tick(){ const m=this._map; if(!m) return; const b=m.getBounds();
+    try{ const r=await api(`/api/ais?s=${b.getSouth()}&n=${b.getNorth()}&w=${b.getWest()}&e=${b.getEast()}`); this.clearLayers();
+      for(const sh of r.ships){ const dir=sh.heading!=null&&sh.heading<360?sh.heading:sh.cog??0, moving=(sh.sog||0)>0.5;
+        const icon=L.divIcon({className:"", iconSize:[18,18], iconAnchor:[9,9], html:`<svg width="18" height="18" viewBox="0 0 18 18" style="transform:rotate(${dir}deg)"><path d="${moving?"M9 1 L14 16 L9 12 L4 16 Z":"M9 4 L13 9 L9 14 L5 9 Z"}" fill="${sh.age_s>600?"#8c959f":"#0a7cff"}" stroke="#fff" stroke-width="1.2"/></svg>`});
+        L.marker([sh.lat,sh.lon],{icon, bubblingMouseEvents:false}).bindTooltip(`<b>${esc(sh.name||"MMSI "+sh.mmsi)}</b>${sh.callsign?" · "+esc(sh.callsign):""}<br>MMSI ${sh.mmsi}${sh.type!=null?` · type ${sh.type}`:""}${sh.length_m?` · ${sh.length_m} m`:""}<br>${sh.sog!=null?`${sh.sog} kn, course ${Math.round(sh.cog||0)}°`:""}${sh.destination?` · to ${esc(sh.destination)}`:""}<br><span class="hint">${Math.round(sh.age_s/60)} min ago · AIS via aisstream.io</span>`).addTo(this); }
+      $("#status").textContent=r.error&&r.status!=="streaming"?`Ships (AIS): ${r.error}`:`Ships (AIS): ${r.ships.length} in view · ${r.status}${r.since?` since ${r.since}`:""}`; }
+    catch(e){ $("#status").textContent="Ships (AIS): "+e.message; } }});
 const OVERLAYS={
   "County + state lines":()=>L.tileLayer("/tiles/counties/{z}/{x}/{y}.png",{maxZoom:19, zIndex:5, attribution:"US Census Bureau TIGERweb"}),
   "Microwave backhaul (FCC)":()=>new MwLinks(),
+  "Ships (AIS, live)":()=>new AisShips(),
   // live, so loaded straight from the source and never cached; the 5-minute stamp refreshes it
   "Weather radar (NEXRAD, live)":()=>L.tileLayer("https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?t="+Math.floor(Date.now()/3e5),
     {maxZoom:19, opacity:.6, zIndex:6, attribution:"NEXRAD via Iowa Environmental Mesonet"}),

@@ -202,6 +202,12 @@ button.primary:hover{background:var(--accent);filter:brightness(1.07)}
 .seg button.on{background:var(--inv);color:var(--inv-ink)}
 .chip{border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--pill);padding:4px 11px;font-size:12.5px}
 .chip.on{background:var(--accent);color:var(--on-accent);box-shadow:none}
+/* the tabs ride in a full-width band that hides what scrolls under it (a bare floating pill let toolbars show through
+   and covered their buttons); scrolling into view lands below the bars */
+html{scroll-padding-top:150px}
+.tabbar{position:sticky;top:72px;z-index:1000;margin:0 -14px 8px;padding:6px 14px 8px;
+  background:linear-gradient(color-mix(in srgb,var(--bg) 78%,transparent),color-mix(in srgb,var(--bg) 78%,transparent));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.tabbar .tabs{position:static;margin:0 auto}
 .tabs{top:80px;gap:2px;padding:4px;margin:6px auto 14px;width:max-content;max-width:100%;border:1px solid var(--g-border);border-radius:999px;background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
 .tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500}
 .tabs button.on{border:0;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 1px 0 var(--g-hi);font-weight:600}
@@ -343,6 +349,7 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
   </section>
 
   <div class="status" id="status">Drop a pin (or pick a county) and Search.</div>
+  <div class="tabbar no-print">
   <nav class="tabs no-print" id="tabs">
     <button data-t="map" class="on">Map</button>
     <button data-t="report">Area report</button>
@@ -357,6 +364,7 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
     <button data-t="das" title="In-building public safety radio (ERCES / DAS) jobs">DAS jobs</button>
     <button data-t="data">Data &amp; updates</button>
   </nav>
+  </div>
   <section id="view"></section>
 </main>
 <dialog id="dlg"><div class="dlg-h"><strong id="dlgTitle"></strong><span style="flex:1"></span>

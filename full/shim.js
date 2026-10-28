@@ -632,6 +632,8 @@ async function route(path, p, method, body) {
   if (path === "/cells") return {sites: [], cells: 0, towers_nearby: 0, sources: {}};  // crowd and survey data stay on the PC
   if (path.startsWith("/basemaps")) return basemaps(path, p, method, body);
   if (path === "/mwlinks") return {links: [], loaded: false};  // backhaul links aren't in packs
+  if (path === "/fccid") throw new Error("FCC ID look-ups run from RF Recon on the PC.");
+  if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
   if (path === "/report/signals") return {counts: {}, rows: [], layers: []};
   if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)

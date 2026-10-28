@@ -157,7 +157,7 @@ async function dasData(el){
         return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(s.label)}</b><div class="hint">${esc(why)}</div>
           <div class="hint">${s.enabled?"":'<b style="color:var(--bad)">turned off</b> · '}${freshness(s, upd.auto)}${s.state==="error"?` · <span style="color:var(--bad)">${esc(s.message)}</span>`:""}</div></span>
           <button data-run="${esc(id)}" ${s.running?"disabled":""}>${s.running?"Updating…":"Update now"}</button></div>`; }).join("")}
-      <p class="hint">Free US government data, no key. Schedules and the Wi-Fi-only switch are in Data &amp; updates.</p></div>
+      <p class="hint">Free US government data, no key. Schedules and Update over (Wi-Fi, Ethernet, cellular) are in Data &amp; updates.</p></div>
     <div class="panel"><h3>Terrain and building outlines</h3>
       <p style="margin:0 0 6px">Terrain on this PC: <b>${ter.tiles.toLocaleString()}</b> tiles, ${ter.mb} MB${ter.folder?` <span class="hint mono">${esc(ter.folder)}</span>`:""}</p>
       <div class="row"><button id="ddTer" ${jobs.length?"":"disabled"}>⇩ Download terrain around every job (${jobs.length})</button><span class="hint" id="ddTerMsg"></span></div>

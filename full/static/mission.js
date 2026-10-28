@@ -223,6 +223,9 @@ S.views.data = async (v) => {
       <label class="inl">Group <input id="tkGroup" placeholder="239.2.3.1:6969" style="width:150px"></label>
       <label class="inl">TAK Server (plain TCP) <input id="tkServer" placeholder="host:8087 (optional)" style="width:180px"></label>
       <button class="primary" id="tkSave">Save</button><span class="hint" id="tkMsg"></span></div></div>
+  <div class="panel"><h3>Look up an FCC ID</h3>
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><input id="fiQ" placeholder="BCG-E2430, or a grantee code like BCG" style="width:280px"><button class="primary" id="fiGo">Look up</button><span class="hint" id="fiMsg">The FCC's equipment authorization records: who holds the grant, when, and for what. On the PC.</span></div>
+    <div id="fiOut" style="margin-top:8px"></div></div>
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
   <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
@@ -250,6 +253,11 @@ S.views.data = async (v) => {
     <div class="tw"><table><thead><tr><th>Source</th><th>Layer</th><th>Points</th><th>Last fetched</th></tr></thead><tbody>${layers.layers.map(l=>`<tr><td>${esc(l.source)}</td><td>${esc(l.layer)}</td><td class="n">${l.n.toLocaleString()}</td><td class="mono">${esc(l.fetched||"")}</td></tr>`).join("")||'<tr><td colspan="4" class="hint">None yet.</td></tr>'}</tbody></table></div>
     <p class="hint">Map tiles are cached as you view them, so areas you looked at before a trip keep working offline.</p></div>`;
   paintSources();
+  const fiRun=async()=>{ const q=$("#fiQ").value.trim(); if(!q) return; $("#fiMsg").textContent="Asking the FCC…"; $("#fiOut").innerHTML="";
+    try{ const r=await api(`/api/fccid?q=${encodeURIComponent(q)}`); $("#fiMsg").innerHTML=`${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Frequencies, power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
+      $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th><th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td><td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records.</p>`:'<p class="hint">No grants match.</p>'; }
+    catch(e){ $("#fiMsg").textContent=e.message; } };
+  $("#fiGo").onclick=fiRun; $("#fiQ").onkeydown=e=>{ if(e.key==="Enter") fiRun(); };
   api("/api/tak/settings").then(t=>{ $("#tkMc").checked=t.multicast!==false; $("#tkGroup").value=t.group||""; $("#tkGroup").placeholder=t.default_group; $("#tkServer").value=t.server||""; }).catch(()=>{});
   $("#tkSave").onclick=async()=>{ try{ await post("/api/tak/settings",{multicast:$("#tkMc").checked, group:$("#tkGroup").value, server:$("#tkServer").value}); $("#tkMsg").textContent="Saved."; }
     catch(e){ $("#tkMsg").textContent=e.message; } };
