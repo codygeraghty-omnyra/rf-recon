@@ -36,7 +36,29 @@
     return g;
   }
   applyGlass(read(GLASS_KEY) || 'clear');
+  // motion: auto follows the system's reduce-motion setting (Windows "Animation effects"); on and off override it
+  var MOTION = ['auto', 'on', 'off'], MOTION_KEY = 'dash.motion';
+  var MOTION_NAMES = { auto: 'Auto', on: 'On', off: 'Off' };
+  var motion;
+  function applyMotion(m) {
+    if (MOTION.indexOf(m) < 0) m = 'auto';
+    if (m === 'auto') delete document.documentElement.dataset.motion; else document.documentElement.dataset.motion = m;
+    store(MOTION_KEY, m);
+    motion = m;
+    return m;
+  }
+  applyMotion(read(MOTION_KEY) || 'auto');
   window.DashSkin = {
+    motionLevels: MOTION.slice(), motionNames: MOTION_NAMES,
+    motion: function (m) { return m === undefined ? motion : applyMotion(m); },
+    nextMotion: function () { return applyMotion(MOTION[(MOTION.indexOf(motion) + 1) % MOTION.length]); },
+    systemReduced: function () { return matchMedia('(prefers-reduced-motion: reduce)').matches; },
+    // run a theme, skin or glass change as a short cross-fade when motion is allowed (the studied dashboards never snap)
+    swap: function (fn) {
+      var still = motion === 'off' || (motion !== 'on' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (!still && document.startViewTransition) return document.startViewTransition(fn);
+      fn();
+    },
     list: SKINS.slice(), names: NAMES,
     get: function () { return cur; },
     set: apply,

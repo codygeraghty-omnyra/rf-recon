@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "44445407b9";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "6fdc8ace7e";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -112,7 +112,7 @@ async function importPack(file) {
     if (meta.pack_version > PACK_VERSION) { db.close(); throw new Error("That pack was made by a newer RF Recon. Reload this app to update it, then try again."); }
     const id = `${meta.name}|${meta.made_at}`;
     const info = {id, name: meta.name, made_at: meta.made_at, area: meta.area, counts: meta.counts, fcc_built_at: meta.fcc_built_at,
-      bbox: meta.bbox, size: buf.byteLength, raw: raw.length, added: new Date().toISOString(), file: file.name};
+      bbox: meta.bbox, bboxes: meta.bboxes, size: buf.byteLength, raw: raw.length, added: new Date().toISOString(), file: file.name};
     await idb.put("packdata", buf, id);
     await idb.put("packs", info);
     for (const p of S.packs) if (p.name === meta.name && p.id !== id) { await idb.del("packs", p.id); await idb.del("packdata", p.id); }  // a newer copy replaces the old one
@@ -144,7 +144,10 @@ function afterPackOpened(fit) {
   }
   run(fit);
 }
-const inPack = c => { const b = S.pack?.bbox; return !b || (c[0] >= b[0] - .5 && c[0] <= b[1] + .5 && c[1] >= b[2] - .5 && c[1] <= b[3] + .5); };
+const inPack = c => {  // a pack of several areas holds each area's box
+  const bs = S.pack?.bboxes || (S.pack?.bbox ? [S.pack.bbox] : null);
+  return !bs || bs.some(b => c[0] >= b[0] - .5 && c[0] <= b[1] + .5 && c[1] >= b[2] - .5 && c[1] <= b[3] + .5);
+};
 
 /* ---------- queries ---------- */
 function decorate(f, center, radiusMi) {
@@ -588,7 +591,7 @@ const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.p
 async function viewPacks(v) {
   const est = await navigator.storage?.estimate?.().catch(() => null), persisted = await navigator.storage?.persisted?.().catch(() => null);
   const p = S.pack, other = S.packs.filter(x => x.id !== p?.id);
-  const area = a => a?.states ? a.states.join(", ") : a?.center ? `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}` : "";
+  const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
   v.innerHTML = head("Data packs", p ? `Using <b>${esc(p.name)}</b>. Everything works without signal once a pack is loaded.` : "Load the FCC data for an area to start.")
     + (!matchMedia("(pointer: coarse)").matches ? `<div class="card glass" style="--i:0"><h2>On a computer?</h2><p style="margin:0">This is the phone version.
       <a href="full/"><b>Open the full web version</b></a>: every RF Recon tab in this browser, from the same packs.

@@ -60,7 +60,7 @@ async function importPack(file) {
   if (meta.pack_version > PACK_VERSION) throw new Error("That pack was made by a newer RF Recon. Reload this page to update, then try again.");
   const id = `${meta.name}|${meta.made_at}`;
   const info = {id, name: meta.name, made_at: meta.made_at, area: meta.area, counts: meta.counts, fcc_built_at: meta.fcc_built_at,
-    bbox: meta.bbox, size: buf.byteLength, raw: raw.length, added: new Date().toISOString(), file: file.name};
+    bbox: meta.bbox, bboxes: meta.bboxes, size: buf.byteLength, raw: raw.length, added: new Date().toISOString(), file: file.name};
   await idb.put("packdata", buf, id);
   await idb.put("packs", info);
   for (const p of await idb.all("packs")) if (p.name === meta.name && p.id !== id) { await idb.del("packs", p.id); await idb.del("packdata", p.id); }

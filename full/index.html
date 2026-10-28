@@ -23,6 +23,7 @@ if (location.protocol === "file:") {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="static/theme/glass.css">
 <script src="static/theme/skins.js"></script>
+<script src="static/theme/look.js"></script>
 <script>
 // The ◐ button's light / dark maps onto skins: light is Daylight, dark is the last dark skin (Smoke by default).
 try { var t = localStorage.getItem("theme");
@@ -204,6 +205,18 @@ button.primary:hover{background:var(--accent);filter:brightness(1.07)}
 .tabs{top:80px;gap:2px;padding:4px;margin:6px auto 14px;width:max-content;max-width:100%;border:1px solid var(--g-border);border-radius:999px;background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
 .tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500}
 .tabs button.on{border:0;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 1px 0 var(--g-hi);font-weight:600}
+/* depth (Cody, 10/28: "add some depth and make the edges look nicer"): panels get the kit's beveled edge, buttons sit
+   slightly proud and press in, fields and segment tracks sit recessed. Tokens from theme/glass.css. */
+header,.panel,.tabs,.tw,.side,#cy,dialog{border-color:var(--g-edges)}
+button,.hbtn{background-image:var(--c-fill);box-shadow:var(--c-depth),inset 0 0 0 1px var(--line);transition:background .15s,filter .15s,box-shadow .15s,transform .15s}
+button:hover,.hbtn:hover{background-image:var(--c-fill)}
+button:active,.hbtn:active{box-shadow:var(--c-press),inset 0 0 0 1px var(--line);transform:translateY(1px)}
+button.primary,button.primary:hover{background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 65%)}
+.seg button,.seg button:hover,.tabs button,.tabs button:hover{background-image:none}
+.seg button:not(.on),.tabs button:not(.on){box-shadow:none}
+.seg button:active,.tabs button:active{transform:none}
+.seg{box-shadow:inset 0 1px 3px rgba(0,0,0,.3),inset 0 0 0 1px var(--line)}
+input,select,textarea{box-shadow:inset 0 1px 3px rgba(0,0,0,.22),inset 0 0 0 1px var(--line)}
 .status{padding:0 4px}
 h3{font-size:14.5px;text-transform:none;letter-spacing:-.005em;color:var(--ink);font-weight:600;margin-bottom:12px}
 .fgroup h4{color:var(--ink-2)}
@@ -283,8 +296,7 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
   <button class="hbtn" id="missionChip" title="Mission">◎ <span id="missionName">No mission</span></button>
   <button class="hbtn" id="netChip" title="Connection &amp; data updates"><span class="led" id="netLed"></span><span id="netText">checking…</span></button>
   <span class="hint" id="meta" style="margin-left:auto"></span>
-  <button class="hbtn" id="glassBtn" title="Glass: click for more opaque, back round to clear">Glass: Clear</button>
-  <button class="hbtn" id="skinBtn" title="Skin: click for the next one">Smoke</button>
+  <span id="lookSlot"></span>
   <button class="hbtn" id="themeBtn" title="Light / dark">◐</button>
 </header>
 <main>
@@ -359,28 +371,24 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
 <script src="static/help.js"></script>
 <script src="static/tak.js"></script>
 <script>
-// Skin button cycles the dark skins (Smoke, Haze, Dusk, Liquid); ◐ still switches light / dark.
+// One Look button (skin, glass, motion) from the dashboard kit; ◐ still switches light / dark, and the two stay in step.
 (function () {
-  var root = document.documentElement, btn = document.getElementById("skinBtn");
-  function label() { btn.textContent = DashSkin.names[DashSkin.get()]; }
+  var root = document.documentElement;
   function fromTheme() {
     var t = root.dataset.theme;
     if (t === "light" && DashSkin.get() !== "day") DashSkin.set("day");
     else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark());
-    label();
   }
   new MutationObserver(fromTheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
-  var gbtn = document.getElementById("glassBtn");
-  function glassLabel() { gbtn.textContent = "Glass: " + DashSkin.glassNames[DashSkin.glass()]; }
-  gbtn.onclick = function () { DashSkin.nextGlass(); glassLabel(); };
-  glassLabel();
-  btn.onclick = function () {
-    DashSkin.nextDark();
-    root.dataset.theme = "dark";
-    try { localStorage.setItem("theme", "dark"); } catch (e) {}
-    label();
-    if (typeof render === "function") render();
-  };
+  DashLook.mount(document.getElementById("lookSlot"), {
+    onChange: function (kind, value) {
+      if (kind !== "skin") return;
+      var t = value === "day" ? "light" : "dark";
+      root.dataset.theme = t;
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      if (typeof render === "function") render();
+    }
+  });
   fromTheme();
 })();
 </script>

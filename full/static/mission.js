@@ -83,7 +83,7 @@ S.views.mission = async (v) => {
       <p class="hint">WiGLE / Kismet (wiglecsv) · GPX tracks · rtl_power / hackrf_sweep CSV · analyzer CSV (lat, lon, freq, dBm…) · KML / KMZ. Import GPS tracks first; later files without coordinates are positioned from them by time.</p>
       <div class="row"><input type="file" id="capFiles" multiple accept=".csv,.txt,.gpx,.kml,.kmz">
         <label class="inl"><input type="checkbox" id="capFixed"> Place un-positioned points at the mission pin</label></div>
-      <div id="capResult" class="hint" style="margin-top:6px"></div>
+      <div id="capResult" class="hint" style="margin-top:6px">${S.capNote?.mid===m?.id?S.capNote.html:""}</div>
       <div class="tw" style="margin-top:8px;max-height:260px"><table><thead><tr><th>Capture</th><th>Format</th><th>Points</th><th>Track</th><th>Imported</th><th></th></tr></thead><tbody>
         ${m.captures.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.fmt)}</td><td class="n">${c.points}</td><td class="n">${c.track_points}</td><td class="mono">${esc((c.imported_at||"").slice(0,16))}</td><td><button class="danger" data-delcap="${c.id}">✕</button></td></tr>`).join("")||'<tr><td colspan="6" class="hint">No captures yet.</td></tr>'}</tbody></table></div></div>
     <div class="panel"><h3>Field log — quick entry</h3>
@@ -150,12 +150,15 @@ S.views.mission = async (v) => {
     }catch(e){ $("#mMsg").textContent="Error: "+e.message; }
   };
   if(!m||editing==="new") return;
+  // the import's progress and summary live in S.capNote, so a re-render (the search that follows, a tab change) keeps them
+  const capNote=html=>{ S.capNote={mid:m.id, html}; const el=$("#capResult"); if(el) el.innerHTML=html; };
   $("#capFiles").onchange=async e=>{ const files=[...e.target.files].sort((a,b)=>(/\.gpx$/i.test(b.name)?1:0)-(/\.gpx$/i.test(a.name)?1:0)); const out=[];
-    for(const f of files){ $("#capResult").textContent=`Importing ${f.name}…`;
-      try{ const r=await api(`/api/captures/import?mission=${m.id}&filename=${encodeURIComponent(f.name)}${$("#capFixed").checked?"&fixed=1":""}`,{method:"POST",body:await f.arrayBuffer()});
+    const fixed=$("#capFixed").checked;  // read once: the tab may be gone before the last file is in
+    for(const f of files){ capNote([...out, `Importing ${esc(f.name)}…`].join("<br>"));
+      try{ const r=await api(`/api/captures/import?mission=${m.id}&filename=${encodeURIComponent(f.name)}${fixed?"&fixed=1":""}`,{method:"POST",body:await f.arrayBuffer()});
         out.push(`<b>${esc(f.name)}</b> (${esc(r.format)}): ${r.points} points, ${r.track_points} track points${r.positioned_from_track?`, ${r.positioned_from_track} positioned from GPS track`:""}${r.dropped_accuracy?`, ${r.dropped_accuracy} dropped for GPS error`:""}${r.dropped_below_min_dbm?`, ${r.dropped_below_min_dbm} below min dBm`:""}${r.dropped_no_position?`, ${r.dropped_no_position} without position`:""} — ${Object.entries(r.types).map(([k,n])=>`${esc(k)} ${n}`).join(", ")}`); }
       catch(err){ out.push(`<b>${esc(f.name)}</b>: <span style="color:var(--bad)">${esc(err.message)}</span>`); } }
-    await loadMission(m.id); render(); setTimeout(()=>{ const el=$("#capResult"); if(el) el.innerHTML=out.join("<br>"); },50); if(S.rows.length||parseLoc($("#loc").value)) runSearch(); };
+    capNote(out.join("<br>")); await loadMission(m.id); render(); if(S.rows.length||parseLoc($("#loc").value)) runSearch(); };
   v.querySelectorAll("[data-delcap]").forEach(b=>b.onclick=async()=>{ if(!confirm("Delete this capture?")) return; await post(`/api/captures/${b.dataset.delcap}/delete`); await loadMission(m.id); render(); });
   $("#fl_gps").onclick=()=>navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{ $("#fl_lat").value=p.coords.latitude.toFixed(6); $("#fl_lon").value=p.coords.longitude.toFixed(6); $("#fl_lat").dataset.acc=p.coords.accuracy; },
     err=>{ $("#fl_res").textContent="GPS unavailable: "+err.message; },{enableHighAccuracy:true});

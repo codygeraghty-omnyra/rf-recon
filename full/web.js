@@ -27,7 +27,7 @@ window.missionBoot = async () => {
   else { $("#meta").textContent = "No data pack loaded yet: open Packs."; setTimeout(() => setTab("data"), 0); }
 };
 
-const area = a => a?.states ? a.states.join(", ") : a?.center ? `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}` : "";
+const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
 S.views.mission = v => { v.innerHTML = '<p class="status">Missions and captures are kept in RF Recon on the PC.</p>'; };
 S.views.data = async v => {
   const packs = await RFPack.list(), p = RFPack.info(), other = packs.filter(x => x.id !== p?.id);

@@ -362,36 +362,95 @@ S.views.topology = (v, rows) => {
 const catColor2=c=>({"Law Enforcement":"#1f6feb","Fire / EMS":"#cf222e","Emergency Mgmt / 911":"#bf8700","Public Safety (Gov)":"#1b7c83","Public Safety (Other)":"#8250df","Local / State Gov":"#0b6e4f","Utilities":"#cf6a00","Transportation":"#57606a","Schools":"#e85aad","Hospital / Medical":"#d1242f"}[c]||"#6e7781");
 
 /* ---------- site profile ---------- */
+// Counts for the profile's breakdowns: every entry, or distinct frequencies or licensees per group
+function countMode(rows, keyFn, mode){
+  if(mode==="rows") return countBy(rows, keyFn);
+  const id = mode==="lic" ? (r=>r.licensee||r.label||r.call_sign) : (r=>r.freq_mhz!=null?fmtF(r.freq_mhz):null);
+  const m=new Map(); for(const r of rows){ const i=id(r); if(i==null) continue; for(const k of [].concat(keyFn(r))){ if(!m.has(k)) m.set(k,new Set()); m.get(k).add(i); } }
+  return [...m].map(([k,s])=>[k,s.size]).sort((a,b)=>b[1]-a[1]);
+}
+// Bars with the share of the total beside each count
+function barsPct(entries, total, colorFn, click){ const max=Math.max(1,...entries.map(e=>e[1]));
+  return `<div class="bars">${entries.map(([k,n])=>`<div ${click?`data-click="${esc(click)}" data-v="${esc(k)}" title="${esc(k)}: ${n.toLocaleString()} (${total?Math.round(100*n/total):0}%). Click to filter every tab."`:`title="${esc(k)}"`}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span><span class="bar" style="width:${Math.max(2,100*n/max)}%;${colorFn?`background:${colorFn(k)}`:""}"></span><span class="mono" style="text-align:right">${n.toLocaleString()} <span class="hint">${total?Math.round(100*n/total):0}%</span></span></div>`).join("")}</div>`; }
+// Where the sites are around the pin: 16 compass sectors by 4 distance rings, shaded by how many sites fall in each
+function polarSites(rows, radius){
+  const sites=new Map();
+  for(const r of rows) if(r.lat!=null && r.dist_mi!=null && r.bearing!=null && r.layer!=="captures") sites.set(`${r.lat},${r.lon}`, r);
+  const RINGS=4, grid=Array.from({length:RINGS},()=>new Array(16).fill(0));
+  for(const r of sites.values()) grid[Math.min(RINGS-1,Math.floor(r.dist_mi/radius*RINGS))][Math.round(r.bearing/22.5)%16]++;
+  const max=Math.max(1,...grid.flat()), C=170, R0=16, RM=132, pt=(rr,a)=>[C+rr*Math.sin(a*Math.PI/180), C-rr*Math.cos(a*Math.PI/180)].map(n=>n.toFixed(1));
+  const ring=i=>R0+(RM-R0)*i/RINGS, step=radius/RINGS, fmtR=d=>d>=10?d.toFixed(0):d>=1?(+d.toFixed(1)).toString():(+d.toFixed(2)).toString();
+  let svg=`<svg viewBox="0 0 340 340" style="width:100%;max-width:400px;display:block;margin:auto" role="img" aria-label="Sites by direction and distance from the pin">`;
+  grid.forEach((row,i)=>row.forEach((n,j)=>{ const a0=j*22.5-11.25, a1=j*22.5+11.25, ri=ring(i), ro=ring(i+1);
+    const [x1,y1]=pt(ro,a0),[x2,y2]=pt(ro,a1),[x3,y3]=pt(ri,a1),[x4,y4]=pt(ri,a0);
+    svg+=`<path d="M${x1} ${y1}A${ro} ${ro} 0 0 1 ${x2} ${y2}L${x3} ${y3}A${ri} ${ri} 0 0 0 ${x4} ${y4}Z" fill="var(--accent)" fill-opacity="${n?(0.12+0.78*n/max).toFixed(2):0}" stroke="var(--line)" stroke-width="1"><title>${COMPASS16[j]}, ${fmtR(step*i)}–${fmtR(step*(i+1))} mi: ${n} site${n===1?"":"s"}</title></path>`; }));
+  for(let i=1;i<=RINGS;i++){ const [x,y]=pt(ring(i),45); svg+=`<text x="${x}" y="${y}" font-size="10" fill="var(--muted)" dx="3" dy="-3">${fmtR(step*i)} mi</text>`; }
+  for(const [lab,a] of [["N",0],["E",90],["S",180],["W",270]]){ const [x,y]=pt(RM+16,a); svg+=`<text x="${x}" y="${y}" font-size="13" font-weight="700" fill="var(--ink)" text-anchor="middle" dominant-baseline="middle">${lab}</text>`; }
+  svg+=`<circle cx="${C}" cy="${C}" r="4" fill="var(--ink)"><title>The pin</title></circle></svg>`;
+  const top=grid.map((row,i)=>row.map((n,j)=>({n,i,j}))).flat().sort((a,b)=>b.n-a.n)[0];
+  const bySec=new Array(16).fill(0); grid.forEach(row=>row.forEach((n,j)=>bySec[j]+=n));
+  const sec=bySec.indexOf(Math.max(...bySec));
+  return svg+`<p class="hint" style="text-align:center;margin:6px 0 0">${sites.size.toLocaleString()} sites. Darker = more sites in that cell (most: ${max}).
+    ${top.n?`Busiest cell: ${COMPASS16[top.j]}, ${fmtR(step*top.i)}–${fmtR(step*(top.i+1))} mi. Busiest direction: ${COMPASS16[sec]} (${bySec[sec]}).`:""}</p>`;
+}
+const COMPASS16=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
 S.views.profile = (v, rows) => {
   const uls=rows.filter(r=>r.layer==="uls");
   if(!rows.length){ v.innerHTML='<p class="status">Nothing with the current layers and filters.</p>'; return; }
+  const P=S.prof=S.prof||{count:"freq", top:12, list:15, lv:"both"};
+  const lvOf=P.lv==="meas"?(r=>r.dbm):P.lv==="est"?(r=>r.est_rx_dbm):levelOf;
   const digital=uls.filter(r=>/P25|DMR|NXDN|Digital|Data|TETRA/.test(r.mode||"")).length;
   const rpt=uls.filter(r=>r.station_class==="FB2"||r.station_class==="FB4").length;
   const where=S.center?`${S.center[0].toFixed(5)}, ${S.center[1].toFixed(5)} · ${S.radius} mi`:`${$("#county").value?$("#county").value+" County, ":""}${$("#state").value}`;
-  let html=`<div class="cards">
-    <div class="card"><div class="v">${new Set(uls.map(r=>fmtF(r.freq_mhz))).size.toLocaleString()}</div><div class="k">Licensed frequencies</div></div>
-    <div class="card"><div class="v">${new Set(uls.map(r=>r.licensee)).size.toLocaleString()}</div><div class="k">Licensees</div></div>
-    <div class="card"><div class="v">${rows.filter(r=>r.layer==="towers").length}</div><div class="k">Registered towers</div></div>
-    <div class="card"><div class="v">${rpt}</div><div class="k">Repeater entries</div></div>
-    <div class="card"><div class="v">${uls.length?Math.round(100*digital/uls.length):0}%</div><div class="k">Digital-capable licenses</div></div>
-    <div class="card"><div class="v">${rows.filter(r=>r.layer==="captures").length.toLocaleString()}</div><div class="k">Captured points</div></div>
-    <div class="card"><div class="v">${rows.filter(r=>["wigle","opencellid","repeaterbook","custom"].includes(r.layer)).length.toLocaleString()}</div><div class="k">Crowdsourced points</div></div>
-  </div><p class="hint" style="margin:8px 2px">${esc(where)}${S.mission?` · Mission: ${esc(S.mission.name)}`:""}</p>`;
+  const filtersOn=Object.values(S.chips).some(s=>s.size)||$("#q").value||$("#fmin").value||$("#fmax").value;
+  const fcc=(/FCC data ([\d-]+ [\d:]+)/.exec($("#meta")?.textContent||"")||[])[1];
+  const nearest=S.center?Math.min(...rows.filter(r=>r.layer==="uls"&&r.dist_mi!=null).map(r=>r.dist_mi)):Infinity;
+  const strongestLv=Math.max(...rows.map(lvOf).filter(x=>x!=null));
+  const card=(val,k,def)=>`<div class="card" title="${esc(def)}"><div class="v">${val}</div><div class="k">${k}</div><div class="hint" style="font-size:11px;margin-top:2px">${def}</div></div>`;
+  const unit={rows:"entries",freq:"frequencies",lic:"licensees"}[P.count];
+  let html=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px;margin-bottom:6px">
+      <label class="inl">Breakdowns count <select id="pfCount"><option value="freq">Frequencies</option><option value="lic">Licensees</option><option value="rows">Entries</option></select></label>
+      <label class="inl">Show top <select id="pfTop">${[8,12,20,50].map(n=>`<option ${P.top===n?"selected":""}>${n}</option>`).join("")}</select></label>
+      <label class="inl">Lists <select id="pfList">${[10,15,25,50].map(n=>`<option ${P.list===n?"selected":""}>${n}</option>`).join("")}</select> rows</label>
+      <label class="inl">Rank levels by <select id="pfLv"><option value="both">Measured + predicted</option><option value="meas">Measured only</option><option value="est">Predicted only (free-space)</option></select></label>
+      <span class="hint">Click any bar to filter every tab by it.</span></div>
+    <p style="margin:2px 2px 10px"><b>${esc(where)}</b>${S.mission?` · Mission: ${esc(S.mission.name)}`:""}${fcc?` · FCC data ${esc(fcc)}`:""}
+      ${filtersOn?' <span class="tag">filters on: everything below follows them</span>':""}</p>
+    <div class="cards">
+    ${card(new Set(uls.map(r=>fmtF(r.freq_mhz))).size.toLocaleString(),"Licensed frequencies","Distinct MHz on active FCC licences")}
+    ${card(new Set(uls.map(r=>r.licensee)).size.toLocaleString(),"Licensees","Distinct licence holders")}
+    ${card(rows.filter(r=>r.layer==="towers").length.toLocaleString(),"Registered towers","FCC antenna structure registrations")}
+    ${card(rpt.toLocaleString(),"Repeater entries","Station class FB2 / FB4")}
+    ${card(`${uls.length?Math.round(100*digital/uls.length):0}%`,"Digital-capable licenses","P25, DMR, NXDN, TETRA or data emissions")}
+    ${isFinite(nearest)?card(`${num(nearest,2)} mi`,"Nearest licensed site","Straight-line from the pin"):""}
+    ${isFinite(strongestLv)?card(`${num(strongestLv,0)} dBm`,"Strongest level",P.lv==="meas"?"Measured":P.lv==="est"?"Free-space estimate, best case":"Measured, or free-space estimate"):""}
+    ${card(rows.filter(r=>r.layer==="captures").length.toLocaleString(),"Captured points","Your imported survey points")}
+    ${card(rows.filter(r=>["wigle","opencellid","repeaterbook","custom"].includes(r.layer)).length.toLocaleString(),"Crowdsourced points","WiGLE, OpenCelliD, RepeaterBook, imported layers")}
+  </div>`;
   const watch=(S.mission?.settings?.watch)||[];
   for(const w of watch){ const tol=(+w.tol_khz||12.5)/1000, f=+w.freq; if(!f) continue;
     const off=r=>Math.min(Math.abs((r.freq_mhz??1e9)-f), r.freq_upper_mhz?Math.abs(r.freq_upper_mhz-f):1e9, r.freq_in_mhz?Math.abs(r.freq_in_mhz-f):1e9);
     const near=S.rows.filter(r=>off(r)<=tol+1e-9).sort((a,b)=>off(a)-off(b)||(a.dist_mi??0)-(b.dist_mi??0));
     html+=`<div class="panel" style="margin-top:10px"><h3>Watch: ${fmtF(f)} MHz ±${w.tol_khz||12.5} kHz${w.label?` — ${esc(w.label)}`:""}</h3>${near.length?`<p>${near.length} entr${near.length===1?"y":"ies"} on or near this frequency (licenses, repeater inputs, captures, crowd data):</p>`+S.views.freqTable(near.slice(0,25),true):'<p style="color:var(--good)">Nothing licensed, captured or reported on this frequency in the area.</p>'}</div>`; }
+  const total=fn=>countMode(rows.filter(r=>fn(r)!=null), ()=>"all", P.count)[0]?.[1]||0;  // the whole, counted the same way
+  const allT=total(()=>1), licT=countMode(uls,()=>"all",P.count)[0]?.[1]||0;
   html+=`<div class="grid2">
-    <div class="panel"><h3>By signal type</h3>${bars(countBy(rows,typeOf).slice(0,14),typeColor,"type")}</div>
-    <div class="panel"><h3>By band</h3>${bars(countBy(rows,r=>r.band||"Other").slice(0,14),null,"band")}</div>
-    <div class="panel"><h3>By category</h3>${bars(countBy(rows,r=>r.category||"Other").slice(0,14),null,"cat")}</div>
-    <div class="panel"><h3>Top licensees</h3>${bars(countBy(uls,r=>r.licensee||"?").slice(0,12))}</div></div>`;
-  if(S.center){ const strong=rows.filter(r=>levelOf(r)!=null).sort((a,b)=>levelOf(b)-levelOf(a)).slice(0,15);
-    html+=`<div class="grid2"><div class="panel"><h3>Strongest signals (measured, or free-space estimate)</h3>${S.views.freqTable(strong,true,["freq","title","type","lvl","dist","src"])}</div>
-      <div class="panel"><h3>Nearest sites</h3>${S.views.freqTable(groupItems(rows.filter(r=>r.layer==="uls"||r.layer==="towers")).slice(0,15),true,["dist","title","freq","cls","h"])}</div></div>`; }
+    <div class="panel"><h3>By signal type <span class="hint">· ${unit}</span></h3>${barsPct(countMode(rows,typeOf,P.count).slice(0,P.top),allT,typeColor,"type")}</div>
+    <div class="panel"><h3>By band <span class="hint">· ${unit}</span></h3>${barsPct(countMode(rows,r=>r.band||"Other",P.count).slice(0,P.top),allT,null,"band")}</div>
+    <div class="panel"><h3>By category <span class="hint">· ${unit}</span></h3>${barsPct(countMode(rows,r=>r.category||"Other",P.count).slice(0,P.top),allT,null,"cat")}</div>
+    <div class="panel"><h3>Top licensees <span class="hint">· ${P.count==="lic"?"frequencies":unit}</span></h3>${barsPct(countMode(uls,r=>r.licensee||"?",P.count==="lic"?"freq":P.count).slice(0,P.top),P.count==="lic"?countMode(uls,()=>"all","freq")[0]?.[1]||0:licT)}</div></div>`;
+  if(S.center){ const strong=rows.filter(r=>lvOf(r)!=null).sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,P.list);
+    html+=`<div class="grid2">
+      <div class="panel"><h3>Where the sites are <span class="hint">· by direction and distance from the pin</span></h3>${polarSites(rows,S.radius)}</div>
+      <div class="panel"><h3>Strongest signals <span class="hint">· ${P.lv==="meas"?"measured":P.lv==="est"?"free-space estimate, best case, no terrain":"measured, or free-space estimate"} · dBm</span></h3>${S.views.freqTable(strong,true,["freq","title","type","lvl","dist","src"])}</div></div>
+      <div class="panel" style="margin-top:10px"><h3>Nearest sites <span class="hint">· miles and bearing from the pin</span></h3>${S.views.freqTable(groupItems(rows.filter(r=>r.layer==="uls"||r.layer==="towers")).slice(0,P.list),true,["dist","brg","title","freq","cls","h"])}</div>`; }
   html+=printSheet(rows);
   v.innerHTML=html;
+  $("#pfCount").value=P.count; $("#pfLv").value=P.lv;
+  $("#pfCount").onchange=e=>{ P.count=e.target.value; render(); };
+  $("#pfTop").onchange=e=>{ P.top=+e.target.value; render(); };
+  $("#pfList").onchange=e=>{ P.list=+e.target.value; render(); };
+  $("#pfLv").onchange=e=>{ P.lv=e.target.value; render(); };
 };
 function printSheet(rows){
   const uniq=new Map(); for(const r of rows){ if(!r.freq_mhz) continue; const k=fmtF(r.freq_mhz)+"|"+titleOf(r); const c=uniq.get(k); if(!c||(r.dist_mi??1e9)<(c.dist_mi??1e9)) uniq.set(k,r); }

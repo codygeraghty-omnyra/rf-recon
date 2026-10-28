@@ -2,7 +2,7 @@
    Smoke is the default (no attribute needed). Set <html data-skin="haze|dusk|liquid|day"> for the others,
    data-solid for reduce-transparency. skins.js does both and remembers the choice.
    Reference build: Desktop\Code and Chill\Code and Chill - Sales CRM.html */
-:root {
+:root, :root[data-skin="smoke"] {   /* keyed to the skin too, so it outranks a tool's own dark-theme block */
   color-scheme: dark;
   --font: "Urbanist", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
@@ -23,7 +23,15 @@
   --accent-wash: color-mix(in srgb, var(--accent) 16%, transparent);
   --glow: color-mix(in srgb, var(--accent) 45%, transparent);
   --track: color-mix(in srgb, var(--accent) 16%, transparent);
+  /* motion, measured from the Code and Chill demos (Typical Design_ Typical UX, 10/28), counted by how many demos
+     use each value: colour and background change in 150-200ms with plain ease; anything that moves uses the
+     fast-out curve below, the one most of them share. --ease-strong is a sharper variant one demo used. */
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-strong: cubic-bezier(.22, 1, .36, 1);
+  --t-hover: .15s;         /* colour, background */
+  --t-border: .2s;         /* borders, glows, shadows */
+  --t-move: .35s;          /* transforms: lifts, slides, switches */
+  --t-panel: .5s;          /* drawers, modals, page sections */
 }
 :root[data-skin="haze"] {
   --bg: #161616; --ink: #f6f5f3; --ink-2: #d2d0cb; --muted: #b3b0aa;
@@ -84,8 +92,46 @@
 :root[data-glass="dense"] { --g-tint: color-mix(in srgb, var(--surface) 55%, transparent); }
 :root[data-glass="heavy"] { --g-tint: color-mix(in srgb, var(--surface) 75%, transparent); }
 
+/* depth and edges (Cody, 10/28: "add some depth and make the edges look nicer"). Every panel, tile and button gets a
+   beveled 1px edge, lighter on top and darker underneath (--g-edges, a border-color value), a soft top highlight
+   and layered shadows: a tight contact shadow, a mid one and a wide ambient one (--g-shadow). --g-shadow-up is the
+   lifted state for clickable panels. Small controls use --c-fill, --c-edges, --c-depth and --c-press. */
+:root, :root[data-skin] {
+  --g-edge-t: rgba(255, 255, 255, .17); --g-edge-s: var(--g-border); --g-edge-b: rgba(0, 0, 0, .38);
+  --g-edges: var(--g-edge-t) var(--g-edge-s) var(--g-edge-b);
+  --g-edges-hover: color-mix(in srgb, var(--ink) 30%, var(--g-edge-t)) color-mix(in srgb, var(--ink) 20%, var(--g-edge-s)) var(--g-edge-b);
+  --g-shadow: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 rgba(0, 0, 0, .2), 0 1px 1px rgba(0, 0, 0, .2),
+    0 8px 16px -8px rgba(0, 0, 0, .45), 0 28px 56px -28px rgba(0, 0, 0, .65);
+  --g-shadow-up: inset 0 1px 0 var(--g-hi), inset 0 -1px 0 rgba(0, 0, 0, .2), 0 2px 3px rgba(0, 0, 0, .22),
+    0 14px 26px -10px rgba(0, 0, 0, .5), 0 40px 70px -32px rgba(0, 0, 0, .7);
+  --c-fill: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, 0) 70%);
+  --c-edges: rgba(255, 255, 255, .16) rgba(255, 255, 255, .08) rgba(0, 0, 0, .34);
+  --c-depth: inset 0 1px 0 rgba(255, 255, 255, .1), 0 1px 2px rgba(0, 0, 0, .3), 0 4px 10px -6px rgba(0, 0, 0, .45);
+  --c-press: inset 0 2px 5px rgba(0, 0, 0, .35);
+}
+:root[data-skin="liquid"] {
+  --g-shadow: inset 0 1px 1px var(--g-hi), inset 0 -1px 1px rgba(255, 255, 255, .10), inset 3px 4px 12px -6px rgba(255, 255, 255, .24),
+    inset -4px -6px 14px -8px rgba(255, 255, 255, .12), 0 1px 1px rgba(0, 0, 0, .2), 0 8px 16px -8px rgba(0, 0, 0, .45), 0 28px 56px -28px rgba(0, 0, 0, .65);
+}
+:root[data-skin="day"] {
+  --g-edge-t: #ffffff; --g-edge-s: rgba(15, 23, 42, .07); --g-edge-b: rgba(15, 23, 42, .15);
+  --g-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(15, 23, 42, .05), 0 1px 1px rgba(15, 23, 42, .06),
+    0 8px 18px -10px rgba(15, 23, 42, .18), 0 28px 56px -30px rgba(15, 23, 42, .32);
+  --g-shadow-up: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(15, 23, 42, .05), 0 2px 3px rgba(15, 23, 42, .08),
+    0 14px 28px -12px rgba(15, 23, 42, .24), 0 40px 70px -34px rgba(15, 23, 42, .38);
+  --c-fill: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0) 80%);
+  --c-edges: #ffffff rgba(15, 23, 42, .1) rgba(15, 23, 42, .2);
+  --c-depth: inset 0 1px 0 #fff, 0 1px 2px rgba(15, 23, 42, .1), 0 4px 10px -6px rgba(15, 23, 42, .2);
+  --c-press: inset 0 2px 4px rgba(15, 23, 42, .14);
+}
+:root[data-solid] { --g-edges: var(--g-border); --g-edges-hover: color-mix(in srgb, var(--ink) 22%, var(--g-border)); }
+
 /* the glass surface: put .glass on any panel */
-.glass { background: linear-gradient(var(--g-tint), var(--g-tint)), var(--g-bg); border: 1px solid var(--g-border); box-shadow: var(--g-shadow); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); }
+.glass { background: linear-gradient(var(--g-tint), var(--g-tint)), var(--g-bg); border: 1px solid; border-color: var(--g-edges); box-shadow: var(--g-shadow); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); transition: border-color var(--t-border) ease, box-shadow var(--t-border) ease; }
+/* nearly every studied dashboard answers a hover on a panel; a border glow does it without promising a click */
+.glass:hover { border-color: var(--g-edges-hover); }
+/* theme and skin changes cross-fade (DashSkin.swap) instead of snapping */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; animation-timing-function: var(--ease); }
 
 /* backdrops (markup in backdrop.html): the page body must have no background of its own */
 #backdrop { position: fixed; inset: 0; z-index: -1; background: var(--bg); overflow: hidden; pointer-events: none; }
@@ -115,4 +161,6 @@
 #backdrop.has-photo .photo, #backdrop.has-photo .shade { display: block; }
 #backdrop::after { content: ""; position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+/* motion: data-motion="on" keeps it even when the system asks to reduce motion; "off" stops it everywhere */
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion="on"]) *, :root:not([data-motion="on"]) *::before, :root:not([data-motion="on"]) *::after { transition: none !important; animation: none !important; } }
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { transition: none !important; animation: none !important; }
