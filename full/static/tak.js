@@ -149,7 +149,12 @@ async function save(o) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   return pkg;
 }
-window.RFTak = {build, save, zip};
+// the same markers as live CoT events for Push to ATAK: they fade in ATAK a day after the last push unless pushed again
+function events(o, staleHours = 24) {
+  const now = new Date(), stale = new Date(now.getTime() + staleHours * 36e5), t = d => d.toISOString().replace(/\.\d+Z$/, ".000Z");
+  return sitesOf(o.rows).slice(0, MAX_SITES).map(s => cot(s, o, t(now), t(stale)).xml);
+}
+window.RFTak = {build, save, zip, events};
 
 /* the PC app and the full web version: the ⇩ ATAK button beside CSV and KML exports what's on screen */
 const btn = document.getElementById("takBtn");
@@ -163,5 +168,32 @@ if (btn && typeof filtered === "function") btn.onclick = async () => {
     colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
   st.textContent = `Saved ${pkg.name}: ${pkg.sites.toLocaleString()} sites${pkg.skipped ? ` (the nearest ${pkg.sites.toLocaleString()}; ${pkg.skipped.toLocaleString()} more left out)` : ""}`
     + `${pkg.heat ? " and the coverage heatmap" : ""}. In ATAK or iTAK: Import, then the file. WinTAK: drag it onto the map.`;
+};
+
+/* Push to ATAK: on the PC, the markers go live into every TAK app on this network (and a TAK Server, if set) and
+   WinTAK opens; on a phone or in the web version, the share sheet hands ATAK the package and ATAK opens on import */
+const push = document.getElementById("takPush");
+if (push && typeof filtered === "function") push.onclick = async () => {
+  const rows = filtered(), st = document.getElementById("status");
+  if (!rows.length) { st.textContent = "Nothing to push to ATAK: search an area first."; return; }
+  const fcc = (/FCC data ([\d-]+ [\d:]+)/.exec(document.getElementById("meta")?.textContent || "") || [])[1];
+  const o = {rows, colorOf, typeOf, fccDate: fcc};
+  if (!matchMedia("(pointer: coarse)").matches) {
+    st.textContent = "Pushing to ATAK…";
+    try {
+      const r = await post("/api/tak/push", {events: events(o), open: true});
+      st.textContent = `Pushed ${r.sent.toLocaleString()} markers into ATAK${r.via.length ? ` via ${r.via.join(" and ")}` : ""}: every ATAK, iTAK and WinTAK on this network shows them now.`
+        + ` ${r.wintak ? "WinTAK is opening." : "WinTAK isn't installed on this PC (free at tak.gov); phones running ATAK on the same Wi-Fi get the markers."}`
+        + `${r.errors.length ? " " + r.errors.join(" ") : ""}`;
+      return;
+    } catch (e) {
+      if (!/PC only|not found/i.test(e.message)) { st.textContent = "Push to ATAK: " + e.message; return; }
+    }
+  }
+  const area = S.center ? `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi` : "area";
+  const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `RF Recon - ${S.mission?.name || area}`,
+    colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
+  st.textContent = matchMedia("(pointer: coarse)").matches ? `Pick ATAK (or iTAK) in the share sheet: it opens and imports ${pkg.sites.toLocaleString()} sites.`
+    : `Saved ${pkg.name}. Open it with ATAK or WinTAK (drag it onto the map); live push runs from RF Recon on the PC.`;
 };
 })();

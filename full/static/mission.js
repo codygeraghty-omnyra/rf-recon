@@ -217,6 +217,12 @@ S.views.data = async (v) => {
     <div class="row" style="margin-top:8px"><button class="primary" id="fpMake">Make a pack for these states</button><button id="fpPin">Make a pack around the pin</button><span class="hint" id="fpMsg"></span></div>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Pack</th><th>Size</th><th>Made</th></tr></thead><tbody id="fpList"></tbody></table></div>
     <p class="hint">Packs carry public data only: never your missions, captures, labels or keys, and none of the crowd layers or the Signal ID Wiki catalog. VA, MD and DC together come to about 5 MB.</p></div>
+  <div class="panel"><h3>Push to ATAK</h3>
+    <p class="hint" style="margin-top:0">📡 Push to ATAK (beside the exports) sends what's on the map as live markers. They go to every ATAK, iTAK and WinTAK on this PC's networks over the TAK multicast those apps listen on out of the box, and to your TAK Server if you set one. Pushing again updates the same markers; they fade a day after the last push. Anyone on the same network with a TAK app sees them.</p>
+    <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><label class="inl"><input type="checkbox" id="tkMc"> Network multicast</label>
+      <label class="inl">Group <input id="tkGroup" placeholder="239.2.3.1:6969" style="width:150px"></label>
+      <label class="inl">TAK Server (plain TCP) <input id="tkServer" placeholder="host:8087 (optional)" style="width:180px"></label>
+      <button class="primary" id="tkSave">Save</button><span class="hint" id="tkMsg"></span></div></div>
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
   <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
@@ -244,6 +250,9 @@ S.views.data = async (v) => {
     <div class="tw"><table><thead><tr><th>Source</th><th>Layer</th><th>Points</th><th>Last fetched</th></tr></thead><tbody>${layers.layers.map(l=>`<tr><td>${esc(l.source)}</td><td>${esc(l.layer)}</td><td class="n">${l.n.toLocaleString()}</td><td class="mono">${esc(l.fetched||"")}</td></tr>`).join("")||'<tr><td colspan="4" class="hint">None yet.</td></tr>'}</tbody></table></div>
     <p class="hint">Map tiles are cached as you view them, so areas you looked at before a trip keep working offline.</p></div>`;
   paintSources();
+  api("/api/tak/settings").then(t=>{ $("#tkMc").checked=t.multicast!==false; $("#tkGroup").value=t.group||""; $("#tkGroup").placeholder=t.default_group; $("#tkServer").value=t.server||""; }).catch(()=>{});
+  $("#tkSave").onclick=async()=>{ try{ await post("/api/tak/settings",{multicast:$("#tkMc").checked, group:$("#tkGroup").value, server:$("#tkServer").value}); $("#tkMsg").textContent="Saved."; }
+    catch(e){ $("#tkMsg").textContent=e.message; } };
   const fpPaint=async()=>{ if(!$("#fpList")) return; const f=await api("/api/fieldpacks"), j=f.job;
     $("#fpDir").textContent=f.folder; $("#fpUrl").href=f.phone_url; $("#fpUrl").textContent=f.phone_url;
     $("#fpList").innerHTML=f.packs.map(p=>`<tr><td>${esc(p.file)}</td><td class="n">${p.mb} MB</td><td class="mono">${esc(p.made)}</td></tr>`).join("")||'<tr><td colspan="3" class="hint">None yet.</td></tr>';
