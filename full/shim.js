@@ -225,14 +225,22 @@ function ramp(t) {
   }
   return RAMP[RAMP.length - 1][1];
 }
+function heatExtent(rows) {  // a county search has no pin: cover where its entries are (the middle 98%), as app.py heat_extent
+  const la = rows.map(r => r.lat).filter(v => v != null).sort((a, b) => a - b), lo = rows.map(r => r.lon).filter(v => v != null).sort((a, b) => a - b);
+  if (!la.length) throw new Error("Nothing in this county has a location to map. Drop a pin for a heatmap.");
+  const cut = Math.floor(la.length / 100), s = la[cut], n = la[la.length - 1 - cut], w = lo[cut], e = lo[lo.length - 1 - cut];
+  const lat = (s + n) / 2, lon = (w + e) / 2, half = Math.max(distKm(s, lon, n, lon), distKm(lat, w, lat, e)) / 2 / MI_KM;
+  return [lat, lon, Math.min(60, Math.max(2, half * 1.05))];
+}
 function heatmap(p) {
-  const lat = fnum(p, "lat"), lon = fnum(p, "lon"), radius = fnum(p, "radius", 10);
-  if (lat == null) throw new Error("Heatmaps need a pin location.");
+  let lat = fnum(p, "lat"), lon = fnum(p, "lon"), radius = fnum(p, "radius", 10);
+  if (lat == null && !(fstr(p, "state") && fstr(p, "county"))) throw new Error("Heatmaps need a pin or a county.");
+  const res = queryArea(p);
+  if (res.error) throw new Error(res.error);
+  if (lat == null) [lat, lon, radius] = heatExtent(res.rows);
   const kind = fstr(p, "kind") || "predicted", size = Math.max(60, Math.min(Math.round(fnum(p, "size", 200)), 600));
   const [s, n, w, e] = bbox(lat, lon, radius), dy = (n - s) / size, dx = (e - w) / size;
   const vals = new Float64Array(size * size).fill(NaN);
-  const res = queryArea(p);
-  if (res.error) throw new Error(res.error);
   const set = k => new Set(fstr(p, k).split("|").filter(Boolean));
   const types = set("types"), bands = set("bands"), cats = set("cats"), ident = fstr(p, "ident").toLowerCase();
   const rows = res.rows.filter(r => (!types.size || types.has(r.sig_type || "Unknown")) && (!bands.size || bands.has(r.band || "Other"))

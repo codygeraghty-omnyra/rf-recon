@@ -176,7 +176,7 @@ S.views.map = (v, rows) => {
   if($("#heatFilesAll")) $("#heatFilesAll").onclick=()=>{ S.heat.files=new Set(); render(); loadHeat(); };
   if($("#heatSigClear")) $("#heatSigClear").onclick=e=>{ e.preventDefault(); S.heat.ident=S.heat.freq=S.heat.signal=""; render(); loadHeat(); };
   $("#heatOp").oninput=e=>{ S.heat.opacity=+e.target.value; if(S.heatLayer) S.heatLayer.setOpacity(S.heat.opacity); };
-  $("#heatExport").onclick=()=>{ if(!S.center){ alert("Heatmaps need a pin."); return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
+  $("#heatExport").onclick=()=>{ if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
     location.href="/api/heatmap.zip?"+params(heatParams(k)); };
   v.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
   drawMap(rows);
@@ -377,6 +377,7 @@ function heatFileList(){
   return [...m.values()].sort((a,b)=>b[2]-a[2]);
 }
 const heatFilesLabel = () => S.heat.files?.size ? `Files: ${S.heat.files.size} chosen` : "Files: all";
+const heatArea = () => S.center || (S.mode==="county" && $("#state").value && $("#county").value);  // a county heatmap covers the county's entries
 function heatParams(kind){
   const s=S.mission?.settings||{};
   return {kind, size:s.heat_size||200, metric:s.heat_metric||"mean", combine:s.heat_combine||"max", alpha:s.heat_alpha||190,
@@ -387,7 +388,8 @@ function heatParams(kind){
 async function loadHeat(){
   if(S.heatLayer && S.map){ S.map.removeLayer(S.heatLayer); } S.heatLayer=null; S.heatImg=null;
   if(S.heatLegend && S.map){ S.map.removeControl(S.heatLegend); S.heatLegend=null; }
-  if(S.heat.kind==="off" || !S.center) return;
+  if(S.heat.kind==="off") return;
+  if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; }
   $("#status").textContent="Building heatmap…";
   try{ const h=await api("/api/heatmap?"+params(heatParams(S.heat.kind))); S.heatImg=h; $("#status").textContent=""; addHeatLayer(); }
   catch(e){ $("#status").textContent="Heatmap: "+e.message; }
