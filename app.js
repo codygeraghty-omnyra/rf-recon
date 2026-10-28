@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "215081f3ce";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "912399eafd";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -312,7 +312,7 @@ function summary() {
 }
 function setCenter(c, fit = true) {
   if (!S.db) { toast("Load a data pack first: Packs, then Load a pack."); return; }
-  S.center = c; S.mode = "area"; S.query = ""; $("#q").value = "";
+  S.center = c; S.mode = "area"; S.query = ""; $("#q").value = ""; closeSuggest();
   if (!inPack(c)) toast("That spot is outside this pack's area, so nothing will show. Load the pack for that area.");
   run(fit);
 }
@@ -354,7 +354,7 @@ function suggest() {
   S.suggest = items;
 }
 const closeSuggest = () => { $("#suggest").hidden = true; };
-function packMode(s) { S.mode = "search"; S.query = s; $("#q").value = s; run(true); }
+function packMode(s) { S.mode = "search"; S.query = s; $("#q").value = s; closeSuggest(); run(true); }
 
 /* ---------- views ---------- */
 function setTab(t, push = true) {
