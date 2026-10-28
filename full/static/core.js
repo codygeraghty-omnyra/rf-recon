@@ -17,10 +17,11 @@ const LAYERS = {
   wigle:{label:"WiGLE", color:"#8250df"}, opencellid:{label:"OpenCelliD", color:"#bf3989"},
   repeaterbook:{label:"RepeaterBook", color:"#1f6feb"}, custom:{label:"Imported layers", color:"#bf8700"},
   ttn:{label:"LoRaWAN gateways (TTN)", color:"#0a7c66"}, satnogs:{label:"SatNOGS ground stations", color:"#6639ba"},
-  wspr:{label:"WSPR stations", color:"#b35900"}, pskreporter:{label:"PSKReporter", color:"#a40e26"}};
+  wspr:{label:"WSPR stations", color:"#b35900"}, pskreporter:{label:"PSKReporter", color:"#a40e26"},
+  psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}};
 
 const S = { mode:"point", rows:[], center:null, radius:5, tab:"map",
-  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter"]),
+  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter","psap"]),
   chips:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set()},
   sort:{k:"dist_mi", dir:1}, shown:600, lib:{}, mission:null, missionId:null, heat:{kind:"off", opacity:.75},
   sel:null, filterExpr:"", views:{} };
@@ -38,7 +39,7 @@ const CLASS={FB:"Base station",FB2:"Repeater (mobile relay)",FB4:"Community repe
 const classLabel=c=>!c?"":CLASS[c]||(c.startsWith("FB")?`Base / repeater (${c})`:c.startsWith("FX")?`Fixed (${c})`:c.startsWith("MO")?`Mobile (${c})`:c);
 function classGroup(r){ if(r.layer==="towers") return "Towers"; if(r.layer!=="uls"&&r.layer!=="uls_hist") return LAYERS[r.layer]?.label||r.layer;
   const c=r.station_class||""; if(c==="FB2"||c==="FB4") return "Repeaters"; if(c.startsWith("FB")) return "Base stations"; if(c.startsWith("FX")) return "Fixed / control"; if(c.startsWith("MO")) return "Mobiles"; return "Other"; }
-const typeOf = r => r.layer==="towers" ? "Tower / structure" : (r.sig_type || "Unknown");
+const typeOf = r => r.layer==="towers" ? "Tower / structure" : r.layer==="psap" ? "911 call centre" : (r.sig_type || "Unknown");
 const colorOf = r => r.layer==="towers" ? "#57606a" : (S.lib[r.sig_type]?.color || LAYERS[r.layer]?.color || "#8c959f");
 const erpOf = r => r.erp_w ?? r.power_out_w;
 const levelOf = r => r.dbm ?? r.est_rx_dbm;
