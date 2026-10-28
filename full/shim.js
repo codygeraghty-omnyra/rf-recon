@@ -383,8 +383,214 @@ function exportFile(kind, qs) {
   else download("rf_recon.kml", toKml(res.rows, res.center, res.radius), "application/vnd.google-earth.kml+xml");
 }
 
+/* ---------- one emitter's coverage (coverage.py, terrain.py): the same models; terrain straight from AWS ---------- */
+const COV_MODELS = {free: "Free space (best case)", suburban: "Hata, suburban", urban: "Hata, urban", open: "Hata, open land"};
+const fsplDb = (d, f) => 20 * Math.log10(Math.max(d, 0.001)) + 20 * Math.log10(f) + 32.44;
+function hataDb(d, f, hbIn, hm, env) {
+  const lf = Math.log10(f), hb = Math.max(10, Math.min(hbIn, 300)), a = (1.1 * lf - 0.7) * hm - (1.56 * lf - 0.8);
+  const slope = (44.9 - 6.55 * Math.log10(hb)) * Math.log10(Math.max(d, 0.05));
+  let L = f <= 1500 ? 69.55 + 26.16 * lf - 13.82 * Math.log10(hb) - a + slope : 46.3 + 33.9 * lf - 13.82 * Math.log10(hb) - a + slope + (env === "urban" ? 3 : 0);
+  if (env === "suburban" && f <= 1500) L -= 2 * Math.log10(f / 28) ** 2 + 5.4;
+  else if (env === "open") L -= 4.78 * lf ** 2 - 18.33 * lf + 40.94;
+  return Math.max(L, fsplDb(d, f));
+}
+const patternDb = (b, az, bw) => az == null || !bw || bw >= 360 ? 0 : -Math.min(12 * (Math.abs(((b - az + 180) % 360 + 360) % 360 - 180) / bw) ** 2, 25);
+const knifeEdgeDb = v => v <= -0.78 ? 0 : 6.9 + 20 * Math.log10(Math.sqrt((v - 0.1) ** 2 + 1) + v - 0.1);
+function dest(lat, lon, brg, dkm) {
+  const p1 = rad(lat), l1 = rad(lon), b = rad(brg), d = dkm / EARTH_KM;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(b));
+  return [p2 * 180 / Math.PI, (l1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2))) * 180 / Math.PI];
+}
+const TERR = new Map(), K43 = 4 / 3, EARTH_M = EARTH_KM * 1000;
+const txy = (lat, lon, z) => { const n = 2 ** z, la = Math.max(-85, Math.min(85, lat));
+  return [(lon + 180) / 360 * n, (1 - Math.asinh(Math.tan(rad(la))) / Math.PI) / 2 * n]; };
+function terrTile(z, x, y) {  // AWS Terrain Tiles (CORS open), decoded through a canvas, kept for this visit
+  const k = `${z}/${x}/${y}`;
+  if (!TERR.has(k)) TERR.set(k, (async () => {
+    const r = await realFetch(`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`);
+    if (!r.ok) return null;
+    const bmp = await createImageBitmap(await r.blob(), {colorSpaceConversion: "none", premultiplyAlpha: "none"});
+    const c = document.createElement("canvas"); c.width = c.height = 256;
+    const ctx = c.getContext("2d", {willReadFrequently: true}); ctx.drawImage(bmp, 0, 0);
+    const d = ctx.getImageData(0, 0, 256, 256).data, out = new Int16Array(65536);
+    for (let i = 0; i < 65536; i++) out[i] = Math.round(d[i * 4] * 256 + d[i * 4 + 1] + d[i * 4 + 2] / 256 - 32768);
+    return out;
+  })().catch(() => null));
+  return TERR.get(k);
+}
+async function terrainFor(lat, lon, rkm, z) {  // load the tiles around a place; returns a lookup (null where missing)
+  const [s, n, w, e] = bbox(lat, lon, rkm / MI_KM), [x0, y0] = txy(n, w, z), [x1, y1] = txy(s, e, z), got = new Map();
+  const jobs = [];
+  for (let x = Math.trunc(x0); x <= Math.trunc(x1); x++) for (let y = Math.trunc(y0); y <= Math.trunc(y1); y++) jobs.push(terrTile(z, x, y).then(t => got.set(`${x}/${y}`, t)));
+  await Promise.all(jobs);
+  const missing = [...got.values()].filter(t => !t).length;
+  return {missing, total: got.size, elev: (la, lo) => { const [x, y] = txy(la, lo, z), tx = Math.trunc(x), ty = Math.trunc(y), t = got.get(`${tx}/${ty}`);
+    return t ? t[Math.min(255, Math.trunc((y - ty) * 256)) * 256 + Math.min(255, Math.trunc((x - tx) * 256))] : null; }};
+}
+const zoomFor = rkm => rkm <= 15 ? 12 : rkm <= 40 ? 11 : 10;
+function profileOf(el, lat1, lon1, h1, lat2, lon2, h2, f, skipEnd) {
+  const D = distKm(lat1, lon1, lat2, lon2) * 1000, n = Math.max(20, Math.min(600, Math.trunc(D / 30))), ground = [];
+  for (let i = 0; i <= n; i++) { const e = el(lat1 + (lat2 - lat1) * i / n, lon1 + (lon2 - lon1) * i / n); if (e == null) return null; ground.push(e); }
+  const lam = 299.792458 / f, tx = ground[0] + h1, rx = ground[n] + h2, pts = [];
+  let worstV = -1e9, worst = null, minRatio = 1e9;
+  for (let i = 1; i < n; i++) {
+    const d1 = D * i / n, d2 = D - d1, g = ground[i] + d1 * d2 / (2 * K43 * EARTH_M), los = tx + (rx - tx) * i / n, f1 = Math.sqrt(lam * d1 * d2 / D);
+    minRatio = Math.min(minRatio, (los - g) / f1);
+    const v = (g - los) * Math.sqrt(2 * D / (lam * d1 * d2));
+    if (v > worstV && d2 >= skipEnd) { worstV = v; worst = [d1, g, los]; }
+    if (i % Math.max(1, Math.trunc(n / 120)) === 0) pts.push([+(d1 / 1000).toFixed(3), +g.toFixed(1), +los.toFixed(1), +f1.toFixed(1)]);
+  }
+  return {status: minRatio >= 0.6 ? "clear" : minRatio >= 0 ? "Fresnel zone partly blocked" : "blocked by terrain", loss_db: +knifeEdgeDb(worstV).toFixed(1),
+    clearance_f1: +minRatio.toFixed(2), worst_at_km: worst ? worst[0] / 1000 : null, worst_above_los_m: worst ? +(worst[1] - worst[2]).toFixed(1) : null,
+    ground1_m: ground[0], ground2_m: ground[n], points: pts};
+}
+async function coverage(p) {
+  const lat = fnum(p, "lat"), lon = fnum(p, "lon"), f = fnum(p, "freq");
+  if (lat == null || lon == null) throw new Error("Coverage needs the transmitter's location.");
+  if (!f) throw new Error("Coverage needs the transmitter's frequency.");
+  let eirp, src;
+  if (fnum(p, "eirp") != null) { eirp = fnum(p, "eirp"); src = `${eirp} dBm EIRP, set by you`; }
+  else if (fnum(p, "erp")) { eirp = 10 * Math.log10(fnum(p, "erp") * 1000) + 2.15; src = `licensed ERP ${fnum(p, "erp")} W`; }
+  else if (fnum(p, "power")) { eirp = 10 * Math.log10(fnum(p, "power") * 1000) + (fnum(p, "gain") || 0); src = `transmitter ${fnum(p, "power")} W`; }
+  else throw new Error("No power on file for this transmitter, so its coverage can't be estimated. Set the EIRP by hand.");
+  const notes = [], hTx = fnum(p, "h") || 30, hRx = fnum(p, "rx", 1.5), thr = fnum(p, "threshold", -95), az = fnum(p, "az"), bw = fnum(p, "bw");
+  let model = COV_MODELS[fstr(p, "model")] ? fstr(p, "model") : "suburban";
+  if (model !== "free" && !(f >= 30 && f <= 3800)) { model = "free"; notes.push(`${f} MHz is far outside Hata's range, so free space is used (best case).`); }
+  else if (model !== "free" && !(f >= 150 && f <= 2000)) notes.push(`${f} MHz is outside Hata's tested 150-2000 MHz: treat the levels as rough.`);
+  const lam = 299.792458 / f;
+  let g0 = null, hb = hTx, haveT = false;
+  if (fstr(p, "terrain") !== "0") {
+    const near = await terrainFor(lat, lon, 16, 11);
+    g0 = near.elev(lat, lon);
+    if (g0 == null) notes.push("No terrain here (offline?), so hills aren't counted.");
+    else { haveT = true; const ring = [];
+      for (let b = 0; b < 360; b += 10) for (let d = 3; d <= 15; d++) { const e = near.elev(...dest(lat, lon, b, d)); if (e != null) ring.push(e); }
+      if (ring.length) hb = hTx + g0 - ring.reduce((a, x) => a + x, 0) / ring.length; }
+  }
+  if (fnum(p, "haat") != null) hb = fnum(p, "haat");
+  const hbSrc = fnum(p, "haat") != null ? "licensed HAAT" : haveT ? "height above the average ground 3-15 km out" : "height above ground";
+  if (model !== "free" && hb < 30) notes.push(`Effective antenna height ${Math.round(hb)} m is below Hata's 30 m: levels near the site are rough.`);
+  const loss = d => model === "free" ? fsplDb(d, f) : hataDb(d, f, hb, hRx, model);
+  let radius = fnum(p, "radius");
+  if (!radius) { let d = 0.2; while (d < 60 * MI_KM && eirp - loss(d) >= thr - 10) d *= 1.05; radius = Math.max(1, Math.min(60, d / MI_KM * 1.1)); }
+  const R = radius * MI_KM, z = zoomFor(R), STEPS = 240, step = R / STEPS;
+  let el = () => null;
+  if (haveT) { const t = await terrainFor(lat, lon, R, z); el = t.elev; if (t.missing) notes.push(`Terrain is missing for ${t.missing} of ${t.total} areas (offline?): hills there aren't counted.`); g0 = el(lat, lon) ?? g0; }
+  const base = [], drop = [];
+  for (let i = 1; i <= STEPS; i++) { base.push(eirp - loss(step * i)); drop.push((step * i * 1000) ** 2 / (2 * K43 * EARTH_M)); }
+  const gap = Math.max(1, Math.ceil(1 / step)), gSite = haveT ? g0 : 0, H = gSite + hTx, levels = [], edge = [];
+  for (let b = 0; b < 360; b++) {
+    const pat = patternDb(b, az, bw), row = new Float64Array(STEPS), ground = new Float64Array(STEPS);
+    let ePrev = gSite, best = -1e18, od = null, oh = null, edgeKm = 0;
+    for (let i = 1; i <= STEPS; i++) {
+      const d = step * i;
+      if (haveT) { const e = el(...dest(lat, lon, b, d)); if (e != null) ePrev = e; }
+      const g = ePrev - drop[i - 1]; ground[i - 1] = g;
+      const k = i - 1 - gap;
+      if (k >= 0) { const s = (ground[k] - H) / (step * (k + 1)); if (s > best) { best = s; od = step * (k + 1); oh = ground[k]; } }
+      let lvl = base[i - 1] + pat;
+      if (od != null) { const los = H + (g + hRx - H) * od / d; lvl -= knifeEdgeDb((oh - los) * Math.sqrt(2 * d / (lam * od * (d - od) * 1000))); }
+      row[i - 1] = lvl;
+      if (lvl >= thr) edgeKm = d;
+    }
+    levels.push(row); edge.push(edgeKm);
+  }
+  const size = Math.max(80, Math.min(Math.round(fnum(p, "size", 200)), 400)), [s, n, w, e] = bbox(lat, lon, radius), dy = (n - s) / size, dx = (e - w) / size;
+  const floor = fstr(p, "only") === "1" ? thr : thr - 25, vmin = thr - 25, vmax = thr + 45, kx = 111 * Math.cos(rad(lat));
+  const cv = document.createElement("canvas"); cv.width = cv.height = size;
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(size, size);
+  for (let r = 0; r < size; r++) { const yk = (n - (r + .5) * dy - lat) * 111;
+    for (let c = 0; c < size; c++) { const xk = (w + (c + .5) * dx - lon) * kx, d = Math.hypot(xk, yk); if (d > R) continue;
+      const v = levels[((Math.round(Math.atan2(xk, yk) * 180 / Math.PI) % 360) + 360) % 360][Math.min(STEPS, Math.max(1, Math.round(d / step))) - 1];
+      if (v >= floor) { const [rr, gg, bb] = ramp((v - vmin) / (vmax - vmin)); img.data.set([rr, gg, bb, 190], (r * size + c) * 4); } } }
+  ctx.putImageData(img, 0, 0);
+  const mi = edge.map(x => x / MI_KM).sort((a, b) => a - b);
+  const res = {png: cv.toDataURL("image/png").split(",")[1], bounds: [[s, w], [n, e]], vmin, vmax, unit: "dBm", model: COV_MODELS[model], terrain: haveT,
+    radius_mi: +radius.toFixed(2), threshold: thr, eirp_dbm: +eirp.toFixed(1), eirp_src: src, hb_m: +hb.toFixed(1), hb_src: hbSrc, h_tx: hTx, h_rx: hRx, ground_m: g0, notes,
+    contour: Array.from({length: 180}, (_, i) => dest(lat, lon, i * 2, edge[i * 2])),
+    reach_mi: {max: +mi[359].toFixed(2), median: +mi[180].toFixed(2), min: +mi[0].toFixed(2), beyond: Math.trunc(edge.filter(x => x >= R).length * 100 / 360)},
+    pattern: az != null && bw && bw < 360 ? Array.from({length: 72}, (_, i) => +patternDb(i * 5, az, bw).toFixed(1)) : null, az, bw,
+    attribution: haveT ? "Terrain: AWS Terrain Tiles (USGS 3DEP, SRTM and others)" : ""};
+  res.desc = `${COV_MODELS[model]}${haveT ? " + terrain" : " + smooth earth"}: estimated level from this transmitter (${Math.round(eirp)} dBm EIRP, ${hTx} m up). Edge drawn at ${thr} dBm, the farthest it reaches each way.`;
+  const plat = fnum(p, "plat"), plon = fnum(p, "plon");
+  if (plat != null && plon != null) {
+    const d = distKm(lat, lon, plat, plon), b = (Math.atan2(Math.sin(rad(plon - lon)) * Math.cos(rad(plat)), Math.cos(rad(lat)) * Math.sin(rad(plat)) - Math.sin(rad(lat)) * Math.cos(rad(plat)) * Math.cos(rad(plon - lon))) * 180 / Math.PI + 360) % 360;
+    let lvl = eirp - loss(Math.max(d, 0.01)) + patternDb(b, az, bw);
+    const pin = {dist_mi: +(d / MI_KM).toFixed(2), bearing: Math.round(b), compass: ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.trunc((b + 11.25) / 22.5) % 16]};
+    if (haveT && d > 0.05) {
+      const t = await terrainFor((lat + plat) / 2, (lon + plon) / 2, d / 2 + 1, d <= 15 ? 12 : 11), pr = profileOf(t.elev, lat, lon, hTx, plat, plon, hRx, f, d > 2 ? 1000 : 0);
+      if (pr) { lvl -= pr.loss_db; Object.assign(pin, {path: pr.status, terrain_loss_db: pr.loss_db, clearance_f1: pr.clearance_f1, profile: pr.points}); }
+    }
+    pin.level_dbm = +lvl.toFixed(1); pin.margin_db = +(lvl - thr).toFixed(1); res.pin = pin;
+  }
+  return res;
+}
+
+/* ---------- what an emitter is networked with (network.py), from the pack's licences ---------- */
+const KIND = c => { c = (c || "").toUpperCase(); return c.startsWith("FB") ? "base" : c.startsWith("FX") ? "fixed" : c.startsWith("MO") ? "mobile" : "other"; };
+const PAIRS = [[851, 869, -45], [769, 775, 30]];
+const bandOf = f => (META?.bandplan || []).find(b => f >= b.lo && f < b.hi)?.label || (f >= 806 && f < 896 ? "800 MHz" : f >= 698 && f < 806 ? "700 MHz" : "Other");
+function network(p) {
+  if (!DB) throw new Error("Load a data pack first.");
+  const cs = fstr(p, "call_sign"), freq = fnum(p, "freq"), radius = fnum(p, "radius", 60);
+  const rows = q("SELECT * FROM tx WHERE call_sign = ? AND status = 'A'", [cs]);
+  if (!rows.length) throw new Error(`No active licence ${cs} in this pack.`);
+  const r0 = rows[0];
+  let lat = fnum(p, "lat"), lon = fnum(p, "lon");
+  if (lat == null) { const s = rows.find(r => r.lat != null && KIND(r.station_class) !== "mobile"); if (s) { lat = s.lat; lon = s.lon; } }
+  const sites = new Map(), mob = new Map();
+  for (const r of rows) {
+    const k = KIND(r.station_class);
+    if (k !== "mobile" && r.lat != null && !r.is_mobile) {
+      const key = `${r.lat},${r.lon}`, s = sites.get(key) || {lat: r.lat, lon: r.lon, city: r.city, county: r.county, state: r.state, address: r.address, tower_reg: r.tower_reg,
+        height_m: r.height_tip_m, classes: new Set(), freqs: new Set(), erp_w: null};
+      s.classes.add(r.station_class || ""); if (r.freq_mhz) s.freqs.add(+r.freq_mhz.toFixed(5)); if (r.erp_w && (s.erp_w || 0) < r.erp_w) s.erp_w = r.erp_w; sites.set(key, s);
+    } else {
+      const area = r.radius_km && r.lat != null ? `within ${r.radius_km} km of ${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}` : [r.county && r.county + " Co.", r.state].filter(Boolean).join(", ") || "area on the licence";
+      const key = `${r.freq_mhz}|${r.station_class}|${area}`, m = mob.get(key) || {freq: +(r.freq_mhz || 0).toFixed(5), class: r.station_class, area, units: 0, lat: r.lat, lon: r.lon, radius_km: r.radius_km};
+      m.units += r.units || 0; mob.set(key, m);
+    }
+  }
+  const siteList = [...sites.values()].map(s => ({...s, classes: [...s.classes].sort(), freqs: [...s.freqs].sort((a, b) => a - b),
+    dist_mi: lat != null ? +(distKm(lat, lon, s.lat, s.lon) / MI_KM).toFixed(2) : null})).sort((a, b) => (a.dist_mi ?? 0) - (b.dist_mi ?? 0));
+  const mobiles = [...mob.values()].sort((a, b) => a.freq - b.freq);
+  const baseF = [...new Set(siteList.flatMap(s => s.freqs))].sort((a, b) => a - b), mobF = [...new Set(mobiles.map(m => m.freq).filter(Boolean))];
+  const pairs = baseF.map(f => { const o = PAIRS.find(([lo, hi]) => f >= lo && f <= hi);
+    if (o) return {base: f, mobile: [+(f + o[2]).toFixed(5)], how: "band plan"};
+    const same = mobF.filter(m => bandOf(m) === bandOf(f) && m !== f);
+    return {base: f, mobile: same.length ? same : mobF.includes(f) ? [f] : [], how: same.length ? "licence" : mobF.includes(f) ? "simplex" : "not on licence"}; });
+  const fleet = new Map(); for (const m of mobiles) fleet.set(`${m.class}|${m.area}`, Math.max(fleet.get(`${m.class}|${m.area}`) || 0, m.units));
+  const inList = (sql, vals, args = []) => { const out = []; for (let i = 0; i < vals.length; i += 800) { const ch = vals.slice(i, i + 800); out.push(...q(sql.replace("(?)", `(${ch.map(() => "?").join(",")})`), [...args, ...ch])); } return out; };
+  const sysd = new Map();
+  for (const r of baseF.length || mobF.length ? inList("SELECT call_sign, licensee, service_name, freq_mhz, lat, lon FROM tx WHERE status = 'A' AND freq_mhz IN (?)", [...baseF, ...mobF]) : [])
+    if (r.licensee === r0.licensee && r.call_sign !== cs) { const x = sysd.get(r.call_sign) || {call_sign: r.call_sign, service_name: r.service_name, f: new Set(), s: new Set()};
+      x.f.add(r.freq_mhz); x.s.add(`${r.lat},${r.lon}`); sysd.set(r.call_sign, x); }
+  let shared = [], others = [], cochannel = [], colocated = [], tower = null;
+  if (lat != null) {
+    const [s, n, w, e] = bbox(lat, lon, radius);
+    if (baseF.length) shared = inList("SELECT licensee, call_sign, service_name, COUNT(DISTINCT freq_mhz) shared, MIN(city) city, MIN(state) state FROM tx WHERE status = 'A' AND licensee <> ? "
+      + "AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND freq_mhz IN (?) GROUP BY call_sign HAVING shared >= 2 ORDER BY shared DESC LIMIT 60", baseF, [r0.licensee, s, n, w, e]);
+    others = q("SELECT call_sign, service_name, COUNT(DISTINCT freq_mhz) freqs, COUNT(DISTINCT lat || ',' || lon) sites, MIN(city) city, MIN(state) state FROM tx "
+      + "WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND licensee = ? AND call_sign <> ? AND status = 'A' GROUP BY call_sign ORDER BY sites DESC LIMIT 200", [s, n, w, e, r0.licensee, cs]);
+    if (freq) cochannel = q("SELECT licensee, call_sign, station_class, lat, lon, city, state, erp_w FROM tx WHERE status = 'A' AND freq_mhz BETWEEN ? AND ? AND call_sign <> ? "
+      + "AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 400", [freq - 0.0006, freq + 0.0006, cs, s, n, w, e])
+      .map(r => ({...r, dist_mi: +(distKm(lat, lon, r.lat, r.lon) / MI_KM).toFixed(1)})).filter(r => r.dist_mi <= radius).sort((a, b) => a.dist_mi - b.dist_mi).slice(0, 80);
+  }
+  const treg = fstr(p, "tower") || siteList.find(s => s.tower_reg)?.tower_reg;
+  if (treg) { tower = q("SELECT * FROM tower WHERE reg = ?", [treg])[0] || {reg: treg};
+    colocated = q("SELECT licensee, call_sign, service_name, COUNT(DISTINCT freq_mhz) freqs, GROUP_CONCAT(DISTINCT freq_mhz) f FROM tx WHERE tower_reg = ? AND call_sign <> ? AND status = 'A' GROUP BY call_sign ORDER BY licensee LIMIT 150", [treg, cs])
+      .map(c => ({...c, f: [...new Set(String(c.f || "").split(",").filter(Boolean).map(x => +(+x).toFixed(5)))].sort((a, b) => a - b).slice(0, 12)})); }
+  return {licence: {call_sign: r0.call_sign, licensee: r0.licensee, service: r0.service, service_name: r0.service_name, category: r0.category, usi: r0.usi},
+    sites: siteList, mobiles, units: [...fleet.values()].reduce((a, b) => a + b, 0), pairs,
+    simulcast: baseF.map(f => ({freq: f, sites: siteList.filter(s => s.freqs.includes(f)).length})).filter(x => x.sites > 1),
+    system: [...sysd.values()].map(x => ({call_sign: x.call_sign, service_name: x.service_name, shared: x.f.size, sites: x.s.size})).sort((a, b) => b.shared - a.shared),
+    shared, licences: others, tower, colocated, cochannel, microwave: [], microwave_loaded: false, labels: [], talkgroups: [],
+    center: lat != null ? [lat, lon] : null, radius_mi: radius,
+    links: {fcc: r0.usi ? `https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${r0.usi}` : null, radioreference: `https://www.radioreference.com/db/fcc/callsign/${cs}`}};
+}
+
 /* ---------- the server's routes ---------- */
-const STUB_STATUS = () => ({net: {online: navigator.onLine, checked: null}, sources: {}, auto: false, wifi_only: false, link: "", running: []});
+const STUB_STATUS = () => ({net: {online: navigator.onLine, checked: null}, sources: {}, auto: false, links: [], link: "", running: []});
 async function route(path, p, method) {
   if (path === "/meta") return META ? {built_at: META.fcc_built_at, towers_built_at: META.towers_built_at, tx_rows: META.counts?.licences,
     towers_rows: META.counts?.towers, pack: META.name, pack_made: META.made_at} : {};
@@ -394,6 +600,9 @@ async function route(path, p, method) {
   if (path === "/counties") return DB ? q("SELECT county, COUNT(*) n, AVG(lat) lat, AVG(lon) lon FROM tx WHERE state = ? AND county IS NOT NULL GROUP BY county ORDER BY county", [fstr(p, "state").toUpperCase()]) : [];
   if (path === "/area") { const r = queryArea(p); if (r.error) throw new Error(r.error); return r; }
   if (path === "/heatmap") return heatmap(p);
+  if (path === "/coverage") return coverage(p);
+  if (path === "/network") return network(p);
+  if (path === "/cells") return {sites: [], cells: 0, towers_nearby: 0, sources: {}};  // crowd and survey data stay on the PC
   if (path === "/geocode") return geocode(p);
   if (path === "/report/signals") return {counts: {}, rows: [], layers: []};
   if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)

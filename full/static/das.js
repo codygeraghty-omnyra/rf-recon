@@ -35,7 +35,8 @@ const DAS_SOURCES = `Sources: <a href="https://oci.georgia.gov/document/document
   <a href="https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2109-2-202308-I!!PDF-E.pdf" target="_blank" rel="noopener">ITU-R P.2109-2</a> (entry loss),
   <a href="https://sbc.memberclicks.net/assets/Useful_Links/2025/ocsd-errcs-deployment-guidelines-deployment-rev4-5.pdf" target="_blank" rel="noopener">OCSD ERRCS guidelines</a>,
   <a href="https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf" target="_blank" rel="noopener">San Diego FD C-1</a>.
-  All of it, with every source: <span class="mono">RF Recon\\docs\\research\\DAS-ERCES</span> in Drive.`;
+  All of it, with every source: the <a href="https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu" target="_blank" rel="noopener">DAS research database</a>
+  (<span class="mono">RF Recon\\docs\\research\\DAS-ERCES\\das_research.db</span> in Drive, with a CSV per table).`;
 // a job's AHJ profile: the defaults above, with what this AHJ changes (presets below, editable under Requirements)
 let DASJ = DAS;
 const DAS_PROFILES = {
@@ -78,7 +79,7 @@ S.views.das = async v => {
   need.sort((a,b)=>a[2]-b[2]);
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <button class="primary" id="dsNew">+ New job</button>
-      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
       <label class="inl">Find <input id="dsQ" value="${esc(D.q)}" placeholder="building, address, AHJ, client" style="width:220px"></label>
       <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>
@@ -88,6 +89,7 @@ S.views.das = async v => {
     <div id="dsBody"></div>`;
   const body=$("#dsBody");
   if(D.view==="contacts") dasContacts(body);
+  else if(D.view==="data") dasData(body);
   else if(D.view==="list") body.innerHTML=jobs.length?`<div class="tw"><table><thead><tr><th>Job</th><th>Stage</th><th>Address</th><th>AHJ</th><th>Next step</th><th>Due</th><th>Retest due</th><th>Updated</th></tr></thead><tbody>${
       jobs.map(j=>`<tr data-open="${j.id}" style="cursor:pointer"><td><b>${esc(j.name)}</b></td><td>${esc(j.stage)}</td><td>${esc(j.address||"")}</td><td>${esc(j.ahj||"")}</td><td>${esc(j.next_step||"")}</td><td class="mono">${esc(j.due||"")}</td><td class="mono">${esc(j.retest_due||"")}</td><td class="mono">${esc((j.updated_at||"").slice(0,16))}</td></tr>`).join("")}</tbody></table></div>`
       :'<p class="status">No jobs yet. Start one with + New job.</p>';
@@ -117,6 +119,68 @@ S.views.das = async v => {
   $("#dsImpJob").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const j=JSON.parse(await f.text()); const list=j.jobs||[j];
       for(const x of list) await post("/api/das/jobs",{name:x.name||"Imported job",stage:x.stage||"Lead",data:x.data||{}}); render(); }catch(err){ alert("That file isn't an RF Recon job: "+err.message); } };
 };
+
+/* ---------- data and links: what DAS work reads, what to download, where the codes and lookups are ---------- */
+// every link checked 2026-10-28 (FCC and ICC pages refuse scripted checks: opened in a browser instead)
+const DAS_LINKS = [
+  ["Codes", [["NFPA 1225 (free read-only access, NFPA account)", "https://www.nfpa.org/codes-and-standards/nfpa-1225-standard-development/1225", "Chapter 18 ERCES, 20.3.10 testing"],
+    ["NFPA free access list", "https://www.nfpa.org/for-professionals/codes-and-standards/list-of-codes-and-standards/free-access", "Every NFPA code you can read free"],
+    ["IFC 2024 chapter 5 (ICC, free to read)", "https://codes.iccsafe.org/content/IFC2024V1.0/chapter-5-fire-service-features", "Section 510, emergency responder communication coverage"],
+    ["47 CFR 90.219 (eCFR)", "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-D/part-90/subpart-I/section-90.219", "Signal booster classes, consent, power and noise limits"],
+    ["47 CFR 90.613 (eCFR)", "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-D/part-90/subpart-S/section-90.613", "800 MHz channel table (the 45 MHz pairs)"],
+    ["ITU-R P.2109 building entry loss", "https://www.itu.int/rec/R-REC-P.2109/en", "The construction loss presets"],
+    ["ITU-R P.526 diffraction", "https://www.itu.int/rec/R-REC-P.526/en", "The knife-edge loss used for terrain"]]],
+  ["FCC lookups", [["ULS licence search", "https://wireless2.fcc.gov/UlsApp/UlsSearch/searchLicense.jsp", "Any licence by call sign, name, frequency or area"],
+    ["Antenna structure (ASR) search", "https://wireless2.fcc.gov/UlsApp/AsrSearch/asrRegistrationSearch.jsp", "Towers by registration, owner or location"],
+    ["Signal boosters (FCC)", "https://www.fcc.gov/wireless/bureau-divisions/mobility-division/signal-boosters", "Rules, classes, how to register"],
+    ["Class B booster registration and list", "https://signalboosters.fcc.gov/", "Register a Class B booster; search registered ones (refuses scripted downloads; was down for maintenance 2026-10-28)"]]],
+  ["Planning and agencies", [["CAPRAD", "https://caprad.org/", "700 / 800 MHz public safety regional planning and channel assignments"],
+    ["NPSTC", "https://www.npstc.org/", "Channel naming, interoperability, in-building reports"],
+    ["RadioReference database", "https://www.radioreference.com/db/", "Systems, sites and talk groups (look up there; RF Recon only links to it)"],
+    ["FirstNet Authority", "https://www.firstnet.gov/", "Band 14 and in-building questions go to FirstNet / AT&T"],
+    ["Safer Buildings Coalition", "https://www.saferbuildings.org/", "Industry guidance, AHJ resources"]]],
+  ["Bulk downloads", [["USGS National Map downloader", "https://apps.nationalmap.gov/downloader/", "3DEP elevation and building data, by area"],
+    ["AWS Terrain Tiles", "https://registry.opendata.aws/terrain-tiles/", "The terrain RF Recon uses (free, no account)"],
+    ["Microsoft US building footprints", "https://github.com/microsoft/USBuildingFootprints", "Every US building outline, by state (large)"],
+    ["OpenStreetMap", "https://www.openstreetmap.org/copyright", "Building outlines RF Recon fetches per job (ODbL)"]]],
+];
+async function dasData(el){
+  el.innerHTML='<p class="status">Checking the data…</p>';
+  let upd={sources:{}}, ter={tiles:0, mb:0, folder:""};
+  try{ [upd, ter]=await Promise.all([api("/api/update/status"), api("/api/das/terrain/status")]); }catch(e){}
+  const jobs=[]; for(const j of S.das.jobs) if(j.lat!=null) jobs.push(j);
+  const full=[]; for(const j of jobs) full.push((await api(`/api/das/jobs/${j.id}`)).data||{});
+  const outlined=full.filter(d=>d.building).length;
+  const fcc=[["uls:LMpriv","Public safety, business and government radio: the systems the pre-survey lists"],["uls:LMcomm","Commercial and SMR trunked systems"],["asr","Towers: donor site heights and owners"]];
+  el.innerHTML=`<div class="grid2" style="margin-top:0">
+    <div class="panel"><h3>FCC data the pre-survey reads</h3>${fcc.map(([id,why])=>{ const s=upd.sources[id]; if(!s) return "";
+        return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(s.label)}</b><div class="hint">${esc(why)}</div>
+          <div class="hint">${s.enabled?"":'<b style="color:var(--bad)">turned off</b> · '}${freshness(s, upd.auto)}${s.state==="error"?` · <span style="color:var(--bad)">${esc(s.message)}</span>`:""}</div></span>
+          <button data-run="${esc(id)}" ${s.running?"disabled":""}>${s.running?"Updating…":"Update now"}</button></div>`; }).join("")}
+      <p class="hint">Free US government data, no key. Schedules and the Wi-Fi-only switch are in Data &amp; updates.</p></div>
+    <div class="panel"><h3>Terrain and building outlines</h3>
+      <p style="margin:0 0 6px">Terrain on this PC: <b>${ter.tiles.toLocaleString()}</b> tiles, ${ter.mb} MB${ter.folder?` <span class="hint mono">${esc(ter.folder)}</span>`:""}</p>
+      <div class="row"><button id="ddTer" ${jobs.length?"":"disabled"}>⇩ Download terrain around every job (${jobs.length})</button><span class="hint" id="ddTerMsg"></span></div>
+      <p class="hint">For terrain paths and coverage with no signal in the field. ${esc(ter.attribution||"")}</p>
+      <p style="margin:10px 0 6px">Building outlines: <b>${outlined}</b> of ${jobs.length} jobs have one.</p>
+      <div class="row"><button id="ddOut" ${jobs.length>outlined?"":"disabled"}>⌂ Get the missing outlines</button><span class="hint" id="ddOutMsg"></span></div>
+      <p class="hint">From OpenStreetMap (ODbL): footprint, floors and height, for the floor area, sector split and donor height.</p></div></div>
+    <div class="panel"><h3>Codes, rules, lookups and downloads</h3>
+      ${DAS_LINKS.map(([g,ls])=>`<h4 style="margin:10px 0 4px">${esc(g)}</h4>${ls.map(([t,u,w])=>`<div style="padding:2px 0"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a> <span class="hint">· ${esc(w)}</span></div>`).join("")}`).join("")}
+      <h4 style="margin:10px 0 4px">Research</h4><div>${DAS_SOURCES}</div></div>`;
+  el.querySelectorAll("[data-run]").forEach(b=>b.onclick=async()=>{ b.disabled=true; b.textContent="Updating…"; await post("/api/update/run",{ids:[b.dataset.run],force:true}); });
+  $("#ddTer").onclick=async()=>{ const b=$("#ddTer"); b.disabled=true; $("#ddTerMsg").textContent="Downloading…";
+    try{ const r=await post("/api/das/terrain/download",{areas:jobs.map((j,i)=>({lat:j.lat, lon:j.lon, radius:full[i].presurvey?.radius||15}))});
+      const got=r.areas.reduce((a,x)=>a+x.fetched,0), bad=r.areas.reduce((a,x)=>a+x.failed,0);
+      $("#ddTerMsg").textContent=`${got} new tiles${bad?`, ${bad} failed (offline?)`:""}. ${r.tiles.toLocaleString()} tiles, ${r.mb} MB on this PC.`; }catch(e){ $("#ddTerMsg").textContent=e.message; } b.disabled=false; };
+  $("#ddOut").onclick=async()=>{ const b=$("#ddOut"); b.disabled=true; let n=0, bad=[];
+    for(let i=0;i<jobs.length;i++){ if(full[i].building) continue; $("#ddOutMsg").textContent=`${jobs[i].name}…`;
+      try{ const bd=await api(`/api/das/building?lat=${jobs[i].lat}&lon=${jobs[i].lon}`), patch={building:bd};
+        if(full[i].area_sqft==null&&bd.footprint_sqft) patch.area_sqft=bd.footprint_sqft;
+        await post(`/api/das/jobs/${jobs[i].id}`,{data:patch}); n++; }catch(e){ bad.push(`${jobs[i].name}: ${e.message}`); }
+      await new Promise(r=>setTimeout(r,1100)); }  // OpenStreetMap's Overpass asks for gentle use
+    $("#ddOutMsg").textContent=`${n} outlines added.${bad.length?` ${bad.join(" · ")}`:""}`; };
+}
 
 /* ---------- contacts: the CRM side ---------- */
 function dasContacts(el){
@@ -171,6 +235,8 @@ function dasOverview(el, j, save){
       <div class="row" style="margin-top:6px"><label>Floors <input id="doFloors" type="number" min="0" value="${floors.length||""}" style="width:80px"></label>
         <label>Area (sq ft)<input data-k="area_sqft" type="number" value="${d.area_sqft??""}" style="width:110px"></label>
         <label>Construction <select data-k="construction">${Object.keys(DAS.loss).map(c=>`<option ${c===d.construction?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
+      <div class="row" style="margin-top:6px;align-items:center"><button id="doOutline" title="Footprint, floors and height from OpenStreetMap, for the floor area, sector split, roof height and map">⌂ Get the building's outline</button>
+        <span class="hint" id="doOutMsg">${d.building?dasBuildingLine(d.building):"From OpenStreetMap: footprint, floors and height."}</span></div>
       <div class="row" style="margin-top:6px"><label class="grow">AHJ (jurisdiction)<input data-k="ahj" value="${esc(d.ahj||"")}" placeholder="e.g. Arlington County Fire Marshal"></label>
         <label class="grow">Code basis<input data-k="code" value="${esc(d.code||"IFC 510 + NFPA 1225")}" placeholder="IFC 2024 510, NFPA 1225 2022, local amendments"></label></div>
       <div class="row" style="margin-top:6px"><label class="grow">Next step<input data-k="next_step" value="${esc(d.next_step||"")}"></label><label>Due<input data-k="due" type="date" value="${esc(d.due||"")}"></label>
@@ -199,9 +265,28 @@ function dasOverview(el, j, save){
   el.querySelectorAll("[data-role]").forEach(s=>s.onchange=async()=>{ j=await save({contacts:{...(j.data.contacts||{}),[s.dataset.role]:s.value?+s.value:null}}); });
   $("#doFloors").onchange=async e=>{ const n=Math.max(0,Math.min(200,+e.target.value||0)); const cur=Array.isArray(j.data.floors)?j.data.floors:[];
     const fl=Array.from({length:n},(_,i)=>cur[i]||{name:String(i+1),grids:DAS.grids}); j=await save({floors:fl}); };
+  $("#doOutline").onclick=async()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } $("#doOutMsg").textContent="Asking OpenStreetMap (can take up to a minute when it is busy)…";
+    try{ const b=await api(`/api/das/building?lat=${dd.lat}&lon=${dd.lon}`), patch={building:b};
+      if(dd.area_sqft==null&&b.footprint_sqft) patch.area_sqft=b.footprint_sqft;  // only fills what's empty
+      if(!(Array.isArray(dd.floors)&&dd.floors.length)&&b.levels) patch.floors=Array.from({length:Math.min(200,b.levels)},(_,i)=>({name:String(i+1),grids:DAS.grids}));
+      j=await save(patch); render(); }catch(e){ $("#doOutMsg").textContent=e.message; } };
   $("#doPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ alert("Drop a pin or type the address in the search panel first."); return; } j=await save({lat:p[0],lon:p[1]}); render(); };
   $("#doGo").onclick=()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } $("#loc").value=`${dd.lat}, ${dd.lon}`; setMode("point"); setTab("map"); runSearch(); };
 }
+
+// a system's terrain path (from Terrain paths), when it was checked against today's strongest site
+function dasTerrainCell(s, t){
+  const st=s.sites[0]; if(!t||!st||t.site!==`${st.lat},${st.lon}`) return "";
+  if(t.error) return `<span class="hint">${esc(t.error)}</span>`;
+  const word=t.status==="clear"?["clear","var(--good)"]:t.status.startsWith("Fresnel")?["partly blocked","var(--warn)"]:["blocked by terrain","var(--bad)"];
+  return `<span style="color:${word[1]}" title="${esc(`${t.status}; clearance ${t.clearance_f1} of the first Fresnel zone${t.worst_at_km!=null?`; worst point ${num(t.worst_at_km/1.609344,1)} mi from the site, ${t.worst_above_los_m} m above the line`:""}`)}">${word[0]}</span>`
+    + `${t.loss_db?` −${num(t.loss_db,0)} dB`:""}${s.best_in!=null?`<div class="hint">${num(s.best_in-(t.loss_db||0),0)} dBm inside</div>`:""}`;
+}
+const dasBuildingLine = b => `${esc(b.name||"Building")} · ${(b.footprint_sqft||0).toLocaleString()} sq ft footprint${b.levels?` · ${b.levels} floors`:""}${b.height_m?` · ${Math.round(b.height_m)} m tall`:""}`
+  + `${b.contains_pin?"":` · nearest outline, ${b.dist_m} m from the pin`} · ${esc(b.source)} ${esc(b.osm)}`
+  + `${b.footprint_sqft>DAS.sector_sqft?` · <b style="color:var(--warn)">over ${DAS.sector_sqft.toLocaleString()} sq ft a floor: NFPA 1225 splits each floor into sectors of ${DAS.grids} grids</b>`:""}`;
+// the donor antenna's height: the building's height (or floors x 3.5 m) plus a 3 m mast
+const dasRoof = d => (d.building?.height_m || ((d.building?.levels || (Array.isArray(d.floors)?d.floors.length:0) || 3) * 3.5)) + 3;
 
 /* ---------- pre-survey: the agency systems serving the building ---------- */
 async function dasPresurvey(el, j, save){
@@ -227,6 +312,7 @@ async function dasPresurvey(el, j, save){
         <input id="psL" type="number" value="${P.loss}" min="0" max="80" style="width:64px"> dB</label>
       <label class="inl">Needs at least <input id="psT" type="number" value="${P.threshold}" style="width:80px"> dBm inside</label>
       <button id="psPick">Tick fire, police, EMS, 911</button><button id="psNone">Untick all</button>
+      <button id="psTer" title="Line of sight from each system's strongest site to the roof, with the loss over hills (terrain data, cached on this PC). Ticked systems, or the 20 strongest.">⛰ Terrain paths</button>
       <button id="psPlan" ${plan.length?"":"disabled"}>⇩ Channel plan CSV</button><button id="psCsv">⇩ Systems CSV</button><button id="psKml">⇩ KML</button><button id="psTak">⇩ ATAK</button>
       <button id="psLet" ${chosen.length?"":"disabled"} title="One letter per licensee asking consent to retransmit (47 CFR 90.219(b)(1)); print or save as PDF">⎙ Consent letters</button></div>
     <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi. ${esc(verdict)}</p>
@@ -235,7 +321,7 @@ async function dasPresurvey(el, j, save){
         <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) needs FirstNet / AT&amp;T authorization and isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI).</p>`:'<p class="hint">Tick systems below.</p>'}</div>
       <div class="panel" style="padding:0;overflow:hidden"><div id="psMap" style="height:300px"></div></div></div>
     <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· strongest first · levels are free-space estimates from licensed power: best case, no terrain</span></h3>
-      <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Best site</th><th class="n">Outside dBm</th><th class="n">Inside dBm</th><th class="n">Margin dB</th></tr></thead><tbody>
+      <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Best site</th><th class="n">Outside dBm</th><th class="n">Inside dBm</th><th class="n">Margin dB</th><th>Terrain to the roof</th></tr></thead><tbody>
       ${r.systems.map(s=>{ const st=s.sites[0]; return `<tr><td><input type="checkbox" data-cs="${esc(s.call_sign)}" ${inc.has(s.call_sign)?"checked":""}></td><td><b>${esc(s.licensee)}</b><div class="hint">${esc(s.category||"")}</div></td>
         <td class="mono">${s.usi?`<a href="https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${s.usi}" target="_blank" rel="noopener">${esc(s.call_sign)}</a>`:esc(s.call_sign)}</td>
         <td>${esc(s.trunked?"Trunked":"Conventional")} · ${esc(s.tech.join(", "))}<div class="hint">${esc(s.service_name||"")}</div></td>
@@ -243,7 +329,8 @@ async function dasPresurvey(el, j, save){
         <td class="mono">${s.up.slice(0,6).map(fmtF).join("<br>")||'<span class="hint">ask licensee</span>'}${s.up.length>6?`<br><span class="hint">+${s.up.length-6}</span>`:""}
           <div class="hint" style="font-family:var(--font)">${esc([...new Set(s.down.map(c=>c.up_src).filter(Boolean))].join(", "))}</div></td>
         <td>${st?`${num(st.dist_mi,2)} mi ${esc(st.compass)} (${st.bearing}°)<div class="hint">${s.n_sites} site${s.n_sites===1?"":"s"}</div>`:""}</td>
-        <td class="n">${num(s.best_out,0)}</td><td class="n">${num(s.best_in,0)}</td><td class="n" style="color:${s.margin_db==null?"":s.margin_db<0?"var(--bad)":s.margin_db<10?"var(--warn)":"var(--good)"}">${num(s.margin_db,0)}</td></tr>`; }).join("")}</tbody></table></div>
+        <td class="n">${num(s.best_out,0)}</td><td class="n">${num(s.best_in,0)}</td><td class="n" style="color:${s.margin_db==null?"":s.margin_db<0?"var(--bad)":s.margin_db<10?"var(--warn)":"var(--good)"}">${num(s.margin_db,0)}</td>
+        <td>${dasTerrainCell(s, (ps.terrain||{})[s.call_sign])}</td></tr>`; }).join("")}</tbody></table></div>
       <p class="hint">Downlink: what the agency's sites transmit (the building's donor antenna hears it). Uplink: what the radios transmit, from each licence's mobile entries, or the fixed 800 MHz (−45 MHz) and 700 MHz (+30 MHz) offsets. Bearing is from the building to the site: point the donor antenna there.</p></div>`;
   // the chosen systems' channel plan is saved with the job, so the AHJ report and exports have it without the FCC data
   const store=async patch=>{ const incl=new Set(patch.include??[...inc]);
@@ -258,6 +345,13 @@ async function dasPresurvey(el, j, save){
         ||(s.trunked&&/\b(COUNTY|CITY|STATE|COMMONWEALTH|TOWN|DISTRICT OF COLUMBIA|PARISH|BOROUGH)\b/i.test(n))) inc.add(s.call_sign); }
     store({include:[...inc]}); };
   $("#psNone").onclick=()=>store({include:[]});
+  $("#psTer").onclick=async()=>{ const list=(inc.size?chosen:r.systems.slice(0,20)).filter(s=>s.sites[0]);
+    const b=$("#psTer"); b.disabled=true; b.textContent="⛰ Checking paths…";
+    try{ const res=await post("/api/das/terrain",{lat:d.lat, lon:d.lon, roof_m:dasRoof(d), sites:list.map(s=>({key:s.call_sign, lat:s.sites[0].lat, lon:s.sites[0].lon,
+        height_m:s.sites[0].height_m, freq:s.down[0]?.freq}))});
+      const terrain={...(ps.terrain||{})};
+      for(const s of list){ const x=res.paths[s.call_sign]; if(x) terrain[s.call_sign]={...x, site:`${s.sites[0].lat},${s.sites[0].lon}`, roof_m:dasRoof(d)}; }
+      store({terrain}); }catch(e){ b.disabled=false; b.textContent="⛰ Terrain paths"; alert(e.message); } };
   for(const [id,k] of [["#psR","radius"],["#psL","loss"],["#psT","threshold"]]) $(id).onchange=e=>{ P[k]=+e.target.value; store({}); };
   $("#psLp").onchange=e=>{ if(e.target.value!==""){ P.loss=+e.target.value; store({}); } };
   $("#psPlan").onclick=()=>dasDl(`${fileSafe(j.name)} channel plan.csv`, csvOf(plan), "text/csv");
@@ -270,9 +364,12 @@ async function dasPresurvey(el, j, save){
   $("#psKml").onclick=()=>{ const x=s=>String(s??"").replace(/[<>&'"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
     const pm=siteRows().map(s=>`<Placemark><name>${x(s.licensee)} ${x(s.call_sign)}</name><description>${x(`${s.dist_mi} mi ${s.compass}, est ${num(s.est_rx_dbm,0)} dBm outside`)}</description><Point><coordinates>${s.lon},${s.lat},0</coordinates></Point></Placemark>`
       +`<Placemark><name>Donor bearing to ${x(s.call_sign)}</name><LineString><coordinates>${d.lon},${d.lat},0 ${s.lon},${s.lat},0</coordinates></LineString></Placemark>`).join("");
-    dasDl(`${fileSafe(j.name)} pre-survey.kml`, `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x(j.name)} pre-survey</name><Placemark><name>${x(j.name)}</name><Point><coordinates>${d.lon},${d.lat},0</coordinates></Point></Placemark>${pm}</Document></kml>`, "application/vnd.google-earth.kml+xml"); };
-  $("#psTak").onclick=()=>RFTak.save({rows:siteRows(), center:[d.lat,d.lon], radius:P.radius, name:`RF Recon - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null});
+    const ol=d.building?.outline?`<Placemark><name>${x(j.name)} outline</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${d.building.outline.map(([a,b])=>`${b},${a},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`:"";
+    dasDl(`${fileSafe(j.name)} pre-survey.kml`, `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x(j.name)} pre-survey</name><Placemark><name>${x(j.name)}</name><Point><coordinates>${d.lon},${d.lat},0</coordinates></Point></Placemark>${ol}${pm}</Document></kml>`, "application/vnd.google-earth.kml+xml"); };
+  $("#psTak").onclick=()=>RFTak.save({rows:siteRows(), center:[d.lat,d.lon], radius:P.radius, name:`RF Recon - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
+    outline:d.building?.outline?{name:`${j.name} outline`, points:d.building.outline}:null});
   if(typeof L!=="undefined"){ const map=L.map("psMap",{preferCanvas:true}); addMapLayers(map); L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name}).addTo(map);
+    if(d.building?.outline) L.polygon(d.building.outline,{color:"#f0a020", weight:2, fillOpacity:.15}).bindTooltip(dasBuildingLine(d.building)).addTo(map);
     const pts=[[d.lat,d.lon]];
     for(const s of (inc.size?chosen:r.systems.slice(0,25))) for(const st of s.sites.slice(0,3)){ pts.push([st.lat,st.lon]);
       L.polyline([[d.lat,d.lon],[st.lat,st.lon]],{color:inc.has(s.call_sign)?"var(--accent)":"#888",weight:inc.has(s.call_sign)?2:1,opacity:.7,dashArray:"4 4"}).addTo(map);

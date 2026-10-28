@@ -13,6 +13,8 @@ chip.onclick = () => setTab("data");
 $('#tabs [data-t="mission"]').style.display = "none";
 const dasTab = $('#tabs [data-t="das"]');  // DAS jobs, contacts and job files live on the PC's server
 if (dasTab) dasTab.style.display = "none";
+const cellTab = $('#tabs [data-t="cells"]');  // cell sites come from crowd data and captures, which packs never carry
+if (cellTab) cellTab.style.display = "none";
 $('#tabs [data-t="data"]').textContent = "Packs";
 const run = fn => { try { fn(); } catch (e) { $("#status").textContent = e.message; } };
 $("#csvBtn").onclick = () => run(() => RFPack.exportFile("csv", exportParams()));
@@ -53,8 +55,9 @@ S.views.data = async v => {
   </div>
   <div class="panel"><h3>About the web version</h3>
     <p class="hint" style="margin-top:0">This is RF Recon in your browser, working from one area's pack: search, every map layer, the Area report,
-      Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, heatmaps and exports. Missions, captures, crowd data (WiGLE,
-      OpenCelliD, RepeaterBook), the Signal ID Wiki catalog and data updates stay in RF Recon on the PC. A pack and everything you do here
+      Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, heatmaps and exports, plus any transmitter's coverage (hills counted
+      when you're online) and what it's networked with. Missions, captures, crowd data (WiGLE, OpenCelliD, RepeaterBook), cell sites,
+      DAS jobs, talk groups, the Signal ID Wiki catalog and data updates stay in RF Recon on the PC. A pack and everything you do here
       stay in this browser; nothing is sent anywhere. On a phone, use <a href="../">the phone version</a>.</p></div>`;
   const reload = () => { location.hash = "tab=map"; location.reload(); };
   $("#pkFile").onchange = async e => {

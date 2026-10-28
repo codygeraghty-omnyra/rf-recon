@@ -135,6 +135,11 @@
 
 /* backdrops (markup in backdrop.html): the page body must have no background of its own */
 #backdrop { position: fixed; inset: 0; z-index: -1; background: var(--bg); overflow: hidden; pointer-events: none; }
+/* the root carries the skin's base colour under the backdrop: invisible, but contrast checkers read a transparent page
+   as white and failed light text that reads fine (ANUBIS look score, 10/28) */
+:root { background-color: var(--bg); }
+/* type, measured from 67 Code and Chill Overview pages (10/28): medium-weight body text; most of their text is semibold */
+:root[data-skin] body { font-weight: 500; }
 #backdrop .scene { position: absolute; inset: 0; display: none; }
 :root:not([data-skin]) #backdrop .s-room, :root[data-skin="smoke"] #backdrop .s-room, :root[data-skin="haze"] #backdrop .s-room, :root[data-skin="dusk"] #backdrop .s-dusk, :root[data-skin="liquid"] #backdrop .s-liquid, :root[data-skin="day"] #backdrop .s-day { display: block; }
 #backdrop.has-photo .scene { display: none !important; }

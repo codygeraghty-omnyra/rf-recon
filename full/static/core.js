@@ -150,18 +150,27 @@ S.views.map = (v, rows) => {
       <label class="inl">Heatmap <select id="heatKind">
         <option value="off">Off</option><option value="predicted">Predicted from licenses (free-space)</option>
         <option value="measured">Measured (my captures / WiGLE)</option><option value="density">Density of everything shown</option></select></label>
+      <details class="inl" id="heatFiles" style="position:relative;${S.heat.kind==="measured"?"":"display:none"}"><summary title="Which survey files the measured heatmap uses">${heatFilesLabel()}</summary>
+        <div class="panel" style="position:absolute;z-index:1000;min-width:260px;max-height:300px;overflow:auto;margin-top:4px;padding:8px">${heatFileList().map(([k,l,n])=>`<label style="display:block;white-space:nowrap"><input type="checkbox" data-hf="${esc(k)}" ${S.heat.files?.has(k)?"checked":""}> ${esc(l)} <span class="hint">${n}</span></label>`).join("")||'<span class="hint">No survey points with levels in this area yet.</span>'}
+          ${S.heat.files?.size?'<button id="heatFilesAll" style="margin-top:6px">Use every file</button>':""}</div></details>
+      ${S.heat.kind==="measured"&&(S.heat.ident||S.heat.freq)?`<span class="tag">Signal: ${esc(S.heat.signal||S.heat.ident||S.heat.freq)} <a href="#" id="heatSigClear" title="Back to every signal">✕</a></span>`:""}
       <label class="inl">Opacity <input type="range" id="heatOp" min="0.1" max="1" step="0.05" value="${S.heat.opacity}" style="width:90px"></label>
       <button id="heatExport" title="KMZ for Google Earth / ATAK, GeoTIFF for QGIS / ArcGIS / Global Mapper">⇩ Heatmap (KMZ + GeoTIFF)</button>
-      <span class="hint" style="margin-left:auto">${S.center?"Drag the pin or click the map to move it.":""}</span>
+      <span class="hint" style="margin-left:auto">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
       <div class="seg"><button data-lv="list" class="${S.listMode!=="table"?"on":""}">List</button><button data-lv="table" class="${S.listMode==="table"?"on":""}">Table</button></div>
     </div>
     <div class="mapwrap" id="mapwrap" style="${S.listMode==="table"?"grid-template-columns:1fr":""}">
       <div id="map"></div>
       <div class="side" id="side" style="${S.listMode==="table"?"display:none":""}"></div>
     </div>
+    <div id="emitPanel"></div>
     <div id="mapTable" style="margin-top:10px"></div>`;
   $("#heatKind").value=S.heat.kind;
-  $("#heatKind").onchange=e=>{ S.heat.kind=e.target.value; loadHeat(); };
+  $("#heatKind").onchange=e=>{ S.heat.kind=e.target.value; $("#heatFiles").style.display=S.heat.kind==="measured"?"":"none"; loadHeat(); };
+  v.querySelectorAll("[data-hf]").forEach(c=>c.onchange=()=>{ S.heat.files=S.heat.files||new Set(); c.checked?S.heat.files.add(c.dataset.hf):S.heat.files.delete(c.dataset.hf);
+    $("#heatFiles summary").textContent=heatFilesLabel(); loadHeat(); });
+  if($("#heatFilesAll")) $("#heatFilesAll").onclick=()=>{ S.heat.files=new Set(); render(); loadHeat(); };
+  if($("#heatSigClear")) $("#heatSigClear").onclick=e=>{ e.preventDefault(); S.heat.ident=S.heat.freq=S.heat.signal=""; render(); loadHeat(); };
   $("#heatOp").oninput=e=>{ S.heat.opacity=+e.target.value; if(S.heatLayer) S.heatLayer.setOpacity(S.heat.opacity); };
   $("#heatExport").onclick=()=>{ if(!S.center){ alert("Heatmaps need a pin."); return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
     location.href="/api/heatmap.zip?"+params(heatParams(k)); };
@@ -249,19 +258,38 @@ function drawMap(rows){
   for(const [k,rs] of sites){
     const r0=rs[0], tower=rs.some(r=>r.layer==="towers");
     const big = rs.some(r=>r.layer==="uls"||r.layer==="towers"||r.layer==="repeaterbook");
-    const mk = L.circleMarker([r0.lat,r0.lon],{renderer:canvas, radius: big ? 5+Math.min(7,Math.sqrt(rs.length)) : 4,
+    const mk = L.circleMarker([r0.lat,r0.lon],{renderer:canvas, radius: big ? 5+Math.min(7,Math.sqrt(rs.length)) : 4, bubblingMouseEvents:false,
       color: tower ? "#24292f" : colorOf(r0), weight: tower?3:1.5, fillColor: colorOf(rs.find(r=>r.layer!=="towers")||r0), fillOpacity: big?.75:.55});
-    const lines=groupItems(rs).slice(0,14).map(r=>`<div><span class="dot" style="background:${colorOf(r)}"></span> ${r.freq_mhz?`<b class="mono">${fmtF(r.freq_mhz)}</b> `:""}${esc(titleOf(r))} <span class="hint">${esc(typeOf(r))}</span></div>`).join("");
+    // each entry: what it is, then where it reaches, what it's networked with and (for a cell) its site
+    const acts=r=>{ const a=[]; if(r.layer!=="towers"&&(erpOf(r)||emIsCell(r))) a.push(`<a href="#" data-em="coverage" data-fid="${esc(r.fid)}">coverage</a>`);
+      if(emIsUls(r)) a.push(`<a href="#" data-em="network" data-fid="${esc(r.fid)}">network</a>`);
+      if(emIsCell(r)) a.push(`<a href="#" data-em="cell" data-fid="${esc(r.fid)}">cell site</a>`);
+      if(emSurvey(r)&&r.dbm!=null) a.push(`<a href="#" data-em="measured" data-fid="${esc(r.fid)}">measured</a>`);
+      return a.length?` <span class="hint" style="white-space:nowrap">· ${a.join(" · ")}</span>`:""; };
+    const lines=groupItems(rs).slice(0,14).map(r=>`<div><span class="dot" style="background:${colorOf(r)}"></span> ${r.freq_mhz?`<b class="mono">${fmtF(r.freq_mhz)}</b> `:""}${esc(titleOf(r))} <span class="hint">${esc(typeOf(r))}</span>${acts(r)}</div>`).join("");
     mk.bindPopup(`<div style="max-width:300px">${r0.dist_mi!=null?`<div class="hint">${num(r0.dist_mi,2)} mi ${r0.compass||""} from pin</div>`:""}${lines}${rs.length>14?`<div class="hint">+${rs.length-14} more</div>`:""}<a href="#" data-open="${esc(r0.fid)}">Details</a></div>`);
     mk.on("click",()=>{ S.sel=r0.fid; $$("#side .item").forEach(x=>{ const hit=rs.some(r=>r.fid===x.dataset.fid); x.classList.toggle("sel",hit); if(hit && x===$$("#side .item").find(y=>rs.some(r=>r.fid===y.dataset.fid))) x.scrollIntoView({block:"nearest"}); }); });
     mk.addTo(map); S.markerIndex.set(k,mk);
   }
-  map.on("popupopen", ev=>{ const a=ev.popup.getElement().querySelector("[data-open]"); if(a) a.onclick=e=>{ e.preventDefault(); openDetail(a.dataset.open); }; });
+  map.on("popupopen", ev=>{ const el=ev.popup.getElement(), a=el.querySelector("[data-open]"); if(a) a.onclick=e=>{ e.preventDefault(); openDetail(a.dataset.open); };
+    el.querySelectorAll("[data-em]").forEach(b=>b.onclick=e=>{ e.preventDefault(); const r=S.rows.find(x=>x.fid===b.dataset.fid); if(!r) return; map.closePopup();
+      if(b.dataset.em==="measured"){ S.heat.kind="measured"; S.heat.ident=r.ident||String(r.ext_id||"").replace(/^\w+:/,""); S.heat.freq=r.ident||r.ext_id?"":(r.freq_mhz??""); S.heat.signal=titleOf(r); render(); loadHeat(); }
+      else emitOpen(r, b.dataset.em); }); });
   // mission GPS tracks
   if(S.mission?.tracks) for(const t of S.mission.tracks) L.polyline(t,{color:"#fb8500",weight:3,opacity:.8}).addTo(map);
   L.control.scale({imperial:true, metric:true}).addTo(map);
+  // pin lock: when locked, clicks select things on the map and never move the pin (remembered in this browser)
+  if(S.pinLocked==null){ try{ S.pinLocked=localStorage.getItem("rfr.pinLocked")==="1"; }catch(e){ S.pinLocked=false; } }
+  const Lock=L.Control.extend({onAdd(){ const b=L.DomUtil.create("button","leaflet-bar"); b.id="pinLock";
+    b.style.cssText="padding:4px 8px;font:600 12px system-ui;cursor:pointer;background:var(--panel,#fff);color:var(--ink,#111)";
+    const paint=()=>{ b.textContent=S.pinLocked?"🔒 Pin locked":"🔓 Pin moves on click"; b.title=S.pinLocked?"Clicks select emitters; the pin stays put. Click to unlock.":"Clicking the map moves the pin. Click to lock it."; };
+    paint(); L.DomEvent.disableClickPropagation(b);
+    b.onclick=()=>{ S.pinLocked=!S.pinLocked; try{ localStorage.setItem("rfr.pinLocked", S.pinLocked?"1":"0"); }catch(e){} paint();
+      if(S.pinMarker){ S.pinLocked?S.pinMarker.dragging?.disable():S.pinMarker.dragging?.enable(); } };
+    return b; }});
+  new Lock({position:"topleft"}).addTo(map);
   if(S.center){
-    const pin=L.marker(S.center,{draggable:true, icon:pinIcon(), zIndexOffset:1000}).addTo(map);
+    const pin=L.marker(S.center,{draggable:!S.pinLocked, icon:pinIcon(), zIndexOffset:1000}).addTo(map); S.pinMarker=pin;
     pin.on("dragend",()=>{ const p=pin.getLatLng(); $("#loc").value=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`; runSearch(); });
     const rm=S.radius*1609.344, stepMi=niceStep(S.radius), step=stepMi*1609.344;
     // distance rings, each labelled on its north side
@@ -280,16 +308,27 @@ function drawMap(rows){
     map.fitBounds(L.latLng(S.center).toBounds(rm*2.1));
   } else if(sites.size) map.fitBounds([...sites.values()].map(rs=>[rs[0].lat,rs[0].lon]));
   else map.setView([39.5,-98.35],4);
-  map.on("click", e=>{ if(S.mode!=="point") return; $("#loc").value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`; runSearch(); });
+  map.on("click", e=>{ if(S.mode!=="point" || S.pinLocked) return; $("#loc").value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`; runSearch(); });
   if(S.heatImg) addHeatLayer();
+  if(window.emitAfterDraw) window.emitAfterDraw();
 }
 
 /* ---------- heatmap ---------- */
+// survey files in the current results: capture files, and imported or crowd layers, with how many points carry a level
+const heatFileKey = r => r.layer==="captures" ? `cap:${r.capture_id}` : `${r.layer}:${r.category||""}`;
+function heatFileList(){
+  const m=new Map();
+  for(const r of S.rows) if(["captures","wigle","opencellid","custom"].includes(r.layer) && r.dbm!=null){ const k=heatFileKey(r);
+    const x=m.get(k)||[k, r.layer==="captures"?(r.capture_name||`Capture ${r.capture_id}`):(r.category||r.layer), 0]; x[2]++; m.set(k,x); }
+  return [...m.values()].sort((a,b)=>b[2]-a[2]);
+}
+const heatFilesLabel = () => S.heat.files?.size ? `Files: ${S.heat.files.size} chosen` : "Files: all";
 function heatParams(kind){
   const s=S.mission?.settings||{};
   return {kind, size:s.heat_size||200, metric:s.heat_metric||"mean", combine:s.heat_combine||"max", alpha:s.heat_alpha||190,
     types:[...S.chips.type].join("|"), bands:[...S.chips.band].join("|"), cats:[...S.chips.cat].join("|"),
-    layers:[...S.layerOn].join(","), name:(S.mission?.name||"rf")+"_"+kind};
+    layers:[...S.layerOn].join(","), name:(S.mission?.name||"rf")+"_"+kind,
+    ...(kind==="measured"?{files:[...(S.heat.files||[])].join("|"), ident:S.heat.ident||"", freq:S.heat.freq??""}:{})};
 }
 async function loadHeat(){
   if(S.heatLayer && S.map){ S.map.removeLayer(S.heatLayer); } S.heatLayer=null; S.heatImg=null;
@@ -365,6 +404,12 @@ function openDetail(fid){
       ${Object.keys(extra).length?`<div class="sec"><h3>All fields</h3>${kvg(Object.entries(extra).map(([k,v])=>[esc(k),`<span class="mono">${esc(typeof v==="object"?JSON.stringify(v):v)}</span>`]))}</div>`:""}`;
   }
   $("#dlgBody").innerHTML=html;
+  if(r.lat!=null && r.layer!=="towers"){  // the same emitter on the map: where it reaches, what it's networked with, its cell site
+    const acts=[(erpOf(r)||emIsCell(r))&&["coverage","Coverage on the map"], emIsUls(r)&&["network","Network"], emIsCell(r)&&["cell","Cell site"]].filter(Boolean);
+    if(acts.length){ const bar=document.createElement("div"); bar.className="row no-print"; bar.style.cssText="gap:6px;margin-bottom:8px";
+      bar.innerHTML=acts.map(([k,l])=>`<button data-emd="${k}">${l}</button>`).join("");
+      bar.querySelectorAll("[data-emd]").forEach(b=>b.onclick=()=>emitOpen(r, b.dataset.emd)); $("#dlgBody").prepend(bar); }
+  }
   if(uls && r.call_sign){  // the same licence on the FCC's own site and on RadioReference (links only: RR's data can't be copied)
     const box=document.createElement("div"); box.className="sec";
     box.innerHTML=`<h3>RadioReference</h3><p><a href="https://www.radioreference.com/db/fcc/callsign/${encodeURIComponent(r.call_sign)}" target="_blank" rel="noopener">${esc(r.call_sign)} on RadioReference</a>

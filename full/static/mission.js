@@ -202,7 +202,9 @@ S.views.data = async (v) => {
       <button id="netCheck">Check now</button></div>
     <div class="panel"><h3>Automatic updates</h3>
       <div class="row" style="align-items:center"><label class="switch"><input type="checkbox" id="uAuto" ${UPD?.auto?"checked":""}><span></span></label><b>Auto-update enabled sources when online</b></div>
-      <div class="row" style="align-items:center;margin-top:8px"><label class="switch"><input type="checkbox" id="uWifi" ${UPD?.wifi_only?"checked":""}><span></span></label>Only on Wi-Fi / Ethernet (hold off on cellular)</div>
+      <div class="row" style="align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><b>Update over</b>
+        <div class="seg" id="uLinks">${[["all","All"],["wifi","Wi-Fi"],["ethernet","Ethernet"],["cellular","Cellular / phone tether"]].map(([k,l])=>`<button data-link="${k}">${l}</button>`).join("")}</div></div>
+      <p class="hint" id="uLinkNow" style="margin:4px 0 0"></p>
       <div class="row" style="margin-top:10px"><button id="uAllOn">Select all sources</button><button id="uAllOff">Select none</button><button class="primary" id="uRunAll">Update all selected now</button></div>
       <label style="margin-top:10px">Limit FCC data to states (blank = whole US)<input id="uStates" value="${esc(settings.states||"")}" placeholder="VA,MD,DC"></label>
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
@@ -216,12 +218,17 @@ S.views.data = async (v) => {
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Pack</th><th>Size</th><th>Made</th></tr></thead><tbody id="fpList"></tbody></table></div>
     <p class="hint">Packs carry public data only: never your missions, captures, labels or keys, and none of the crowd layers or the Signal ID Wiki catalog. VA, MD and DC together come to about 5 MB.</p></div>
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
+  <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
     <div class="panel"><h3>Your API keys (stored only in your local database)</h3>
       <div class="row"><label class="grow">WiGLE API name<input id="k_wn" placeholder="${esc(settings.creds.wigle_name||"AID…")}"></label><label class="grow">WiGLE API token<input id="k_wt" type="password" placeholder="${esc(settings.creds.wigle_token||"")}"></label></div>
       <div class="row" style="margin-top:6px"><label class="grow">OpenCelliD key<input id="k_oc" type="password" placeholder="${esc(settings.creds.opencellid_key||"")}"></label><label class="grow">RepeaterBook token<input id="k_rb" type="password" placeholder="${esc(settings.creds.repeaterbook_token||"rbuapp_…")}"></label></div>
       <div class="row" style="margin-top:8px"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
-      <p class="hint">Get them at wigle.net (Account → API token), opencellid.org (free key), repeaterbook.com (API token request). Each service's terms apply: WiGLE non-commercial unless licensed; OpenCelliD CC BY-SA 4.0; RepeaterBook personal use with attribution, no redistribution.</p></div>
+      <p class="hint">All three are free and need your own account (each sign-up has a captcha and its own terms, so RF Recon can't make them for you):
+        <a href="https://wigle.net/register" target="_blank" rel="noopener">WiGLE</a> (then Account → API token: the name and the token; non-commercial use only),
+        <a href="https://my.opencellid.org/register" target="_blank" rel="noopener">OpenCelliD</a> (the access token on your account page; 1,000 requests a day; CC BY-SA 4.0),
+        <a href="https://www.repeaterbook.com/api/token_request.php" target="_blank" rel="noopener">RepeaterBook</a> (a token on request and approval; personal use, and its policy discourages tools that mix it with other sources).
+        RadioReference's API isn't here: it needs Premium ($30 a year) and a paid licence for dashboards.</p></div>
     <div class="panel"><h3>Fetch crowd data for the current pin now</h3>
       <div class="row"><button data-fetch="wigle">WiGLE</button><button data-fetch="opencellid">OpenCelliD</button><button data-fetch="repeaterbook">RepeaterBook</button></div>
       <div id="fetchMsg" class="hint" style="margin-top:6px"></div>
@@ -247,7 +254,12 @@ S.views.data = async (v) => {
   fpPaint();
   $("#netCheck").onclick=async()=>{ $("#netCard").innerHTML='<p class="hint">Checking…</p>'; UPD=await post("/api/net/hint?check=1",{type:c.type||null,effectiveType:c.effectiveType||null}); paintNet(); paintSources(); };
   const cfg=async body=>{ UPD=await post("/api/update/config",body); paintNet(); paintSources(); };
-  $("#uAuto").onchange=e=>cfg({auto:e.target.checked}); $("#uWifi").onchange=e=>cfg({wifi_only:e.target.checked});
+  $("#uAuto").onchange=e=>cfg({auto:e.target.checked});
+  // which connections updates may use: pick any mix; All is all three; one always stays on
+  $("#uLinks").onclick=e=>{ const b=e.target.closest("[data-link]"); if(!b) return; const k=b.dataset.link, ALL=["wifi","ethernet","cellular"];
+    let cur=new Set(UPD?.links||["wifi","ethernet"]);
+    if(k==="all") cur=new Set(ALL); else { cur.has(k)?cur.delete(k):cur.add(k); if(!cur.size) cur.add(k); }
+    cfg({links:ALL.filter(x=>cur.has(x))}); };
   $("#uAllOn").onclick=()=>cfg({all:true}); $("#uAllOff").onclick=()=>cfg({all:false});
   $("#uRunAll").onclick=async()=>{ UPD=await post("/api/update/run",{ids:"enabled",force:true}); paintNet(); paintSources(); };
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
@@ -274,14 +286,27 @@ function paintSources(){
   const u=UPD; if(!u||!$("#srcList")) return;
   const n=u.net, link={wifi:"Wi-Fi",cellular:"Cellular",ethernet:"Ethernet",vpn:"VPN",unknown:"unknown link"}[u.link]||u.link;
   if($("#netCard")) $("#netCard").innerHTML=`<div class="row" style="align-items:center"><span class="led ${n.online?"on":n.online===false?"off":""}" style="width:14px;height:14px"></span><b>${n.online?"Online":n.online===false?"Offline":"Not checked yet"}</b> · ${esc(link)}${n.interface?` (${esc(n.interface)})`:""}${n.latency_ms!=null?` · ${n.latency_ms} ms to FCC`:""}</div><p class="hint">Last checked ${esc(n.checked||"–")} · ${esc(n.os||"")}</p>`;
+  const acc=a=>!a||!a.key?"":a.needs_key?`${a.key_saved?'<span style="color:var(--good)">✓ key saved</span>':'<span style="color:var(--bad)">✗ no key saved</span>'} · ${esc(a.key)} · ${esc(a.cost||"")}${a.signup?` · <a href="${esc(a.signup)}" target="_blank" rel="noopener">get a key ↗</a>`:""}`
+    :`${esc(a.cost||"")}${a.key==="none"?" · no key needed":""}`;
   $("#srcList").innerHTML=Object.entries(u.sources).map(([id,s])=>`<div class="srcrow">
     <label class="switch"><input type="checkbox" data-src="${esc(id)}" ${s.enabled?"checked":""}><span></span></label>
-    <div><b>${esc(s.label)}</b><div class="hint">${esc(s.description)}</div></div>
+    <div><b>${esc(s.label)}</b><div class="hint">${esc(s.description)}</div>
+      ${s.access?.key?`<div class="hint" title="${esc(s.access.terms||"")}">${acc(s.access)}</div>`:""}
+      ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}</div>
     <select data-int="${esc(id)}" class="hide-m">${INTERVALS.map(([h,l])=>`<option value="${h}" ${+s.interval_h===h?"selected":""}>${l}</option>`).join("")}</select>
     <div class="hide-m" style="font-size:12px">${s.running?'<span class="tag w">running</span> ':""}${s.state==="error"?'<span class="tag" style="color:var(--bad)">error</span> ':s.state==="ok"?'<span class="tag v">ok</span> ':""}${esc(s.message||"")}
       <div class="hint">${freshness(s, u.auto)} · updated ${esc(s.last_updated||"never")}${s.remote?` · source file ${esc(s.remote)}`:""}${s.rows!=null?` · ${Number(s.rows).toLocaleString()} rows`:""}</div></div>
     <button data-run="${esc(id)}" ${s.running?"disabled":""}>Run now</button></div>`).join("");
   $$("[data-src]").forEach(x=>x.onchange=async()=>{ UPD=await post("/api/update/config",{sources:{[x.dataset.src]:{enabled:x.checked}}}); paintSources(); });
+  if($("#uLinks")){ const on=new Set(u.links||[]), nm={wifi:"Wi-Fi",ethernet:"Ethernet",cellular:"cellular / phone tether"};
+    $$("#uLinks [data-link]").forEach(b=>b.classList.toggle("on", b.dataset.link==="all"?on.size===3:on.has(b.dataset.link)));
+    const now=u.link==="vpn"||u.link==="unknown"?"ethernet":u.link;
+    $("#uLinkNow").innerHTML=`This PC is on <b>${esc(nm[now]||u.link||"?")}</b> now: updates ${on.has(now)?'<span style="color:var(--good)">can run</span>':'<span style="color:var(--warn)">wait for '+[...on].map(k=>nm[k]).join(" or ")+"</span>"}.`; }
+  const cat=$("#srcCatalog");
+  if(cat && u.catalog) cat.innerHTML=`<div class="tw"><table><thead><tr><th>Source</th><th>What it gives</th><th>Key</th><th>Cost</th><th>Area search</th><th>Terms</th><th>In RF Recon</th></tr></thead><tbody>${
+    u.catalog.map(c=>`<tr><td><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.name)}</b> ↗</a></td><td>${esc(c.what)}</td><td>${esc(c.key)}${c.signup?` · <a href="${esc(c.signup)}" target="_blank" rel="noopener">sign up ↗</a>`:""}</td>
+      <td>${esc(c.cost)}</td><td>${esc(c.area)}</td><td class="hint">${esc(c.terms)}</td><td>${esc(c.status)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="hint">Checked on each provider's own pages on 2026-10-28. “Could add” means its terms and API allow it; say which to wire in. Sign-ups need your own account: RF Recon never makes one for you.</p>`;
   $$("[data-int]").forEach(x=>x.onchange=async()=>{ UPD=await post("/api/update/config",{sources:{[x.dataset.int]:{interval_h:+x.value}}}); paintSources(); });
   $$("[data-run]").forEach(x=>x.onclick=async()=>{ UPD=await post("/api/update/run",{ids:[x.dataset.run],force:true}); paintNet(); paintSources(); });
 }

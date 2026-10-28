@@ -99,6 +99,11 @@ function areaKml(o) {
       `<Placemark><name>${o.radius} mi search radius</name><Style><LineStyle><color>ff7aa0f0</color><width>3</width></LineStyle></Style>`
       + `<LineString><tessellate>1</tessellate><coordinates>${ring.join(" ")}</coordinates></LineString></Placemark>`);
   }
+  if (o.outline?.points?.length) {  // a building outline: [[lat, lon], ...]
+    parts.push(`<Placemark><name>${x(o.outline.name || "Outline")}</name><Style><LineStyle><color>ff20a0f0</color><width>3</width></LineStyle>`
+      + `<PolyStyle><color>4020a0f0</color></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>`
+      + `${o.outline.points.map(([la, lo]) => `${lo},${la},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`);
+  }
   parts.push("</Document></kml>");
   return parts.join("");
 }
@@ -118,7 +123,7 @@ function build(o) {
     files.push({name: `${uid}/${uid}.cot`, data: xml});
     content.push(`<Content ignore="false" zipEntry="${uid}/${uid}.cot"><Parameter name="uid" value="${uid}"/></Content>`);
   }
-  if (o.center) {
+  if (o.center || o.outline) {
     files.push({name: "RFRecon.area/rf_recon_area.kml", data: areaKml(o)});
     content.push('<Content ignore="false" zipEntry="RFRecon.area/rf_recon_area.kml"><Parameter name="contentType" value="KML"/></Content>');
   }
