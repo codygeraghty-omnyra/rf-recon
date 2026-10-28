@@ -244,11 +244,13 @@ S.views.data = async (v) => {
   <div class="grid2">
     <div class="panel"><h3>Your API keys (stored only in your local database)</h3>
       <div class="row"><label class="grow">WiGLE API name<input id="k_wn" placeholder="${esc(settings.creds.wigle_name||"AID…")}"></label><label class="grow">WiGLE API token<input id="k_wt" type="password" placeholder="${esc(settings.creds.wigle_token||"")}"></label></div>
-      <div class="row" style="margin-top:6px"><label class="grow">OpenCelliD key<input id="k_oc" type="password" placeholder="${esc(settings.creds.opencellid_key||"")}"></label><label class="grow">RepeaterBook token<input id="k_rb" type="password" placeholder="${esc(settings.creds.repeaterbook_token||"rbuapp_…")}"></label></div>
+      <div class="row" style="margin-top:6px"><label class="grow">OpenCelliD key<input id="k_oc" type="password" placeholder="${esc(settings.creds.opencellid_key||"")}"></label><label class="grow">aisstream key (ships)<input id="k_ais" type="password" placeholder="${esc(settings.creds.aisstream_key||"")}"></label></div>
+      <div class="row" style="margin-top:6px"><label class="grow">RepeaterBook token<input id="k_rb" type="password" placeholder="${esc(settings.creds.repeaterbook_token||"rbuapp_…")}"></label></div>
       <div class="row" style="margin-top:8px"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
-      <p class="hint">All three are free and need your own account (each sign-up has a captcha and its own terms, so RF Recon can't make them for you):
+      <p class="hint">All four are free and need your own account (each sign-up has its own terms, so RF Recon can't make them for you):
         <a href="https://wigle.net/register" target="_blank" rel="noopener">WiGLE</a> (then Account → API token: the name and the token; non-commercial use only),
         <a href="https://my.opencellid.org/register" target="_blank" rel="noopener">OpenCelliD</a> (the access token on your account page; 1,000 requests a day; CC BY-SA 4.0),
+        <a href="https://aisstream.io/authenticate" target="_blank" rel="noopener">aisstream</a> (sign in, then API Keys: live ships for the Ships layer),
         <a href="https://www.repeaterbook.com/api/token_request.php" target="_blank" rel="noopener">RepeaterBook</a> (a token on request and approval; personal use, and its policy discourages tools that mix it with other sources).
         RadioReference's API isn't here: it needs Premium ($30 a year) and a paid licence for dashboards.</p></div>
     <div class="panel"><h3>Fetch crowd data for the current pin now</h3>
@@ -318,7 +320,7 @@ S.views.data = async (v) => {
   $("#uAllOn").onclick=()=>cfg({all:true}); $("#uAllOff").onclick=()=>cfg({all:false});
   $("#uRunAll").onclick=async()=>{ UPD=await post("/api/update/run",{ids:"enabled",force:true}); paintNet(); paintSources(); };
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
-  $("#k_save").onclick=async()=>{ await post("/api/settings",{creds:{wigle_name:$("#k_wn").value,wigle_token:$("#k_wt").value,opencellid_key:$("#k_oc").value,repeaterbook_token:$("#k_rb").value}}); $("#k_msg").textContent="Saved."; };
+  $("#k_save").onclick=async()=>{ await post("/api/settings",{creds:{wigle_name:$("#k_wn").value,wigle_token:$("#k_wt").value,opencellid_key:$("#k_oc").value,aisstream_key:$("#k_ais").value,repeaterbook_token:$("#k_rb").value}}); $("#k_msg").textContent="Saved."; };
   v.querySelectorAll("[data-fetch]").forEach(b=>b.onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ $("#fetchMsg").textContent="Drop a pin first."; return; }
     $("#fetchMsg").textContent=`Fetching ${b.dataset.fetch}…`;
     try{ const r=await post("/api/crowd/fetch",{source:b.dataset.fetch,lat:p[0],lon:p[1],radius:+$("#radius").value||5,state:S.mission?.state||S.rows.find(x=>x.state)?.state});

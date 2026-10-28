@@ -3,6 +3,7 @@
    (app/static), so it can swap the Mission and Data & updates tabs for a Packs tab and point exports at the
    browser. Missions, captures, crowd data and data updates stay in RF Recon on the PC. */
 (() => {
+window.welcome = null;  // the PC's first run downloads FCC files; here the first run is loading a pack (Packs tab)
 for (const k of ["uls_hist", "captures", "wigle", "opencellid", "repeaterbook", "custom", "ttn", "satnogs", "wspr", "pskreporter", "psap"]) {  // PC-only sources: never in a pack
   delete LAYERS[k]; S.layerOn.delete(k);
 }

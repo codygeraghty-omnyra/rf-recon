@@ -538,11 +538,12 @@ try{ const t=localStorage.getItem("theme"); if(t) document.documentElement.datas
 async function boot(){
   try{
     const [meta, states, lib] = await Promise.all([api("/api/meta"), api("/api/states"), api("/api/sigid")]);
-    S.lib=lib.library; S.bandplan=lib.bandplan;
+    S.lib=lib.library; S.bandplan=lib.bandplan; S.meta=meta;
     $("#meta").textContent = meta.built_at ? `FCC data ${meta.built_at} · ${Number(meta.tx_rows||0).toLocaleString()} entries${meta.towers_rows?` · ${Number(meta.towers_rows).toLocaleString()} towers`:""}` : "No FCC data yet — see Data & updates";
     $("#state").innerHTML='<option value="">—</option>'+states.map(s=>`<option>${esc(s.state)}</option>`).join("");
   }catch(e){ $("#meta").textContent="Server error: "+e.message; }
   if(window.missionBoot) await window.missionBoot();
+  if(S.meta && !S.meta.built_at && !S.remote && window.welcome) window.welcome();  // a new copy with no data yet (welcome.js)
   if(window.applyUrlState && window.applyUrlState()) runSearch();  // a link to a view wins over the mission's area
   render();
 }
