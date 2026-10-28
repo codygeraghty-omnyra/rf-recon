@@ -149,8 +149,9 @@ function groupItems(rows){
 S.views.map = (v, rows) => {
   v.innerHTML = `
     <div class="maptools no-print">
+      <label class="inl" title="Standard, ATAK style (symbols, imagery, MGRS) or a map you imported">Map <select id="mapStyle"></select></label>
       <label class="inl">Heatmap <select id="heatKind">
-        <option value="off">Off</option><option value="predicted">Predicted from licenses (free-space)</option>
+        <option value="off">Off</option><option value="terrain">Predicted with terrain (Hata + hills, strongest 60)</option><option value="predicted">Predicted from licenses (free-space)</option>
         <option value="measured">Measured (my captures / WiGLE)</option><option value="density">Density of everything shown</option></select></label>
       <details class="inl" id="heatFiles" style="position:relative;${S.heat.kind==="measured"?"":"display:none"}"><summary title="Which survey files the measured heatmap uses">${heatFilesLabel()}</summary>
         <div class="panel" style="position:absolute;z-index:1000;min-width:260px;max-height:300px;overflow:auto;margin-top:4px;padding:8px">${heatFileList().map(([k,l,n])=>`<label style="display:block;white-space:nowrap"><input type="checkbox" data-hf="${esc(k)}" ${S.heat.files?.has(k)?"checked":""}> ${esc(l)} <span class="hint">${n}</span></label>`).join("")||'<span class="hint">No survey points with levels in this area yet.</span>'}
@@ -236,7 +237,7 @@ function mapPrefs(){
 }
 function addMapLayers(map){
   const pref=mapPrefs(), bases={}, overs={};
-  for(const [name,{src,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(`/tiles/${src}/{z}/{x}/{y}.png`,opt);
+  for(const [name,{src,url,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(url||`/tiles/${src}/{z}/{x}/{y}.png`,opt);  // url: a map you imported
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
   bases[pref.base].addTo(map);
   for(const n of pref.overlays) overs[n].addTo(map);
@@ -274,7 +275,8 @@ function drawMap(rows){
   for(const [k,rs] of sites){
     const r0=rs[0], tower=rs.some(r=>r.layer==="towers");
     const big = rs.some(r=>r.layer==="uls"||r.layer==="towers"||r.layer==="repeaterbook");
-    const mk = L.circleMarker([r0.lat,r0.lon],{renderer:canvas, radius: big ? 5+Math.min(7,Math.sqrt(rs.length)) : 4, bubblingMouseEvents:false,
+    const mk = S.mapStyle==="atak"&&window.atakIcon ? L.marker([r0.lat,r0.lon],{icon:atakIcon(rs, big), bubblingMouseEvents:false})  // ATAK style: symbol frames
+      : L.circleMarker([r0.lat,r0.lon],{renderer:canvas, radius: big ? 5+Math.min(7,Math.sqrt(rs.length)) : 4, bubblingMouseEvents:false,
       color: tower ? "#24292f" : colorOf(r0), weight: tower?3:1.5, fillColor: colorOf(rs.find(r=>r.layer!=="towers")||r0), fillOpacity: big?.75:.55});
     // each entry: what it is, then where it reaches, what it's networked with and (for a cell) its site
     const acts=r=>{ const a=[]; if(r.layer!=="towers"&&(erpOf(r)||emIsCell(r))) a.push(`<a href="#" data-em="coverage" data-fid="${esc(r.fid)}">coverage</a>`);
@@ -313,7 +315,7 @@ function drawMap(rows){
     // distance rings, each labelled on its north side
     const ringLabel=(mi,d)=>L.marker([S.center[0]+d/111320, S.center[1]],{interactive:false, icon:L.divIcon({className:"", iconSize:[60,14], iconAnchor:[30,7],
       html:`<span style="font:600 10px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:7px;white-space:nowrap">${+mi.toFixed(2)} mi</span>`})}).addTo(map);
-    for(let d=step, i=1; d<rm-1; d+=step, i++){ L.circle(S.center,{radius:d,color:"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(map); ringLabel(stepMi*i,d); }
+    for(let d=step, i=1; d<rm-1; d+=step, i++){ L.circle(S.center,{radius:d,color:S.mapStyle==="atak"?"#3ff":"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(map); ringLabel(stepMi*i,d); }
     L.circle(S.center,{radius:rm,color:"#555",weight:2,fill:false,interactive:false}).addTo(map); ringLabel(S.radius,rm);
     // live readout: where the cursor is, and how far / which way from the pin
     const Readout=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","legend"); d.id="mapReadout"; d.style.cssText="font:11px ui-monospace,monospace;padding:4px 8px"; d.textContent="Move over the map for position, distance and bearing from the pin"; return d; }});
@@ -322,7 +324,7 @@ function drawMap(rows){
       const dLa=(p.lat-la)*rad, dLo=(p.lng-lo)*rad, h=Math.sin(dLa/2)**2+Math.cos(la*rad)*Math.cos(p.lat*rad)*Math.sin(dLo/2)**2, mi=2*R*Math.asin(Math.sqrt(h));
       const brg=(Math.atan2(Math.sin(dLo)*Math.cos(p.lat*rad), Math.cos(la*rad)*Math.sin(p.lat*rad)-Math.sin(la*rad)*Math.cos(p.lat*rad)*Math.cos(dLo))/rad+360)%360;
       const pts=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(brg/22.5)%16];
-      el.textContent=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)} · ${mi.toFixed(2)} mi ${pts} (${Math.round(brg)}°) from the pin`; });
+      el.textContent=`${S.mapStyle==="atak"&&window.toMGRS?toMGRS(p.lat,p.lng)+" · ":""}${p.lat.toFixed(5)}, ${p.lng.toFixed(5)} · ${mi.toFixed(2)} mi ${pts} (${Math.round(brg)}°) from the pin`; });
     map.fitBounds(L.latLng(S.center).toBounds(rm*2.1));
   } else if(sites.size) map.fitBounds([...sites.values()].map(rs=>[rs[0].lat,rs[0].lon]));
   else map.setView([39.5,-98.35],4);

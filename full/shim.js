@@ -241,7 +241,7 @@ function heatmap(p) {
   if (kind === "predicted") {
     const seen = new Set(), tx = [];
     for (const r of rows) {
-      if (!["uls", "broadcast", "noaa"].includes(r.layer) || r.lat == null || r.is_mobile) continue;
+      if (!["uls", "broadcast", "noaa"].includes(r.layer) || r.lat == null || r.is_mobile || (r.freq_mhz || 0) < 30) continue;  // AM and HF: ground wave, not modelled
       const erp = r.erp_w || r.power_out_w, key = `${r.lat}|${r.lon}|${r.freq_mhz}`;
       if (erp && r.freq_mhz && !seen.has(key)) { seen.add(key); tx.push([r.lat, r.lon, erp, r.freq_mhz]); }
     }
@@ -448,6 +448,7 @@ async function coverage(p) {
   const lat = fnum(p, "lat"), lon = fnum(p, "lon"), f = fnum(p, "freq");
   if (lat == null || lon == null) throw new Error("Coverage needs the transmitter's location.");
   if (!f) throw new Error("Coverage needs the transmitter's frequency.");
+  if (f < 30) throw new Error(`${f} MHz travels by ground wave and skywave (AM broadcast, HF); RF Recon's coverage models start at 30 MHz.`);
   let eirp, src;
   if (fnum(p, "eirp") != null) { eirp = fnum(p, "eirp"); src = `${eirp} dBm EIRP, set by you`; }
   else if (fnum(p, "erp")) { eirp = 10 * Math.log10(fnum(p, "erp") * 1000) + 2.15; src = `licensed ERP ${fnum(p, "erp")} W`; }
@@ -589,9 +590,35 @@ function network(p) {
     links: {fcc: r0.usi ? `https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${r0.usi}` : null, radioreference: `https://www.radioreference.com/db/fcc/callsign/${cs}`}};
 }
 
+/* ---------- your own base maps (basemaps.py): tile addresses and ATAK map sources, kept in this browser ---------- */
+async function basemaps(path, p, method, body) {
+  let maps = [];
+  try { maps = JSON.parse(localStorage.getItem("rfr.basemaps") || "[]"); } catch (e) {}
+  const checkUrl = u => { u = String(u || "").trim().replace("{$z}", "{z}").replace("{$x}", "{x}").replace("{$y}", "{y}").replace("{$s}", "{s}");
+    if (!/^https:\/\//i.test(u)) throw new Error("In the web version a tile address must start with https://.");
+    if (!["{z}", "{x}", "{y}"].every(k => u.includes(k))) throw new Error("A tile address needs {z}, {x} and {y} (ATAK's {$z}, {$x}, {$y} work too).");
+    return u; };
+  if (path === "/basemaps/import" && method === "POST") {
+    let m;
+    if (typeof body === "string" && body.trim().startsWith("{")) { const d = JSON.parse(body); m = {name: (d.name || "My map").slice(0, 80), url: checkUrl(d.url), min: 0, max: 19}; }
+    else {
+      const text = body instanceof Blob ? await body.text() : String(body || "");
+      if (!text.trim().startsWith("<")) throw new Error("MBTiles maps open in RF Recon on the PC; here, import an ATAK map source (.xml) or a tile address.");
+      if (/<!DOCTYPE/i.test(text.slice(0, 2000))) throw new Error("That XML has a DOCTYPE; refused.");
+      const x = new DOMParser().parseFromString(text, "application/xml"), g = k => x.querySelector(k)?.textContent?.trim();
+      if (x.documentElement.nodeName !== "customMapSource") throw new Error("Expected an ATAK map source (<customMapSource>).");
+      m = {name: (fstr(p, "name") || g("name") || "Imported map").slice(0, 80), url: checkUrl(g("url")), min: +(g("minZoom") || 0), max: +(g("maxZoom") || 19)};
+    }
+    Object.assign(m, {kind: "url", format: "png", id: m.name.toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 40) || "map"});
+    maps = maps.filter(x => x.id !== m.id).concat([m]);
+  } else if (path === "/basemaps/delete" && method === "POST") maps = maps.filter(x => x.id !== fstr(p, "id"));
+  try { localStorage.setItem("rfr.basemaps", JSON.stringify(maps)); } catch (e) {}
+  return {maps};
+}
+
 /* ---------- the server's routes ---------- */
 const STUB_STATUS = () => ({net: {online: navigator.onLine, checked: null}, sources: {}, auto: false, links: [], link: "", running: []});
-async function route(path, p, method) {
+async function route(path, p, method, body) {
   if (path === "/meta") return META ? {built_at: META.fcc_built_at, towers_built_at: META.towers_built_at, tx_rows: META.counts?.licences,
     towers_rows: META.counts?.towers, pack: META.name, pack_made: META.made_at} : {};
   if (path === "/sigid") return {library: META?.sig_lib || {}, bandplan: META?.bandplan || []};
@@ -603,6 +630,7 @@ async function route(path, p, method) {
   if (path === "/coverage") return coverage(p);
   if (path === "/network") return network(p);
   if (path === "/cells") return {sites: [], cells: 0, towers_nearby: 0, sources: {}};  // crowd and survey data stay on the PC
+  if (path.startsWith("/basemaps")) return basemaps(path, p, method, body);
   if (path === "/geocode") return geocode(p);
   if (path === "/report/signals") return {counts: {}, rows: [], layers: []};
   if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)
@@ -621,7 +649,7 @@ window.fetch = async (input, opts) => {
   if (u.origin !== location.origin || !u.pathname.startsWith("/api/")) return realFetch(input, opts);
   await ready;
   const reply = (status, obj) => new Response(JSON.stringify(obj), {status, headers: {"Content-Type": "application/json"}});
-  try { return reply(200, await route(u.pathname.slice(4), u.searchParams, (opts?.method || "GET").toUpperCase())); }
+  try { return reply(200, await route(u.pathname.slice(4), u.searchParams, (opts?.method || "GET").toUpperCase(), opts?.body)); }
   catch (e) { return reply(e.status || 400, {error: e.message || String(e)}); }
 };
 

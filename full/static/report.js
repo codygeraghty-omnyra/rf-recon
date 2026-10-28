@@ -68,7 +68,7 @@ S.views.report = (v, rows) => {
       : '<p class="hint">No licensed frequencies with the current layers and filters. Turn on the FCC licensed layer or clear filters.</p>'}
   </div>
 
-  <div class="panel" id="rp_cov" style="margin-top:10px"><h3>Coverage by band <span class="hint">predicted from licensed ERP, free-space: best case, no terrain</span></h3>
+  <div class="panel" id="rp_cov" style="margin-top:10px"><h3>Coverage by band <span class="hint">predicted from licensed ERP with Hata and the hills (strongest transmitters), handheld at 1.5 m</span></h3>
     <div class="row no-print" style="margin-bottom:6px"><label class="inl">Show where the band is at least
       <select id="rp_floor">${REPORT_FLOORS.map(f => `<option value="${f}" ${f === (S.reportFloor ?? -100) ? "selected" : ""}>${f} dBm</option>`).join("")}</select></label></div>
     <div class="chips no-print" id="rp_pills">${bands.map(b => `<span class="chip ${b.band === S.reportBand ? "on" : ""}" data-band="${esc(b.band)}">${esc(b.band)} <b>${b.freqs}</b></span>`).join("")}</div>
@@ -126,7 +126,7 @@ async function drawBandHeat(gen) {
   note.textContent = `Building ${S.reportBand} coverage…`;
   try {
     const floor = S.reportFloor ?? -100;
-    const h = await api("/api/heatmap?" + params({kind: "predicted", bands: S.reportBand, layers: "uls,broadcast,noaa", floor, size: 160, alpha: 200}));
+    const h = await api("/api/heatmap?" + params({kind: "terrain", bands: S.reportBand, layers: "uls,broadcast,noaa", floor, size: 140, alpha: 200}));
     if (gen !== S.reportGen || !S.reportMap) return;
     S.reportHeat = L.imageOverlay("data:image/png;base64," + h.png, h.bounds, {opacity: .75, interactive: false}).addTo(map);
     note.textContent = `${S.reportBand}: ${h.desc}. Scale ${num(h.vmin, 0)} to ${num(h.vmax, 0)} ${h.unit} (blue weak, red strong); clear where below ${floor} dBm.`;
