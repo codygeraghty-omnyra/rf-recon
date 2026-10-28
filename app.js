@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "912399eafd";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "62c0238eed";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -580,7 +580,10 @@ async function viewPacks(v) {
   const p = S.pack, other = S.packs.filter(x => x.id !== p?.id);
   const area = a => a?.states ? a.states.join(", ") : a?.center ? `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}` : "";
   v.innerHTML = head("Data packs", p ? `Using <b>${esc(p.name)}</b>. Everything works without signal once a pack is loaded.` : "Load the FCC data for an area to start.")
-    + (!standalone() ? `<div class="card glass" style="--i:0"><h2>Put it on your home screen</h2><p style="margin:0 0 8px">${isIOS()
+    + (!matchMedia("(pointer: coarse)").matches ? `<div class="card glass" style="--i:0"><h2>On a computer?</h2><p style="margin:0">This is the phone version.
+      On the PC where RF Recon is installed, the full app opens from the <b>RF Recon (beta)</b> shortcut, or here:
+      <a href="http://localhost:8765/"><b>Open RF Recon (beta) on this PC</b></a>.</p></div>` : "")
+    + (!standalone() ?`<div class="card glass" style="--i:0"><h2>Put it on your home screen</h2><p style="margin:0 0 8px">${isIOS()
       ? "In Safari, tap Share, then <b>Add to Home Screen</b>. Open RF Recon from that icon: it keeps your packs and works offline."
       : "Tap <b>Install</b> (or the browser menu, then <b>Add to Home screen</b>). Open RF Recon from that icon: it keeps your packs and works offline."}</p>
       ${installEvt ? '<button class="btn primary" data-act="install">Install</button>' : ""}</div>` : "")
