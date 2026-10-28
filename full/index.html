@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Recon (beta)</title>
+<script>
+// Opened straight from the folder (file://) there is no server behind the page: go to the running app, or say how to start it
+if (location.protocol === "file:") {
+  var rfApp = "http://localhost:8765/", rfHelp = function () {
+    var show = function () { document.body.style.cssText = "margin:0;min-height:100vh;padding:1px 16px;background:#12110f";
+      document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:28px;border-radius:22px;background:#1f1b17;color:#f4efe8;font:16px/1.5 Segoe UI,system-ui,sans-serif">'
+      + '<h1 style="margin:0 0 10px;font-size:26px">RF Recon (beta)</h1><p>This page runs from RF Recon\'s own small server on this PC, so it can\'t work opened from the folder.</p>'
+      + '<p><a href="' + rfApp + '" style="color:#f0a07a;font-weight:700;font-size:19px">Open RF Recon (beta)</a> (when it\'s running)</p>'
+      + '<p style="color:#c4bbaf">To start it, double-click <b>RF Recon (beta)</b> on the Desktop, in the Start menu, or in the RF Recon folder in File Explorer (G:\\My Drive\\RF Recon). From Google Drive in the browser, open <b>RF Recon (beta) - open on PC or phone</b>.</p></div>'; };
+    if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
+  };
+  fetch(rfApp + "api/meta", {mode: "no-cors"}).then(function () { location.replace(rfApp); }, rfHelp);
+}
+</script>
+<link rel="stylesheet" href="static/vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="static/theme/glass.css">
+<script src="static/theme/skins.js"></script>
+<script>
+// The ◐ button's light / dark maps onto skins: light is Daylight, dark is the last dark skin (Smoke by default).
+try { var t = localStorage.getItem("theme");
+  if (t === "light") DashSkin.set("day"); else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark());
+  document.documentElement.dataset.theme = t || (DashSkin.get() === "day" ? "light" : "dark"); } catch (e) {}
+</script>
+<style>
+/* colours come from the glass theme (static/theme/glass.css); these map RF Recon's names onto it */
+:root, :root[data-skin]{
+  --panel: var(--g-strong); --chip: var(--wash); --sel: var(--accent-wash); --muted: var(--ink-2);
+  --accent-ink: var(--on-accent); --warn: var(--serious); --bad: var(--bad-ink);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--accent)}
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:1001;flex-wrap:wrap}
+header h1{font-size:15px;margin:0;letter-spacing:.05em;font-family:var(--mono)}
+header h1 span{color:var(--accent)}
+.hbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:4px 10px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.led{width:9px;height:9px;border-radius:50%;background:#8c959f;display:inline-block}
+.led.on{background:#2da44e}.led.off{background:#cf222e}.led.busy{background:#bf8700}
+main{max-width:1600px;margin:0 auto;padding:10px 14px 60px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+label.inl{flex-direction:row;align-items:center;gap:6px;color:var(--ink);font-size:13px}
+input,select,button,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+input[type=checkbox],input[type=radio]{padding:0;width:16px;height:16px;accent-color:var(--accent)}
+input[type=range]{padding:0;accent-color:var(--accent)}
+button{cursor:pointer;background:var(--chip)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 11px}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.grow{flex:1 1 200px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:2px 9px;font-size:12px;cursor:pointer;user-select:none;display:inline-flex;gap:6px;align-items:center}
+.chip b{font-weight:600;color:var(--muted)}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.on b{color:inherit}
+.chip.off{opacity:.45;text-decoration:line-through}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.fgroup{margin-top:8px}
+.fgroup h4{margin:0;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px;overflow-x:auto;position:sticky;top:46px;background:var(--bg);z-index:1000}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 13px;white-space:nowrap;color:var(--muted)}
+.tabs button.on{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.status{color:var(--muted);font-size:13px;margin:6px 0}
+.status.err{color:var(--bad)}
+.hint{color:var(--muted);font-size:12px}
+.mono{font-family:var(--mono)}
+h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.card .v{font-size:21px;font-weight:650;font-family:var(--mono)}
+.card .k{font-size:12px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px}
+.bars div{display:grid;grid-template-columns:150px 1fr 52px;gap:8px;align-items:center;font-size:12px;margin:3px 0;cursor:pointer}
+.bars .bar{height:10px;border-radius:3px;background:var(--accent)}
+.tw{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
+th{position:sticky;top:0;background:var(--panel);font-weight:600;color:var(--muted);cursor:pointer;font-size:11.5px;z-index:1}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--chip)}
+tbody tr.sel{background:var(--sel)}
+td.f{font-family:var(--mono);font-weight:600}
+td.n{font-family:var(--mono);text-align:right}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:var(--chip);border:1px solid var(--line)}
+.tag.v{background:var(--good);color:var(--accent-ink);border-color:var(--good)}
+.tag.w{background:var(--warn);color:#fff;border-color:var(--warn)}
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:10px}
+#map{height:calc(100vh - 230px);min-height:420px;border-radius:10px;border:1px solid var(--line)}
+.side{height:calc(100vh - 230px);min-height:420px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.ring{position:sticky;top:0;background:var(--chip);padding:4px 10px;font-size:11.5px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);z-index:1}
+.item{padding:6px 10px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;grid-template-columns:62px 1fr;gap:2px 8px;font-size:12.5px}
+.item:hover,.item.sel{background:var(--sel)}
+.item .d{font-family:var(--mono);color:var(--muted);font-size:11.5px}
+.item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{grid-column:2;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.maptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.legend{background:var(--panel);color:var(--ink);padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-size:11.5px;max-width:240px}
+.legend .bar{height:8px;border-radius:3px;background:linear-gradient(90deg,#30123b,#466be3,#29bbec,#31f198,#a3fd3d,#edd03a,#fb8022,#b40426)}
+.pinicon{background:var(--accent);border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.filterbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.filterbar input{flex:1 1 260px;font-family:var(--mono);font-size:13px}
+.filterbar input.ok{border-color:var(--good)}
+.filterbar input.bad{border-color:var(--bad)}
+.pkts{height:42vh;overflow:auto}
+.pane2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.tree{font-family:var(--mono);font-size:12px;height:30vh;overflow:auto;padding:6px 8px}
+.tree details{margin-left:12px}
+.tree summary{cursor:pointer;margin-left:-12px;font-weight:600}
+.tree .kv{display:block;white-space:pre-wrap;word-break:break-all;padding-left:4px}
+.tree .k{color:var(--muted)}
+pre.raw{margin:0;height:30vh;overflow:auto;font-size:11.5px;padding:6px 8px}
+.dash{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+.dash .panel{margin:0}
+.w12{grid-column:span 12}.w8{grid-column:span 8}.w6{grid-column:span 6}.w4{grid-column:span 4}
+#dashmap{height:360px;border-radius:8px}
+svg text{fill:var(--muted);font-size:10px;font-family:system-ui,sans-serif}
+#cy{height:calc(100vh - 260px);min-height:480px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);max-width:820px;width:calc(100% - 20px);padding:0}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.dlg-b{padding:11px 15px;max-height:78vh;overflow:auto}
+.kvg{display:grid;grid-template-columns:170px 1fr;gap:3px 12px;font-size:13px}
+.kvg div:nth-child(odd){color:var(--muted)}
+.sec{margin-top:12px}
+.srcrow{display:grid;grid-template-columns:44px minmax(160px,1.4fr) 120px 1.3fr 80px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.switch{position:relative;width:38px;height:22px;display:inline-block;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s;cursor:pointer}
+.switch span:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span:before{transform:translateX(16px)}
+.log{max-height:300px;overflow:auto;font-size:12.5px}
+.log div{padding:4px 0;border-bottom:1px solid var(--line)}
+.print-only{display:none}
+@media (max-width:900px){
+  .mapwrap{grid-template-columns:1fr}
+  #map{height:58vh}.side{height:auto;max-height:60vh}
+  .w8,.w6,.w4{grid-column:span 12}
+  .pane2{grid-template-columns:1fr}
+  .srcrow{grid-template-columns:44px 1fr 80px}
+  .srcrow .hide-m{display:none}
+  .kvg{grid-template-columns:120px 1fr}
+  .bars div{grid-template-columns:110px 1fr 44px}
+}
+/* Phones in the field (and gloves): every control at least 44px to tap. Look score had 0-1 of 38-54 at 390px. */
+@media (pointer:coarse), (max-width:600px){
+  button,select,input:not([type=checkbox]):not([type=radio]):not([type=range]),.chip,.tabs button,.seg button{min-height:44px}
+  button{min-width:44px}
+  .chip{padding:4px 12px}
+  input[type=checkbox],input[type=radio]{width:22px;height:22px}
+  input[type=range]{min-height:32px}
+  .leaflet-bar a,.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px}
+  .leaflet-control-layers-toggle,.leaflet-touch .leaflet-control-layers-toggle{width:44px;height:44px}
+  .leaflet-control-layers label{min-height:36px;display:flex;align-items:center}
+}
+@media print{
+  header,.tabs,.no-print,#searchPanel,#filters{display:none!important}
+  .print-only{display:block}
+  body{background:#fff;color:#000}
+  th{position:static}
+  #view > *:not(#printSheet){display:none!important}
+}
+</style>
+<style id="glass">
+/* glass look (Cody's dashboard default): same layout, new surfaces */
+html{background:var(--bg)}
+body{background:transparent;font-family:var(--font)}
+header{margin:12px 14px 0;top:12px;padding:9px 12px 9px 12px;gap:10px;border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+header h1{display:flex;align-items:center;gap:11px;font-family:var(--font);font-size:17px;font-weight:700;letter-spacing:.01em;margin-right:6px}
+header h1::before{content:"";width:36px;height:36px;border-radius:12px;flex:none;background:var(--accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314100c' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='1.7' fill='%2314100c'/><path d='M8.6 8.6a4.8 4.8 0 0 0 0 6.8M15.4 8.6a4.8 4.8 0 0 1 0 6.8M5.7 5.7a8.9 8.9 0 0 0 0 12.6M18.3 5.7a8.9 8.9 0 0 1 0 12.6'/></svg>") center/20px no-repeat;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 18px -10px var(--accent)}
+.hbtn{height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--pill);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font-size:13px;font-weight:550;transition:background .15s}
+.hbtn:hover{background:var(--wash-2)}
+#themeBtn{width:36px;padding:0;justify-content:center;font-size:15px}
+main{padding:14px 14px 60px}
+.panel{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);padding:16px 18px;margin-bottom:14px}
+label{color:var(--ink-2);font-weight:550}
+input,select,textarea{background:var(--wash);border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:12px;padding:8px 12px}
+input:focus,select:focus,textarea:focus{outline:none;box-shadow:inset 0 0 0 1.5px var(--accent)}
+select option{background:var(--surface);color:var(--ink)}
+::placeholder{color:var(--ink-2);opacity:.7}
+input[type=checkbox],input[type=radio],input[type=range]{box-shadow:none;background:none}
+button{border:0;border-radius:999px;background:var(--pill);box-shadow:inset 0 0 0 1px var(--line);padding:7px 15px;font-weight:600;font-size:13px;transition:background .15s,filter .15s}
+button:hover{background:var(--wash-2)}
+button.primary{background:var(--accent);color:var(--on-accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 10px 22px -12px var(--accent)}
+button.primary:hover{background:var(--accent);filter:brightness(1.07)}
+.seg{border:0;border-radius:999px;background:var(--pill);padding:3px;gap:2px;box-shadow:inset 0 1px 0 var(--g-hi),inset 0 0 0 1px var(--line);overflow:visible}
+.seg button{border-radius:999px;box-shadow:none;background:transparent;padding:6px 14px;color:var(--ink-2)}
+.seg button.on{background:var(--inv);color:var(--inv-ink)}
+.chip{border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--pill);padding:4px 11px;font-size:12.5px}
+.chip.on{background:var(--accent);color:var(--on-accent);box-shadow:none}
+.tabs{top:80px;gap:2px;padding:4px;margin:6px auto 14px;width:max-content;max-width:100%;border:1px solid var(--g-border);border-radius:999px;background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+.tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500}
+.tabs button.on{border:0;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 1px 0 var(--g-hi);font-weight:600}
+.status{padding:0 4px}
+h3{font-size:14.5px;text-transform:none;letter-spacing:-.005em;color:var(--ink);font-weight:600;margin-bottom:12px}
+.fgroup h4{color:var(--ink-2)}
+.card{background:var(--wash);border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:16px;padding:12px 14px}
+.card .v{font-family:var(--font);font-size:24px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .k{color:var(--ink-2)}
+.bars .bar{border-radius:0 999px 999px 0;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 38%,transparent),var(--accent));box-shadow:0 0 14px -3px var(--glow)}
+.tw,.side{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+th{background:var(--g-strong);color:var(--ink-2);border-bottom-color:var(--grid)}
+td{border-bottom-color:var(--grid)}
+tbody tr:hover{background:var(--wash)}
+.tag{border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--wash);border-radius:999px;padding:1px 8px}
+.tag.v{background:var(--good);color:#0b1a10;box-shadow:none}
+.tag.w{background:var(--serious);color:#1c0d05;box-shadow:none}
+#map,#dashmap{border:1px solid var(--g-border);border-radius:var(--radius);box-shadow:var(--g-shadow)}
+#cy{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+.ring{background:var(--g-strong);color:var(--ink-2);border-bottom-color:var(--grid)}
+.item{border-bottom-color:var(--grid)}
+.legend{background:var(--g-strong);border:0;box-shadow:var(--g-shadow);border-radius:14px;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+dialog{border:1px solid var(--g-border);border-radius:var(--radius);background:var(--g-strong);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+dialog::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.dlg-h{background:var(--g-strong);border-bottom-color:var(--grid)}
+svg text{fill:var(--ink-2);font-family:var(--font)}
+.switch span{background:var(--wash-2)}
+.switch input:checked+span:before{background:var(--on-accent)}
+.leaflet-container{background:var(--surface);font-family:var(--font)}
+.leaflet-bar{border:0!important;border-radius:14px!important;overflow:hidden;box-shadow:var(--g-shadow)!important}
+.leaflet-bar a{background:var(--g-strong)!important;color:var(--ink)!important;border-bottom-color:var(--line)!important}
+.leaflet-control-layers{background:var(--g-strong)!important;color:var(--ink)!important;border:0!important;border-radius:14px!important;box-shadow:var(--g-shadow)!important}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--g-strong);color:var(--ink);box-shadow:var(--g-shadow)}
+.leaflet-control-attribution{background:rgba(0,0,0,.35)!important;color:var(--ink-2)!important}
+.leaflet-control-attribution a{color:var(--ink)!important}
+/* street map tiles (/tiles/osm/… and the plain /tiles/{z}/… layer) go dark on the dark skins;
+   satellite, topo, county lines and radar keep their colours */
+:root:not([data-skin="day"]) :is(.leaflet-tile[src*="/tiles/osm/"], .leaflet-tile[src^="/tiles/0"], .leaflet-tile[src^="/tiles/1"], .leaflet-tile[src^="/tiles/2"], .leaflet-tile[src^="/tiles/3"], .leaflet-tile[src^="/tiles/4"], .leaflet-tile[src^="/tiles/5"], .leaflet-tile[src^="/tiles/6"], .leaflet-tile[src^="/tiles/7"], .leaflet-tile[src^="/tiles/8"], .leaflet-tile[src^="/tiles/9"]){filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.86) saturate(.55)}
+@media print{#backdrop{display:none}html{background:#fff}}
+</style>
+<link rel="stylesheet" href="web.css">
+<link rel="icon" href="../icons/icon-192.png">
+</head>
+<body>
+<div id="backdrop" aria-hidden="true">
+  <div class="scene s-room">
+    <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="bd-sw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14110e"/><stop offset=".62" stop-color="#2b231b"/><stop offset=".64" stop-color="#3a2f24"/><stop offset="1" stop-color="#16120e"/></linearGradient>
+        <linearGradient id="bd-win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6dccb"/><stop offset="1" stop-color="#b9a68a"/></linearGradient>
+        <radialGradient id="bd-lamp"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffb066" stop-opacity="0"/></radialGradient>
+        <radialGradient id="bd-spill" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#8a6c4e" stop-opacity=".7"/><stop offset="1" stop-color="#8a6c4e" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="1600" height="1000" fill="url(#bd-sw)"/>
+      <g fill="url(#bd-win)" opacity=".62">
+        <rect x="170" y="70" width="150" height="540" rx="4"/><rect x="334" y="70" width="150" height="540" rx="4"/><rect x="498" y="70" width="150" height="540" rx="4"/><rect x="662" y="70" width="150" height="540" rx="4"/>
+      </g>
+      <g fill="#14110e" opacity=".55"><rect x="170" y="300" width="642" height="10"/><rect x="170" y="430" width="642" height="8"/></g>
+      <g fill="url(#bd-win)" opacity=".34"><rect x="1120" y="120" width="96" height="430" rx="4"/><rect x="1228" y="120" width="96" height="430" rx="4"/></g>
+      <ellipse cx="560" cy="820" rx="560" ry="150" fill="url(#bd-spill)"/>
+      <rect x="360" y="612" width="560" height="150" rx="48" fill="#0f0c0a" opacity=".86"/>
+      <rect x="400" y="560" width="480" height="90" rx="40" fill="#1a1511" opacity=".9"/>
+      <rect x="1010" y="680" width="380" height="30" rx="8" fill="#0d0b09" opacity=".9"/>
+      <rect x="1040" y="708" width="16" height="140" fill="#0d0b09"/><rect x="1344" y="708" width="16" height="140" fill="#0d0b09"/>
+      <circle cx="1440" cy="330" r="200" fill="url(#bd-lamp)" opacity=".55"/>
+      <circle cx="1440" cy="330" r="46" fill="#ffe2b4" opacity=".75"/>
+      <ellipse cx="1000" cy="560" rx="70" ry="130" fill="#141a12" opacity=".8"/>
+    </svg>
+    <div class="wisps"></div>
+  </div>
+  <div class="scene s-dusk">
+    <svg viewBox="0 0 1600 440" preserveAspectRatio="none"><path d="M0 230 C 180 170 300 200 420 160 S 700 120 860 180 S 1160 110 1320 170 S 1520 150 1600 180 V440 H0Z" fill="#1d1916" opacity=".9"/><path d="M0 320 C 240 270 420 300 640 260 S 1040 300 1260 250 S 1500 280 1600 270 V440 H0Z" fill="#110f0d"/></svg>
+  </div>
+  <div class="scene s-liquid"><div class="blobs"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="scene s-day"><div class="blobs"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="photo"></div><div class="shade"></div>
+</div>
+<header>
+  <h1>RF<span>/</span>RECON <small class="tag" style="font-size:10px;vertical-align:middle">BETA</small></h1>
+  <button class="hbtn" id="missionChip" title="Mission">◎ <span id="missionName">No mission</span></button>
+  <button class="hbtn" id="netChip" title="Connection &amp; data updates"><span class="led" id="netLed"></span><span id="netText">checking…</span></button>
+  <span class="hint" id="meta" style="margin-left:auto"></span>
+  <button class="hbtn" id="glassBtn" title="Glass: click for more opaque, back round to clear">Glass: Clear</button>
+  <button class="hbtn" id="skinBtn" title="Skin: click for the next one">Smoke</button>
+  <button class="hbtn" id="themeBtn" title="Light / dark">◐</button>
+</header>
+<main>
+  <section class="panel no-print" id="searchPanel">
+    <div class="row">
+      <div class="seg" id="modeSeg"><button data-m="point" class="on">Pin + radius</button><button data-m="county">County</button></div>
+      <label class="grow" id="locWrap">Pin (lat, lon or Maps link — or click / drag on the map)
+        <input id="loc" placeholder="38.8895, -77.0353"></label>
+      <label>Radius (mi)<input id="radius" type="number" value="5" min="0.25" step="0.25" style="width:80px"></label>
+      <label style="min-width:140px">&nbsp;<input id="radiusSlider" type="range" min="0.25" max="50" step="0.25" value="5"></label>
+      <button id="gpsBtn" title="Use this device's GPS">◎ GPS</button>
+      <span id="countyWrap" class="row" style="display:none">
+        <label>State <select id="state"></select></label>
+        <label>County <select id="county"></select></label>
+      </span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="grow">Search (licensee, call sign, city)<input id="q" placeholder="sheriff, WQ…, Fairfax"></label>
+      <label>Freq from MHz<input id="fmin" type="number" step="any" style="width:100px"></label>
+      <label>to<input id="fmax" type="number" step="any" style="width:100px"></label>
+      <label class="inl"><input type="checkbox" id="hideMobile" checked> Fixed sites only</label>
+      <button class="primary" id="go">Search</button>
+    </div>
+  </section>
+
+  <section class="panel no-print" id="filters" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <strong id="resultCount"></strong>
+      <div class="row">
+        <button id="clearChips">Clear filters</button>
+        <button id="csvBtn">⇩ CSV</button>
+        <button id="kmlBtn">⇩ KML</button>
+        <button id="printBtn">⎙ Prep sheet</button>
+      </div>
+    </div>
+    <div class="fgroup"><h4>Layers — sources (click to show / hide everywhere)</h4><div class="chips" id="fLayer"></div></div>
+    <div class="fgroup"><h4>Signal type</h4><div class="chips" id="fType"></div></div>
+    <details id="moreFilters" class="fgroup"><summary class="hint" style="cursor:pointer">More filters — category, band, station type <span id="moreCount"></span></summary>
+      <div class="fgroup"><h4>Category</h4><div class="chips" id="fCat"></div></div>
+      <div class="fgroup"><h4>Band</h4><div class="chips" id="fBand"></div></div>
+      <div class="fgroup"><h4>Station type</h4><div class="chips" id="fClass"></div></div></details>
+  </section>
+
+  <div class="status" id="status">Drop a pin (or pick a county) and Search.</div>
+  <nav class="tabs no-print" id="tabs">
+    <button data-t="map" class="on">Map</button>
+    <button data-t="report">Area report</button>
+    <button data-t="analyzer">Analyzer</button>
+    <button data-t="dashboard">Dashboard</button>
+    <button data-t="topology">Topology</button>
+    <button data-t="profile">Site profile</button>
+    <button data-t="agencies">Agencies</button>
+    <button data-t="spectrum">Spectrum</button>
+    <button data-t="mission">Mission</button>
+    <button data-t="data">Data &amp; updates</button>
+  </nav>
+  <section id="view"></section>
+</main>
+<dialog id="dlg"><div class="dlg-h"><strong id="dlgTitle"></strong><span style="flex:1"></span>
+  <button onclick="document.getElementById('dlg').close()">✕</button></div><div class="dlg-b" id="dlgBody"></div></dialog>
+<script src="static/vendor/leaflet/leaflet.js"></script>
+<script src="static/vendor/cytoscape.min.js"></script>
+<script src="../vendor/sqljs/sql-wasm.js"></script>
+<script src="shim.js"></script>
+<script src="static/core.js"></script>
+<script src="static/views.js"></script>
+<script src="static/mission.js"></script>
+<script src="static/report.js"></script>
+<script src="static/search.js"></script>
+<script src="static/spectrum.js"></script>
+<script src="static/help.js"></script>
+<script>
+// Skin button cycles the dark skins (Smoke, Haze, Dusk, Liquid); ◐ still switches light / dark.
+(function () {
+  var root = document.documentElement, btn = document.getElementById("skinBtn");
+  function label() { btn.textContent = DashSkin.names[DashSkin.get()]; }
+  function fromTheme() {
+    var t = root.dataset.theme;
+    if (t === "light" && DashSkin.get() !== "day") DashSkin.set("day");
+    else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark());
+    label();
+  }
+  new MutationObserver(fromTheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  var gbtn = document.getElementById("glassBtn");
+  function glassLabel() { gbtn.textContent = "Glass: " + DashSkin.glassNames[DashSkin.glass()]; }
+  gbtn.onclick = function () { DashSkin.nextGlass(); glassLabel(); };
+  glassLabel();
+  btn.onclick = function () {
+    DashSkin.nextDark();
+    root.dataset.theme = "dark";
+    try { localStorage.setItem("theme", "dark"); } catch (e) {}
+    label();
+    if (typeof render === "function") render();
+  };
+  fromTheme();
+})();
+</script>
+<script src="web.js"></script>
+</body>
+</html>

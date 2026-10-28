@@ -1,0 +1,3 @@
+/* RF Recon (beta), full web version: PC-only controls hidden (missions, connection and data updates, the KMZ +
+   GeoTIFF heatmap bundle the PC server builds). */
+#missionChip, #netChip, #heatExport { display: none !important; }

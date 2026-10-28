@@ -1,6 +1,6 @@
 /* RF Recon (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "62c0238eed";
+const VERSION = "74cae7ee22";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glass.css", "theme/skins.js", "theme/look.js",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/sqljs/sql-wasm.js", "vendor/sqljs/sql-wasm.wasm",
@@ -34,9 +34,17 @@ self.addEventListener("fetch", e => {
   if (url.origin !== location.origin) return;
   // while testing on the PC ("dev"), the network first so edits show; published copies open from the phone
   if (VERSION === "dev") { e.respondWith(fetch(req).catch(() => caches.match(req, {ignoreSearch: true}))); return; }
-  // the app itself: from the phone first (so it opens offline), the network when it isn't saved yet
+  // the app itself: from the phone first (so it opens offline), the network when it isn't saved yet; anything
+  // else of ours fetched once (the full web version in full/) is kept for next time
   e.respondWith(caches.open(SHELL).then(async c => {
-    const hit = await c.match(req, {ignoreSearch: true}) || (req.mode === "navigate" ? await c.match("./") : null);
-    return hit || fetch(req);
+    const hit = await c.match(req, {ignoreSearch: true});
+    if (hit) return hit;
+    try {
+      const res = await fetch(req);
+      if (res.ok) c.put(req, res.clone()).catch(() => {});
+      return res;
+    } catch (err) {
+      return (req.mode === "navigate" && !new URL(req.url).pathname.includes("/full/") && await c.match("./")) || Response.error();
+    }
   }));
 });

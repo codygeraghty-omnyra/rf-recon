@@ -1,0 +1,118 @@
+/* Dashboard look: glass panels over a backdrop, five skins.
+   Smoke is the default (no attribute needed). Set <html data-skin="haze|dusk|liquid|day"> for the others,
+   data-solid for reduce-transparency. skins.js does both and remembers the choice.
+   Reference build: Desktop\Code and Chill\Code and Chill - Sales CRM.html */
+:root {
+  color-scheme: dark;
+  --font: "Urbanist", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  --bg: #12110f; --ink: #f4efe8; --ink-2: #c4bbaf; --muted: #958c81;
+  --accent-s: #f0a07a; --accent-2-s: #e2795a; --on-accent: #2b1208;
+  --line: rgba(255, 245, 232, .10); --grid: rgba(255, 245, 232, .07); --axis: rgba(255, 245, 232, .18);
+  --wash: rgba(255, 248, 238, .06); --wash-2: rgba(255, 248, 238, .11); --raise: rgba(255, 248, 238, .07);
+  --pill: rgba(28, 25, 22, .62); --inv: #f4efe8; --inv-ink: #12110f; --surface: #1f1b17;
+  --g-bg: linear-gradient(140deg, rgba(255, 248, 238, .05), rgba(255, 248, 238, 0) 38%), linear-gradient(rgba(38, 34, 30, .74), rgba(28, 25, 22, .68) 46%);
+  --g-strong: rgba(30, 27, 23, .92); --g-border: rgba(255, 248, 238, .09); --g-hi: rgba(255, 248, 238, .13);
+  --g-shadow: inset 0 1px 0 var(--g-hi), 0 22px 44px -24px rgba(0, 0, 0, .6);
+  --g-blur: blur(26px) saturate(160%);
+  --radius: 22px;
+  --good: #3ccf7a; --good-ink: #7fdca2; --warning: #fab219; --serious: #ec835a; --critical: #e5534b; --bad-ink: #f28b82;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181;
+  --scrim: rgba(0, 0, 0, .45);
+  --accent: var(--accent-o, var(--accent-s)); --accent-2: var(--accent-2-o, var(--accent-2-s));
+  --accent-wash: color-mix(in srgb, var(--accent) 16%, transparent);
+  --glow: color-mix(in srgb, var(--accent) 45%, transparent);
+  --track: color-mix(in srgb, var(--accent) 16%, transparent);
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+:root[data-skin="haze"] {
+  --bg: #161616; --ink: #f6f5f3; --ink-2: #d2d0cb; --muted: #b3b0aa;
+  --accent-s: #ece6dc; --accent-2-s: #b9b2a6;
+  --line: rgba(255, 255, 255, .13); --grid: rgba(255, 255, 255, .09); --axis: rgba(255, 255, 255, .24);
+  --wash: rgba(255, 255, 255, .07); --wash-2: rgba(255, 255, 255, .13); --raise: rgba(255, 255, 255, .07);
+  --pill: rgba(20, 20, 22, .34); --inv: #f6f5f3; --inv-ink: #141414; --surface: #262624;
+  --g-bg: linear-gradient(140deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, 0) 42%), rgba(20, 20, 22, .36);
+  --g-strong: rgba(28, 28, 30, .74); --g-border: rgba(255, 255, 255, .15); --g-hi: rgba(255, 255, 255, .2);
+  --g-shadow: inset 0 1px 0 var(--g-hi), 0 24px 48px -28px rgba(0, 0, 0, .55);
+  --g-blur: blur(34px) saturate(130%);
+}
+:root[data-skin="haze"] body { text-shadow: 0 1px 2px rgba(0, 0, 0, .28); }
+:root[data-skin="dusk"] {
+  --bg: #111513; --ink: #f2f4f0; --ink-2: #c2c7c1; --muted: #8f968f;
+  --accent-s: #c4ef4f; --accent-2-s: #7fd17a;
+  --line: rgba(255, 255, 255, .10); --grid: rgba(255, 255, 255, .07); --axis: rgba(255, 255, 255, .18);
+  --wash: rgba(255, 255, 255, .06); --wash-2: rgba(255, 255, 255, .11); --raise: rgba(255, 255, 255, .08);
+  --pill: rgba(20, 23, 23, .5); --inv: #f2f4f0; --inv-ink: #111513; --surface: #1a1f1e;
+  --g-bg: linear-gradient(160deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 42%), rgba(20, 23, 23, .46);
+  --g-strong: rgba(22, 26, 26, .92); --g-border: rgba(255, 255, 255, .15); --g-hi: rgba(255, 255, 255, .12);
+  --g-shadow: inset 0 1px 0 var(--g-hi), 0 30px 60px -30px rgba(0, 0, 0, .6);
+  --g-blur: blur(22px) saturate(150%);
+}
+:root[data-skin="liquid"] {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --bg: #0a0a0c; --ink: #f5f5f7; --ink-2: #b9b9c4; --muted: #8a8a97;
+  --accent-s: #3d8bfd; --accent-2-s: #8b7cf6;
+  --line: rgba(255, 255, 255, .10); --grid: rgba(255, 255, 255, .07); --axis: rgba(255, 255, 255, .18);
+  --wash: rgba(255, 255, 255, .07); --wash-2: rgba(255, 255, 255, .12); --raise: rgba(255, 255, 255, .09);
+  --pill: rgba(28, 28, 38, .42); --inv: #f5f5f7; --inv-ink: #0a0a0c; --surface: #17171f;
+  --g-bg: radial-gradient(120% 80% at 0% 0%, rgba(255, 255, 255, .10), rgba(255, 255, 255, 0) 55%), linear-gradient(172deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, 0) 42%), rgba(26, 26, 36, .42);
+  --g-strong: rgba(24, 24, 32, .9); --g-border: rgba(255, 255, 255, .07); --g-hi: rgba(255, 255, 255, .30);
+  --g-shadow: inset 0 1px 1px var(--g-hi), inset 0 -1px 1px rgba(255, 255, 255, .10), inset 3px 4px 12px -6px rgba(255, 255, 255, .24), inset -4px -6px 14px -8px rgba(255, 255, 255, .12), 0 24px 48px -24px rgba(0, 0, 0, .6);
+  --g-blur: blur(16px) saturate(190%);
+  --radius: 28px;
+}
+:root[data-skin="day"] {
+  color-scheme: light;
+  --bg: #e8ecf3; --ink: #0d1017; --ink-2: #474c59; --muted: #6c7180;
+  --accent-s: #2a78d6; --accent-2-s: #6250d6;
+  --line: rgba(15, 23, 42, .10); --grid: rgba(15, 23, 42, .08); --axis: rgba(15, 23, 42, .2);
+  --wash: rgba(15, 23, 42, .05); --wash-2: rgba(15, 23, 42, .09); --raise: rgba(255, 255, 255, .8);
+  --pill: rgba(255, 255, 255, .55); --inv: #0d1017; --inv-ink: #ffffff; --surface: #f5f7fb;
+  --g-bg: linear-gradient(140deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 40%), linear-gradient(rgba(255, 255, 255, .62), rgba(255, 255, 255, .46));
+  --g-strong: rgba(248, 250, 253, .92); --g-border: rgba(255, 255, 255, .85); --g-hi: #ffffff;
+  --g-shadow: inset 0 1px 0 var(--g-hi), 0 24px 50px -28px rgba(15, 23, 42, .38);
+  --g-blur: blur(26px) saturate(170%);
+  --good: #0ca30c; --good-ink: #006300; --critical: #d03b3b; --bad-ink: #c0302f;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4;
+  --scrim: rgba(15, 23, 42, .22);
+}
+:root[data-solid] { --g-bg: var(--surface); --g-strong: var(--surface); --g-blur: none; --pill: var(--surface); }
+:root[data-solid] #backdrop { opacity: .3; }
+/* glass density: more opaque panels without going solid. <html data-glass="frosted|dense|heavy">; clear is the default */
+:root { --g-tint: transparent; }
+:root[data-glass="frosted"] { --g-tint: color-mix(in srgb, var(--surface) 32%, transparent); }
+:root[data-glass="dense"] { --g-tint: color-mix(in srgb, var(--surface) 55%, transparent); }
+:root[data-glass="heavy"] { --g-tint: color-mix(in srgb, var(--surface) 75%, transparent); }
+
+/* the glass surface: put .glass on any panel */
+.glass { background: linear-gradient(var(--g-tint), var(--g-tint)), var(--g-bg); border: 1px solid var(--g-border); box-shadow: var(--g-shadow); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); }
+
+/* backdrops (markup in backdrop.html): the page body must have no background of its own */
+#backdrop { position: fixed; inset: 0; z-index: -1; background: var(--bg); overflow: hidden; pointer-events: none; }
+#backdrop .scene { position: absolute; inset: 0; display: none; }
+:root:not([data-skin]) #backdrop .s-room, :root[data-skin="smoke"] #backdrop .s-room, :root[data-skin="haze"] #backdrop .s-room, :root[data-skin="dusk"] #backdrop .s-dusk, :root[data-skin="liquid"] #backdrop .s-liquid, :root[data-skin="day"] #backdrop .s-day { display: block; }
+#backdrop.has-photo .scene { display: none !important; }
+#backdrop .s-room svg { position: absolute; inset: -6%; width: 112%; height: 112%; filter: blur(16px) saturate(115%); }
+#backdrop .wisps { position: absolute; inset: -20%; display: none; filter: blur(30px); mix-blend-mode: screen;
+  background: radial-gradient(30% 16% at 22% 30%, rgba(236, 233, 228, .22), transparent 70%), radial-gradient(24% 13% at 66% 20%, rgba(236, 233, 228, .17), transparent 70%), radial-gradient(38% 18% at 46% 64%, rgba(236, 233, 228, .15), transparent 70%), radial-gradient(22% 11% at 84% 72%, rgba(236, 233, 228, .16), transparent 70%), radial-gradient(18% 26% at 8% 78%, rgba(236, 233, 228, .12), transparent 70%); }
+:root[data-skin="haze"] #backdrop .wisps { display: block; }
+:root[data-skin="haze"] #backdrop .s-room svg { filter: blur(10px) saturate(35%) brightness(1.02); }
+#backdrop .s-room::after, #backdrop .s-dusk::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse 85% 75% at 50% 40%, transparent 35%, rgba(8, 7, 6, .62) 100%), rgba(18, 17, 15, .16); }
+:root[data-skin="haze"] #backdrop .s-room::after { background: radial-gradient(ellipse 90% 80% at 50% 40%, transparent 45%, rgba(10, 10, 10, .5) 100%), rgba(30, 30, 30, .12); }
+#backdrop .s-dusk { background: linear-gradient(180deg, #263040 0%, #3c4758 24%, #616369 46%, #87695a 60%, #4c3b31 72%, #1c1714 86%, #100e0c 100%); }
+#backdrop .s-dusk::before { content: ""; position: absolute; inset: -10%; filter: blur(40px); background: radial-gradient(38% 16% at 28% 26%, rgba(214, 210, 222, .32), transparent 70%), radial-gradient(34% 13% at 74% 18%, rgba(190, 196, 214, .26), transparent 70%), radial-gradient(60% 18% at 50% 63%, rgba(255, 168, 108, .42), transparent 70%); }
+#backdrop .s-dusk svg { position: absolute; left: -5%; bottom: 0; width: 110%; height: 44%; filter: blur(5px); }
+#backdrop .blobs { position: absolute; inset: -12%; filter: blur(34px) saturate(130%); background: radial-gradient(42% 38% at 16% 20%, var(--b1), transparent 70%), radial-gradient(38% 44% at 86% 14%, var(--b2), transparent 70%), radial-gradient(46% 40% at 72% 88%, var(--b3), transparent 70%), radial-gradient(30% 30% at 30% 82%, var(--b2), transparent 70%); }
+#backdrop .s-liquid { background: #0a0a0c; --b1: rgba(107, 77, 255, .55); --b2: rgba(42, 140, 255, .42); --b3: rgba(25, 195, 154, .30); --o1: rgba(107, 77, 255, .85); --o2: rgba(42, 140, 255, .7); --o3: rgba(25, 195, 154, .8); }
+#backdrop .s-day { background: #e8ecf3; --b1: rgba(150, 130, 255, .45); --b2: rgba(120, 180, 255, .45); --b3: rgba(120, 230, 200, .40); --o1: rgba(170, 150, 255, .7); --o2: rgba(140, 190, 255, .65); --o3: rgba(140, 230, 205, .7); }
+#backdrop .orb { position: absolute; border-radius: 50%; }
+#backdrop .o1 { width: 42vmax; height: 42vmax; left: -9vmax; top: 44%; background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .5), var(--o1) 36%, var(--o2) 70.5%, transparent 71%); }
+#backdrop .o2 { width: 24vmax; height: 24vmax; right: 5vmax; top: 9vh; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .55), var(--o3) 40%, var(--o2) 70.5%, transparent 71%); }
+#backdrop .o3 { width: 15vmax; height: 15vmax; right: 34vmax; bottom: -3vmax; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .45), var(--o2) 40%, var(--o1) 70.5%, transparent 71%); }
+#backdrop .photo { position: absolute; inset: -3%; background-size: cover; background-position: center; display: none; filter: blur(6px) saturate(110%); }
+#backdrop .shade { position: absolute; inset: 0; display: none; background: rgba(10, 9, 8, .42); }
+:root[data-skin="day"] #backdrop .shade { background: rgba(255, 255, 255, .32); }
+#backdrop.has-photo .photo, #backdrop.has-photo .shade { display: block; }
+#backdrop::after { content: ""; position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
