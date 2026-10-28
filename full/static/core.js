@@ -15,10 +15,12 @@ const LAYERS = {
   faa:{label:"Aviation (FAA)", color:"#0550ae"},
   towers:{label:"Towers (FCC ASR)", color:"#57606a"}, captures:{label:"My captures", color:"#cf222e"},
   wigle:{label:"WiGLE", color:"#8250df"}, opencellid:{label:"OpenCelliD", color:"#bf3989"},
-  repeaterbook:{label:"RepeaterBook", color:"#1f6feb"}, custom:{label:"Imported layers", color:"#bf8700"}};
+  repeaterbook:{label:"RepeaterBook", color:"#1f6feb"}, custom:{label:"Imported layers", color:"#bf8700"},
+  ttn:{label:"LoRaWAN gateways (TTN)", color:"#0a7c66"}, satnogs:{label:"SatNOGS ground stations", color:"#6639ba"},
+  wspr:{label:"WSPR stations", color:"#b35900"}, pskreporter:{label:"PSKReporter", color:"#a40e26"}};
 
 const S = { mode:"point", rows:[], center:null, radius:5, tab:"map",
-  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom"]),
+  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter"]),
   chips:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set()},
   sort:{k:"dist_mi", dir:1}, shown:600, lib:{}, mission:null, missionId:null, heat:{kind:"off", opacity:.75},
   sel:null, filterExpr:"", views:{} };
@@ -156,7 +158,7 @@ S.views.map = (v, rows) => {
       ${S.heat.kind==="measured"&&(S.heat.ident||S.heat.freq)?`<span class="tag">Signal: ${esc(S.heat.signal||S.heat.ident||S.heat.freq)} <a href="#" id="heatSigClear" title="Back to every signal">✕</a></span>`:""}
       <label class="inl">Opacity <input type="range" id="heatOp" min="0.1" max="1" step="0.05" value="${S.heat.opacity}" style="width:90px"></label>
       <button id="heatExport" title="KMZ for Google Earth / ATAK, GeoTIFF for QGIS / ArcGIS / Global Mapper">⇩ Heatmap (KMZ + GeoTIFF)</button>
-      <span class="hint" style="margin-left:auto">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
+      <span class="hint" id="mapHint" style="margin-left:auto">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
       <div class="seg"><button data-lv="list" class="${S.listMode!=="table"?"on":""}">List</button><button data-lv="table" class="${S.listMode==="table"?"on":""}">Table</button></div>
     </div>
     <div class="mapwrap" id="mapwrap" style="${S.listMode==="table"?"grid-template-columns:1fr":""}">
@@ -249,7 +251,21 @@ function addMapLayers(map){
 
 function drawMap(rows){
   if(typeof L==="undefined"){ $("#map").innerHTML='<p class="status" style="padding:12px">Map library missing.</p>'; return; }
-  const map=L.map("map",{preferCanvas:true, zoomControl:true}); S.map=map;
+  if(S.wheelZoom==null){ try{ S.wheelZoom=localStorage.getItem("rfr.wheelZoom")!=="0"; }catch(e){ S.wheelZoom=true; } }
+  const map=L.map("map",{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
+  // − / + and a switch for zooming with the mouse wheel (off: the wheel scrolls the page), side by side
+  const Zoom=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","leaflet-bar"); d.style.cssText="display:flex;background:var(--panel,#fff)";
+    const btn=(txt,title)=>{ const b=L.DomUtil.create("a","",d); b.href="#"; b.textContent=txt; b.title=title; b.setAttribute("role","button");
+      b.style.cssText="width:auto;min-width:30px;padding:0 8px;display:flex;align-items:center;justify-content:center;font:600 13px system-ui;color:var(--ink,#111);background:transparent"; return b; };
+    const out=btn("−","Zoom out"), inn=btn("+","Zoom in"), wh=btn("","");
+    const paint=()=>{ wh.textContent=S.wheelZoom?"🖱 Wheel zoom on":"🖱 Wheel zoom off"; wh.title=S.wheelZoom?"The mouse wheel zooms the map. Click to turn it off (the wheel then scrolls the page).":"The mouse wheel scrolls the page. Click to zoom with it again."; };
+    paint(); L.DomEvent.disableClickPropagation(d);
+    L.DomEvent.on(out,"click",e=>{ L.DomEvent.preventDefault(e); map.zoomOut(); });
+    L.DomEvent.on(inn,"click",e=>{ L.DomEvent.preventDefault(e); map.zoomIn(); });
+    L.DomEvent.on(wh,"click",e=>{ L.DomEvent.preventDefault(e); S.wheelZoom=!S.wheelZoom; S.wheelZoom?map.scrollWheelZoom.enable():map.scrollWheelZoom.disable();
+      try{ localStorage.setItem("rfr.wheelZoom", S.wheelZoom?"1":"0"); }catch(_){} paint(); });
+    return d; }});
+  new Zoom({position:"topleft"}).addTo(map);
   addMapLayers(map);
   const canvas=L.canvas({padding:.3});
   S.markerIndex=new Map();
@@ -268,7 +284,8 @@ function drawMap(rows){
       return a.length?` <span class="hint" style="white-space:nowrap">· ${a.join(" · ")}</span>`:""; };
     const lines=groupItems(rs).slice(0,14).map(r=>`<div><span class="dot" style="background:${colorOf(r)}"></span> ${r.freq_mhz?`<b class="mono">${fmtF(r.freq_mhz)}</b> `:""}${esc(titleOf(r))} <span class="hint">${esc(typeOf(r))}</span>${acts(r)}</div>`).join("");
     mk.bindPopup(`<div style="max-width:300px">${r0.dist_mi!=null?`<div class="hint">${num(r0.dist_mi,2)} mi ${r0.compass||""} from pin</div>`:""}${lines}${rs.length>14?`<div class="hint">+${rs.length-14} more</div>`:""}<a href="#" data-open="${esc(r0.fid)}">Details</a></div>`);
-    mk.on("click",()=>{ S.sel=r0.fid; $$("#side .item").forEach(x=>{ const hit=rs.some(r=>r.fid===x.dataset.fid); x.classList.toggle("sel",hit); if(hit && x===$$("#side .item").find(y=>rs.some(r=>r.fid===y.dataset.fid))) x.scrollIntoView({block:"nearest"}); }); });
+    mk.on("click",()=>{ S.sel=r0.fid; $$("#side .item").forEach(x=>{ const hit=rs.some(r=>r.fid===x.dataset.fid); x.classList.toggle("sel",hit); if(hit && x===$$("#side .item").find(y=>rs.some(r=>r.fid===y.dataset.fid))) x.scrollIntoView({block:"nearest"}); });
+      if(window.emitSpot) emitSpot(rs); });  // and what's there, in the panel under the map (and lit up in the table)
     mk.addTo(map); S.markerIndex.set(k,mk);
   }
   map.on("popupopen", ev=>{ const el=ev.popup.getElement(), a=el.querySelector("[data-open]"); if(a) a.onclick=e=>{ e.preventDefault(); openDetail(a.dataset.open); };
@@ -285,6 +302,7 @@ function drawMap(rows){
     const paint=()=>{ b.textContent=S.pinLocked?"🔒 Pin locked":"🔓 Pin moves on click"; b.title=S.pinLocked?"Clicks select emitters; the pin stays put. Click to unlock.":"Clicking the map moves the pin. Click to lock it."; };
     paint(); L.DomEvent.disableClickPropagation(b);
     b.onclick=()=>{ S.pinLocked=!S.pinLocked; try{ localStorage.setItem("rfr.pinLocked", S.pinLocked?"1":"0"); }catch(e){} paint();
+      const h=$("#mapHint"); if(h&&S.center) h.textContent=S.pinLocked?"Pin locked: click a dot to see what's there, its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely.";
       if(S.pinMarker){ S.pinLocked?S.pinMarker.dragging?.disable():S.pinMarker.dragging?.enable(); } };
     return b; }});
   new Lock({position:"topleft"}).addTo(map);
@@ -404,6 +422,12 @@ function openDetail(fid){
       ${Object.keys(extra).length?`<div class="sec"><h3>All fields</h3>${kvg(Object.entries(extra).map(([k,v])=>[esc(k),`<span class="mono">${esc(typeof v==="object"?JSON.stringify(v):v)}</span>`]))}</div>`:""}`;
   }
   $("#dlgBody").innerHTML=html;
+  if(r.also_in?.length){  // the same emitter from several sources: who reported it, and where they disagree
+    const box=document.createElement("div"); box.className="sec"; const cf=Object.entries(r.conflicts||{});
+    box.innerHTML=`<h3>Sources (${r.merged_from})</h3><p style="margin:0 0 6px">${esc([r.category||LAYERS[r.layer]?.label, ...r.also_in].join(" · "))}</p>
+      ${cf.length?`<p class="hint" style="margin:0 0 4px">Where they disagree, each source's value:</p>${kvg(cf.map(([f,vals])=>[esc(f.replace(/_/g," ")), vals.map(([s,v])=>`${esc(v)} <span class="hint">(${esc(s)})</span>`).join("<br>")]))}`
+        :'<p class="hint" style="margin:0">They agree on everything they both report.</p>'}`;
+    $("#dlgBody").prepend(box); }
   if(r.lat!=null && r.layer!=="towers"){  // the same emitter on the map: where it reaches, what it's networked with, its cell site
     const acts=[(erpOf(r)||emIsCell(r))&&["coverage","Coverage on the map"], emIsUls(r)&&["network","Network"], emIsCell(r)&&["cell","Cell site"]].filter(Boolean);
     if(acts.length){ const bar=document.createElement("div"); bar.className="row no-print"; bar.style.cssText="gap:6px;margin-bottom:8px";

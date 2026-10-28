@@ -230,7 +230,9 @@ S.views.data = async (v) => {
         <a href="https://www.repeaterbook.com/api/token_request.php" target="_blank" rel="noopener">RepeaterBook</a> (a token on request and approval; personal use, and its policy discourages tools that mix it with other sources).
         RadioReference's API isn't here: it needs Premium ($30 a year) and a paid licence for dashboards.</p></div>
     <div class="panel"><h3>Fetch crowd data for the current pin now</h3>
-      <div class="row"><button data-fetch="wigle">WiGLE</button><button data-fetch="opencellid">OpenCelliD</button><button data-fetch="repeaterbook">RepeaterBook</button></div>
+      <div class="row" style="flex-wrap:wrap"><button data-fetch="wigle">WiGLE</button><button data-fetch="opencellid">OpenCelliD</button><button data-fetch="repeaterbook">RepeaterBook</button>
+        <button data-fetch="ttn">LoRaWAN gateways</button><button data-fetch="satnogs">SatNOGS stations</button><button data-fetch="wspr">WSPR</button><button data-fetch="pskreporter">PSKReporter</button></div>
+      <p class="hint" style="margin:4px 0 0">An area already fetched recently isn't downloaded again; the same emitter from several sources shows once on the map, with each source's data.</p>
       <div id="fetchMsg" class="hint" style="margin-top:6px"></div>
       <h3 style="margin-top:14px">Import your own layer</h3>
       <div class="row"><label class="grow">Layer name<input id="cl_name" value="My layer"></label><input type="file" id="cl_file" accept=".csv,.kml,.kmz,.geojson,.json,.gpx"></div>
@@ -267,7 +269,7 @@ S.views.data = async (v) => {
   v.querySelectorAll("[data-fetch]").forEach(b=>b.onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ $("#fetchMsg").textContent="Drop a pin first."; return; }
     $("#fetchMsg").textContent=`Fetching ${b.dataset.fetch}…`;
     try{ const r=await post("/api/crowd/fetch",{source:b.dataset.fetch,lat:p[0],lon:p[1],radius:+$("#radius").value||5,state:S.mission?.state||S.rows.find(x=>x.state)?.state});
-      $("#fetchMsg").textContent=`${b.dataset.fetch}: ${r.rows} points saved. Re-running search…`; runSearch(); }catch(e){ $("#fetchMsg").textContent=`${b.dataset.fetch}: ${e.message}`; } });
+      $("#fetchMsg").textContent=r.skipped?`${b.dataset.fetch}: ${r.skipped}.`:`${b.dataset.fetch}: ${r.rows} points saved. Re-running search…`; if(!r.skipped) runSearch(); }catch(e){ $("#fetchMsg").textContent=`${b.dataset.fetch}: ${e.message}`; } });
   $("#cl_file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const r=await api(`/api/layers/import?layer=${encodeURIComponent($("#cl_name").value)}&filename=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()});
     $("#impMsg").textContent=`Layer “${$("#cl_name").value}”: ${r.rows} points.`; if(parseLoc($("#loc").value)) runSearch(); }catch(err){ $("#impMsg").textContent="Error: "+err.message; } };
   $("#lb_file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const r=await api(`/api/overlay/import?state=${encodeURIComponent($("#state").value||"")}&county=${encodeURIComponent($("#county").value||"")}`,{method:"POST",body:await f.text()});

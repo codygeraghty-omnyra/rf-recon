@@ -3,7 +3,7 @@
    (app/static), so it can swap the Mission and Data & updates tabs for a Packs tab and point exports at the
    browser. Missions, captures, crowd data and data updates stay in RF Recon on the PC. */
 (() => {
-for (const k of ["uls_hist", "captures", "wigle", "opencellid", "repeaterbook", "custom"]) {  // PC-only sources: never in a pack
+for (const k of ["uls_hist", "captures", "wigle", "opencellid", "repeaterbook", "custom", "ttn", "satnogs", "wspr", "pskreporter"]) {  // PC-only sources: never in a pack
   delete LAYERS[k]; S.layerOn.delete(k);
 }
 const chip = document.createElement("button");

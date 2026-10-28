@@ -25,6 +25,24 @@ function emDefaults(r){
     h:r.height_tip_m ?? 30, haat:r.haat_m ?? "", az:r.azimuth ?? "", bw:r.beamwidth ?? "", cell:false};
 }
 
+// a dot clicked on the map: everything at that spot, highlighted in the list or table, and listed in the panel
+document.head.insertAdjacentHTML("beforeend", `<style>#mapTable tr.sel td{background:color-mix(in srgb,var(--accent) 22%,transparent)}</style>`);
+function emitSpot(rs){
+  const items=groupItems(rs), fids=new Set(items.map(r=>r.fid));
+  $$("#mapTable tr[data-fid]").forEach(tr=>tr.classList.toggle("sel", fids.has(tr.dataset.fid)));
+  const first=$$("#mapTable tr.sel")[0]; if(first) first.scrollIntoView({block:"nearest"});
+  const keep=S.emit&&S.emit.site&&S.emit.site[0]?.lat===items[0]?.lat&&S.emit.site[0]?.lon===items[0]?.lon;
+  if(keep) return;
+  S.emit={r:items[0], site:items, tab:"info", opt:emDefaults(items[0]), cov:null, net:null, cell:null, err:{}};
+  emitPanel(); emitDraw();
+  const p=$("#emitPanel"); if(p) p.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+window.emitSpot = emitSpot;
+// and the other way: a row picked in the map's table shows it on the map and in the panel
+document.addEventListener("click", ev=>{ const tr=ev.target.closest("#mapTable tr[data-fid]"); if(!tr||ev.target.closest("a,button")) return;
+  const r=S.rows.find(x=>x.fid===tr.dataset.fid); if(!r||r.lat==null) return;
+  selectFeature(r, true); emitSpot(S.rows.filter(x=>x.lat===r.lat&&x.lon===r.lon)); });
+
 // open the panel for one emitter on the Map tab; tab = coverage | network | cell
 function emitOpen(r, tab){
   if(!r || r.lat==null){ $("#status").textContent="That entry has no location to work from."; return; }
@@ -76,7 +94,8 @@ async function emCellSite(r){
 function emitPanel(){
   const el=$("#emitPanel"), e=S.emit; if(!el) return;
   if(!e){ el.innerHTML=""; return; }
-  const r=e.r, tabs=[["coverage","Coverage"], ...(emIsUls(r)?[["network","Network"]]:[]), ...(emIsCell(r)?[["cell","Cell site"]]:[])];
+  const r=e.r, tabs=[...(e.site?[["info",`On this spot (${e.site.length})`]]:[]), ...((erpOf(r)||emIsCell(r))&&r.layer!=="towers"?[["coverage","Coverage"]]:[]),
+    ...(emIsUls(r)?[["network","Network"]]:[]), ...(emIsCell(r)?[["cell","Cell site"]]:[])];
   el.innerHTML=`<div class="panel" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <h3 style="margin:0">◎ ${r.freq_mhz?`<span class="mono">${fmtF(r.freq_mhz)} MHz</span> · `:""}${esc(emName(r))}</h3>
       <div class="seg" id="emTabs">${tabs.map(([k,l])=>`<button data-et="${k}" class="${e.tab===k?"on":""}">${l}</button>`).join("")}</div>
@@ -89,7 +108,23 @@ function emitPanel(){
   if($("#emMeas")) $("#emMeas").onclick=()=>{ S.heat.kind="measured"; S.heat.ident=r.ident||(r.ext_id||"").replace(/^\w+:/,"")||""; S.heat.freq=r.ident?"":(r.freq_mhz??""); S.heat.signal=emName(r); render(); loadHeat(); };
   if(e.busy||e.err[e.tab]) return;
   const body=$("#emBody");
-  if(e.tab==="coverage") emCoverageBody(body); else if(e.tab==="network") emNetworkBody(body); else emCellBody(body);
+  if(e.tab==="info") emSpotBody(body); else if(e.tab==="coverage") emCoverageBody(body); else if(e.tab==="network") emNetworkBody(body); else emCellBody(body);
+}
+
+// everything at the clicked spot; pick one to see its coverage, network or details
+function emSpotBody(el){
+  const e=S.emit, rs=e.site;
+  el.innerHTML=`<div class="tw" style="max-height:340px"><table><thead><tr><th>MHz</th><th>What</th><th>Type</th><th>Source</th><th>Station</th><th class="n">Power</th><th class="n">Level</th><th class="n">Height</th><th></th></tr></thead><tbody>
+    ${rs.map((r,i)=>{ const lvl=levelOf(r); return `<tr data-i="${i}" style="cursor:pointer${r===e.r?";font-weight:700":""}"><td class="mono">${r.freq_mhz?fmtF(r.freq_mhz):""}</td>
+      <td>${esc(titleOf(r))}${r.call_sign?` <span class="mono hint">${esc(r.call_sign)}</span>`:""}</td><td>${esc(typeOf(r))}</td><td>${esc(LAYERS[r.layer]?.label||r.layer)}${r.also_in?.length?` <span class="hint">+ ${esc(r.also_in.join(", "))}</span>`:""}</td>
+      <td>${esc(r.station_class?classLabel(r.station_class):r.kind||"")}</td><td class="n">${erpOf(r)?num(erpOf(r))+" W":""}</td><td class="n">${lvl!=null?`${num(lvl,0)} dBm${r.dbm==null?" est":""}`:""}</td>
+      <td class="n">${r.height_tip_m!=null?`${num(r.height_tip_m,0)} m`:r.overall_agl_m!=null?`${num(r.overall_agl_m,0)} m`:""}</td>
+      <td style="white-space:nowrap">${(erpOf(r)||emIsCell(r))&&r.layer!=="towers"?`<button data-go="coverage" data-i="${i}">Coverage</button> `:""}${emIsUls(r)?`<button data-go="network" data-i="${i}">Network</button> `:""}${emIsCell(r)?`<button data-go="cell" data-i="${i}">Cell site</button> `:""}<button data-go="detail" data-i="${i}">Details</button></td></tr>`; }).join("")}</tbody></table></div>
+    <p class="hint">${rs[0].dist_mi!=null?`${num(rs[0].dist_mi,2)} mi ${esc(rs[0].compass||"")} from the pin · `:""}${rs[0].lat.toFixed(5)}, ${rs[0].lon.toFixed(5)}. Click an entry to pick it, or a button to see its coverage, network or full details.</p>`;
+  el.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=ev=>{ const r=rs[+tr.dataset.i], b=ev.target.closest("[data-go]");
+    if(b&&b.dataset.go==="detail"){ openDetail(r.fid); return; }
+    e.r=r; e.opt=emDefaults(r); e.cov=e.net=e.cell=null; e.err={}; if(e.fitted) e.fitted={};
+    if(b){ e.tab=b.dataset.go; emitPanel(); emitDraw(); emitLoad(); } else emitPanel(); });
 }
 
 function emCoverageBody(el){
