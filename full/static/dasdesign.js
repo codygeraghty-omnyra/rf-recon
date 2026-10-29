@@ -137,7 +137,7 @@ function lbCompute(I){
   const isoGain=Math.max(num0(I.bda_dl_gain_db),g), isoMargin=n(I.isolation_margin_db)??20, isoNeed=isoGain+isoMargin, iso=n(I.isolation_db);
   chk("isolation","Donor to server isolation",iso==null?null:iso>=isoNeed?true:iso>=isoGain+Math.min(15,isoMargin)?"warn":false,
     iso!=null?`${iso} dB vs ${isoNeed} dB needed (gain + ${isoMargin})${iso<isoNeed&&iso>=isoGain+Math.min(15,isoMargin)?": under the margin, still 15 dB over the gain":""}`:`needs a measured or estimated isolation: at least ${isoNeed} dB`);
-  if(perCh!=null) chk("headroom","BDA output headroom",want<=perCh,`${(perCh-want).toFixed(1)} dB under the per-channel maximum${want>perCh?": the BDA is limiting; lower its gain":""}`);
+  if(perCh!=null) chk("headroom","BDA output headroom",want<=perCh,want<=perCh?`${(perCh-want).toFixed(1)} dB under the per-channel maximum`:`${(want-perCh).toFixed(1)} dB over the per-channel maximum (${perCh.toFixed(1)} dBm): the BDA is limiting; lower its gain`);
   return {dl, ul, checks:C, edge, eirp, bdaOut, perCh, atSite, erpUl, noiseErp10k, noiseSite10k, rise, passDl, passUl, plSiteDl, dlErp};
 }
 
