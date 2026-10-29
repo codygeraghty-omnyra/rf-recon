@@ -127,7 +127,8 @@ S.views.das = async v => {
 };
 
 /* ---------- data and links: what DAS work reads, what to download, where the codes and lookups are ---------- */
-// every link checked 2026-10-28 (FCC and ICC pages refuse scripted checks: opened in a browser instead)
+// every link checked 2026-10-28; the design, PIM, parts and plans ones 2026-10-29 from the cited research
+// (static/research). FCC and ICC pages refuse scripted checks: opened in a browser instead
 const DAS_LINKS = [
   ["Codes", [["NFPA 1225 (free read-only access, NFPA account)", "https://www.nfpa.org/codes-and-standards/nfpa-1225-standard-development/1225", "Chapter 18 ERCES, 20.3.10 testing"],
     ["NFPA free access list", "https://www.nfpa.org/for-professionals/codes-and-standards/list-of-codes-and-standards/free-access", "Every NFPA code you can read free"],
@@ -136,8 +137,23 @@ const DAS_LINKS = [
     ["47 CFR 90.613 (eCFR)", "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-D/part-90/subpart-S/section-90.613", "800 MHz channel table (the 45 MHz pairs)"],
     ["ITU-R P.2109 building entry loss", "https://www.itu.int/rec/R-REC-P.2109/en", "The construction loss presets"],
     ["ITU-R P.526 diffraction", "https://www.itu.int/rec/R-REC-P.526/en", "The knife-edge loss used for terrain"]]],
+  ["Design: link budget, coverage, walls", [["ITU-R P.1238 indoor propagation", "https://www.itu.int/rec/R-REC-P.1238/en", "The in-building path loss the link budget and the coverage on the plans use (no VHF values)"],
+    ["ITU-R P.2040 building materials", "https://www.itu.int/rec/R-REC-P.2040/en", "Loss through walls and floors by material: the wall loss calculator"],
+    ["NIST NISTIR 6055 measured wall loss", "https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir6055.pdf", "Concrete, brick, block and glass measured: the wall presets use these (the ITU model gives about a third of the loss for concrete)"],
+    ["TIA TSB-88 portable antenna loss (draft, free)", "http://www.simulcastsolutions.com/userfiles/file/appnotes/pTR8.18-06-10-0035-PN3-4744.1-RV3-Fb.pdf", "Portable antenna and body loss by band: the uplink default"],
+    ["NPSTC in-building white paper", "https://www.npstc.org/documents/20071212_IBWG%20White%20Paper%20Appendix%20A-E.pdf", "Isolation, booster headroom and link budget practice"]]],
+  ["AHJ guidelines with numbers", [["Orange County (CA) Sheriff ERRCS guidelines", "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf", "Uplink −95 to −75 dBm at the site, 65 dB gain cap, 27 dBm at the donor port, −150 dBm noise"],
+    ["Durham (NC) BDA permit requirements", "https://www.durhamnc.gov/DocumentCenter/View/47330/BDA-Application-Requirements-City-of-Durham-NC-", "Uplink under −80 dBm at the tower, −153 dBm noise, Class A only"],
+    ["San Diego Fire-Rescue C-1", "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf", "Gain cap, noise at the donor site, grid testing"],
+    ["Fairfax County (VA) ERCES submittal guidelines", "https://www.fairfaxcounty.gov/fire-ems/sites/fire-ems/files/Assets/Documents/PDF/fire%20marshal/ERCES%20Submittal%20and%20Permit%20Requirements%20Guidelines.pdf", "What the submittal must include, plans included"]]],
+  ["PIM and parts", [["IEC 62037 PIM measurement (abstract; the standard is paid)", "https://webstore.iec.ch/en/publication/6331", "How PIM is measured; part 7 covers field measurement"],
+    ["Anritsu: PIM in in-building DAS", "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00871B.pdf", "Where PIM comes from in a DAS and how to find it"],
+    ["Anritsu: testing a DAS", "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00887A.pdf", "Sweeps, distance-to-fault and PIM on a DAS"],
+    ["RFS DragonSkin 2-hour fire-rated coax (UL 2196)", "https://www.rfstechnologies.com/pim/product/pdf/2HB12-50JPLR", "The kind of cable a 2-hour pathway rule asks for"]]],
   ["FCC lookups", [["ULS licence search", "https://wireless2.fcc.gov/UlsApp/UlsSearch/searchLicense.jsp", "Any licence by call sign, name, frequency or area"],
     ["Antenna structure (ASR) search", "https://wireless2.fcc.gov/UlsApp/AsrSearch/asrRegistrationSearch.jsp", "Towers by registration, owner or location"],
+    ["Equipment authorization (FCC ID) search", "https://apps.fcc.gov/oetcf/eas/reports/GenericSearch.cfm", "A device's grant: frequencies, power, test reports (Data & updates, Look up an FCC ID, links here)"],
+    ["National Broadband Map", "https://broadbandmap.fcc.gov/", "Carriers' modelled coverage: RF Recon's Carrier coverage heatmap (your own free FCC key)"],
     ["Signal boosters (FCC)", "https://www.fcc.gov/wireless/bureau-divisions/mobility-division/signal-boosters", "Rules, classes, how to register"],
     ["Class B booster registration and list", "https://signalboosters.fcc.gov/", "Register a Class B booster; search registered ones (refuses scripted downloads; was down for maintenance 2026-10-28)"]]],
   ["Planning and agencies", [["CAPRAD", "https://caprad.org/", "700 / 800 MHz public safety regional planning and channel assignments"],
@@ -150,6 +166,11 @@ const DAS_LINKS = [
     ["Microsoft US building footprints", "https://github.com/microsoft/USBuildingFootprints", "Every US building outline, by state (large)"],
     ["OpenStreetMap", "https://www.openstreetmap.org/copyright", "Building outlines RF Recon fetches per job (ODbL)"]]],
 ];
+// the research sets beside DAS-ERCES in Drive (docs/research, built by build_field_research.py): name, folder id, what it holds
+const DAS_RESEARCH = [["PIM", "1baexagIqzgUM9fdpTeNfJ2UcB8dImiko", "limits, checklists, procedures, torque"],
+  ["RF-Parts", "15NOO7YMst9rCSCB12s3HrwQz3h1rX7Vh", "cables, connectors, components, suppliers"],
+  ["Building-Plans-Materials", "1MUQ1pM4NTvRYabItL5Ssj7mecDjyjuhB", "getting plans, wall losses by material"],
+  ["Link-Budget", "1LUi4ERK8vyhKEZAuGBRFSVCKLqQZEBzr", "defaults, formulas, P.1238, 90.219 and AHJ limits"]];
 async function dasData(el){
   el.innerHTML='<p class="status">Checking the data…</p>';
   let upd={sources:{}}, ter={tiles:0, mb:0, folder:""};
@@ -173,7 +194,9 @@ async function dasData(el){
       <p class="hint">From OpenStreetMap (ODbL): footprint, floors and height, for the floor area, sector split and donor height.</p></div></div>
     <div class="panel"><h3>Codes, rules, lookups and downloads</h3>
       ${DAS_LINKS.map(([g,ls])=>`<h4 style="margin:10px 0 4px">${esc(g)}</h4>${ls.map(([t,u,w])=>`<div style="padding:2px 0"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a> <span class="hint">· ${esc(w)}</span></div>`).join("")}`).join("")}
-      <h4 style="margin:10px 0 4px">Research</h4><div>${DAS_SOURCES}</div></div>`;
+      <h4 style="margin:10px 0 4px">Research</h4><div>${DAS_SOURCES}</div>
+      <p style="margin:8px 0 0">The rest of the research, each a database with a CSV per table and its report, in Drive under <span class="mono">RF Recon\\docs\\research</span>:
+        ${DAS_RESEARCH.map(([n,id,w])=>`<a href="https://drive.google.com/drive/folders/${id}" target="_blank" rel="noopener">${esc(n)}</a> <span class="hint">(${esc(w)})</span>`).join(", ")}.</p></div>`;
   el.querySelectorAll("[data-run]").forEach(b=>b.onclick=async()=>{ b.disabled=true; b.textContent="Updating…"; await post("/api/update/run",{ids:[b.dataset.run],force:true}); });
   $("#ddTer").onclick=async()=>{ const b=$("#ddTer"); b.disabled=true; $("#ddTerMsg").textContent="Downloading…";
     try{ const r=await post("/api/das/terrain/download",{areas:jobs.map((j,i)=>({lat:j.lat, lon:j.lon, radius:full[i].presurvey?.radius||15}))});
@@ -511,9 +534,13 @@ async function dasGrid(el, j, save){
     try{ t=await api(`/api/das/parse?name=${encodeURIComponent(file.name)}`,{method:"POST",body:await file.arrayBuffer()}); }catch(err){ alert("Couldn't read that file: "+err.message); return; }
     dasMapImport($("#dgMap"), t, file.name, async mapped=>{ const results={...((j.data.grid||{}).results||{})}; let n2=0;
       for(const r of mapped){ const fl=r.floor||D.floor, g=r.grid; if(!g) continue; const {floor,grid,...vals}=r; results[`${fl}|${g}`]={...vals, source:file.name}; n2++; }
-      // floors named in the file that the job doesn't have yet are added
+      // floors named in the file that the job doesn't have yet are added; squares the file marks critical (the phone's
+      // grid test does) join that floor's critical list
       const have=new Set((j.data.floors||[]).map(x=>x.name)), extra=[...new Set(mapped.map(r=>r.floor).filter(x=>x&&!have.has(x)))].map(x=>({name:x,grids:DAS.grids}));
-      j=await save({grid:{...(j.data.grid||{}),results}, ...(extra.length?{floors:[...(j.data.floors||[]),...extra]}:{})});
+      const isCrit=v=>/^(1|y|yes|true|critical)$/i.test(String(v??"").trim());
+      const floors=[...(j.data.floors||[]),...extra].map(f=>{ const add=mapped.filter(r=>(r.floor||D.floor)===f.name&&isCrit(r.critical)).map(r=>+r.grid||r.grid);
+        return add.length?{...f, critical:[...new Set([...(f.critical||[]),...add])]}:f; });
+      j=await save({grid:{...(j.data.grid||{}),results}, floors});
       await post(`/api/das/jobs/${j.id}/note`,{text:`Imported ${n2} grid readings from ${file.name}`}); render(); }); };
 }
 // every reading as rows: the grid test's CSV / JSON and the report's tables
@@ -529,7 +556,7 @@ function dasFlat(d){
 }
 // column mapping preview for any imported table
 function dasMapImport(el, t, fname, done){
-  const fields=[["floor","Floor"],["grid","Grid / area"],["dl","DL dBm"],["daq","DL DAQ"],["sinr","SINR dB"],["ber","BER %"],["ul","UL dBm"],["ul_daq","UL DAQ"],["note","Note"],["time","Time"]];
+  const fields=[["floor","Floor"],["grid","Grid / area"],["dl","DL dBm"],["daq","DL DAQ"],["sinr","SINR dB"],["ber","BER %"],["ul","UL dBm"],["ul_daq","UL DAQ"],["critical","Critical area"],["note","Note"],["time","Time"]];
   const opts=h=>`<option value="">—</option>${t.headers.map(x=>`<option ${x===h?"selected":""}>${esc(x)}</option>`).join("")}`;
   el.innerHTML=`<div class="panel" style="margin-top:10px"><h3>Import ${esc(fname)} <span class="hint">· ${esc(t.format.toUpperCase())}, ${t.total.toLocaleString()} rows · check the columns, then import</span></h3>
     <div class="row">${fields.map(([k,l])=>`<label>${l}<select data-m="${k}">${opts(t.guess[k])}</select></label>`).join("")}<button class="primary" id="dmGo">Import</button><button id="dmNo">Cancel</button></div>
@@ -542,7 +569,7 @@ function dasMapImport(el, t, fname, done){
     const numv=x=>{ const v=parseFloat(String(x??"").replace(/[^\d.\-]/g,"")); return isFinite(v)?v:null; };
     done(t.rows.map(r=>{ const o={floor:m.floor?String(r[m.floor]||"").trim():"", grid:String(r[m.grid]||"").trim().replace(/^(grid|area|square|cell)\s*#?\s*/i,"").replace(/^[^-]+-(\d+)$/,"$1")};
       for(const k of ["dl","daq","sinr","ber","ul","ul_daq"]) if(m[k]) o[k]=numv(r[m[k]]);
-      if(m.note) o.note=r[m.note]; if(m.time) o.time=r[m.time]; return o; })); };
+      if(m.note) o.note=r[m.note]; if(m.time) o.time=r[m.time]; if(m.critical) o.critical=r[m.critical]; return o; })); };
 }
 
 /* ---------- files: anything, kept in the job's Drive folder ---------- */

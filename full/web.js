@@ -50,6 +50,9 @@ S.views.data = async v => {
       <p class="hint" style="margin-top:0">Packs are in the RF Recon folder in Google Drive, under <b>field packs</b>. Download one from Drive,
         or pick it straight from your Google Drive folder, then choose it here. Only people the folder is shared with can see them.</p>
       <div class="row"><input type="file" id="pkFile" accept=".rfpack"><span class="hint" id="pkMsg"></span></div>
+      <h3 style="margin-top:14px">Or a state from this site</h3>
+      <p class="hint" style="margin-top:0">Every state's FCC data is kept on the RF Recon site. Search anywhere and its state loads by itself; or pick one here.</p>
+      <div class="row"><select id="spSel" style="flex:1"><option value="">Getting the list…</option></select><button id="spLoad" class="primary">Load</button><span class="hint" id="spMsg"></span></div>
       ${other.length ? `<h3 style="margin-top:14px">Also in this browser</h3>${other.map(o => `<div class="row" style="justify-content:space-between">
         <span><b>${esc(o.name)}</b> <span class="hint">${esc(area(o.area))} · made ${esc(o.made_at)} · ${(o.size / 1e6).toFixed(1)} MB</span></span>
         <span><button data-use="${esc(o.id)}">Use</button> <button data-rm="${esc(o.id)}">Remove</button></span></div>`).join("")}` : ""}</div>
@@ -65,6 +68,13 @@ S.views.data = async v => {
     const f = e.target.files[0]; if (!f) return;
     $("#pkMsg").textContent = `Opening ${f.name}…`;
     try { await RFPack.import(f); reload(); } catch (err) { $("#pkMsg").textContent = err.message; }
+  };
+  RFPack.sitePacks().then(list => { $("#spSel").innerHTML = list.length ? list.map(s => `<option value="${esc(s.st)}">${esc(s.name)} · ${s.mb.toFixed(1)} MB</option>`).join("")
+    : '<option value="">The list isn\'t reachable: check the connection</option>'; });
+  $("#spLoad").onclick = async () => {
+    const s = (await RFPack.sitePacks()).find(x => x.st === $("#spSel").value); if (!s) return;
+    $("#spMsg").textContent = `Downloading ${s.name}…`;
+    try { await RFPack.loadSite(s); reload(); } catch (err) { $("#spMsg").textContent = err.message; }
   };
   $("#pkRemove") && ($("#pkRemove").onclick = async e => { await RFPack.remove(e.target.dataset.id); location.reload(); });
   v.querySelectorAll("[data-use]").forEach(b => b.onclick = async () => { await RFPack.use(b.dataset.use); reload(); });

@@ -1,16 +1,16 @@
 {
- "version": "0207ef7",
- "built": "2026-10-29 01:03",
+ "version": "d817a1b",
+ "built": "2026-10-29 07:46",
  "python": "3.12.10",
  "get": "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB",
  "notes": [
+  "DAS on the phone",
+  "DAS Data & links",
+  "State packs on the GitHub site",
+  "Artemis signal database",
+  "A mission over time",
   "Kit update",
   "Link budget",
-  "Web publish keeps and commits kit.json, so installed copies can see a newer kit",
-  "Kit update notes",
-  "Link budget",
-  "DAS Design",
-  "PIM and Parts tabs, DAS Plans/Materials/PIM sections, PDF plan sheets into floor plans",
-  "FCC equipment grantee codes as a data source"
+  "Web publish keeps and commits kit.json, so installed copies can see a newer kit"
  ]
 }

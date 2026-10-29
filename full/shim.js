@@ -68,6 +68,36 @@ async function importPack(file) {
   navigator.storage?.persist?.().catch(() => {});
   return info;
 }
+/* state packs published beside this page (../packs/, phone/state_packs.py). On a computer the one around a search
+   loads by itself: the search is kept in the address, so the page reloads on the new pack and runs it again. */
+let SITE_PACKS = null;
+async function sitePacks() {
+  if (!SITE_PACKS) { try { SITE_PACKS = (await (await realFetch("../packs/index.json", {cache: "no-cache"})).json()).packs || []; } catch (e) { return []; } }
+  return SITE_PACKS;
+}
+const packHas = (p, lat, lon) => (p?.bboxes || (p?.bbox ? [p.bbox] : [])).some(b => lat >= b[0] && lat <= b[1] && lon >= b[2] && lon <= b[3]);
+async function statePackFor(lat, lon) {  // the smallest state box around the spot (they overlap along borders)
+  const size = s => (s.bbox[1] - s.bbox[0]) * (s.bbox[3] - s.bbox[2]);
+  return (await sitePacks()).filter(s => packHas(s, lat, lon)).sort((a, b) => size(a) - size(b))[0] || null;
+}
+async function loadSitePack(s) {
+  const r = await realFetch(`../packs/${s.file}`);
+  if (!r.ok) throw new Error(`The RF Recon site didn't send ${s.name} (${r.status}).`);
+  return importPack(new File([await r.blob()], s.file));
+}
+// a pin no loaded pack covers: use a pack already in this browser that does, else fetch its state's pack; then reload
+async function packForPin(lat, lon) {
+  const saved = (await idb.all("packs")).find(p => p.id !== PACK?.id && packHas(p, lat, lon));
+  const s = saved ? null : await statePackFor(lat, lon);
+  if (!saved && !s) return null;
+  if (saved) await idb.put("kv", saved.id, "activePack"); else await loadSitePack(s);
+  // the page writes a search into the address only once it succeeds: put this pin there, or the reload brings back the last one
+  const h = new URLSearchParams(location.hash.slice(1));
+  h.set("tab", !h.get("tab") || h.get("tab") === "data" ? "map" : h.get("tab")); h.set("lat", lat); h.set("lon", lon);  // Packs (data) -> the map
+  history.replaceState(null, "", "#" + h.toString());
+  setTimeout(() => location.reload(), 50);
+  return saved ? `Switching to ${saved.name}, already in this browser…` : `Loading ${s.name} (${s.mb.toFixed(1)} MB) from the RF Recon site…`;
+}
 async function removePack(id) {
   await idb.del("packs", id); await idb.del("packdata", id);
   if (PACK?.id === id) { await idb.del("kv", "activePack"); DB?.close(); DB = META = PACK = null; }
@@ -728,7 +758,11 @@ async function route(path, p, method, body) {
   if (path === "/services") return META?.services || {};
   if (path === "/states") return DB ? q("SELECT state, COUNT(*) n FROM tx WHERE state <> '' GROUP BY state ORDER BY state") : [];
   if (path === "/counties") return DB ? q("SELECT county, COUNT(*) n, AVG(lat) lat, AVG(lon) lon FROM tx WHERE state = ? AND county IS NOT NULL GROUP BY county ORDER BY county", [fstr(p, "state").toUpperCase()]) : [];
-  if (path === "/area") { const r = queryArea(p); if (r.error) throw new Error(r.error); return r; }
+  if (path === "/area") {
+    const lat = fnum(p, "lat"), lon = fnum(p, "lon");
+    if (lat != null && lon != null && !packHas(PACK, lat, lon)) { const msg = await packForPin(lat, lon); if (msg) throw new Error(msg); }
+    const r = queryArea(p); if (r.error) throw new Error(r.error); return r;
+  }
   if (path === "/heatmap") return heatmap(p);
   if (path === "/coverage") return coverage(p);
   if (path === "/network") return network(p);
@@ -786,5 +820,6 @@ L.tileLayer = (url, opts) => {
 };
 
 window.RFPack = {ready, info: () => PACK, meta: () => META, list: () => idb.all("packs"), import: importPack, remove: removePack,
+  sitePacks, loadSite: loadSitePack,
   use: async id => { await idb.put("kv", id, "activePack"); }, exportFile};
 })();

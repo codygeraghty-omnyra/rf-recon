@@ -1,10 +1,10 @@
 /* RF Recon (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "26b55dfa2f";
+const VERSION = "d97d82f90f";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glass.css", "theme/skins.js", "theme/look.js",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/sqljs/sql-wasm.js", "vendor/sqljs/sql-wasm.wasm",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js"];
+  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js", "das.js"];
 const TILE_HOSTS = ["basemap.nationalmap.gov", "tile.openstreetmap.org"];
 
 self.addEventListener("install", e => {
@@ -32,6 +32,7 @@ self.addEventListener("fetch", e => {
     e.respondWith(cacheFirst(FONTS, req).catch(() => new Response("", {status: 504}))); return;
   }
   if (url.origin !== location.origin) return;
+  if (url.pathname.includes("/packs/")) return;  // state packs: the app keeps a loaded one itself, so never cached twice
   // while testing on the PC ("dev"), the network first so edits show; published copies open from the phone
   if (VERSION === "dev") { e.respondWith(fetch(req).catch(() => caches.match(req, {ignoreSearch: true}))); return; }
   // the app itself: from the phone first (so it opens offline), the network when it isn't saved yet; anything

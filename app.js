@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "26b55dfa2f";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "d97d82f90f";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -148,6 +148,34 @@ const inPack = c => {  // a pack of several areas holds each area's box
   const bs = S.pack?.bboxes || (S.pack?.bbox ? [S.pack.bbox] : null);
   return !bs || bs.some(b => c[0] >= b[0] - .5 && c[0] <= b[1] + .5 && c[1] >= b[2] - .5 && c[1] <= b[3] + .5);
 };
+
+/* ---------- state packs on the RF Recon site (packs/, phone/state_packs.py), loaded on a tap: they cost phone data ---------- */
+let SITE_PACKS = null;
+async function sitePacks() {
+  if (!SITE_PACKS) { try { SITE_PACKS = (await (await fetch("packs/index.json", {cache: "no-cache"})).json()).packs || []; } catch (e) { return []; } }
+  return SITE_PACKS;
+}
+const packHas = (p, c) => (p?.bboxes || (p?.bbox ? [p.bbox] : [])).some(b => c[0] >= b[0] && c[0] <= b[1] && c[1] >= b[2] && c[1] <= b[3]);
+async function stateFor(c) {  // the smallest state box around the spot (they overlap along borders)
+  const size = s => (s.bbox[1] - s.bbox[0]) * (s.bbox[3] - s.bbox[2]);
+  return (await sitePacks()).filter(s => packHas(s, c)).sort((a, b) => size(a) - size(b))[0] || null;
+}
+async function loadSitePack(s) {
+  busy(`Downloading ${s.name} (${num(s.mb, 1)} MB)…`);
+  try {
+    const r = await fetch(`packs/${s.file}`);
+    if (!r.ok) throw new Error(`The RF Recon site didn't send ${s.name} (${r.status}). Try again with signal.`);
+    await importPack(new File([await r.blob()], s.file));
+  } catch (e) { busy(); toast(e.message || String(e)); }
+}
+// a spot no loaded pack covers: switch to a saved pack that does, or offer its state from the site
+async function offerPackFor(c) {
+  const saved = S.packs.find(p => p.id !== S.pack?.id && packHas(p, c));
+  if (saved) { toast(`That spot is in ${saved.name}, saved on this phone.`, async () => { busy("Opening pack…"); await openPack(saved.id); busy(); afterPackOpened(false); setCenter(c); }, "Switch"); return; }
+  const s = await stateFor(c), was = S.pack ? `That spot is outside ${S.pack.name}.` : "No pack loaded yet.";
+  if (s) toast(`${was} ${s.name} is on the RF Recon site (${num(s.mb, 1)} MB).`, async () => { await loadSitePack(s); if (S.db) setCenter(c); }, "Load it");
+  else toast(S.pack ? "That spot is outside this pack's area, so nothing will show. Load the pack for that area." : "Load a data pack first: Packs, then Load a pack.");
+}
 
 /* ---------- queries ---------- */
 function decorate(f, center, radiusMi) {
@@ -314,9 +342,9 @@ function summary() {
     : `${int(f)} frequencies · ${int(t)} towers${S.truncated ? " (first 20,000)" : ""}`;
 }
 function setCenter(c, fit = true) {
-  if (!S.db) { toast("Load a data pack first: Packs, then Load a pack."); return; }
+  if (!S.db) { offerPackFor(c); return; }
   S.center = c; S.mode = "area"; S.query = ""; $("#q").value = ""; closeSuggest();
-  if (!inPack(c)) toast("That spot is outside this pack's area, so nothing will show. Load the pack for that area.");
+  if (!inPack(c)) offerPackFor(c);
   run(fit);
 }
 function locate(thenCenter = true) {
@@ -372,7 +400,7 @@ function setTab(t, push = true) {
 function render() {
   if (S.tab === "map") return;
   const v = $("#page");
-  ({list: viewList, report: viewReport, log: viewLog, packs: viewPacks})[S.tab]?.(v);
+  ({list: viewList, report: viewReport, log: viewLog, das: v => window.viewDas?.(v), packs: viewPacks})[S.tab]?.(v);  // das.js
   v.scrollTop = 0;
 }
 const noPack = () => `<div class="card glass empty" style="--i:1"><h2>No data pack yet</h2>
@@ -527,6 +555,8 @@ function logForm(pre = {}) {
     <form id="logForm">
       <div class="two"><div class="field"><label for="lf_f">Frequency, MHz</label><input id="lf_f" inputmode="decimal" placeholder="155.475" value="${esc(pre.freq_mhz != null ? fmtF(pre.freq_mhz) : "")}"></div>
         <div class="field"><label for="lf_l">Level, dBm</label><input id="lf_l" inputmode="decimal" placeholder="-85"></div></div>
+      <div class="field"><label for="lf_b">Bearing, degrees (optional)</label><input id="lf_b" inputmode="decimal" placeholder="the direction it came from, e.g. 215">
+        <p class="hint" style="margin:4px 0 0">From true north. Bearings taken from a few places cross where the signal is (RF Recon on the PC, Mission, Lines of bearing).</p></div>
       <div class="field"><label for="lf_t">What it sounds or looks like</label><select id="lf_t"><option value="">Unknown</option>${types.map(t => `<option ${t === pre.sig_type ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
       <div class="field"><label for="lf_lab">Label</label><input id="lf_lab" placeholder="e.g. county fire dispatch" value="${esc(pre.label || "")}"></div>
       <div class="field"><label for="lf_n">Notes</label><textarea id="lf_n" rows="2"></textarea></div>
@@ -538,10 +568,11 @@ function logForm(pre = {}) {
     locate(false).then(me => { pos = me || (S.center ? {lat: S.center[0], lon: S.center[1], acc: null} : null); if ($("#lf_pos")) show(); });
     $("#logForm", sh).onsubmit = async ev => {
       ev.preventDefault();
-      const fv = parseFloat($("#lf_f").value), lv = parseFloat($("#lf_l").value);
+      const fv = parseFloat($("#lf_f").value), lv = parseFloat($("#lf_l").value), bv = parseFloat($("#lf_b").value);
       const e = {ts: new Date().toISOString(), lat: pos?.lat ?? null, lon: pos?.lon ?? null, acc: pos?.acc ?? null,
         freq_mhz: isFinite(fv) ? fv : null, dbm: isFinite(lv) ? -Math.abs(lv) : null,  // received levels are negative; "85" means -85 dBm
-        sig_type: $("#lf_t").value || null, label: $("#lf_lab").value.trim(), notes: $("#lf_n").value.trim(), pack: S.pack?.name || ""};
+        sig_type: $("#lf_t").value || null, label: $("#lf_lab").value.trim(), notes: $("#lf_n").value.trim(), pack: S.pack?.name || "",
+        bearing: isFinite(bv) ? ((bv % 360) + 360) % 360 : null};
       e.check = licenceCheck(e);
       e.id = await idb.put("log", e);
       await loadLog();
@@ -559,7 +590,7 @@ function viewLog(v) {
     + (n ? S.log.map((e, i) => { const c = e.check;
       return `<div class="card glass" style="--i:${Math.min(i, 8)}"><div class="row" style="justify-content:space-between;align-items:baseline">
         <b class="mono" style="font-size:17px">${e.freq_mhz != null ? fmtF(e.freq_mhz) + " MHz" : "No frequency"}</b><span class="hint">${esc(new Date(e.ts).toLocaleString())}</span></div>
-        <div class="s" style="color:var(--ink-2)">${esc([e.sig_type || "Unknown", e.dbm != null ? `${e.dbm} dBm` : "", e.label].filter(Boolean).join(" · "))}</div>
+        <div class="s" style="color:var(--ink-2)">${esc([e.sig_type || "Unknown", e.dbm != null ? `${e.dbm} dBm` : "", e.bearing != null ? `bearing ${Math.round(e.bearing)}°` : "", e.label].filter(Boolean).join(" · "))}</div>
         ${e.notes ? `<p style="margin:6px 0">${esc(e.notes)}</p>` : ""}
         ${c ? `<div class="check ${esc(c.kind)}">${esc(c.text)}</div>` : ""}
         <div class="row" style="margin-top:10px">${e.lat != null ? `<button class="btn small" data-act="showlog" data-id="${e.id}">Show on map</button>` : ""}
@@ -568,8 +599,8 @@ function viewLog(v) {
 }
 const csvCell = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 function logCsv() {  // the columns RF Recon on the PC reads in Mission, Import captures
-  const cols = ["time", "lat", "lon", "accuracy", "freq_mhz", "dbm", "type", "label", "notes", "check", "pack"];
-  const lines = [cols.join(",")].concat(S.log.slice().reverse().map(e => [e.ts, e.lat, e.lon, e.acc != null ? Math.round(e.acc) : "", e.freq_mhz, e.dbm, e.sig_type || "",
+  const cols = ["time", "lat", "lon", "accuracy", "freq_mhz", "dbm", "bearing", "type", "label", "notes", "check", "pack"];
+  const lines = [cols.join(",")].concat(S.log.slice().reverse().map(e => [e.ts, e.lat, e.lon, e.acc != null ? Math.round(e.acc) : "", e.freq_mhz, e.dbm, e.bearing ?? "", e.sig_type || "",
     e.label, e.notes, e.check?.text || "", e.pack].map(csvCell).join(",")));
   const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
   return {name: `RF Recon field log ${stamp}.csv`, text: lines.join("\r\n") + "\r\n"};
@@ -610,6 +641,9 @@ async function viewPacks(v) {
       ${isIOS() ? "<b>Browse</b>, then <b>Google Drive</b> (turn it on under Browse, the ⋯ menu, Edit, if it isn't listed)" : "<b>Drive</b> from the picker's menu"}. Only people the folder is shared with can see them.
       A pack made on the PC with “Make a field pack” (Data &amp; updates) appears there when Drive has synced.</p>
       <div class="row"><button class="btn primary" data-act="load">Load a pack</button>${p ? '<button class="btn danger" data-act="rmpack" data-id="' + esc(p.id) + '">Remove this pack</button>' : ""}</div></div>`
+    + `<div class="card glass" style="--i:3"><h2>A state from the RF Recon site</h2><p style="margin:0 0 10px">Every state's FCC data is kept on the RF Recon site, so you
+      don't need Drive for it: pick one and it downloads to this phone (1 to 25 MB, so use Wi-Fi for the big ones). A search outside your pack offers its state too.</p>
+      <div class="row"><select id="spSel" style="flex:1"><option value="">Getting the list…</option></select><button class="btn primary" data-act="sitepack">Load</button></div></div>`
     + `<div class="card glass" style="--i:4"><h2>Map without signal</h2><p style="margin:0 0 10px">Map tiles you've looked at stay on the phone. To save more before you go, set the pin and radius,
       then save that area (USGS maps, zoom 8 to 15). Street maps can't be saved: OpenStreetMap's rules don't allow it.</p>
       <div class="row"><button class="btn" data-act="savemap">Save the map around the pin</button><button class="btn small danger" data-act="clearmap">Clear saved map</button></div>
@@ -617,6 +651,8 @@ async function viewPacks(v) {
     + `<div class="card glass" style="--i:5"><h2>This phone</h2><dl class="kv">${kvs([["Storage used", est ? `${num(est.usage / 1e6)} MB` : ""],
       ["Kept when space is low", persisted == null ? "" : persisted ? "Yes" : "Not guaranteed (add to home screen)"], ["App version", `${APP_VERSION} (${BUILD})`]])}</dl>
       <p class="hint" style="margin:0">Your packs and field log stay in this phone's browser storage. Nothing is sent anywhere.</p></div>`;
+  sitePacks().then(list => { const sel = $("#spSel"); if (!sel) return;
+    sel.innerHTML = list.length ? list.map(s => `<option value="${esc(s.st)}">${esc(s.name)} · ${num(s.mb, 1)} MB</option>`).join("") : '<option value="">Not reachable: try again with signal</option>'; });
 }
 
 /* ---------- saving map tiles for offline ---------- */
@@ -718,6 +754,7 @@ document.addEventListener("click", async e => {
     const act = a.dataset.act;
     if (act === "close") closeSheet();
     else if (act === "load") $("#packfile").click();
+    else if (act === "sitepack") { const s = (await sitePacks()).find(x => x.st === $("#spSel")?.value); if (s) { await loadSitePack(s); render(); } }
     else if (act === "map") setTab("map");
     else if (act === "here") { setTab("map"); locate(true); }
     else if (act === "more") { S.shown += 200; const y = $("#page").scrollTop; render(); $("#page").scrollTop = y; }
@@ -782,7 +819,7 @@ async function start() {
   $("#packchip").textContent = S.pack ? S.pack.name : "No data pack";
   if (h.q && S.db) { S.mode = "search"; S.query = h.q; $("#q").value = h.q; }
   else S.center = h.center || view?.center || null;
-  setTab(h.tab && ["map", "list", "report", "log", "packs"].includes(h.tab) ? h.tab : (S.db ? "map" : "packs"), false);
+  setTab(h.tab && ["map", "list", "report", "log", "das", "packs"].includes(h.tab) ? h.tab : (S.db ? "map" : "packs"), false);
   if (S.db) { if (S.center || S.mode === "search") run(true); else afterPackOpened(true); }
   else summary();
 }

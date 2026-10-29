@@ -521,9 +521,11 @@ function openDetail(fid){
     box.innerHTML=head+'<p class="hint">Looking…</p>'; $("#dlgBody").appendChild(box);
     api(`/api/sigwiki/match?freq=${r.freq_mhz}&bw=${r.bandwidth_khz||r.bw_khz||""}&type=${encodeURIComponent(r.sig_type||"")}`).then(m=>{
       box.innerHTML=head+(m.candidates.length?m.candidates.map(c=>`<div style="margin:6px 0"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a>
-        <span class="hint">${esc(c.why.join(" · "))}${c.mode?` · ${esc(c.mode)}`:""}${c.modulation?` · ${esc(c.modulation)}`:""}</span><br><span class="hint">${esc(c.description)}</span></div>`).join("")
+        <span class="hint">${esc(c.why.join(" · "))}${c.mode?` · ${esc(c.mode)}`:""}${c.modulation?` · ${esc(c.modulation)}`:""}</span><br><span class="hint">${esc(c.description)}</span>
+        ${c.media?`<div class="row" style="gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">${c.media.image?`<a href="${esc(c.media.image)}" target="_blank" rel="noopener" title="The waterfall, full size"><img src="${esc(c.media.image)}" alt="Waterfall of ${esc(c.title)}" loading="lazy" style="height:72px;max-width:260px;object-fit:cover;border-radius:6px;background:#000"></a>`:""}
+          ${c.media.audio?`<audio controls preload="none" src="${esc(c.media.audio)}" style="height:32px;max-width:260px"></audio>`:""}</div>`:""}</div>`).join("")
         :'<p class="hint">Nothing in the catalog covers this frequency. It covers digital and unusual signals; everyday voice, broadcast and weather radio are in the band plan.</p>')
-        +'<p class="hint">From sigidwiki.com. Open a page for audio samples, waterfalls and decoding notes.</p>'; })
+        +`<p class="hint">From sigidwiki.com${m.candidates.some(c=>c.media)?"; waterfalls and audio from the Artemis database on this PC":""}. Open a page for more samples and decoding notes.</p>`; })
       .catch(()=>{ box.innerHTML=head+'<p class="hint">Catalog not loaded yet: Data &amp; updates → Signal ID Wiki catalog → Run now.</p>'; });
   }
   if($("#ovSave")) $("#ovSave").onclick=async()=>{ const d={call_sign:r.call_sign,freq_mhz:r.freq_mhz,county:r.county,state:r.state,alpha_tag:$("#ovTag").value,tone:$("#ovTone").value,tag:$("#ovT").value,description:$("#ovDesc").value,notes:$("#ovNotes").value,verified:$("#ovVer").checked};

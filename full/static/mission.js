@@ -99,6 +99,7 @@ S.views.mission = async (v) => {
       <div class="row"><label>Lat<input id="fl_lat" type="number" step="any" style="width:110px"></label><label>Lon<input id="fl_lon" type="number" step="any" style="width:110px"></label>
         <button id="fl_gps">◎ GPS</button><button id="fl_pin">Use pin</button></div>
       <div class="row" style="margin-top:6px"><label>Freq MHz<input id="fl_freq" type="number" step="any" style="width:110px"></label><label>dBm<input id="fl_dbm" type="number" step="any" style="width:80px"></label>
+        <label title="The direction the signal came from, in degrees from true north (a DF antenna or a hand bearing): lines of bearing cross where it is">Bearing °<input id="fl_brg" type="number" min="0" max="360" step="any" placeholder="optional" style="width:90px"></label>
         <label>Type<select id="fl_type"><option value="">Auto-identify</option>${Object.keys(S.lib).map(t=>`<option>${esc(t)}</option>`).join("")}</select></label></div>
       <div class="row" style="margin-top:6px"><label class="grow">Label / notes<input id="fl_notes" placeholder="e.g. dispatch, NAC 293, heard from parking lot"></label><button class="primary" id="fl_log">Log</button></div>
       <div id="fl_res" class="hint" style="margin-top:6px"></div>
@@ -129,6 +130,7 @@ S.views.mission = async (v) => {
           <h3>Changed level</h3>${table(c.changed,[["Before",s=>num(s.before_dbm,0)],["Now",s=>num(s.max_dbm,0)],["Change dB",s=>`<b style="color:${s.delta_db>0?"var(--bad)":"var(--good)"}">${s.delta_db>0?"+":""}${s.delta_db}</b>`]])}`;
       }catch(e){ out.innerHTML=`<p class="status err">${esc(e.message)}</p>`; }
     };
+    if(window.missionTools) window.missionTools(v, m);  // replay, when heard, lines of bearing (missiontools.js)
   }
   // list
   v.querySelectorAll("[data-mid]").forEach(el=>el.onclick=async()=>{ S.missionEdit=null; await post(`/api/missions/${el.dataset.mid}/activate`); await loadMission(+el.dataset.mid,true); render(); if(parseLoc($("#loc").value)) runSearch(); });
@@ -173,10 +175,11 @@ S.views.mission = async (v) => {
     err=>{ $("#fl_res").textContent="GPS unavailable: "+err.message; },{enableHighAccuracy:true});
   $("#fl_pin").onclick=()=>{ const p=parseLoc($("#loc").value)||[m.lat,m.lon]; $("#fl_lat").value=p[0]; $("#fl_lon").value=p[1]; };
   $("#fl_log").onclick=async()=>{ const d={mission_id:m.id, lat:+$("#fl_lat").value, lon:+$("#fl_lon").value, acc:+($("#fl_lat").dataset.acc||0)||null, freq_mhz:$("#fl_freq").value, dbm:$("#fl_dbm").value===""?null:+$("#fl_dbm").value,
-      type:$("#fl_type").value||null, label:$("#fl_notes").value, notes:$("#fl_notes").value};
+      type:$("#fl_type").value||null, label:$("#fl_notes").value, notes:$("#fl_notes").value, bearing:$("#fl_brg").value===""?null:+$("#fl_brg").value};
     if(!$("#fl_lat").value){ $("#fl_res").textContent="Set a position (GPS or pin) first."; return; }
     try{ const r=await post("/api/fieldlog", d); $("#fl_res").innerHTML=`Logged — identified as <b>${esc(r.classification.sig_type)}</b> (${esc(r.classification.basis)})`
-        +(r.sigwiki?.length?`<br>Could also be: ${r.sigwiki.map(c=>`<a href="${esc(c.url)}" target="_blank" rel="noopener" title="${esc(c.why.join(" · "))}">${esc(c.title)}</a>`).join(", ")} <span class="hint">(Signal ID Wiki)</span>`:"");
+        +(r.sigwiki?.length?`<br>Could also be: ${r.sigwiki.map(c=>`<a href="${esc(c.url)}" target="_blank" rel="noopener" title="${esc(c.why.join(" · "))}">${esc(c.title)}</a>`
+            +(c.media?.audio?` <a href="${esc(c.media.audio)}" target="_blank" rel="noopener" title="Hear it (Artemis)">🔊</a>`:"")+(c.media?.image?` <a href="${esc(c.media.image)}" target="_blank" rel="noopener" title="Its waterfall (Artemis)">▦</a>`:"")).join(", ")} <span class="hint">(Signal ID Wiki)</span>`:"");
       $("#fl_freq").value=""; $("#fl_dbm").value=""; $("#fl_notes").value=""; }
     catch(e){ $("#fl_res").textContent="Error: "+e.message; } };
   $("#ml_add").onclick=async()=>{ if(!$("#ml_note").value) return; await post(`/api/missions/${m.id}/note`,{text:$("#ml_note").value}); await loadMission(m.id); render(); };
