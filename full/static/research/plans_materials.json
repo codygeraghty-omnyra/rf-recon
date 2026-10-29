@@ -1,0 +1,3352 @@
+{
+ "updated": "2026-10-29",
+ "sources": [
+  {
+   "key": "itu_p2040_4",
+   "title": "Recommendation ITU-R P.2040-4 (09/2025): Effects of building materials and structures on radio-wave propagation in the range of 1 MHz to 450 GHz",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2040-4-202509-I!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p2040_3",
+   "title": "Recommendation ITU-R P.2040-3 (08/2023), superseded",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2040-3-202308-S!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p2040_1",
+   "title": "Recommendation ITU-R P.2040-1 (07/2015), superseded",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2040-1-201507-S!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p2040_editions",
+   "title": "ITU-R P.2040 edition list (P.2040-4 in force)",
+   "url": "https://www.itu.int/rec/R-REC-P.2040/en",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p2109_2",
+   "title": "Recommendation ITU-R P.2109-2 (08/2023): Prediction of building entry loss",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2109-2-202308-I!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p1238_13",
+   "title": "Recommendation ITU-R P.1238-13 (09/2025): Propagation data and prediction methods for the planning of indoor radiocommunication systems (300 MHz to 450 GHz)",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.1238-13-202509-I!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "tr38901_v19_2",
+   "title": "ETSI TR 138 901 V19.2.0 (2026-02) = 3GPP TR 38.901 v19.2.0 Release 19, Study on channel model for frequencies from 0.5 to 100 GHz",
+   "url": "https://www.etsi.org/deliver/etsi_tr/138900_138999/138901/19.02.00_60/tr_138901v190200p.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "tr38901_v16_1",
+   "title": "ETSI TR 138 901 V16.1.0 (2020-11) = 3GPP TR 38.901 v16.1.0 Release 16",
+   "url": "https://www.etsi.org/deliver/etsi_tr/138900_138999/138901/16.01.00_60/tr_138901v160100p.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "ncs6_uds1",
+   "title": "U.S. National CAD Standard v6, Uniform Drawing System Module 1: Drawing Set Organization (sheet identification)",
+   "url": "https://www.nationalcadstandard.org/ncs6/pdfs/ncs6_uds1.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "nistir6055",
+   "title": "NISTIR 6055, NIST Construction Automation Program Report No. 3: Electromagnetic Signal Attenuation in Construction Materials (W.C. Stone, Oct 1997)",
+   "url": "https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir6055.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "nist_tn1545",
+   "title": "NIST Technical Note 1545: Attenuation of Radio Wave Signals Coupled Into Twelve Large Building Structures (Holloway, Young, Koepke, Remley, Camell, Becquet)",
+   "url": "https://www.npstc.org/download.jsp?tableId=37&column=217&id=1915&file=TN+1545+Attenuation+of+Radio+Wave+Signals+Coupled+Into+Twelve+Large+Building+Structures.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "aalborg2014",
+   "title": "Rodriguez et al., Radio Propagation into Modern Buildings: Attenuation Measurements in the Range from 800 MHz to 18 GHz (IEEE VTC-Fall 2014), Aalborg University preprint",
+   "url": "https://vbn.aau.dk/ws/files/204386691/modern_attenuation_IEEE.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "ofcom2014_bmp",
+   "title": "Building Materials and Propagation, Final Report for Ofcom, 2604/BMEM/R/3/2.0 (Aegis/Signal Science/BRE, 14 Sep 2014). Third-party mirror; the Ofcom-hosted copy returned HTTP 403",
+   "url": "http://www.qostic.org/Qostic/wp-content/uploads/Qostic6/AHQ-78-05-Building_Materials_and_Propagation.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "foi2015_windows",
+   "title": "Angskog, Backstrom, Vallhagen, Measurement of Radio Signal Propagation through Window Panes and Energy Saving Windows (IEEE EMC 2015), KTH postprint",
+   "url": "http://www.diva-portal.org/smash/get/diva2:860029/FULLTEXT01.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "graham_lowe",
+   "title": "Graham Architectural Products note 'Electromagnetic shielding and low-e glass' (10-9-14), reproducing Cardinal CG R&D report (E272/E366 shielding, Garwood Labs) and PPG Glass Technical Document TD-151",
+   "url": "https://www.grahamwindows.com/wp-content/uploads/electromagnetic.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "ibwave_suite_ds",
+   "title": "iBwave Design Suite datasheet",
+   "url": "https://www.ibwave.com/storage/app/media/pdf/datasheets/iBwave-Design-Suite-datasheet.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "ranplan_pro_ds",
+   "title": "Ranplan Professional datasheet (RP-PRO-DS-7.1-140525, 2025)",
+   "url": "https://www.ranplanwireless.com/hubfs/Datasheets/Ranplan-Professional-Datasheet-2025.pdf?hsLang=en",
+   "kind": "vendor"
+  },
+  {
+   "key": "ranplan_ifc",
+   "title": "Ranplan Professional 6.9: Import 3D building model from IFC files",
+   "url": "https://www.ranplanwireless.com/resources/import-3d-building-model-from-ifc-files",
+   "kind": "vendor"
+  },
+  {
+   "key": "sdfd_c1",
+   "title": "San Diego Fire-Rescue Standard C-1, Emergency Responder Communication Enhancement Systems (ERCES), effective 06/01/2023, revised 01/22/2026",
+   "url": "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "ocsd_rev45",
+   "title": "Orange County Sheriff's Department Technology Division, ERRCS BDA Implementation Guidelines & Support, Rev 4.5 (8/4/2025)",
+   "url": "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "sccfd_c2",
+   "title": "Santa Clara County Fire Department Standard Details & Specifications C-2, Emergency Responder Radio Coverage Systems (rev. 09/01/20)",
+   "url": "https://www.sccfd.org/wp-content/uploads/2024/10/C-2-Emergency-Respodner-Radio-Coverage-Systems.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "fairfax_erces",
+   "title": "Fairfax County (VA) Office of the Fire Marshal, ERCES Submittal and Permit Requirements Guidelines, Version 2 (Sept 2025)",
+   "url": "https://www.fairfaxcounty.gov/fire-ems/sites/fire-ems/files/Assets/Documents/PDF/fire%20marshal/ERCES%20Submittal%20and%20Permit%20Requirements%20Guidelines.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "durham_county_fmo",
+   "title": "Durham County (NC) Fire Marshal, Permits and Inspections page",
+   "url": "https://dconc.gov/Emergency-Services/Services-and-Special-Operations/Permits-and-Inspections",
+   "kind": "ahj"
+  },
+  {
+   "key": "covina_ib40",
+   "title": "City of Covina Building & Safety IB-40, Duplication of Plans (summarizes CA Health & Safety Code 19850-19853)",
+   "url": "https://covinaca.gov/wp-content/uploads/2024/01/IB-40-DUPLICATION-OF-PLANSopt.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "fl_119_071",
+   "title": "Florida Statutes s. 119.071 (2026), General exemptions from inspection or copying of public records",
+   "url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0100-0199/0119/Sections/0119.071.html",
+   "kind": "code"
+  },
+  {
+   "key": "foia_faq",
+   "title": "FOIA.gov Frequently Asked Questions",
+   "url": "https://www.foia.gov/faq.html",
+   "kind": "guide"
+  },
+  {
+   "key": "copyright_circ41",
+   "title": "U.S. Copyright Office Circular 41, Copyright Registration of Architectural Works",
+   "url": "https://www.copyright.gov/circs/circ41.pdf",
+   "kind": "guide"
+  },
+  {
+   "key": "aia_g716",
+   "title": "AIA Contract Documents help: Summary, G716-2004 Request for Information (RFI)",
+   "url": "https://help.aiacontracts.com/hc/en-us/articles/1500009444782-Summary-G716-2004-Request-for-Information-RFI",
+   "kind": "guide"
+  },
+  {
+   "key": "govtech_nfpa1660",
+   "title": "GovTech, 'NFPA 1600 Now Known as NFPA 1660' (consolidation of NFPA 1600, 1616 and 1620)",
+   "url": "https://www.govtech.com/em/emergency-blogs/disaster-zone/nfpa-1600-now-known-as-nfpa-1660",
+   "kind": "guide"
+  },
+  {
+   "key": "accela_arapahoe",
+   "title": "Arapahoe County, 'View and manage plans and documents on Accela Customer Access' (Accela Citizen Access user guide)",
+   "url": "https://cms3.revize.com/revize/arapahoe/Public%20Works_Development/Accela%20Citizen%20Access%20DO%20NOT%20DELETE/View%20And%20Manage%20Plans%20And%20Documents.pdf",
+   "kind": "guide"
+  },
+  {
+   "key": "energov_css",
+   "title": "Goose Creek SC, EnerGov Citizen Self Service User Guide 2020.1 (Tyler EnerGov)",
+   "url": "https://www.goosecreeksc.gov/sites/default/files/PIO/CSS%20User%20Guide%202020.1.pdf",
+   "kind": "guide"
+  },
+  {
+   "key": "etrakit_johnstown",
+   "title": "Town of Johnstown CO, eTRAKiT Help Guide (CentralSquare eTRAKiT)",
+   "url": "https://johnstownco.gov/588/eTRAKiT-Help-Guide",
+   "kind": "guide"
+  },
+  {
+   "key": "opengov_lakecounty",
+   "title": "Lake County CA, New Online Permitting Software Guide (OpenGov Public Portal)",
+   "url": "https://www.lakecountyca.gov/1806/New-Online-Permitting-Software-Guide-for",
+   "kind": "guide"
+  },
+  {
+   "key": "osm_building_material",
+   "title": "OpenStreetMap Wiki: Key:building:material",
+   "url": "https://wiki.openstreetmap.org/wiki/Key:building:material",
+   "kind": "open_data"
+  },
+  {
+   "key": "osm_building_levels",
+   "title": "OpenStreetMap Wiki: Key:building:levels",
+   "url": "https://wiki.openstreetmap.org/wiki/Key:building:levels",
+   "kind": "open_data"
+  },
+  {
+   "key": "osm_height",
+   "title": "OpenStreetMap Wiki: Key:height",
+   "url": "https://wiki.openstreetmap.org/wiki/Key:height",
+   "kind": "open_data"
+  },
+  {
+   "key": "osm_sit",
+   "title": "OpenStreetMap Wiki: Simple Indoor Tagging",
+   "url": "https://wiki.openstreetmap.org/wiki/Simple_Indoor_Tagging",
+   "kind": "open_data"
+  },
+  {
+   "key": "osm_copyright",
+   "title": "OpenStreetMap copyright and license (ODbL)",
+   "url": "https://www.openstreetmap.org/copyright",
+   "kind": "open_data"
+  },
+  {
+   "key": "osm_overpass",
+   "title": "OpenStreetMap Wiki: Overpass API (public endpoints and usage policy)",
+   "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
+   "kind": "open_data"
+  },
+  {
+   "key": "ms_footprints",
+   "title": "Microsoft GlobalMLBuildingFootprints (GitHub)",
+   "url": "https://github.com/microsoft/GlobalMLBuildingFootprints",
+   "kind": "open_data"
+  },
+  {
+   "key": "google_open_buildings",
+   "title": "Google Research Open Buildings",
+   "url": "https://sites.research.google/gr/open-buildings/",
+   "kind": "open_data"
+  },
+  {
+   "key": "overture_buildings",
+   "title": "Overture Maps documentation: Buildings guide",
+   "url": "https://docs.overturemaps.org/guides/buildings/",
+   "kind": "open_data"
+  },
+  {
+   "key": "overture_building_schema",
+   "title": "Overture Maps schema reference: buildings/building",
+   "url": "https://docs.overturemaps.org/schema/reference/buildings/building/",
+   "kind": "open_data"
+  },
+  {
+   "key": "usa_structures_paper",
+   "title": "A baseline structure inventory with critical attribution for the US and its territories (Scientific Data 2024, PMC11099081) - FEMA/ORNL USA Structures",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11099081/",
+   "kind": "open_data"
+  },
+  {
+   "key": "nsi_tech_2026",
+   "title": "USACE National Structure Inventory 2026 Technical Documentation (public fields)",
+   "url": "https://www.hec.usace.army.mil/confluence/nsi/technicalreferences/2026/technical-documentation",
+   "kind": "open_data"
+  },
+  {
+   "key": "nsi_api",
+   "title": "USACE NSI API Reference Guide",
+   "url": "https://www.hec.usace.army.mil/confluence/nsi/technicalreferences/latest/api-reference-guide",
+   "kind": "open_data"
+  },
+  {
+   "key": "cook_assessor",
+   "title": "Cook County Assessor - Residential Single and Multi-Family Improvement Characteristics (Socrata x54s-btds, column metadata)",
+   "url": "https://datacatalog.cookcountyil.gov/api/views/x54s-btds.json",
+   "kind": "open_data"
+  },
+  {
+   "key": "regrid_buildings",
+   "title": "Regrid support: Buildings & Structures fields",
+   "url": "https://support.regrid.com/docs/buildings-structures",
+   "kind": "vendor"
+  },
+  {
+   "key": "regrid_schema",
+   "title": "Regrid support: Parcel data schema overview",
+   "url": "https://support.regrid.com/parcel-data/schema",
+   "kind": "vendor"
+  },
+  {
+   "key": "regrid_pricing",
+   "title": "Regrid pricing page",
+   "url": "https://regrid.com/pricing",
+   "kind": "vendor"
+  },
+  {
+   "key": "attom_cloud",
+   "title": "ATTOM Cloud Help: Property Characteristics",
+   "url": "https://cloud-help.attomdata.com/article/497-property-characteristics",
+   "kind": "vendor"
+  },
+  {
+   "key": "attom_api",
+   "title": "ATTOM API home (developer portal)",
+   "url": "https://api.developer.attomdata.com/home",
+   "kind": "vendor"
+  }
+ ],
+ "plan_sources": [
+  {
+   "source": "Building owner / property manager",
+   "what_you_get": "Whatever drawing set the owner kept: permit or record (as-built) drawings, often as PDF; for a building with an existing ERCES, its approved plans and acceptance test report.",
+   "how": "Written request to the property manager naming the sheets you need (see plan_request). Ask the owner to authorize the architect or GC to release CAD/BIM files directly to you.",
+   "limits": "Owners often hold only PDFs or paper. Copyright in the design stays with the architect: an architectural work includes the building design as embodied in plans or drawings.",
+   "sources": [
+    "copyright_circ41",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "source": "General contractor (during construction)",
+   "what_you_get": "The current construction set (permit drawings plus revisions), and coordination models if the project uses BIM.",
+   "how": "Submit a Request for Information through the GC; AIA G716 is the standard form any party (owner, architect, contractor) uses to request information from another during construction. Number and log each RFI.",
+   "limits": "An RFI response is not authorization for extra work; the GC may need the architect's or owner's permission before sharing CAD backgrounds.",
+   "sources": [
+    "aia_g716"
+   ]
+  },
+  {
+   "source": "Architect of record",
+   "what_you_get": "CAD backgrounds (DWG/DXF) or the BIM model (Revit, exportable to IFC); wall-type, partition and glazing schedules; life-safety/code plans.",
+   "how": "Request through the owner or GC with the owner's written authorization; expect the architect to ask for a file-release agreement.",
+   "limits": "Drawings are instruments of professional service; California building departments cannot duplicate stamped plans without the design professional's and owner's written permission.",
+   "sources": [
+    "covina_ib40",
+    "copyright_circ41"
+   ]
+  },
+  {
+   "source": "MEP / electrical / fire alarm engineer and low-voltage contractor",
+   "what_you_get": "Electrical and fire alarm riser diagrams, electrical/IDF room locations, pathways and firestop details; the fire alarm interface the ERCES must report to.",
+   "how": "Request through the GC or owner alongside the architectural set.",
+   "limits": "Same release restrictions as the architectural set.",
+   "sources": [
+    "fairfax_erces",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "source": "City/county permit portal (Accela Citizen Access, Tyler EnerGov CSS, CentralSquare eTRAKiT, OpenGov)",
+   "what_you_get": "Permit records by address or number: status, type, dates, inspections, sometimes attachments (plan sheets, approved documents).",
+   "how": "Search the jurisdiction's public portal by address or permit number. EnerGov CSS and OpenGov allow searching public records without logging in; Accela General Search shows processing status.",
+   "limits": "Attachments are often restricted: Arapahoe's Accela portal needs the case manager to grant access to download secure documents; Johnstown's eTRAKiT requires login to view attachments and older records need a records request; OpenGov shows only record types the agency enabled for public search.",
+   "sources": [
+    "accela_arapahoe",
+    "energov_css",
+    "etrakit_johnstown",
+    "opengov_lakecounty"
+   ]
+  },
+  {
+   "source": "Public-records request to the building department (state open-records law)",
+   "what_you_get": "Inspection, and sometimes copies, of the official plan set on file.",
+   "how": "File under the state's public-records law with the city clerk or building department. Federal FOIA covers federal agency records, not city permit files.",
+   "limits": "Florida exempts building plans of agency-owned structures and of many private facility types (offices, retail, hotels, health care, industrial) held by an agency, and exempts security/firesafety system plans. California allows inspection only; copies need the designer's and owner's written permission (or a court order) plus a signed affidavit limiting use to maintenance, operation and use of the building.",
+   "sources": [
+    "fl_119_071",
+    "covina_ib40",
+    "foia_faq"
+   ]
+  },
+  {
+   "source": "Fire department pre-incident plans",
+   "what_you_get": "Fire department pre-plans covering building construction, access and hazards.",
+   "how": "Ask the AHJ's fire prevention office; pre-incident planning now sits in NFPA 1660 (2024), which consolidated NFPA 1620.",
+   "limits": "Internal fire-department documents; Florida exempts security and firesafety system plans of private property held by an agency from public disclosure.",
+   "sources": [
+    "govtech_nfpa1660",
+    "fl_119_071"
+   ]
+  },
+  {
+   "source": "Open building data (OSM, Microsoft, Overture, FEMA USA Structures, USACE NSI, assessor parcels)",
+   "what_you_get": "Footprint, height or stories, sometimes facade material, building type (masonry/wood/steel) and year built. No interior walls except where OSM indoor mapping exists.",
+   "how": "See open_data.",
+   "limits": "Exterior-only and often modeled; good for a desk estimate and donor-side planning, not for a design.",
+   "sources": [
+    "nsi_tech_2026",
+    "overture_building_schema",
+    "osm_sit"
+   ]
+  },
+  {
+   "source": "Field capture when no drawings exist",
+   "what_you_get": "A scaled sketch or scan built on site.",
+   "how": "Ranplan can build a 3D model from background images (Intelligent Floor Plan Recognition) or import IFC from the Metaroom LiDAR app; iBwave can create, scale and geolocate floor plans on its mobile planner.",
+   "limits": "Wall materials still have to be identified by eye.",
+   "sources": [
+    "ranplan_pro_ds",
+    "ibwave_suite_ds"
+   ]
+  }
+ ],
+ "plan_request": {
+  "subject": "Request for building drawings - in-building public safety radio (ERCES/BDA) design at [Building name, address]",
+  "body": "Hello [Name],\n\n[Company] has been engaged to evaluate emergency responder radio coverage at [Building name, address] and, if needed, design an Emergency Responder Communication Enhancement System (ERCES/BDA) for fire code compliance. To model coverage and prepare the permit submittal the fire department requires, we need the drawings listed below. Electronic files are best: full-size vector PDFs of the sheets, plus DWG backgrounds or the Revit/IFC model if the architect can release them.\n\n1. Architectural floor plans for every level, including basements, parking, mechanical penthouse and roof.\n2. Reflected ceiling plans.\n3. Building sections and exterior elevations for all sides.\n4. Wall type / partition schedule and details, and the window/glazing schedule (including any low-E or coated glass).\n5. Life safety (code) plans showing rated walls, shafts, stairs and the fire command center.\n6. Electrical and fire alarm riser diagrams and the locations of electrical and telecom rooms.\n7. Roof plan and site plan.\n8. Structural floor type (concrete slab, metal deck with concrete fill, post-tensioned slab).\n9. Any existing BDA/DAS as-built drawings or radio coverage test reports.\n\nWe will use the drawings only for the design, permitting and maintenance of this system and will not distribute them. If the architect needs your written authorization to release CAD files, a short email from you to them copying me is enough to start that.\n\nIf any items are not available, please tell me which, and we will work from what exists and field-verify the rest.\n\nThank you,\n[Name]\n[Title, company]\n[Phone] | [Email]",
+  "ask_for": [
+   "Architectural floor plans for ALL levels incl. roof, basements, parking (vector PDF at full sheet size; DWG if available) - AHJs require floor plans for every level, including levels without system components.",
+   "Reflected ceiling plans - antenna mounting surface and ceiling type for each area.",
+   "Building sections and exterior elevations for all exposures - floor-to-floor heights and facade composition; OCSD requires exterior elevations for all exposures.",
+   "Wall type / partition schedule and details - material of each wall for attenuation; Santa Clara County FD requires partitions, non-rated and rated walls on the ERRC floor plan.",
+   "Window/glazing schedule or spec (low-E, metallised or laminated glass) - coated glass can add tens of dB of loss.",
+   "Life safety / code plans - rated walls, shafts, stairs, fire command center, occupancy and construction type (SDFD cover sheet requires construction type per floor and occupancy classification).",
+   "Electrical and fire alarm riser diagrams, electrical/IDF room locations - power, monitoring tie-in and cable pathways; Fairfax requires the riser and firestop systems on the building permit plans.",
+   "Roof plan and site plan - donor antenna location and donor path; multi-building site map.",
+   "Structural floor/slab type - floor penetration loss.",
+   "Existing ERCES/BDA as-built drawings and test reports, if any.",
+   "Owner's written authorization for the architect/GC to release CAD/BIM files."
+  ],
+  "sources": [
+   "sdfd_c1",
+   "ocsd_rev45",
+   "sccfd_c2",
+   "fairfax_erces",
+   "graham_lowe",
+   "foi2015_windows",
+   "covina_ib40",
+   "ncs6_uds1",
+   "aia_g716"
+  ]
+ },
+ "plan_formats": [
+  {
+   "format": "PDF (vector or scanned), Architectural D (24x36 in)",
+   "used_by": "AHJ submittals; owners; permit portals",
+   "import_note": "iBwave Design imports .pdf floor plans. Set scale from a graduated bar scale or a long known dimension: SDFD and OCSD require a graduated ruler on plan sheets, and OCSD says a relational scale such as 1\"=20' is not acceptable. Santa Clara County FD sets 1/8\"=1'-0\" as the minimum ERRC plan scale.",
+   "sources": [
+    "ibwave_suite_ds",
+    "sdfd_c1",
+    "ocsd_rev45",
+    "sccfd_c2"
+   ]
+  },
+  {
+   "format": "DWG / DXF (AutoCAD)",
+   "used_by": "Architects and MEP engineers (CAD backgrounds)",
+   "import_note": "iBwave Design imports .dwg and .dxf and exports projects to .dxf. Ranplan 'Smart CAD Extract' converts 2D/3D CAD files into 3D building models.",
+   "sources": [
+    "ibwave_suite_ds",
+    "ranplan_pro_ds"
+   ]
+  },
+  {
+   "format": "Raster images (JPEG, BMP, TIFF, GIF, photos of posted evacuation plans)",
+   "used_by": "Field capture; scanned sets",
+   "import_note": "iBwave imports .jpeg, .bmp, .tiff and .gif and can create, scale and geolocate floor plans. Ranplan Intelligent Floor Plan Recognition converts background images into 3D vector building models.",
+   "sources": [
+    "ibwave_suite_ds",
+    "ranplan_pro_ds"
+   ]
+  },
+  {
+   "format": "IFC (open BIM exchange; exported from Revit, ArchiCAD, SketchUp, Tekla, etc.)",
+   "used_by": "Architects using BIM; LiDAR scan apps",
+   "import_note": "Ranplan Professional 6.9+ imports IFC with geometry, material properties and spatial relationships, and imports IFC from the Metaroom LiDAR app. The iBwave sources opened do not list IFC import.",
+   "sources": [
+    "ranplan_ifc",
+    "ranplan_pro_ds",
+    "ibwave_suite_ds"
+   ]
+  },
+  {
+   "format": "Revit (.rvt)",
+   "used_by": "Architects and MEP engineers",
+   "import_note": "No native .rvt import is stated in the Ranplan or iBwave sources opened; Ranplan names Revit as an IFC source, so request an IFC export.",
+   "sources": [
+    "ranplan_ifc"
+   ]
+  },
+  {
+   "format": "Drawing set sheet identifiers (NCS/UDS)",
+   "used_by": "All US drawing sets",
+   "import_note": "Sheet ID = discipline + sheet type + sequence. Disciplines: A Architectural, S Structural, F Fire Protection, E Electrical, T Telecommunications. Sheet types: 1 plans, 2 elevations, 3 sections, 4 large-scale views, 5 details, 6 schedules and diagrams. So A-1xx are architectural plans and E-6xx usually holds riser diagrams/schedules.",
+   "sources": [
+    "ncs6_uds1"
+   ]
+  }
+ ],
+ "open_data": [
+  {
+   "name": "OpenStreetMap buildings and indoor tags",
+   "what": "Footprints with building=*, building:levels (above-ground levels, roof and underground excluded), height (m, ground to top of roof), building:material (outer facade surface material: brick, concrete, glass, metal, wood, plaster, cement_block, ...), roof:material; indoor=room/area/wall/corridor/door with level=* (Simple Indoor Tagging).",
+   "coverage": "Global, crowd-sourced; attribute completeness varies building to building.",
+   "access": "Overpass API (public instance https://overpass-api.de/api/interpreter; keep under 10,000 queries and 1 GB per day for one-off use, divide by 100 for regular use, commercial users run their own server) or planet/extract files.",
+   "url": "https://wiki.openstreetmap.org/wiki/Key:building:material",
+   "fields": [
+    "building",
+    "building:levels",
+    "building:levels:underground",
+    "roof:levels",
+    "height",
+    "min_height",
+    "building:material",
+    "roof:material",
+    "indoor",
+    "level"
+   ],
+   "cost": "Free; ODbL (attribution and share-alike).",
+   "sources": [
+    "osm_building_material",
+    "osm_building_levels",
+    "osm_height",
+    "osm_sit",
+    "osm_overpass",
+    "osm_copyright"
+   ]
+  },
+  {
+   "name": "Microsoft GlobalMLBuildingFootprints",
+   "what": "ML-derived footprints from Bing imagery with per-polygon height estimate (m; -1 if none) and confidence.",
+   "coverage": "Global including the US (US refresh released 2022; new US data added July 2026).",
+   "access": "dataset-links.csv lists files partitioned by country and level-9 quadkey; line-delimited GeoJSON (.csv.gz), EPSG:4326; also on Planetary Computer.",
+   "url": "https://github.com/microsoft/GlobalMLBuildingFootprints",
+   "fields": [
+    "geometry",
+    "height",
+    "confidence"
+   ],
+   "cost": "Free; CDLA Permissive 2.0.",
+   "sources": [
+    "ms_footprints"
+   ]
+  },
+  {
+   "name": "Google Open Buildings (v3)",
+   "what": "ML footprints with area_in_meters, confidence, Plus Code; no building type or address.",
+   "coverage": "Africa, South/South-East Asia, Latin America and Caribbean; mainland US not covered (Puerto Rico and USVI listed).",
+   "access": "gs://open-buildings-data/v3/polygons_s2_level_4_gzip (CSV per S2 cell), Earth Engine asset.",
+   "url": "https://sites.research.google/gr/open-buildings/",
+   "fields": [
+    "latitude",
+    "longitude",
+    "area_in_meters",
+    "confidence",
+    "geometry",
+    "full_plus_code"
+   ],
+   "cost": "Free; CC BY 4.0 or ODbL.",
+   "sources": [
+    "google_open_buildings"
+   ]
+  },
+  {
+   "name": "Overture Maps buildings theme",
+   "what": "Conflated footprints (OSM first, then Esri Community Maps, Microsoft, Google, others) with optional height, num_floors, num_floors_underground, min_height, facade_material, roof_material, roof_shape, class, subtype.",
+   "coverage": "Global; monthly releases.",
+   "access": "GeoParquet in cloud storage, e.g. s3://overturemaps-us-west-2/release/2026-10-21.0/theme=buildings/type=building/* (Azure mirror also).",
+   "url": "https://docs.overturemaps.org/guides/buildings/",
+   "fields": [
+    "height",
+    "num_floors",
+    "num_floors_underground",
+    "min_height",
+    "facade_material",
+    "facade_color",
+    "roof_material",
+    "roof_shape",
+    "roof_height",
+    "class",
+    "subtype",
+    "is_underground",
+    "sources"
+   ],
+   "cost": "Free; ODbL.",
+   "sources": [
+    "overture_buildings",
+    "overture_building_schema"
+   ]
+  },
+  {
+   "name": "FEMA/ORNL USA Structures",
+   "what": "Footprints of structures larger than 450 sq ft with occupancy class (OCC_CLS), primary occupancy (PRIM_OCC), HEIGHT (m, only where NGA LiDAR covered 133 cities), SQMETERS, address, source, image date. No construction material or story count.",
+   "coverage": "US and territories, about 127 million structures.",
+   "access": "Figshare (DOI 10.6084/m9.figshare.c.6895333.v1), FEMA Geospatial Resource Center (https://disasters.geoplatform.gov/USA_Structures/), Esri Living Atlas.",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11099081/",
+   "fields": [
+    "OCC_CLS",
+    "PRIM_OCC",
+    "HEIGHT",
+    "SQMETERS",
+    "PROP_ADDR",
+    "SOURCE",
+    "IMAGE_DATE"
+   ],
+   "cost": "Free.",
+   "sources": [
+    "usa_structures_paper"
+   ]
+  },
+  {
+   "name": "USACE National Structure Inventory (NSI) 2026",
+   "what": "Modeled point inventory: bldgtype (M masonry, W wood, H manufactured, S steel), num_story, sqft, found_type, occtype, med_yr_blt (Census-tract median, not the building's own year), bldheight (m, public in 2026).",
+   "coverage": "Nationwide US; many values modeled from parcel, footprint and HAZUS data.",
+   "access": "API https://nsi.sec.usace.army.mil/nsiapi/structures?bbox=... or ?fips=..., GeoJSON; state GeoPackage/GeoParquet downloads.",
+   "url": "https://www.hec.usace.army.mil/confluence/nsi/technicalreferences/2026/technical-documentation",
+   "fields": [
+    "bldgtype",
+    "num_story",
+    "sqft",
+    "found_type",
+    "occtype",
+    "med_yr_blt",
+    "bldheight",
+    "ftprntsqft",
+    "usastrucid"
+   ],
+   "cost": "Free (public fields).",
+   "sources": [
+    "nsi_tech_2026",
+    "nsi_api"
+   ]
+  },
+  {
+   "name": "County assessor improvement data (example: Cook County IL)",
+   "what": "Building-level characteristics: year built, building sq ft, type of residence (stories), exterior wall material, roof material, basement.",
+   "coverage": "County by county; the Cook County dataset covers residential single and multi-family (fewer than 7 units) only.",
+   "access": "Socrata API https://datacatalog.cookcountyil.gov/resource/x54s-btds.json (CSV/JSON export).",
+   "url": "https://datacatalog.cookcountyil.gov/api/views/x54s-btds.json",
+   "fields": [
+    "char_yrblt",
+    "char_bldg_sf",
+    "char_type_resd",
+    "char_ext_wall",
+    "char_roof_cnst",
+    "char_bsmt"
+   ],
+   "cost": "Free (this county).",
+   "sources": [
+    "cook_assessor"
+   ]
+  },
+  {
+   "name": "Regrid parcels",
+   "what": "Parcel boundaries plus county-sourced yearbuilt, numstories, structstyle, area_building; Premium adds ll_bldg_count and ll_bldg_footprint_sqft.",
+   "coverage": "160M+ US parcels; attribute coverage varies by county.",
+   "access": "Property app, API, data store, enterprise delivery.",
+   "url": "https://support.regrid.com/docs/buildings-structures",
+   "fields": [
+    "yearbuilt",
+    "numstories",
+    "structstyle",
+    "area_building",
+    "numunits",
+    "ll_bldg_count",
+    "ll_bldg_footprint_sqft"
+   ],
+   "cost": "Commercial; the pricing page opened shows plans and enterprise sales but no published prices.",
+   "sources": [
+    "regrid_buildings",
+    "regrid_schema",
+    "regrid_pricing"
+   ]
+  },
+  {
+   "name": "ATTOM property data",
+   "what": "Assessor-derived characteristics: construction (material of the main structure), exterior wall material, roof cover and roof framing, building fire resistance class, levels, year built.",
+   "coverage": "About 150 million US property records; accuracy depends on each assessor.",
+   "access": "REST API (free API key / start-up plan offered) and ATTOM Cloud bulk tables.",
+   "url": "https://cloud-help.attomdata.com/article/497-property-characteristics",
+   "fields": [
+    "DimConstruction",
+    "DimExterior",
+    "DimRoof",
+    "DimRoofConstruction",
+    "DimBuildingFireResistanceClass",
+    "building.construction.wallType",
+    "building.summary.levels",
+    "yearbuilt"
+   ],
+   "cost": "Commercial; free trial key; enterprise pricing not published.",
+   "sources": [
+    "attom_cloud",
+    "attom_api"
+   ]
+  }
+ ],
+ "ahj_plan_rules": [
+  {
+   "ahj": "San Diego Fire-Rescue (City of San Diego), Standard C-1",
+   "requirement": "Fire permit required for every ERCES. Design and as-built submittals in PDF, Architectural D (24x36) landscape, all pages one size. Floor plans, exterior elevations and area drawings must carry a legend, a graduated-ruler scale, compass orientation and unique IDs. Cover sheet must state construction type per floor, floors above/below grade, square footage, occupancy and sprinkler standard. Floor plans for every level from roof to lowest level, including levels the system does not cover, with fire-rated protection callouts; system elevation schematic; donor path plan and elevation; 700 and 800 MHz link budgets. Test reports show each floor as 20 approximately equal grids. As-built plans and a final acceptance test report are due before TCO.",
+   "sources": [
+    "sdfd_c1"
+   ]
+  },
+  {
+   "ahj": "Orange County Sheriff's Department (Orange County, CA countywide 800 MHz system), Rev 4.5",
+   "requirement": "Design submitted to a project portal; based at minimum on Architectural D (36x24) building prints in PDF. Must include building description (floors above/below grade, type of construction), riser with uplink/downlink power at all junctions, floor plans for all floors (including those without BDA components), exterior elevations for all exposures, and heat maps with the 20-grid method for every floor. Scale must be a graduated ruler; a relational scale such as 1\"=20' is not accepted.",
+   "sources": [
+    "ocsd_rev45"
+   ]
+  },
+  {
+   "ahj": "Santa Clara County Fire Department, SD&S C-2",
+   "requirement": "Plans: title sheet, equipment list, SOP, floor plan, riser (single-line) diagram, secondary power calculations. Title sheet lists occupancy group, basements, stories, building height, total area and construction type. Floor plan shows the scale with a graphic scale (minimum 1/8\"=1'-0\"; metric not accepted), room names, and the locations of partitions, non-rated walls and rated walls.",
+   "sources": [
+    "sccfd_c2"
+   ]
+  },
+  {
+   "ahj": "Fairfax County, VA (DIT Radio Services Center + Land Development Services + Fire Marshal)",
+   "requirement": "DIT reviews plans and technical specifications first. Building permit plans must show the extent of the system, the DIT-approved preliminary riser and all through-penetration firestop systems. The FCOMM permit needs the approved building plan pages showing communication-system items; full systems also need a fire alarm permit showing the ERCES-to-fire-alarm connection.",
+   "sources": [
+    "fairfax_erces"
+   ]
+  },
+  {
+   "ahj": "Durham County, NC Fire Marshal",
+   "requirement": "ERRC requests go to the City-County Inspections site. County fire protection submittals require shop drawings, life safety plans and an Appendix B, sealed by an NC-licensed PE or licensed fire sprinkler contractor, each document as its own file. (The City of Durham ERRCS guideline and permit-requirement PDFs returned HTTP 403 and were not read.)",
+   "sources": [
+    "durham_county_fmo"
+   ]
+  }
+ ],
+ "itu_p2040": [
+  {
+   "material": "Vacuum (~air)",
+   "a": 1,
+   "b": 0,
+   "c": 0,
+   "d": 0,
+   "f_min_ghz": 0.001,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Concrete",
+   "a": 5.24,
+   "b": 0,
+   "c": 0.0462,
+   "d": 0.7822,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Concrete",
+   "a": 5.17,
+   "b": 0,
+   "c": 0.0145,
+   "d": 1.09,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Brick",
+   "a": 3.91,
+   "b": 0,
+   "c": 0.0238,
+   "d": 0.16,
+   "f_min_ghz": 1,
+   "f_max_ghz": 40,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Brick",
+   "a": 4.15,
+   "b": 0,
+   "c": 0.0006,
+   "d": 1.5712,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Plasterboard",
+   "a": 2.73,
+   "b": 0,
+   "c": 0.0085,
+   "d": 0.9395,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Plasterboard",
+   "a": 2.56,
+   "b": 0,
+   "c": 0.0001,
+   "d": 1.7799,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Plasterboard",
+   "a": 2.65,
+   "b": 0,
+   "c": 0.0002,
+   "d": 1.598,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Wood",
+   "a": 1.99,
+   "b": 0,
+   "c": 0.0047,
+   "d": 1.0718,
+   "f_min_ghz": 0.001,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Wood",
+   "a": 1.82,
+   "b": 0,
+   "c": 0.004,
+   "d": 1.0761,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Wood",
+   "a": 2.1183,
+   "b": 0,
+   "c": 0.0055,
+   "d": 1.1113,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Glass",
+   "a": 6.31,
+   "b": 0,
+   "c": 0.0036,
+   "d": 1.3394,
+   "f_min_ghz": 0.1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Glass",
+   "a": 5.79,
+   "b": 0,
+   "c": 0.0004,
+   "d": 1.658,
+   "f_min_ghz": 220,
+   "f_max_ghz": 450,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Glass",
+   "a": 6.5767,
+   "b": 0,
+   "c": 0.0012,
+   "d": 1.4697,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Clear acrylic",
+   "a": 2.58,
+   "b": 0,
+   "c": 0.0001,
+   "d": 1.6524,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Ceiling board",
+   "a": 1.48,
+   "b": 0,
+   "c": 0.0011,
+   "d": 1.075,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Ceiling board",
+   "a": 1.52,
+   "b": 0,
+   "c": 0.0029,
+   "d": 1.029,
+   "f_min_ghz": 220,
+   "f_max_ghz": 450,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Ceiling board",
+   "a": 1.2567,
+   "b": 0,
+   "c": 0.00013,
+   "d": 1.454,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Chipboard",
+   "a": 2.58,
+   "b": 0,
+   "c": 0.0217,
+   "d": 0.78,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Chipboard",
+   "a": 2.16,
+   "b": 0,
+   "c": 0.0023,
+   "d": 1.359,
+   "f_min_ghz": 100,
+   "f_max_ghz": 200,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Plywood",
+   "a": 2.71,
+   "b": 0,
+   "c": 0.33,
+   "d": 0,
+   "f_min_ghz": 1,
+   "f_max_ghz": 40,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Plywood",
+   "a": 1.94,
+   "b": 0,
+   "c": 0.0067,
+   "d": 0.9982,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Plywood",
+   "a": 2.17,
+   "b": 0,
+   "c": 0.0063,
+   "d": 1.045,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Marble",
+   "a": 7.074,
+   "b": 0,
+   "c": 0.0055,
+   "d": 0.9262,
+   "f_min_ghz": 1,
+   "f_max_ghz": 60,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Marble",
+   "a": 7.94,
+   "b": 0,
+   "c": 0.0001,
+   "d": 1.733,
+   "f_min_ghz": 110,
+   "f_max_ghz": 330,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Marble",
+   "a": 8.62,
+   "b": 0,
+   "c": 0.0027,
+   "d": 1.15,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Floorboard",
+   "a": 3.66,
+   "b": 0,
+   "c": 0.0044,
+   "d": 1.3515,
+   "f_min_ghz": 50,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Floorboard",
+   "a": 5.27,
+   "b": 0,
+   "c": 2.22e-17,
+   "d": 7.3413,
+   "f_min_ghz": 220,
+   "f_max_ghz": 300,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Floorboard",
+   "a": 5.27,
+   "b": 0,
+   "c": 0.0003,
+   "d": 2.0298,
+   "f_min_ghz": 300,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Floorboard",
+   "a": 5.27,
+   "b": 0,
+   "c": 49.8726,
+   "d": 0,
+   "f_min_ghz": 400,
+   "f_max_ghz": 450,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Floorboard",
+   "a": 3.1575,
+   "b": 0,
+   "c": 0.001675,
+   "d": 1.32775,
+   "f_min_ghz": 100,
+   "f_max_ghz": 400,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Vinyl tile",
+   "a": 3.62,
+   "b": 0,
+   "c": 0.0051,
+   "d": 0.8422,
+   "f_min_ghz": 1,
+   "f_max_ghz": 40,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Carpet tile",
+   "a": 2.08,
+   "b": 0,
+   "c": 0.0009,
+   "d": 0.82,
+   "f_min_ghz": 1,
+   "f_max_ghz": 40,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Asphalt concrete",
+   "a": 4.83,
+   "b": 0,
+   "c": 0.0108,
+   "d": 1.3969,
+   "f_min_ghz": 1,
+   "f_max_ghz": 40,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Metal",
+   "a": 1,
+   "b": 0,
+   "c": 10000000.0,
+   "d": 0,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Very dry ground",
+   "a": 3,
+   "b": 0,
+   "c": 0.00015,
+   "d": 2.52,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Medium dry ground",
+   "a": 15,
+   "b": -0.1,
+   "c": 0.035,
+   "d": 1.63,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Wet ground",
+   "a": 30,
+   "b": -0.4,
+   "c": 0.15,
+   "d": 1.3,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-4 (09/2025), in force",
+   "table": "Table 3 (Examples of material properties), eqs (57)-(58): eps'=a*f^b, sigma=c*f^d S/m, f in GHz",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_editions"
+   ]
+  },
+  {
+   "material": "Vacuum (~air)",
+   "a": 1,
+   "b": 0,
+   "c": 0,
+   "d": 0,
+   "f_min_ghz": 0.001,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Concrete",
+   "a": 5.31,
+   "b": 0,
+   "c": 0.0326,
+   "d": 0.8095,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Brick",
+   "a": 3.75,
+   "b": 0,
+   "c": 0.038,
+   "d": 0,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Plasterboard",
+   "a": 2.94,
+   "b": 0,
+   "c": 0.0116,
+   "d": 0.7076,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Wood",
+   "a": 1.99,
+   "b": 0,
+   "c": 0.0047,
+   "d": 1.0718,
+   "f_min_ghz": 0.001,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Glass",
+   "a": 6.27,
+   "b": 0,
+   "c": 0.0043,
+   "d": 1.1925,
+   "f_min_ghz": 0.1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Ceiling board",
+   "a": 1.5,
+   "b": 0,
+   "c": 0.0005,
+   "d": 1.1634,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Chipboard",
+   "a": 2.58,
+   "b": 0,
+   "c": 0.0217,
+   "d": 0.78,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Floorboard",
+   "a": 3.66,
+   "b": 0,
+   "c": 0.0044,
+   "d": 1.3515,
+   "f_min_ghz": 50,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Metal",
+   "a": 1,
+   "b": 0,
+   "c": 10000000.0,
+   "d": 0,
+   "f_min_ghz": 1,
+   "f_max_ghz": 100,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Very dry ground",
+   "a": 3,
+   "b": 0,
+   "c": 0.00015,
+   "d": 2.52,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Medium dry ground",
+   "a": 15,
+   "b": -0.1,
+   "c": 0.035,
+   "d": 1.63,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Wet ground",
+   "a": 30,
+   "b": -0.4,
+   "c": 0.15,
+   "d": 1.3,
+   "f_min_ghz": 1,
+   "f_max_ghz": 10,
+   "edition": "ITU-R P.2040-1 (07/2015), superseded (values reused in 3GPP TR 38.901 Table 7.6.8-1)",
+   "table": "Table 3 (Material properties)",
+   "sources": [
+    "itu_p2040_1",
+    "tr38901_v19_2"
+   ]
+  }
+ ],
+ "tr38901": [
+  {
+   "material": "Standard multi-pane glass",
+   "formula_db": "L_glass = 2 + 0.2*f",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-1. V19.2.0 adds 'reference thickness of 3 cm assumed'. Same formula in V16.1.0. TR scope 0.5-100 GHz.",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "IRR (infrared-reflecting, metal-coated) glass - Release 19",
+   "formula_db": "L_IRRglass = 25.4 + 0.11*f",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-1 in V19.2.0 (2026-02); single coating assumed; value updated in the Rel-19 study on 7-24 GHz channel modelling (note 2).",
+   "sources": [
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "IRR glass - Release 14-18 (e.g. V16.1.0)",
+   "formula_db": "L_IRRglass = 23 + 0.3*f",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-1 in V16.1.0 (2020-11); superseded by 25.4 + 0.11f in Rel-19.",
+   "sources": [
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "Concrete",
+   "formula_db": "L_concrete = 5 + 4*f",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-1; V19.2.0 adds 'reference thickness of 23 cm assumed'.",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "Wood",
+   "formula_db": "L_wood = 4.85 + 0.12*f",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-1; V19.2.0 adds 'reference thickness of 3.3 cm assumed'.",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "Plywood",
+   "formula_db": "L_plywood = 1.03 + 0.17*f",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-1 in V19.2.0 only (not in V16.1.0); reference thickness 1.75 cm.",
+   "sources": [
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "External wall, general (eq 7.4-3)",
+   "formula_db": "PL_tw = PL_npi - 10*log10( sum_i p_i * 10^(-L_material_i/10) ), with sum p_i = 1",
+   "f_unit": "GHz (inside L_material_i)",
+   "note": "PL_npi = extra loss for non-perpendicular incidence (5 dB in Table 7.4.3-2 models). Total O2I: PL = PL_b + PL_tw + PL_in + N(0, sigma_P^2) (eq 7.4-2), with d_3D replaced by d_3D-out + d_3D-in.",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "Low-loss building model",
+   "formula_db": "PL_tw = 5 - 10*log10(0.3*10^(-L_glass/10) + 0.7*10^(-L_concrete/10)); PL_in = 0.5*d_2D-in; sigma_P = 4.4 dB",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-2. Applies to UMa, UMi-Street Canyon, RMa (RMa: low-loss only) and SMa. d_2D-in = min of two U(0,25 m) draws for UMa/UMi (U(0,10 m) for RMa).",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "High-loss building model",
+   "formula_db": "PL_tw = 5 - 10*log10(0.7*10^(-L_IRRglass/10) + 0.3*10^(-L_concrete/10)); PL_in = 0.5*d_2D-in; sigma_P = 6.5 dB",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-2. Applies to UMa, UMi-Street Canyon, SMa; only model for InF. Mix of low/high loss is a user parameter tied to metal-coated glass use.",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1"
+   ]
+  },
+  {
+   "material": "Low-loss A model (Release 19)",
+   "formula_db": "PL_tw = 5 - 10*log10(0.3*10^(-L_glass/10) + 0.7*10^(-L_plywood/10)); PL_in = 0.5*d_2D-in; sigma_P = 4.4 dB",
+   "f_unit": "GHz",
+   "note": "Table 7.4.3-2 in V19.2.0; applicable to SMa.",
+   "sources": [
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "material": "Legacy single-frequency O2I (<6 GHz, TR 36.873 compatible)",
+   "formula_db": "PL_tw = 20 dB; PL_in = 0.5*d_2D-in (single link-specific U(0,25 m)); sigma_P = 0 dB; sigma_SF = 7 dB",
+   "f_unit": "n/a",
+   "note": "Table 7.4.3-3, for UMa and UMi single-frequency simulations below 6 GHz.",
+   "sources": [
+    "tr38901_v19_2"
+   ]
+  }
+ ],
+ "measured": [
+  {
+   "material": "Brick wall, single wythe",
+   "thickness": "89 mm (B1L)",
+   "frequency_mhz": 500,
+   "loss_db": 0.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, single wythe",
+   "thickness": "89 mm (B1L)",
+   "frequency_mhz": 750,
+   "loss_db": 2.6,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, single wythe",
+   "thickness": "89 mm (B1L)",
+   "frequency_mhz": 1000,
+   "loss_db": 3.7,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, double wythe",
+   "thickness": "178 mm (B2L)",
+   "frequency_mhz": 500,
+   "loss_db": 3.4,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, double wythe",
+   "thickness": "178 mm (B2L)",
+   "frequency_mhz": 750,
+   "loss_db": 4.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, double wythe",
+   "thickness": "178 mm (B2L)",
+   "frequency_mhz": 1000,
+   "loss_db": 5.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, triple wythe",
+   "thickness": "267 mm (B3L)",
+   "frequency_mhz": 500,
+   "loss_db": 3.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, triple wythe",
+   "thickness": "267 mm (B3L)",
+   "frequency_mhz": 750,
+   "loss_db": 5.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick wall, triple wythe",
+   "thickness": "267 mm (B3L)",
+   "frequency_mhz": 1000,
+   "loss_db": 6.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.1b / Fig 4.1b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "102 mm (C14L)",
+   "frequency_mhz": 500,
+   "loss_db": 9.7,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "102 mm (C14L)",
+   "frequency_mhz": 750,
+   "loss_db": 11.0,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "102 mm (C14L)",
+   "frequency_mhz": 1000,
+   "loss_db": 12.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "203 mm (C18L)",
+   "frequency_mhz": 500,
+   "loss_db": 19.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "203 mm (C18L)",
+   "frequency_mhz": 750,
+   "loss_db": 21.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "203 mm (C18L)",
+   "frequency_mhz": 1000,
+   "loss_db": 23.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "305 mm (C112L)",
+   "frequency_mhz": 500,
+   "loss_db": 32.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "305 mm (C112L)",
+   "frequency_mhz": 750,
+   "loss_db": 34.6,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "305 mm (C112L)",
+   "frequency_mhz": 1000,
+   "loss_db": 34.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.4b / Fig 4.4b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 1 block",
+   "thickness": "203 mm (CB1L)",
+   "frequency_mhz": 500,
+   "loss_db": 8.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 1 block",
+   "thickness": "203 mm (CB1L)",
+   "frequency_mhz": 750,
+   "loss_db": 10.6,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 1 block",
+   "thickness": "203 mm (CB1L)",
+   "frequency_mhz": 1000,
+   "loss_db": 11.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 2 blocks",
+   "thickness": "406 mm (CB2L)",
+   "frequency_mhz": 500,
+   "loss_db": 13.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 2 blocks",
+   "thickness": "406 mm (CB2L)",
+   "frequency_mhz": 750,
+   "loss_db": 16.0,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 2 blocks",
+   "thickness": "406 mm (CB2L)",
+   "frequency_mhz": 1000,
+   "loss_db": 17.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 3 blocks",
+   "thickness": "610 mm (CB3L)",
+   "frequency_mhz": 500,
+   "loss_db": 26.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 3 blocks",
+   "thickness": "610 mm (CB3L)",
+   "frequency_mhz": 750,
+   "loss_db": 27.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Masonry block (CMU) wall, 3 blocks",
+   "thickness": "610 mm (CB3L)",
+   "frequency_mhz": 1000,
+   "loss_db": 27.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.12b / Fig 4.12b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "6 mm (G25L)",
+   "frequency_mhz": 500,
+   "loss_db": 0.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "6 mm (G25L)",
+   "frequency_mhz": 750,
+   "loss_db": 0.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "6 mm (G25L)",
+   "frequency_mhz": 1000,
+   "loss_db": 0.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "13 mm (G50L)",
+   "frequency_mhz": 500,
+   "loss_db": 1.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "13 mm (G50L)",
+   "frequency_mhz": 750,
+   "loss_db": 1.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "13 mm (G50L)",
+   "frequency_mhz": 1000,
+   "loss_db": 2.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "19 mm (G75L)",
+   "frequency_mhz": 500,
+   "loss_db": 2.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "19 mm (G75L)",
+   "frequency_mhz": 750,
+   "loss_db": 2.7,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Clear float glass",
+   "thickness": "19 mm (G75L)",
+   "frequency_mhz": 1000,
+   "loss_db": 3.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.14b / Fig 4.14b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 8, reinforced-series reference)",
+   "thickness": "203 mm (C88L)",
+   "frequency_mhz": 500,
+   "loss_db": 22.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 8, reinforced-series reference)",
+   "thickness": "203 mm (C88L)",
+   "frequency_mhz": 750,
+   "loss_db": 25.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 8, reinforced-series reference)",
+   "thickness": "203 mm (C88L)",
+   "frequency_mhz": 1000,
+   "loss_db": 27.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Reinforced concrete, 1% steel",
+   "thickness": "203 mm (RC881L)",
+   "frequency_mhz": 500,
+   "loss_db": 22.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Reinforced concrete, 1% steel",
+   "thickness": "203 mm (RC881L)",
+   "frequency_mhz": 750,
+   "loss_db": 25.0,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Reinforced concrete, 1% steel",
+   "thickness": "203 mm (RC881L)",
+   "frequency_mhz": 1000,
+   "loss_db": 27.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Reinforced concrete, 2% steel",
+   "thickness": "203 mm (RC882L)",
+   "frequency_mhz": 500,
+   "loss_db": 26.4,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Reinforced concrete, 2% steel",
+   "thickness": "203 mm (RC882L)",
+   "frequency_mhz": 750,
+   "loss_db": 28.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Reinforced concrete, 2% steel",
+   "thickness": "203 mm (RC882L)",
+   "frequency_mhz": 1000,
+   "loss_db": 30.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.19b / Fig 4.19b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on concrete",
+   "thickness": "90 mm brick + 102 mm concrete (B3C84L)",
+   "frequency_mhz": 500,
+   "loss_db": 11.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.2b / Fig 4.2b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on concrete",
+   "thickness": "90 mm brick + 102 mm concrete (B3C84L)",
+   "frequency_mhz": 750,
+   "loss_db": 12.4,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.2b / Fig 4.2b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on concrete",
+   "thickness": "90 mm brick + 102 mm concrete (B3C84L)",
+   "frequency_mhz": 1000,
+   "loss_db": 13.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.2b / Fig 4.2b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on concrete",
+   "thickness": "90 mm brick + 203 mm concrete (B3C88L)",
+   "frequency_mhz": 500,
+   "loss_db": 20.7,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.2b / Fig 4.2b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on concrete",
+   "thickness": "90 mm brick + 203 mm concrete (B3C88L)",
+   "frequency_mhz": 750,
+   "loss_db": 22.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.2b / Fig 4.2b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on concrete",
+   "thickness": "90 mm brick + 203 mm concrete (B3C88L)",
+   "frequency_mhz": 1000,
+   "loss_db": 25.0,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.2b / Fig 4.2b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on masonry block",
+   "thickness": "90 mm brick + 194 mm block (B3MB8L)",
+   "frequency_mhz": 500,
+   "loss_db": 8.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.3b / Fig 4.3b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on masonry block",
+   "thickness": "90 mm brick + 194 mm block (B3MB8L)",
+   "frequency_mhz": 750,
+   "loss_db": 9.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.3b / Fig 4.3b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Brick veneer on masonry block",
+   "thickness": "90 mm brick + 194 mm block (B3MB8L)",
+   "frequency_mhz": 1000,
+   "loss_db": 10.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.3b / Fig 4.3b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "6 mm (P25DL)",
+   "frequency_mhz": 500,
+   "loss_db": 0.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "6 mm (P25DL)",
+   "frequency_mhz": 750,
+   "loss_db": 0.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "6 mm (P25DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 0.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "13 mm (P50DL)",
+   "frequency_mhz": 500,
+   "loss_db": 0.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "13 mm (P50DL)",
+   "frequency_mhz": 750,
+   "loss_db": 0.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "13 mm (P50DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 0.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "19 mm (P75DL)",
+   "frequency_mhz": 500,
+   "loss_db": 0.3,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "19 mm (P75DL)",
+   "frequency_mhz": 750,
+   "loss_db": 0.6,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "19 mm (P75DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 0.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "32 mm (P125DL)",
+   "frequency_mhz": 500,
+   "loss_db": 0.7,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "32 mm (P125DL)",
+   "frequency_mhz": 750,
+   "loss_db": 1.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plywood, dry",
+   "thickness": "32 mm (P125DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 1.4,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.17b / Fig 4.17b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "38 mm (L15DL)",
+   "frequency_mhz": 500,
+   "loss_db": 2.0,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "38 mm (L15DL)",
+   "frequency_mhz": 750,
+   "loss_db": 2.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "38 mm (L15DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 2.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "76 mm (L30DL)",
+   "frequency_mhz": 500,
+   "loss_db": 1.4,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "76 mm (L30DL)",
+   "frequency_mhz": 750,
+   "loss_db": 2.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "76 mm (L30DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 2.8,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "114 mm (L45DL)",
+   "frequency_mhz": 500,
+   "loss_db": 2.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "114 mm (L45DL)",
+   "frequency_mhz": 750,
+   "loss_db": 2.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "114 mm (L45DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 3.9,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "152 mm (L60DL)",
+   "frequency_mhz": 500,
+   "loss_db": 4.4,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.5 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "152 mm (L60DL)",
+   "frequency_mhz": 750,
+   "loss_db": 5.2,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 0.75 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Lumber (spruce-pine-fir), dry",
+   "thickness": "152 mm (L60DL)",
+   "frequency_mhz": 1000,
+   "loss_db": 6.1,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Lab free-space transmission, time-gated, mean of 10 positions. Value = minus the dB regression polynomial of Table 4.15b / Fig 4.15b evaluated at 1.0 GHz (computed by us; checked against the plotted curve). Low band measured 0.5-2.0 GHz.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Drywall (gypsum) panel",
+   "thickness": "6, 13 and 16 mm",
+   "frequency_mhz": 1000,
+   "loss_db": null,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Fig 4.13b: all three panels lose less than 1 dB across 0.5-2 GHz (about 0.3-0.4 dB at 1 GHz, read from the plot). Table 4.13b labels all three coefficient sets 'D25L', so the regression was not used.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "102 mm (C14H)",
+   "frequency_mhz": 3500,
+   "loss_db": 24,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Approximate, read from Fig 4.4d (3-8 GHz high band), +/-1 dB.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "102 mm (C14H)",
+   "frequency_mhz": 5500,
+   "loss_db": 24.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Approximate, read from Fig 4.4d (3-8 GHz high band), +/-1 dB.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "203 mm (C18H)",
+   "frequency_mhz": 3500,
+   "loss_db": 46.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Approximate, read from Fig 4.4d (3-8 GHz high band), +/-1 dB.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "203 mm (C18H)",
+   "frequency_mhz": 5500,
+   "loss_db": 50,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Approximate, read from Fig 4.4d (3-8 GHz high band), +/-1 dB.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "305 mm (C112H)",
+   "frequency_mhz": 3500,
+   "loss_db": 73.5,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Approximate, read from Fig 4.4d (3-8 GHz high band), +/-1 dB.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Plain concrete (mix 1)",
+   "thickness": "305 mm (C112H)",
+   "frequency_mhz": 5500,
+   "loss_db": 77,
+   "study": "NISTIR 6055 (1997)",
+   "note": "Approximate, read from Fig 4.4d (3-8 GHz high band), +/-1 dB.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "material": "Whole building: 1. New Orleans LA apartment building",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 27.9,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 1. New Orleans LA apartment building",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 39.7,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 1. New Orleans LA apartment building",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 34.2,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 2. Philadelphia sports stadium (inside walk, vertical pol.)",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 39.2,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 2. Philadelphia sports stadium (inside walk, vertical pol.)",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 28.7,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 2. Philadelphia sports stadium (inside walk, vertical pol.)",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 27.2,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 3. Colorado Springs hotel complex (first walk, Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 37.6,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 3. Colorado Springs hotel complex (first walk, Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 30.0,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 3. Colorado Springs hotel complex (first walk, Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 34.1,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 4. Grocery store, Boulder CO",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 36.0,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 4. Grocery store, Boulder CO",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 29.2,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 4. Grocery store, Boulder CO",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 33.8,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 5. NIST office building, Gaithersburg MD",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 41.6,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 5. NIST office building, Gaithersburg MD",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 46.9,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 5. NIST office building, Gaithersburg MD",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 57.7,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 7. Discovery office building, Silver Spring MD",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 55.7,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 7. Discovery office building, Silver Spring MD",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 52.4,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 7. Discovery office building, Silver Spring MD",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 70.4,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 8. Washington DC convention center (Rx site 3)",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 66.0,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 8. Washington DC convention center (Rx site 3)",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 57.3,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 8. Washington DC convention center (Rx site 3)",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 66.4,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 9. Horizon West apartment, Boulder CO (Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 24.9,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 9. Horizon West apartment, Boulder CO (Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 25.4,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 9. Horizon West apartment, Boulder CO (Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 27.0,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 11. NIST laboratory, Boulder CO (Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 150,
+   "loss_db": 54.8,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 11. NIST laboratory, Boulder CO (Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 450,
+   "loss_db": 37.9,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Whole building: 11. NIST laboratory, Boulder CO (Rx site 1)",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 28.9,
+   "study": "NIST TN 1545 (2008)",
+   "note": "Table 27 mean over a walk-through: transmitter carried inside, fixed receiver outside, normalized to a line-of-sight reference. Band label; exact carriers 154-162, 439-449, 867-908 MHz per Tables 18/20/21. Std dev across all buildings averaged about 12-13 dB (Table 25). Scenario 6 omitted (within 5 dB of noise floor).",
+   "sources": [
+    "nist_tn1545"
+   ]
+  },
+  {
+   "material": "Building facade (MOB): modern office: 45 cm reinforced concrete + brick walls, 2-layer energy-efficient windows, metal frames",
+   "thickness": null,
+   "frequency_mhz": null,
+   "loss_db": 24.86,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Table I average attenuation over 0.8-18 GHz, std 5.6 dB; outdoor-to-indoor through the facade element, measured with horn antennas.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Building facade (MGB): modern glass building: 3-layer glass panels, metal frames",
+   "thickness": null,
+   "frequency_mhz": null,
+   "loss_db": 31.98,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Table I average attenuation over 0.8-18 GHz, std 2.61 dB; outdoor-to-indoor through the facade element, measured with horn antennas.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Building facade (MTF): test facility: 50 cm high-insulation wall, 2-layer energy-efficient window, wooden frame",
+   "thickness": null,
+   "frequency_mhz": null,
+   "loss_db": 28.43,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Table I average attenuation over 0.8-18 GHz, std 6.42 dB; outdoor-to-indoor through the facade element, measured with horn antennas.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Building facade (OOB): old office: 10 cm light concrete, single-pane glass, wooden frames",
+   "thickness": null,
+   "frequency_mhz": null,
+   "loss_db": 5.16,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Table I average attenuation over 0.8-18 GHz, std 2.03 dB; outdoor-to-indoor through the facade element, measured with horn antennas.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Building facade (MTF) energy-efficient window path",
+   "thickness": null,
+   "frequency_mhz": 800,
+   "loss_db": 15,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Text: 'approximately 15 dB at 800 MHz' rising to about 30 dB at 5 GHz.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Building facade (MTF) energy-efficient window path",
+   "thickness": null,
+   "frequency_mhz": 5000,
+   "loss_db": 30,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Text: about 30 dB at 5 GHz.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Building facade (MOB) 2-layer energy-efficient window",
+   "thickness": null,
+   "frequency_mhz": 800,
+   "loss_db": 15,
+   "study": "Rodriguez et al., Aalborg (VTC-Fall 2014)",
+   "note": "Text: approximately 15 dB at 800 MHz and 9 GHz; irregular in between.",
+   "sources": [
+    "aalborg2014"
+   ]
+  },
+  {
+   "material": "Coated (low-e) window panes",
+   "thickness": null,
+   "frequency_mhz": "1000-18000",
+   "loss_db": "10-30",
+   "study": "Angskog et al., FOI/KTH (IEEE EMC 2015)",
+   "note": "Different coated panes, reverberation and semi-anechoic chamber; traditional clear float glass about 0 dB.",
+   "sources": [
+    "foi2015_windows"
+   ]
+  },
+  {
+   "material": "Modern low-emission window structures",
+   "thickness": null,
+   "frequency_mhz": "1000-18000",
+   "loss_db": "15-45",
+   "study": "Angskog et al., FOI/KTH (IEEE EMC 2015)",
+   "note": "Frequency dependent; possibly about 60 dB in the upper half of the spectrum.",
+   "sources": [
+    "foi2015_windows"
+   ]
+  },
+  {
+   "material": "Laminated glass, one embedded triple-silver low-E coating (PPG Solarban 70XL)",
+   "thickness": null,
+   "frequency_mhz": "800-3000",
+   "loss_db": 40,
+   "study": "PPG Glass Technical Document TD-151 (via Graham note)",
+   "note": "Approximately 40 dB; glass only, framing not included.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Laminated glass, two embedded triple-silver low-E coatings",
+   "thickness": null,
+   "frequency_mhz": "800-3000",
+   "loss_db": 54,
+   "study": "PPG Glass Technical Document TD-151 (via Graham note)",
+   "note": "Approximately 54 dB; glass only.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E272",
+   "thickness": null,
+   "frequency_mhz": 500,
+   "loss_db": 24.3,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 6.1% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E272",
+   "thickness": null,
+   "frequency_mhz": 700,
+   "loss_db": 26.7,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 4.6% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E272",
+   "thickness": null,
+   "frequency_mhz": 800,
+   "loss_db": 25.4,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 5.4% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E272",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 24.2,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 6.2% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E272",
+   "thickness": null,
+   "frequency_mhz": 2000,
+   "loss_db": 28.9,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 3.6% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E366",
+   "thickness": null,
+   "frequency_mhz": 500,
+   "loss_db": 22.6,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 7.4% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E366",
+   "thickness": null,
+   "frequency_mhz": 700,
+   "loss_db": 26.4,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 4.8% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E366",
+   "thickness": null,
+   "frequency_mhz": 800,
+   "loss_db": 24.4,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 6.0% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E366",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 23.0,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 7.1% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Cardinal low-e coated glass sample E366",
+   "thickness": null,
+   "frequency_mhz": 2000,
+   "loss_db": 28.2,
+   "study": "Cardinal CG R&D / Garwood Labs (2007), via Graham note",
+   "note": "Published %T = 3.9% (EI/EO, field-strength ratio per the report appendix). Loss computed by us as 20*log10(1/T). Shielding-effectiveness test of a coated sample, not an installed window.",
+   "sources": [
+    "graham_lowe"
+   ]
+  },
+  {
+   "material": "Small house retrofit: foil-backed plasterboard + metallised double-glazed windows",
+   "thickness": null,
+   "frequency_mhz": "88-5760",
+   "loss_db": "5-10",
+   "study": "Ofcom Building Materials and Propagation (2014)",
+   "note": "Increase in building entry loss over the uninsulated house; covering all window/door apertures with foil added about 5 dB more. Measured at 88, 217, 698, 2410, 5760 MHz.",
+   "sources": [
+    "ofcom2014_bmp"
+   ]
+  },
+  {
+   "material": "Office floor(s), 1 floor(s) penetrated",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 9,
+   "study": "ITU-R P.1238-13 Table 5",
+   "note": "Floor penetration loss factor Lf for indoor transmission loss calculation, office buildings; based on various measurement results.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "material": "Office floor(s), 2 floor(s) penetrated",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 19,
+   "study": "ITU-R P.1238-13 Table 5",
+   "note": "Floor penetration loss factor Lf for indoor transmission loss calculation, office buildings; based on various measurement results.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "material": "Office floor(s), 3 floor(s) penetrated",
+   "thickness": null,
+   "frequency_mhz": 900,
+   "loss_db": 24,
+   "study": "ITU-R P.1238-13 Table 5",
+   "note": "Floor penetration loss factor Lf for indoor transmission loss calculation, office buildings; based on various measurement results.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "material": "Reinforced concrete floor with suspended false ceiling",
+   "thickness": null,
+   "frequency_mhz": 5200,
+   "loss_db": 20,
+   "study": "ITU-R P.1238-13 (text after Table 5)",
+   "note": "Mean additional loss at normal incidence, std 1.5 dB; with lighting fixtures 30 dB (std 3); with air ducts under the floor 36 dB (std 5). External paths excluded.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  }
+ ],
+ "assemblies": [
+  {
+   "assembly": "Gypsum (drywall) partition on studs, single layer each side",
+   "typical_loss": "Measured single 6-16 mm panel: under 1 dB 0.5-2 GHz (~0.3-0.4 dB at 1 GHz). Modelled 12.7 mm + 89 mm air + 12.7 mm: 0.1 dB @150 MHz, 0.2 @450, 0.3 @700, 0.4 @850, 0.7 @1900 MHz (studs ignored).",
+   "bands": "150-1900 MHz",
+   "basis": "Measured (NISTIR 6055 Fig 4.13b) + modelled by us with P.2040-4 Table 3 plasterboard (1-100 GHz row, extrapolated below 1 GHz) and the P.2040 ABCD multilayer method at normal incidence",
+   "sources": [
+    "nistir6055",
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "assembly": "Rated wall: 2 x 15.9 mm gypsum each side of 92 mm cavity",
+   "typical_loss": "Modelled 0.2 dB @150 MHz, 0.4 @450, 1.4 @700, 2.8 @850, 3.1 @1900 MHz (layer resonance makes it non-monotonic).",
+   "bands": "150-1900 MHz",
+   "basis": "Modelled by us, P.2040-4 plasterboard row + ABCD method, normal incidence; no metal studs or insulation facing",
+   "sources": [
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "assembly": "CMU (concrete masonry block) wall, 8 in (203 mm)",
+   "typical_loss": "8.3 dB @500 MHz, 10.7 @750, 11.5 @1000 MHz; 406 mm: 13.2 / 16.0 / 17.3 dB.",
+   "bands": "500-1000 MHz",
+   "basis": "Measured, NISTIR 6055 Table 4.12b regression (lab, 28-day cured specimens)",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "assembly": "Poured concrete wall or slab, 203 mm (8 in)",
+   "typical_loss": "Measured 19.8 dB @500 MHz, 21.5 @750, 23.1 @1000 MHz (mix 1); another mix 22.5 / 25.3 / 27.8 dB. Model (P.2040-4, normal incidence): 3.9 @150 MHz, 5.6 @450, 6.4 @700, 7.5 @850, 12.4 @1900 MHz. 3GPP L_concrete (23 cm ref) = 5+4f: 7.8 dB @700 MHz, 8.4 @850, 12.6 @1900.",
+   "bands": "150-1900 MHz",
+   "basis": "Measured (NISTIR 6055) vs modelled (P.2040-4 eq 43b, concrete 1-100 GHz row extrapolated below 1 GHz) vs 3GPP. The lab specimens lose roughly 3x more than the P.2040 fit; Ofcom notes a factor-of-4 scatter in concrete permittivity data and a factor-of-2 uncertainty in attenuation rate.",
+   "sources": [
+    "nistir6055",
+    "itu_p2040_4",
+    "tr38901_v19_2",
+    "ofcom2014_bmp"
+   ]
+  },
+  {
+   "assembly": "Poured concrete 102 mm / 305 mm",
+   "typical_loss": "102 mm: 9.7 / 11.0 / 12.2 dB @500/750/1000 MHz; 305 mm: 32.3 / 34.6 / 34.8 dB. At 3.5 GHz about 24 dB (102 mm) and 46-47 dB (203 mm).",
+   "bands": "500-3500 MHz",
+   "basis": "Measured, NISTIR 6055 Tables 4.4b and Fig 4.4d",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "assembly": "Reinforced concrete 203 mm (1% and 2% steel)",
+   "typical_loss": "1% steel: 22.3 / 25.0 / 27.3 dB @500/750/1000 MHz; 2% steel: 26.4 / 28.5 / 30.1 dB.",
+   "bands": "500-1000 MHz",
+   "basis": "Measured, NISTIR 6055 Table 4.19b",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "assembly": "Brick veneer: 90 mm brick on 102 mm or 203 mm concrete; on 194 mm CMU",
+   "typical_loss": "Brick+102 concrete: 11.1 / 12.4 / 13.9 dB @500/750/1000 MHz. Brick+203 concrete: 20.7 / 22.5 / 25.0 dB. Brick+CMU: 8.2 / 9.9 / 10.9 dB.",
+   "bands": "500-1000 MHz",
+   "basis": "Measured, NISTIR 6055 Tables 4.2b, 4.3b",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "assembly": "Single-wythe brick 89-92 mm",
+   "typical_loss": "Measured 0.5 dB @500 MHz, 2.6 @750, 3.7 @1000 MHz. Model 92 mm: 2.6 @150, 3.2 @450, 2.2 @700, 2.2 @850, 3.3 @1900 MHz.",
+   "bands": "150-1900 MHz",
+   "basis": "Measured (NISTIR 6055 Table 4.1b); modelled with P.2040-4 brick row (1-40 GHz, extrapolated)",
+   "sources": [
+    "nistir6055",
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "assembly": "Clear (uncoated) glass, single pane 6 mm / double glazing 6+12+6",
+   "typical_loss": "Measured 6 mm: 0.2 / 0.5 / 0.8 dB @500/750/1000 MHz; 13 mm 1.3-2.2 dB; 19 mm 2.3-3.1 dB; under 2 dB at 3-8 GHz. 3GPP multi-pane glass 2+0.2f: 2.1 dB @700 MHz, 2.4 @1900. Modelled double glazing: 0.1 @150, 0.4 @450, 0.7 @700, 1.0 @850, 0.8 @1900 MHz.",
+   "bands": "150-8000 MHz",
+   "basis": "Measured (NISTIR 6055 Tables 4.14b, Fig 4.14d) + 3GPP + model (P.2040-4 glass 0.1-100 GHz row)",
+   "sources": [
+    "nistir6055",
+    "tr38901_v19_2",
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "assembly": "Low-E / IRR / metallised glass",
+   "typical_loss": "3GPP IRR glass: 25.4+0.11f (Rel-19), i.e. about 25.5 dB @700-850 MHz; older 23+0.3f. Cardinal coated samples about 23-27 dB @0.5-0.9 GHz. PPG triple-silver laminate about 40 dB, two coatings about 54 dB (0.8-3 GHz). FOI: coated panes 10-30 dB, low-e windows 15-45 dB (1-18 GHz). Aalborg energy-efficient window paths about 15 dB at 800 MHz.",
+   "bands": "500-18000 MHz",
+   "basis": "Standard + measured (lab and field); values vary with number of silver layers and lamination",
+   "sources": [
+    "tr38901_v19_2",
+    "tr38901_v16_1",
+    "graham_lowe",
+    "foi2015_windows",
+    "aalborg2014"
+   ]
+  },
+  {
+   "assembly": "Concrete floor / metal deck with concrete fill (floor-to-floor)",
+   "typical_loss": "Office floor loss factor at 900 MHz: 9 dB (1 floor), 19 (2), 24 (3); 1.8-2 GHz office: 15+4(n-1) dB; residential 4n; commercial 6+3(n-1). Reinforced concrete floor + false ceiling at 5.2 GHz: 20 dB (30 with light fixtures, 36 with ducts).",
+   "bands": "900-5200 MHz",
+   "basis": "ITU-R P.1238-13 Table 5 and text (measurement-based). No metal-deck-specific measurement was found in the sources opened.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "assembly": "Wood framing / sheathing (residential)",
+   "typical_loss": "Plywood 6-32 mm: 0.1-0.7 dB @500 MHz, 0.5-1.4 dB @1 GHz. SPF lumber 38-152 mm: 1.4-4.4 dB @500 MHz, 2.8-6.1 dB @1 GHz. 3GPP wood (3.3 cm) 4.85+0.12f; plywood (1.75 cm) 1.03+0.17f.",
+   "bands": "500-1000 MHz",
+   "basis": "Measured (NISTIR 6055 Tables 4.15b, 4.17b) + 3GPP. Note: P.2040-4 plywood row (sigma=0.33 S/m, 1-40 GHz) predicts about 6.7 dB for 19 mm, far above NIST's 0.6-0.8 dB.",
+   "sources": [
+    "nistir6055",
+    "tr38901_v19_2",
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "assembly": "Elevator shaft / car, continuous metal",
+   "typical_loss": "Continuous sheet metal is effectively opaque: P.2040 conductor attenuation 545.8*sqrt(sigma*f_GHz) dB/m with sigma = 1e7 S/m gives about 1500 dB per mm at 800 MHz, so energy enters through door gaps and openings. No measured shaft or car loss value was found in sources that could be opened.",
+   "bands": "all",
+   "basis": "Modelled from P.2040-4 eq (27b) and Table 3 metal row; measurement gap",
+   "sources": [
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "assembly": "Whole building, outdoor-to-indoor (statistical)",
+   "typical_loss": "P.2109-2 median BEL at horizontal incidence: traditional 14.0 dB @150 MHz, 14.0 @450, 14.1 @700, 14.2 @850, 14.9 @1900 MHz; thermally-efficient 37.3, 32.6, 31.6, 31.2, 30.5 dB. NIST TN 1545 large buildings (transmitter inside): mean 25-66 dB @150 MHz, 25-57 @450, 27-70 @900. 3GPP O2I low-loss PL_tw about 10.2 dB @700 MHz; high-loss about 17.9 dB.",
+   "bands": "150-1900 MHz",
+   "basis": "P.2109 and 3GPP values computed by us from published coefficients; NIST measured",
+   "sources": [
+    "itu_p2109_2",
+    "nist_tn1545",
+    "tr38901_v19_2"
+   ]
+  }
+ ],
+ "formulas": [
+  {
+   "name": "P.2040 material model",
+   "formula": "eps_r' = a*f^b ; sigma = c*f^d [S/m] ; eps_r'' = 17.98*sigma/f ; eps_rc = eps_r' - j*eps_r''  (f in GHz)",
+   "explain": "Builds the complex relative permittivity of a material from Table 3 coefficients (eqs 57, 58, 59). Use the row whose frequency range covers your band; ranges are indicative, not hard limits, except for the ground types (1-10 GHz only).",
+   "sources": [
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "name": "P.2040 attenuation rate inside a material",
+   "formula": "A_dielectric = 1636*sigma/sqrt(eps_r')  [dB/m] (valid for loss tangent < 0.5) ; A_conductor = 545.8*sqrt(sigma*f_GHz) [dB/m] (loss tangent > 15)",
+   "explain": "Eqs (27a), (27b). Multiply by thickness for absorption only; reflections at the faces are extra.",
+   "sources": [
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "name": "P.2040 single-slab transmission, normal incidence (one-wall loss)",
+   "formula": "R' = (1 - sqrt(eps_rc)) / (1 + sqrt(eps_rc)) ; q = (2*pi*d/lambda)*sqrt(eps_rc) ; T = (1 - R'^2)*exp(-j*q) / (1 - R'^2*exp(-j*2q)) ; Loss_dB = -20*log10(|T|)",
+   "explain": "Eqs (43b), (44) with (37a) at theta = 0 (TE and TM coincide). d = thickness (m), lambda = free-space wavelength (m). For oblique incidence use (37a)/(37b) and q = (2*pi*d/lambda)*sqrt(eps_rc - sin^2(theta)). Reproduces P.2040-4 Fig 6 (about 7.5 dB for 0.2 m concrete at 1 GHz).",
+   "sources": [
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "name": "P.2040 multilayer wall (ABCD)",
+   "formula": "Per layer m: A=D=cos(beta_m*d_m), B=j*Z_m*sin(beta_m*d_m), C=j*sin(beta_m*d_m)/Z_m, beta_m=k0*sqrt(eta_m) (normal incidence), Z_m=120*pi/sqrt(eta_m); multiply layer matrices; T = 2/(2A + B/Z0 + C*Z0), Z0 = 120*pi",
+   "explain": "Attachment 1 to Annex 1, eqs (60)-(63). Model drywall-air-drywall, brick-air-sheathing, double glazing; air layers use eta = 1.",
+   "sources": [
+    "itu_p2040_4",
+    "itu_p2040_3"
+   ]
+  },
+  {
+   "name": "Thick-slab shortcut (derived)",
+   "formula": "Loss_dB ~= A*d - 20*log10(|1 - R'^2|)",
+   "explain": "Derived by us from eq (43b) when the slab is lossy enough that the internal multiple-reflection term is negligible; not printed in P.2040. Use the full formula for thin or low-loss layers, where resonance can make loss swing by several dB.",
+   "sources": [
+    "itu_p2040_4"
+   ]
+  },
+  {
+   "name": "3GPP O2I building penetration",
+   "formula": "PL = PL_b + PL_tw + PL_in + N(0, sigma_P^2) ; PL_tw = PL_npi - 10*log10( sum p_i*10^(-L_i/10) ) ; L_i = a_i + b_i*f (GHz)",
+   "explain": "TR 38.901 eqs (7.4-2), (7.4-3), Tables 7.4.3-1/-2. Defined for 0.5-100 GHz; not for VHF/UHF below 500 MHz.",
+   "sources": [
+    "tr38901_v19_2"
+   ]
+  },
+  {
+   "name": "ITU-R P.2109 building entry loss",
+   "formula": "L(P) = 10*log(10^(0.1*A) + 10^(0.1*B) + 10^(0.1*C)) ; A = F^-1(P)*sigma1 + mu1 ; B = F^-1(P)*sigma2 + mu2 ; C = -3 ; mu1 = Lh + Le ; Lh = r + s*log(f) + t*(log f)^2 ; Le = 0.212*|theta| ; mu2 = w + x*log(f) ; sigma1 = u + v*log(f) ; sigma2 = y + z*log(f)",
+   "explain": "f in GHz, theta = elevation at the facade (deg), P = probability not exceeded. Table 1: traditional r=12.64 s=3.72 t=0.96 u=9.6 v=2.0 w=9.1 x=-3.0 y=4.5 z=-2.0; thermally-efficient r=28.19 s=-3.00 t=8.48 u=13.5 v=3.8 w=27.8 x=-2.9 y=9.4 z=-2.1. Valid about 80 MHz-100 GHz; not site-specific. 'log' read as log10 (ITU convention).",
+   "sources": [
+    "itu_p2109_2"
+   ]
+  },
+  {
+   "name": "ITU-R P.1238 indoor site-general loss with floors",
+   "formula": "L_total = L(d0) + N*log10(d/d0) + Lf(n) ; L(d0) = 20*log10(f_MHz) - 28 at d0 = 1 m",
+   "explain": "Eq (2) of P.1238-13; Lf from Table 5 (e.g. office at 0.9 GHz: 9/19/24 dB for 1/2/3 floors), Lf = 0 when n = 0.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "name": "NISTIR 6055 regression curves",
+   "formula": "Received signal magnitude (dB re free space) = M0 + M1*F + M2*F^2 + ... + M6*F^6, F in GHz",
+   "explain": "Coefficients per specimen in Tables 4.xb (0.5-2 GHz) and 4.xd (3-8 GHz). Loss = minus the value. Do not evaluate outside the measured band.",
+   "sources": [
+    "nistir6055"
+   ]
+  },
+  {
+   "name": "Field-ratio to dB",
+   "formula": "Loss_dB = 20*log10(E_without/E_with) = -20*log10(T_field)",
+   "explain": "Used to convert the Cardinal %T (field-strength ratio EI/EO) to dB.",
+   "sources": [
+    "graham_lowe"
+   ]
+  }
+ ]
+}

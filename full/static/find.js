@@ -8,7 +8,7 @@ const FIND_SCOPES = [["", "Everything"], ["places", "Places"], ["licences,freque
   ["psap", "911 centres"], ["broadcast,aviation,noaa", "Broadcast, aviation, NOAA"], ["microwave", "Microwave"], ["survey", "Surveys & crowd"],
   ["missions", "Missions"], ["das,das_contacts,das_log,das_files,research", "DAS & research"]];
 const FIND_ICON = {place: "⌖", licence: "📻", tower: "🗼", psap: "☎", broadcast: "📡", faa: "✈", noaa: "⛈", mwlink: "↔", talkgroup: "#", capture: "◉",
-  crowd: "◌", mission: "⚑", dasjob: "🏢", dascontact: "👤", dasfile: "📄", research: "📚"};
+  crowd: "◌", mission: "⚑", dasjob: "🏢", dascontact: "👤", dasfile: "📄", research: "📚", grantee: "🏭"};
 
 function findMark(text, q){
   let s = esc(text ?? "");
@@ -40,6 +40,7 @@ function findActions(it){
     case "tower": case "psap": case "broadcast": case "faa": case "noaa": case "capture": case "crowd": return b("map", "On the map");
     case "mwlink": return b("mw", "On the map");
     case "talkgroup": return b("sys", "Search this system");
+    case "grantee": return b("fccid", "Its FCC IDs");
     case "mission": return b("mission", "Open Mission tab");
     case "dasjob": return b("job", "Open the job");
     case "dascontact": return b("contacts", "Open contacts");
@@ -79,6 +80,7 @@ window.findRender = (el, res, q) => {
     else if(act === "cov") await findGo(it, row => emitOpen(row, "coverage"));
     else if(act === "mw"){ const p = mapPrefs(); if(!p.overlays.includes("Microwave backhaul (FCC)")) p.overlays.push("Microwave backhaul (FCC)"); await findGo(it); }
     else if(act === "sys"){ S.find.q = it.system; setTab("find"); }
+    else if(act === "fccid"){ S.pendingFccid = it.code; setTab("data"); }  // Data & updates looks it up
     else if(act === "mission") setTab("mission");
     else if(act === "job"){ S.das = S.das || {view: "board", q: ""}; Object.assign(S.das, {job: it.job_id, sub: it.open_sub || "overview"}); setTab("das"); }
     else if(act === "contacts"){ S.das = S.das || {q: ""}; Object.assign(S.das, {job: null, view: "contacts"}); setTab("das"); }

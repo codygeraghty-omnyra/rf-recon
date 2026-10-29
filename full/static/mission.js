@@ -21,7 +21,10 @@ window.missionBoot = async () => {
     $("#netChip").title="Signed in to Cody's RF Recon. Press to sign out."; $("#netChip").onclick=()=>{ location.href="/remote/logout"; };
   }
   try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){}
-  if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000); }
+  if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000);
+    api("/api/kit").then(k=>{ if(!k.update) return;  // a kit copy with a newer kit out: say so in the header
+      const b=document.createElement("button"); b.className="hbtn"; b.id="kitChip"; b.title="A newer RF Recon is out: Data & updates installs it";
+      b.innerHTML='<span class="led busy"></span>Update available'; b.onclick=()=>setTab("data"); $("#netChip").after(b); }).catch(()=>{}); }
 };
 $("#missionChip").onclick=()=>setTab("mission");
 $("#netChip").onclick=()=>setTab("data");
@@ -196,6 +199,20 @@ function paintNet(browserOffline){
   const link={wifi:"Wi-Fi",cellular:"Cellular",ethernet:"Ethernet",vpn:"VPN"}[u.link]||"";
   $("#netText").textContent=(busy?"Updating… ":"")+(online?(u.net.online==null?"checking":`Online${link?" · "+link:""}`):"Offline")+(u.auto?" · auto":"");
 }
+// the keys RF Recon can use (stored in the setting table's creds); a field's third value is its hint, or "text" for a name
+const API_KEYS=[
+  {id:"wigle", name:"WiGLE", what:"Wi-Fi, Bluetooth and cell points near the pin", src:"wigle", get:"https://wigle.net/account",
+   fields:[["wigle_name","API name","text"],["wigle_token","API token","32 characters"]], how:"Account → API token: the name and the token. Non-commercial use only."},
+  {id:"opencellid", name:"OpenCelliD", what:"cell towers for the map and Cell sites", src:"opencellid", get:"https://my.opencellid.org/dashboard",
+   fields:[["opencellid_key","Access token","pk.…"]], how:"The access token on your account page. 1,000 requests a day; CC BY-SA 4.0."},
+  {id:"aisstream", name:"aisstream", what:"live ships (the Ships map overlay)", get:"https://aisstream.io/apikeys",
+   fields:[["aisstream_key","API key","40 characters"]], how:"Sign in, then API Keys. Ships stream only while the overlay is on."},
+  {id:"fccbdc", name:"FCC Broadband Map", what:"carrier coverage data (the import isn't built yet)", get:"https://broadbandmap.fcc.gov/manage-api-access",
+   fields:[["fcc_bdc_username","FCC sign-in email","text"],["fcc_bdc_token","API token","from Manage API Access"]],
+   how:"Sign in at broadbandmap.fcc.gov, then Manage API Access → Generate. The FCC's API terms apply."},
+];
+const keySaved=(settings,k)=>k.fields.every(([f])=>settings.creds[f]);
+const CROWD_FETCH=[["wigle","WiGLE","wigle"],["opencellid","OpenCelliD","opencellid"],["ttn","LoRaWAN gateways"],["satnogs","SatNOGS stations"],["wspr","WSPR"],["pskreporter","PSKReporter"]];
 const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"],[336,"2 weeks"],[720,"monthly"]];
 S.views.data = async (v) => {
   if(S.remote){ v.innerHTML='<p class="status">Data &amp; updates stays on Cody\'s PC.</p>'; return; }
@@ -214,8 +231,10 @@ S.views.data = async (v) => {
       <p class="hint" id="uLinkNow" style="margin:4px 0 0"></p>
       <div class="row" style="margin-top:10px"><button id="uAllOn">Select all sources</button><button id="uAllOff">Select none</button><button class="primary" id="uRunAll">Update all selected now</button></div>
       <label style="margin-top:10px">Limit FCC data to states (blank = whole US)<input id="uStates" value="${esc(settings.states||"")}" placeholder="VA,MD,DC"></label>
+      <label style="margin-top:8px">Carrier coverage states (FCC Broadband Map: about 100 MB to 2 GB of download a state)<input id="uBdcStates" value="${esc(settings.bdc_states||"")}" placeholder="SC,NC,MN"></label>
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
+  <div class="panel"><h3>This copy of RF Recon</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
   <div class="panel"><h3>Phone app: field packs</h3>
     <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for the RF Recon phone app, which works with no signal.
       Packs are saved in <span class="mono" id="fpDir"></span>, so anyone the Drive folder is shared with can load them. Phone app: <a id="fpUrl" target="_blank" rel="noopener"></a></p>
@@ -242,21 +261,23 @@ S.views.data = async (v) => {
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
   <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
-    <div class="panel"><h3>Your API keys (stored only in your local database)</h3>
-      <div class="row"><label class="grow">WiGLE API name<input id="k_wn" placeholder="${esc(settings.creds.wigle_name||"AID…")}"></label><label class="grow">WiGLE API token<input id="k_wt" type="password" placeholder="${esc(settings.creds.wigle_token||"")}"></label></div>
-      <div class="row" style="margin-top:6px"><label class="grow">OpenCelliD key<input id="k_oc" type="password" placeholder="${esc(settings.creds.opencellid_key||"")}"></label><label class="grow">aisstream key (ships)<input id="k_ais" type="password" placeholder="${esc(settings.creds.aisstream_key||"")}"></label></div>
-      <div class="row" style="margin-top:6px"><label class="grow">RepeaterBook token<input id="k_rb" type="password" placeholder="${esc(settings.creds.repeaterbook_token||"rbuapp_…")}"></label></div>
-      <div class="row" style="margin-top:8px"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
-      <p class="hint">All four are free and need your own account (each sign-up has its own terms, so RF Recon can't make them for you):
-        <a href="https://wigle.net/register" target="_blank" rel="noopener">WiGLE</a> (then Account → API token: the name and the token; non-commercial use only),
-        <a href="https://my.opencellid.org/register" target="_blank" rel="noopener">OpenCelliD</a> (the access token on your account page; 1,000 requests a day; CC BY-SA 4.0),
-        <a href="https://aisstream.io/authenticate" target="_blank" rel="noopener">aisstream</a> (sign in, then API Keys: live ships for the Ships layer),
-        <a href="https://www.repeaterbook.com/api/token_request.php" target="_blank" rel="noopener">RepeaterBook</a> (a token on request and approval; personal use, and its policy discourages tools that mix it with other sources).
-        RadioReference's API isn't here: it needs Premium ($30 a year) and a paid licence for dashboards.</p></div>
+    <div class="panel"><h3>Your API keys</h3>
+      <p class="hint" style="margin-top:0">Free accounts of your own, kept only in this PC's database. Each sign-up has its own terms, so RF Recon can't make them for you.</p>
+      ${API_KEYS.map(k=>{ const saved=keySaved(settings,k), s=k.src&&UPD?.sources?.[k.src];
+        const last=s?.state==="error"?` · Last try failed: ${esc(s.message||"")}`:s?.last_updated?` · Last fetch ${esc(s.last_updated)}${s.message?`: ${esc(s.message)}`:""}`:"";
+        return `<div style="border-top:1px solid var(--line);padding:10px 0 4px">
+        <div class="row" style="justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <div><b>${esc(k.name)}</b> <span class="tag ${saved?"v":""}">${saved?"✓ Saved":"Not set"}</span> <span class="hint">· ${esc(k.what)}</span></div>
+          <div class="row" style="gap:12px"><a href="${esc(k.get)}" target="_blank" rel="noopener">${saved?"Your account ↗":"Get a key ↗"}</a>${saved?`<a href="#" data-kclear="${k.id}">Remove</a>`:""}</div></div>
+        <div class="row" style="margin-top:6px">${k.fields.map(([f,label,ph])=>`<label class="grow">${esc(label)}<input data-cred="${f}" type="${ph==="text"?"text":"password"}" autocomplete="off"
+          placeholder="${saved?"saved: type to replace":esc(ph==="text"?"":ph)}"></label>`).join("")}</div>
+        <p class="hint" style="margin:4px 0 0">${esc(k.how)}${last}</p></div>`; }).join("")}
+      <div class="row" style="margin-top:10px;align-items:center"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
+      <p class="hint">Not here: RepeaterBook (its policy discourages tools that mix sources) and RadioReference (its API needs Premium, $30 a year, plus a paid licence for dashboards).</p></div>
     <div class="panel"><h3>Fetch crowd data for the current pin now</h3>
-      <div class="row" style="flex-wrap:wrap"><button data-fetch="wigle">WiGLE</button><button data-fetch="opencellid">OpenCelliD</button><button data-fetch="repeaterbook">RepeaterBook</button>
-        <button data-fetch="ttn">LoRaWAN gateways</button><button data-fetch="satnogs">SatNOGS stations</button><button data-fetch="wspr">WSPR</button><button data-fetch="pskreporter">PSKReporter</button></div>
-      <p class="hint" style="margin:4px 0 0">An area already fetched recently isn't downloaded again; the same emitter from several sources shows once on the map, with each source's data.</p>
+      <div class="row" style="flex-wrap:wrap">${CROWD_FETCH.map(([id,label,key])=>{ const k=key&&API_KEYS.find(x=>x.id===key), off=k&&!keySaved(settings,k);
+        return `<button data-fetch="${id}" ${off?`disabled title="Add your ${esc(k.name)} key first (Your API keys)"`:""}>${esc(label)}${off?' <span class="hint">· needs key</span>':""}</button>`; }).join("")}</div>
+      <p class="hint" style="margin:4px 0 0">Uses the pin and radius above. An area already fetched recently isn't downloaded again; the same emitter from several sources shows once on the map, with each source's data.</p>
       <div id="fetchMsg" class="hint" style="margin-top:6px"></div>
       <h3 style="margin-top:14px">Import your own layer</h3>
       <div class="row"><label class="grow">Layer name<input id="cl_name" value="My layer"></label><input type="file" id="cl_file" accept=".csv,.kml,.kmz,.geojson,.json,.gpx"></div>
@@ -269,10 +290,14 @@ S.views.data = async (v) => {
     <p class="hint">Map tiles are cached as you view them, so areas you looked at before a trip keep working offline.</p></div>`;
   paintSources();
   const fiRun=async()=>{ const q=$("#fiQ").value.trim(); if(!q) return; $("#fiMsg").textContent="Asking the FCC…"; $("#fiOut").innerHTML="";
-    try{ const r=await api(`/api/fccid?q=${encodeURIComponent(q)}`); $("#fiMsg").innerHTML=`${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Frequencies, power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
+    try{ const r=await api(`/api/fccid?q=${encodeURIComponent(q)}`), m=r.maker;
+      const maker=m?`<b>${esc(m.name||m.code)}</b>${[m.city,m.state,m.country].filter(Boolean).length?`, ${esc([m.city,m.state,m.country].filter(Boolean).join(", "))}`:""} (grantee code ${esc(m.code)}). `:"";
+      $("#fiMsg").innerHTML=r.offline?`${maker}The FCC didn't answer, so this is from the grantee list kept on this PC; the grants need a connection.`
+        :`${maker}${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Frequencies, power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
       $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th><th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td><td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records.</p>`:'<p class="hint">No grants match.</p>'; }
     catch(e){ $("#fiMsg").textContent=e.message; } };
   $("#fiGo").onclick=fiRun; $("#fiQ").onkeydown=e=>{ if(e.key==="Enter") fiRun(); };
+  if(S.pendingFccid){ $("#fiQ").value=S.pendingFccid; S.pendingFccid=null; $("#fiQ").scrollIntoView({block:"center"}); fiRun(); }  // from Search: a maker's FCC IDs
   api("/api/tak/settings").then(t=>{ $("#tkMc").checked=t.multicast!==false; $("#tkGroup").value=t.group||""; $("#tkGroup").placeholder=t.default_group; $("#tkServer").value=t.server||""; }).catch(()=>{});
   $("#tkSave").onclick=async()=>{ try{ await post("/api/tak/settings",{multicast:$("#tkMc").checked, group:$("#tkGroup").value, server:$("#tkServer").value}); $("#tkMsg").textContent="Saved."; }
     catch(e){ $("#tkMsg").textContent=e.message; } };
@@ -286,8 +311,26 @@ S.views.data = async (v) => {
   $("#fpPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ $("#fpMsg").textContent="Drop a pin first."; return; }
     await post("/api/fieldpack",{lat:p[0],lon:p[1],radius:+$("#radius").value||5,name:$("#fpName").value}); fpPaint(); };
   fpPaint();
+  // this copy's version and updates (kitupdate.py): a kit copy installs a newer kit zip and restarts
+  api("/api/kit").then(k=>{
+    if(!k.kit){ $("#kitBody").innerHTML='<p class="hint" style="margin:0">This copy runs from the RF Recon folder in Google Drive and updates with it.</p>'; return; }
+    const c=k.current, L=k.latest;
+    $("#kitBody").innerHTML=`<p style="margin:0 0 8px">Version <span class="mono">${esc(c.version)}</span>, built ${esc(c.built)}. ${k.update?`<b>A newer kit is out: <span class="mono">${esc(L.version)}</span>, built ${esc(L.built)}.</b>`:L?"This is the newest kit.":'<span class="hint">Couldn\'t check for a newer kit (offline?).</span>'}</p>
+      ${k.update&&L.notes?.length?`<ul class="hint" style="margin:0 0 8px">${L.notes.slice(0,6).map(n=>`<li>${esc(n)}</li>`).join("")}</ul>`:""}
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap"><a class="btn" href="${esc(k.get)}" target="_blank" rel="noopener">Get the update ↗</a>
+        <label class="inl">Install an update <input type="file" id="kitZip" accept=".zip"></label><span class="hint" id="kitMsg"></span></div>
+      <p class="hint" style="margin:6px 0 0">Download the new “RF Recon (beta).zip”, then pick it here. Your data, DAS jobs and settings stay; RF Recon restarts with the new version.</p>`;
+    $("#kitZip").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#kitMsg").textContent=`Installing ${f.name}…`;
+      try{ const r=await api("/api/kit/update",{method:"POST", body:await f.arrayBuffer()});
+        $("#kitMsg").textContent=`Updated ${r.from} → ${r.to} (${r.files} files). RF Recon is restarting…`;
+        await new Promise(ok=>setTimeout(ok,3000));
+        for(let i=0;i<60;i++){ try{ await api("/api/meta"); location.reload(); return; }catch(err){} await new Promise(ok=>setTimeout(ok,1000)); }
+        $("#kitMsg").textContent="It didn't come back by itself: double-click Start RF Recon."; }
+      catch(err){ $("#kitMsg").textContent=err.message; } };
+  }).catch(()=>{ $("#kitBody").innerHTML='<p class="hint" style="margin:0">Couldn\'t read this copy\'s version.</p>'; });
   // remote access (remote.py): the Tailscale Funnel link, and the people who can sign in at it
   const raPaint=async()=>{ if(!$("#raList")) return; let r; try{ r=await api("/api/remote"); }catch(e){ $("#raLink").innerHTML=`<p class="hint">${esc(e.message)}</p>`; return; }
+    $("#raList").closest(".panel").hidden=!r.door;  // a copy without the remote door (the install kit) has nothing to show here
     const L=r.link||{};
     $("#raLink").innerHTML=!L.installed?'<p class="hint">Tailscale isn\'t installed on this PC: it carries the link.</p>'
       :L.state!=="Running"?`<p class="hint">Tailscale is ${esc({NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running")} on this PC. Sign in to Tailscale (system tray) to get the link.</p>`
@@ -320,7 +363,13 @@ S.views.data = async (v) => {
   $("#uAllOn").onclick=()=>cfg({all:true}); $("#uAllOff").onclick=()=>cfg({all:false});
   $("#uRunAll").onclick=async()=>{ UPD=await post("/api/update/run",{ids:"enabled",force:true}); paintNet(); paintSources(); };
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
-  $("#k_save").onclick=async()=>{ await post("/api/settings",{creds:{wigle_name:$("#k_wn").value,wigle_token:$("#k_wt").value,opencellid_key:$("#k_oc").value,aisstream_key:$("#k_ais").value,repeaterbook_token:$("#k_rb").value}}); $("#k_msg").textContent="Saved."; };
+  $("#uBdcStates").onchange=e=>post("/api/settings",{bdc_states:e.target.value});
+  $("#k_save").onclick=async()=>{ const creds={}; v.querySelectorAll("[data-cred]").forEach(i=>{ if(i.value.trim()) creds[i.dataset.cred]=i.value.trim(); });
+    if(!Object.keys(creds).length){ $("#k_msg").textContent="Type a key first."; return; }
+    try{ await post("/api/settings",{creds}); S.views.data(v); }catch(e){ $("#k_msg").textContent=e.message; } };
+  v.querySelectorAll("[data-kclear]").forEach(a=>a.onclick=async e=>{ e.preventDefault(); const k=API_KEYS.find(x=>x.id===a.dataset.kclear);  // two presses, like Remove elsewhere
+    if(a.dataset.sure!=="1"){ a.dataset.sure="1"; a.textContent="Press again to remove"; setTimeout(()=>{ if(a.isConnected){ a.dataset.sure=""; a.textContent="Remove"; } },4000); return; }
+    await post("/api/settings",{creds:Object.fromEntries(k.fields.map(([f])=>[f,"__clear__"]))}); S.views.data(v); });
   v.querySelectorAll("[data-fetch]").forEach(b=>b.onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ $("#fetchMsg").textContent="Drop a pin first."; return; }
     $("#fetchMsg").textContent=`Fetching ${b.dataset.fetch}…`;
     try{ const r=await post("/api/crowd/fetch",{source:b.dataset.fetch,lat:p[0],lon:p[1],radius:+$("#radius").value||5,state:S.mission?.state||S.rows.find(x=>x.state)?.state});

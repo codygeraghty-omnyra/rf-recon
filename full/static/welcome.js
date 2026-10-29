@@ -8,7 +8,8 @@ const WELCOME_SETS = [
    what: "public safety, business, commercial, broadcast auxiliary, paging, marine and aviation ground", mb: 530, must: true},
   {key: "asr", ids: ["asr"], label: "Towers", what: "FCC antenna structures and their heights", mb: 38, on: true},
   {key: "bcast", ids: ["bcast"], label: "Broadcast stations", what: "AM, FM and TV", mb: 34, on: true},
-  {key: "ref", ids: ["nwr", "faa", "psap"], label: "NOAA Weather Radio, FAA aviation, 911 call centres", what: "reference sets", mb: 5, on: true},
+  {key: "ref", ids: ["nwr", "faa", "psap", "grantee"], label: "NOAA Weather Radio, FAA aviation, 911 call centres, FCC equipment makers",
+   what: "reference sets", mb: 17, on: true},
   {key: "mw", ids: ["uls:micro"], label: "Microwave backhaul", what: "point-to-point links with both ends", mb: 210},
 ];
 const wcSize = mb => mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`;
@@ -24,7 +25,7 @@ window.welcome = () => {
       <span><b>${esc(s.label)}</b> <span class="hint">· ${esc(s.what)} · ${s.mb >= 10 ? wcSize(s.mb) : "a few MB"}</span></span></label>`).join("")}</div>
     <div class="row" style="margin-top:12px;align-items:center;gap:12px"><button class="primary" id="wcGo">Download</button><span class="hint" id="wcTotal"></span></div>
     <div id="wcProg" style="margin-top:10px"></div>
-    <p class="hint" style="margin:12px 0 0">Wi-Fi, cell tower and ship layers come from free accounts of your own: add their keys any time in Data &amp; updates, Your API keys.</p>`;
+    <p class="hint" style="margin:12px 0 0">Wi-Fi, cell tower and ship layers, and carriers' coverage maps, come from free accounts of your own: add their keys any time in Data &amp; updates, Your API keys.</p>`;
   const chosen = () => WELCOME_SETS.filter(s => s.must || $(`[data-wc="${s.key}"]`).checked);
   const total = () => { $("#wcTotal").textContent = `About ${wcSize(chosen().reduce((a, s) => a + s.mb, 0))} to download.`; };
   $("#wcSets").onchange = total; total();

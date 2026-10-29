@@ -213,7 +213,7 @@ async function dasJob(v, id){
   try{ j=await api(`/api/das/jobs/${id}`); }catch(e){ D.job=null; render(); return; }
   DASJ={...DAS, ...(((j.data||{}).profile)||{})};
   const d=j.data||{}, save=async(patch,extra)=>{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); return j; };
-  const subs=[["overview","Overview"],["presurvey","Pre-survey"],["require","Requirements"],["grid","Grid test"],["files","Files"],["log","Log"],["report","Report"]];
+  const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px"><button id="djBack">← All jobs</button>
       <input id="djName" value="${esc(j.name)}" style="font-size:18px;font-weight:700;min-width:260px">
       <label class="inl">Stage <select id="djStage">${D.stages.map(s=>`<option ${s===j.stage?"selected":""}>${esc(s)}</option>`).join("")}</select></label>
@@ -227,7 +227,8 @@ async function dasJob(v, id){
   $("#djExp").onclick=()=>{ const {id:_,log,...x}=j; dasDl(`${fileSafe(j.name)} (RF Recon job).json`, JSON.stringify({rfrecon_das_job:1,...x},null,1), "application/json"); };
   $("#djDel").onclick=async()=>{ if(!confirm(`Delete “${j.name}”? Its files stay in the Drive folder.`)) return; await post(`/api/das/jobs/${id}/delete`); D.job=null; render(); };
   const body=$("#djBody");
-  ({overview:dasOverview, presurvey:dasPresurvey, require:dasRequire, grid:dasGrid, files:dasFiles, log:dasLog, report:dasReport}[D.sub]||dasOverview)(body, j, save);
+  ({overview:dasOverview, presurvey:dasPresurvey, require:dasRequire, grid:dasGrid, files:dasFiles, log:dasLog, report:dasReport,
+    pim:window.dasPim, materials:window.dasMaterials, plans:window.dasPlans, design:window.dasDesign}[D.sub]||dasOverview)(body, j, save);  // fieldref.js, plans.js, dasdesign.js
 }
 
 function dasOverview(el, j, save){
@@ -568,6 +569,7 @@ function dasLog(el, j){
 
 /* ---------- report for the AHJ (print to PDF): summary, then each floor's plan and readings ---------- */
 function dasReport(el, j){
+  if(S.das.rview==="submittal"&&window.dasSubmittal) return window.dasSubmittal(el, j);  // the design submittal (dasdesign.js)
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[], cs=S.das.contacts, who=k=>cs.find(c=>String(c.id)===String((d.contacts||{})[k]));
   const crit=[...((d.require||{}).critical||[]), ...((d.require||{}).other||[])], cr=(d.grid||{}).critical||{}, res=(d.grid||{}).results||{}, T=d.testing||{};
   const st=floors.map(f=>({f,...floorStats(d,f)}));
@@ -578,7 +580,8 @@ function dasReport(el, j){
     return `<div style="border:${c?"2px solid #b8860b":"1px solid #999"};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;
       background:${sk?"repeating-linear-gradient(45deg,#ddd 0 5px,transparent 5px 10px)":p==null?"rgba(255,255,255,.55)":p?"rgba(60,207,122,.55)":"rgba(229,83,75,.6)"}">
       <b>${esc(f.name)}-${g}${c?" ★":""}</b>${sk?"not tested":r&&has(r.dl)?`${r.dl} dBm`:""}</div>`; };
-  el.innerHTML=`<div class="maptools no-print"><button class="primary" id="drPrint">⎙ Print / save as PDF</button><span class="hint">Prints the report only. Choose “Save as PDF”, then add the PDF to the job's Files.</span></div>
+  el.innerHTML=`<div class="maptools no-print"><div class="seg" id="drView"><button data-rv="test" class="on">Test report</button><button data-rv="submittal">Design submittal</button></div>
+    <button class="primary" id="drPrint">⎙ Print / save as PDF</button><span class="hint">Prints the report only. Choose “Save as PDF”, then add the PDF to the job's Files.</span></div>
   <div class="panel" id="dasPrint">
     <h2 style="margin:0 0 4px">Emergency responder radio coverage test: ${esc(j.name)}</h2>
     <p style="margin:0 0 10px">${esc(d.address||"")} · ${esc(d.ahj||"AHJ not set")} · ${esc(d.code||"IFC 510 + NFPA 1225")} · prepared ${esc(today())}</p>
@@ -602,6 +605,7 @@ function dasReport(el, j){
     ${crit.length?`<div style="margin-top:16px"><h3>Named critical areas</h3><table><thead><tr><th>Area</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">UL dBm</th><th class="n">UL DAQ</th><th>Result</th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=gridPass(r); return `<tr><td>${esc(a)}</td><td class="n">${r.dl??""}</td><td class="n">${r.daq??""}</td><td class="n">${r.ul??""}</td><td class="n">${r.ul_daq??""}</td><td>${p==null?"untested":p?"pass":"fail"}</td></tr>`; }).join("")}</tbody></table></div>`:""}
   </div>`;
   $("#drPrint").onclick=()=>{ document.body.classList.add("print-das"); window.print(); setTimeout(()=>document.body.classList.remove("print-das"),500); };
+  $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
 }
 
 /* ---------- consent letters: 47 CFR 90.219(b)(1) asks for the licensee's consent before a booster retransmits its signal ---------- */

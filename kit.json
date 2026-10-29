@@ -1,0 +1,16 @@
+{
+ "version": "ced33ab",
+ "built": "2026-10-29 00:55",
+ "python": "3.12.10",
+ "get": "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB",
+ "notes": [
+  "Kit update notes",
+  "Link budget",
+  "DAS Design",
+  "PIM and Parts tabs, DAS Plans/Materials/PIM sections, PDF plan sheets into floor plans",
+  "FCC equipment grantee codes as a data source",
+  "Carrier coverage",
+  "Data sources",
+  "Web version"
+ ]
+}

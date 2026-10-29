@@ -233,6 +233,7 @@ function heatExtent(rows) {  // a county search has no pin: cover where its entr
   return [lat, lon, Math.min(60, Math.max(2, half * 1.05))];
 }
 function heatmap(p) {
+  if (fstr(p, "kind") === "carrier") throw new Error("Carrier coverage comes from the FCC Broadband Map files RF Recon keeps on the PC.");
   let lat = fnum(p, "lat"), lon = fnum(p, "lon"), radius = fnum(p, "radius", 10);
   if (lat == null && !(fstr(p, "state") && fstr(p, "county"))) throw new Error("Heatmaps need a pin or a county.");
   const res = queryArea(p);
@@ -736,6 +737,12 @@ async function route(path, p, method, body) {
   if (path === "/mwlinks") return {links: [], loaded: false};  // backhaul links aren't in packs
   if (path === "/fccid") throw new Error("FCC ID look-ups run from RF Recon on the PC.");
   if (path === "/find") return findPack(p);
+  if (/^\/research\/(pim|parts|plans|budget)$/.test(path)) {  // the PIM and Parts tabs' research ships with the page
+    const r = await realFetch(`static/research/${{pim: "pim", parts: "rf_parts", plans: "plans_materials", budget: "link_budget"}[path.split("/")[2]]}.json`);
+    return r.ok ? r.json() : {empty: true};
+  }
+  if (path === "/bdc/carriers") return {carriers: []};  // carrier coverage stays on the PC
+  if (path === "/bdc/at") return {carriers: [], loaded: false};
   if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
   if (path === "/report/signals") return {counts: {}, rows: [], layers: []};

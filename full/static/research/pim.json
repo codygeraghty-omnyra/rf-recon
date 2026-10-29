@@ -1,0 +1,3219 @@
+{
+ "updated": "2026-10-29",
+ "sources": [
+  {
+   "key": "iec62037_1_2012",
+   "title": "IEC 62037-1:2012 webstore abstract (Part 1: General requirements and measuring methods; superseded)",
+   "url": "https://webstore.iec.ch/en/publication/6331",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_1_2025",
+   "title": "IEC 62037-1:2025 RLV (Ed. 3.0) official preview: scope, set-ups, test procedure, test specification, reporting",
+   "url": "https://cdn.standards.iteh.ai/samples/116552/76c2985fd6a341198848a002b3719723/IEC-62037-1-2025.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_2_2021",
+   "title": "IEC 62037-2:2021 official preview (Part 2: coaxial cable assemblies)",
+   "url": "https://cdn.standards.iteh.ai/samples/103907/acf50ade5ad44b87bba30a67e2b3a97e/IEC-62037-2-2021.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_3",
+   "title": "IEC 62037-3:2012 webstore abstract (Part 3: coaxial connectors; newer 2025 RLV exists)",
+   "url": "https://webstore.iec.ch/en/publication/6333",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_4",
+   "title": "IEC 62037-4:2012+AMD1:2025 webstore abstract (Part 4: coaxial cables)",
+   "url": "https://webstore.iec.ch/en/publication/6334",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_5",
+   "title": "IEC 62037-5:2021 RLV webstore abstract (Part 5: filters)",
+   "url": "https://webstore.iec.ch/en/publication/72272",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_6",
+   "title": "IEC 62037-6:2021+AMD1:2025 CSV official preview (Part 6: antennas)",
+   "url": "https://assets.vde-verlag.de/iec-normen/preview-pdf/info_iec62037-6%7Bed2.1%7Den.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_7",
+   "title": "IEC 62037-7:2022 official preview (Part 7: Field measurements of passive intermodulation)",
+   "url": "https://cdn.standards.iteh.ai/samples/102527/7a671318b83d4b848af48547951a775f/IEC-62037-7-2022.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "iec62037_8",
+   "title": "IEC 62037-8:2022 official preview (Part 8: PIM of objects exposed to RF radiation)",
+   "url": "https://cdn.standards.iteh.ai/samples/101679/5c225f603524457a9b81fcae86898009/IEC-62037-8-2022.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "anritsu_understanding",
+   "title": "Anritsu, Understanding PIM, app note 11410-00629 Rev F",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00629F.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_power",
+   "title": "Anritsu, PIM Test Power Level, app note 11410-01008 Rev A (2017)",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-01008A.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_firstnet",
+   "title": "Anritsu, Measuring PIM on the AT&T FirstNet Network with the 2-Port PIM Master, app note 11410-02865 Rev A (2021)",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-02865A.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_das_pim",
+   "title": "Anritsu, Passive Intermodulation (PIM) in In-building Distributed Antenna Systems (DAS), app note 11410-00871 Rev B (2016)",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00871B.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_testing_das",
+   "title": "Anritsu, Testing Distributed Antenna Systems (DAS), app note 11410-00887 Rev A (2015)",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00887A.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_dtp_dtf",
+   "title": "Anritsu, Using Distance-to-PIM (DTP) and Distance-to-Fault (DTF) trace overlay to speed site repair, app note 11410-00869 Rev A",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00869A.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_pim_reports",
+   "title": "Anritsu, PIM Test Reports, app note 11410-00774 Rev C (2015)",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Application-Notes/Application-Note/11410-00774C.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_troubleshooting",
+   "title": "Anritsu (N. Cannon), Troubleshooting Passive Intermodulation Problems in the Field, white paper",
+   "url": "https://www.microwavejournal.com/ext/resources/BGDownload/4/8/Anritsu_Troubleshooting%20Passive%20Intermodulation%20Problems%20in%20the%20Field_WP.pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "anritsu_pim_page",
+   "title": "Anritsu, Passive Intermodulation (PIM) technology page",
+   "url": "https://www.anritsu.com/en-us/test-measurement/technologies/pim",
+   "kind": "vendor"
+  },
+  {
+   "key": "anritsu_mw82119b_ds",
+   "title": "Anritsu PIM Master MW82119B Technical Data Sheet, PN 11410-00821 Rev N",
+   "url": "https://www.atecorp.com/getmedia/9c6184b7-a4f5-4501-b614-1d63e2ec8200/mw82119b-datasheet_1.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "anritsu_s331p_ds",
+   "title": "Anritsu Site Master S331P Technical Data Sheet 11410-00964",
+   "url": "https://dl.cdn-anritsu.com/en-us/test-measurement/files/Brochures-Datasheets-Catalogs/datasheet/11410-00964W.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "intftech_overview",
+   "title": "Interference Technology / Anritsu, Overview of PIM: Best Practices on Preventing PIM (2019 eGuide, incl. Anritsu BTS Master PIM-over-CPRI notice)",
+   "url": "https://interferencetechnology.com/wp-content/uploads/2019/10/Overview-of-Passive-Intermodulation-PIM-Best-Practices-on-Preventing-PIM.pdf",
+   "kind": "trade"
+  },
+  {
+   "key": "kaelus_ixa_ds",
+   "title": "Kaelus iXA Series battery portable PIM analyzer datasheet, Rev 4 (Nov 2021)",
+   "url": "https://tessco-product-images-commerce-cloud-prod.s3.amazonaws.com/Resources/278269_iXA+Series_Datasheet.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "kaelus_ipa_ds",
+   "title": "Kaelus iPA Series battery portable PIM analyzer datasheet (2014, iPA_A_RevI_4.14)",
+   "url": "https://www.testworld.com/wp-content/uploads/Kaelus-iPA-Portable-PIM-Tester-Datasheet.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "rosenberger_alpha",
+   "title": "Rosenberger PIM Site Analyzer alpha product page",
+   "url": "https://www.rosenberger.com/product/pim-site-analyzer-alpha/",
+   "kind": "vendor"
+  },
+  {
+   "key": "awt_s1l",
+   "title": "AWT Global PIM S1L analyzers for TETRA and 380-470 MHz (UHF), MK2 product page",
+   "url": "https://awt-global.com/wp3/pim-test-systems/pim-analyzers-for-tetra-and-uhf/pim-analyzers-for-tetra-and-uhf-mk2/",
+   "kind": "vendor"
+  },
+  {
+   "key": "awt_testing",
+   "title": "AWT Global, Testing Low PIM Installations and Components",
+   "url": "https://awt-global.com/wp3/resources/pim/testing-low-pim-installations-and-components/",
+   "kind": "app_note"
+  },
+  {
+   "key": "bird_sitehawk",
+   "title": "Bird SiteHawk SK-4500-TC / SK-6000-TC / SK-9000-TC cable & antenna analyzer datasheet",
+   "url": "https://birdrf.com/hubfs/datasheets/Bird-Analyzer-SiteHawk-SK4500-TC-SK6000-TC-SK9000-TC.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "commscope_pim_faq",
+   "title": "CommScope / Andrew Solutions, PIM Frequently Asked Questions (CO-104463-EN, 2011)",
+   "url": "https://wirelessestimator.com/publicdocs/PIM-FAQs.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "commscope_blog_smart",
+   "title": "CommScope blog, Smart Testing for Real PIM (Feb 2016; Optical PIM Tester)",
+   "url": "https://www.commscope.com/blog/2016/smart-testing-for-real-pim/",
+   "kind": "vendor"
+  },
+  {
+   "key": "mwrf_pim",
+   "title": "Microwaves & RF, Evaluating Effects of Passive Intermodulation (Summitek/Kaelus, Boonton PIM 31, Rosenberger, Anritsu)",
+   "url": "https://www.mwrf.com/technologies/components/article/21845220/evaluating-effects-of-passive-intermodulation",
+   "kind": "trade"
+  },
+  {
+   "key": "rosenberger_43_10",
+   "title": "Rosenberger, Low PIM Connectors and Components for Mobile Communication Applications 4.3-10 (catalog 2020)",
+   "url": "https://www.rosenberger.com/fileadmin/content/headquarter/Downloads/RF_Coaxial_Connectors/COM_43_10_Catalog_2020.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "commscope_tw_n10",
+   "title": "CommScope (Andrew) TW-N10 torque wrench for NEX10, product page",
+   "url": "https://www.andrew.com/products/fiber-power-rf-connectivity-accessories/accessories/installation-tools/itemtw-n10/",
+   "kind": "vendor"
+  },
+  {
+   "key": "spinner_nex10",
+   "title": "SPINNER torque wrench 11 mm 1.5 N-m for NEX10, product page",
+   "url": "https://products.spinner-group.com/torque-wrench-11-mm-1-5-nm-for-nex10-with-calibration-certificate-bn238743C0001",
+   "kind": "vendor"
+  },
+  {
+   "key": "hs_qma",
+   "title": "HUBER+SUHNER, QMA QUICK-LOCK connectors catalog (2009 edition)",
+   "url": "https://www.fclane.com/sites/default/files/pdf/qmaconnectorsen.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "taoglas_sma",
+   "title": "Taoglas, Installation instructions for products with SMA connectors (APN-25-8-001)",
+   "url": "https://www.taoglas.com/assets/application-notes/SMA_Connector_Torque_Guide_(APN-25-8-001).pdf",
+   "kind": "app_note"
+  },
+  {
+   "key": "microwaves101_torque",
+   "title": "Microwaves101, Connector torque (encyclopedia table)",
+   "url": "https://www.microwaves101.com/encyclopedias/connector-torque",
+   "kind": "trade"
+  },
+  {
+   "key": "rosenberger_das",
+   "title": "Rosenberger Site Solutions, DAS Components catalog RSS051914",
+   "url": "https://rosenbergeronline.us/usercontent/documents/RSS-DAS-Components.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "commscope_cmax",
+   "title": "CommScope CMAX-D-TCPUSEi53 low-PIM directional in-building antenna, product page",
+   "url": "https://www.andrew.com/products/in-building/antennas/itemcmax-d-tcpusei53/",
+   "kind": "vendor"
+  },
+  {
+   "key": "norsat_ddc240",
+   "title": "Norsat/Sinclair DDC240 DAS directional coupler, low PIM, 138-960 MHz, product page",
+   "url": "https://www.norsat.com/products/das-directional-coupler-low-pim-138-960-mhz",
+   "kind": "vendor"
+  },
+  {
+   "key": "microlab_hybrid",
+   "title": "Microlab CA-EP-2X2-738FN hybrid coupler (Enterprise+), product page",
+   "url": "https://microlabtech.com/product/ca-ep-2x2-738fn/",
+   "kind": "vendor"
+  },
+  {
+   "key": "microlab_lowpower",
+   "title": "Microlab, PIM Requirements for Low Power Wireless Components and Subsystems",
+   "url": "https://microlabtech.com/pim-requirements-for-low-power-wireless-components-and-subsystems.html",
+   "kind": "app_note"
+  },
+  {
+   "key": "rfs_ica12",
+   "title": "RFS ICA12-50JPL 1/2 in plenum-rated corrugated coaxial cable, product page",
+   "url": "https://www.rfstechnologies.com/pim/product/html/ICA12-50JPL",
+   "kind": "vendor"
+  },
+  {
+   "key": "rfs_radiaflex_conn",
+   "title": "RFS NF-RA78-016 N female connector for 7/8 in RADIAFLEX radiating cable, datasheet",
+   "url": "https://www.rfsworld.com/pim/product/pdf/NF-RA78-016",
+   "kind": "vendor"
+  },
+  {
+   "key": "commscope_blog_das",
+   "title": "CommScope blog (L. Tarlazzi, Oct 2014), PIM Requirements Must Increase to Support Evolving DAS Systems",
+   "url": "https://www.commscope.com/Blog/PIM-Requirements-Must-Increase-to-Support-Evolving-DAS-Systems/",
+   "kind": "vendor"
+  },
+  {
+   "key": "sensors2020",
+   "title": "Ng et al., Ultralow Profile, Low PIM, Super-Wideband Ceiling Mount Antennas for Cellular and Public Safety DAS, Sensors 20(9):2456 (2020)",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7248867/",
+   "kind": "trade"
+  },
+  {
+   "key": "mcf_das_2023",
+   "title": "Mobile Carriers Forum (Australia), Design Specification for Distributed Antenna Systems, 2023 edition (draft 1.0) - public carrier DAS spec, not US",
+   "url": "https://amta.org.au/wp-content/uploads/2023/11/MCF-Design-Specification-for-Distributed-Antenna-Systems-Draft-1.0.pdf",
+   "kind": "carrier"
+  },
+  {
+   "key": "valmont_das",
+   "title": "Valmont, PIM Testing in DAS Networks",
+   "url": "https://www.valmonttelecom.com/resources/article/pim-testing-in-das-networks",
+   "kind": "trade"
+  },
+  {
+   "key": "ifc2018_510",
+   "title": "2018 International Fire Code Section 510 Emergency Responder Radio Coverage (text reproduction by callmc.com)",
+   "url": "https://callmc.com/wp-content/uploads/2021/10/IFC_510_Sheet-1.pdf",
+   "kind": "code"
+  },
+  {
+   "key": "saferbuildings_erces",
+   "title": "Safer Buildings Coalition, ERCES Primer (IFC 510 / NFPA 1225 overview)",
+   "url": "https://saferbuildings.org/erces-primer/",
+   "kind": "trade"
+  },
+  {
+   "key": "dc_ouc",
+   "title": "District of Columbia OUC, Public Safety In-Building Radio Systems Acceptance Test Requirements v3.2 (2019)",
+   "url": "https://ouc.dc.gov/sites/default/files/dc/sites/OUC/page_content/attachments/40_DC_In_Building_Radio_System_Acceptance_Test_Requirements.pdf",
+   "kind": "code"
+  },
+  {
+   "key": "eta_dast",
+   "title": "ETA International, Distributed Antenna Systems Technician (DAST) competency requirements (2025)",
+   "url": "https://www.etai.org/comps/DAST_comps.pdf",
+   "kind": "training"
+  },
+  {
+   "key": "cudenver_div27",
+   "title": "University of Colorado Denver | Anschutz, Section 27 53 19 Distributed Antenna System design standard (owner spec, Jan 2020)",
+   "url": "https://www.cuanschutz.edu/docs/librariesprovider260/design-and-construction/guidelines-and-standards/division-27/275319---distributed-antenna-system.pdf?sfvrsn=284fb9b9_2",
+   "kind": "trade"
+  },
+  {
+   "key": "fcc_da09_1783",
+   "title": "FCC Public Notice DA 09-1783 (800 MHz reconfiguration; NPSPAC band now 806-809/851-854 MHz)",
+   "url": "https://docs.fcc.gov/public/attachments/DA-09-1783A1.pdf",
+   "kind": "code"
+  }
+ ],
+ "requirements": [
+  {
+   "topic": "IEC test method",
+   "item": "Two-tone stimulus",
+   "value": "Two CW tones (f1, f2) of equal specified power combined and fed to the device; the tones' own harmonics/self-IM must sit at least 10 dB below the IM level expected from the device",
+   "spec": "IEC 62037-1:2025",
+   "section": "Cl. 5",
+   "note": "Summarized in our words; buy the standard for the exact text.",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Test power",
+   "value": "2 x 20 W (2 x 43 dBm) at the device's test port is the general recommendation for mobile communication systems unless the test spec says otherwise; other systems may need higher or lower power; never exceed the device's power rating",
+   "spec": "IEC 62037-1:2025",
+   "section": "Cl. 8, Table 2",
+   "note": "The power-handling limit was added in the 2025 edition. Anritsu notes many operators also adopted 2 x 20 W for site testing because no field power standard existed.",
+   "sources": [
+    "iec62037_1_2025",
+    "anritsu_power",
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Residual (self) IM of the test set-up",
+   "value": "Set-up self-IM, including the load, should be at least 10 dB below the level being measured",
+   "spec": "IEC 62037-1:2025",
+   "section": "6.2.1 and Cl. 8",
+   "note": "Anritsu's reading of the IEC error curve: 10 dB margin gives up to +2/-3 dB error, 5 dB gives +4/-7 dB, 20 dB gives under 1 dB.",
+   "sources": [
+    "iec62037_1_2025",
+    "anritsu_power"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "IM products measured",
+   "value": "Products such as (2f1 - f2) and (2f2 - f1); 3rd order is usually the worst case and is normally sufficient, but the set-ups can measure other orders",
+   "spec": "IEC 62037-1:2025",
+   "section": "Cl. 5",
+   "note": "",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Frequency dependence",
+   "value": "PIM is typically frequency dependent and must be investigated over the specified band; swept or multiple fixed frequencies often give more accurate results",
+   "spec": "IEC 62037-1:2025",
+   "section": "Cl. 4, Annex B",
+   "note": "New emphasis in Ed. 3.0 (2025).",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Reverse vs forward",
+   "value": "Reverse (reflected) set-up suits one-port and multi-port devices; forward (transmitted) suits two/multi-port only; multi-port analyzers are an allowed topology",
+   "spec": "IEC 62037-1:2025",
+   "section": "6.1-6.2.3",
+   "note": "Field analyzers (Anritsu, Kaelus, Rosenberger, AWT) measure reverse PIM.",
+   "sources": [
+    "iec62037_1_2025",
+    "anritsu_mw82119b_ds",
+    "kaelus_ixa_ds"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Unused ports",
+   "value": "On multi-port devices, terminate unused ports in a linear (low-IM) termination rated for the power",
+   "spec": "IEC 62037-1:2025",
+   "section": "6.2.2 e)",
+   "note": "",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Preparation",
+   "value": "Check power handling, frequency range, cleanliness and interface dimensions; tighten every connector interface to the IEC interface spec or, if none, to the manufacturer's value",
+   "spec": "IEC 62037-1:2025",
+   "section": "7.1",
+   "note": "",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "What a test specification must state",
+   "value": "Test power; IM order; forward or reverse; band(s) or exact frequencies; dynamic stimulus while testing; maximum allowable PIM",
+   "spec": "IEC 62037-1:2025",
+   "section": "Cl. 9",
+   "note": "IEC itself sets no pass/fail level; the owner's spec does.",
+   "sources": [
+    "iec62037_1_2025",
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "topic": "IEC test method",
+   "item": "Reporting",
+   "value": "State input power per tone, f1 and f2, the PIM level and its frequency; report the maximum PIM over the test duration",
+   "spec": "IEC 62037-1:2025",
+   "section": "10.1; foreword change e)",
+   "note": "",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "topic": "IEC scope",
+   "item": "What IEC 62037 does not cover",
+   "value": "Measurement only; the series does not address long-term reliability of a product",
+   "spec": "IEC 62037-1:2025 / 2012",
+   "section": "Cl. 1",
+   "note": "Anritsu (2017) noted the then-current edition addressed factory testing only; field testing arrived with Part 7 in 2022.",
+   "sources": [
+    "iec62037_1_2025",
+    "iec62037_1_2012",
+    "anritsu_power"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Scope",
+   "value": "Reverse PIM measurement of deployed systems, either terminated into low-PIM loads or through antennas that radiate the tones",
+   "spec": "IEC 62037-7:2022",
+   "section": "Cl. 1",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Radiating tests",
+   "value": "Stay within government limits on authorized RF radiation; keep keys, phones, ladders and tools out from in front of / near the antenna",
+   "spec": "IEC 62037-7:2022",
+   "section": "4.1",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Test frequency selection",
+   "value": "f1 and f2 must pass through the whole system and the IM product must return to the analyzer; bypass blocking devices with short low-PIM jumpers; place f1/f2 in guard bands; survey local spectrum first and move the IM product to unused spectrum if interference is seen",
+   "spec": "IEC 62037-7:2022",
+   "section": "4.2",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Safety",
+   "value": "Stay a safe distance from radiating antennas; lock off every radio feeding the line under test before disconnecting at the radio port (RF burn risk)",
+   "spec": "IEC 62037-7:2022",
+   "section": "4.3",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Field analyzer",
+   "value": "Must perform reverse PIM per IEC 62037-1 set-up 1 and be ruggedized for shock, vibration and uncontrolled temperature",
+   "spec": "IEC 62037-7:2022",
+   "section": "Cl. 5",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Injection point",
+   "value": "Unless specified otherwise, inject the tones at the connector where the radio's transmit signal enters the system",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.1",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Clean and inspect",
+   "value": "Clean every set-up connector with isopropyl alcohol and a lint-free wipe; remove all metal flakes; replace worn or damaged parts",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.2.2",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Residual PIM test",
+   "value": "Test lead + adapters into a low-PIM termination, flexing the lead; peak self-IM at least 10 dB below the level to be measured",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.2.3",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "PIM standard check",
+   "value": "A known PIM standard (with termination) on the analyzer port must read within 3 dB of its stated value",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.2.4",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "VSWR verification",
+   "value": "Below 1.92:1 (10 dB return loss) at f1, f2 and the IM frequency, unless specified otherwise; fix high reflections before PIM testing",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.3",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Interference verification",
+   "value": "With the tones off, external signal at the IM frequency should be at least 10 dB below the IM level to be measured",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.4",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Static then dynamic",
+   "value": "Run static first; if above the limit, repair before dynamic. Fixed frequencies can falsely pass when two sources cancel (180 deg); swept tests guard against that",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.5",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Dynamic test pass rule",
+   "value": "Peak IM during the dynamic stimulus must not exceed the pass/fail level; use fixed frequencies for responsiveness; field stimulus must not be harsher than the relevant component part of IEC 62037",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.6.1",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Dynamic stimulus: cable assemblies",
+   "value": "Hold at 4 x the specified repeated bend radius; rotate 3 cycles; rotation radius about cable diameter + 10 mm",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.6.2",
+   "note": "Per IEC 62037-2:2021, 4.2.",
+   "sources": [
+    "iec62037_7",
+    "iec62037_2_2021"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Dynamic stimulus: connectors",
+   "value": "5 impacts per connector with a non-damaging tool (plastic screwdriver end, rubberized wrench end); energy no more than IEC 62037-3 Table 1 for that connector; never strike the cable",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.6.3",
+   "note": "The Table 1 energies are in the paywalled IEC 62037-3 and were not available.",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Dynamic stimulus: splitters, combiners, filters, LNAs",
+   "value": "2 impacts on the body next to each connector; 3 impacts along each side with no connector; at most 0.14 J per impact",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.6.4",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Dynamic stimulus: antennas",
+   "value": "Strike the rear surface: 2 impacts next to each connector, then every 30 cm along the height; at most 1 J per impact; avoid radome and fragile parts",
+   "spec": "IEC 62037-7:2022",
+   "section": "6.6.5",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC field method",
+   "item": "Report minimum",
+   "value": "Residual PIM of the measurement system and the peak PIM of each feed line under dynamic loading",
+   "spec": "IEC 62037-7:2022",
+   "section": "Cl. 8",
+   "note": "",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "topic": "IEC series",
+   "item": "Part 2 - cable assemblies",
+   "value": "Procedure for jumpers and assemblies that move in service; 2021 edition ties mechanical stress to the advertised bend radius",
+   "spec": "IEC 62037-2:2021",
+   "section": "Cl. 1; foreword",
+   "note": "",
+   "sources": [
+    "iec62037_2_2021"
+   ]
+  },
+  {
+   "topic": "IEC series",
+   "item": "Part 3 - connectors",
+   "value": "Impact test to check connectors' resistance to weak contacts and loose particles, separating connector PIM from cable PIM",
+   "spec": "IEC 62037-3:2012 (2025 RLV exists)",
+   "section": "Abstract",
+   "note": "",
+   "sources": [
+    "iec62037_3"
+   ]
+  },
+  {
+   "topic": "IEC series",
+   "item": "Part 4 - coaxial cables",
+   "value": "Fixtures and procedures for cable PIM: two dynamic methods and one static method",
+   "spec": "IEC 62037-4:2012+AMD1:2025",
+   "section": "Abstract",
+   "note": "",
+   "sources": [
+    "iec62037_4"
+   ]
+  },
+  {
+   "topic": "IEC series",
+   "item": "Part 5 - filters",
+   "value": "Qualification and acceptance methods for low-IM filters; 2021 edition defines impact energy and impact locations",
+   "spec": "IEC 62037-5:2021",
+   "section": "Abstract",
+   "note": "",
+   "sources": [
+    "iec62037_5"
+   ]
+  },
+  {
+   "topic": "IEC series",
+   "item": "Part 6 - antennas",
+   "value": "Fixtures/procedures for antenna PIM qualification and acceptance; 2021 edition defines impact energy and locations; Amendment 1 (2025) makes reported values the maximum PIM",
+   "spec": "IEC 62037-6:2021+AMD1:2025",
+   "section": "Cl. 1, 7; amendment intro",
+   "note": "Bibliography points to IEC 60068-2-75 hammer tests.",
+   "sources": [
+    "iec62037_6"
+   ]
+  },
+  {
+   "topic": "IEC series",
+   "item": "Part 8 - radiated PIM of objects",
+   "value": "Radiated test of PIM from any object or material exposed to RF (near or far field; outdoor site or anechoic chamber)",
+   "spec": "IEC 62037-8:2022",
+   "section": "Cl. 1",
+   "note": "Useful background for external 'rusty bolt' PIM.",
+   "sources": [
+    "iec62037_8"
+   ]
+  },
+  {
+   "topic": "Public safety code",
+   "item": "IFC Section 510 and PIM",
+   "value": "The 2018 IFC Section 510 text contains no PIM, sweep, return-loss or VSWR requirement",
+   "spec": "IFC 2018 Sec. 510",
+   "section": "510.1-510.6",
+   "note": "Checked the full reproduced text. Section numbers shift in IFC 2021/2024 (e.g., acceptance test moves); verify the edition your AHJ adopted.",
+   "sources": [
+    "ifc2018_510"
+   ]
+  },
+  {
+   "topic": "Public safety code",
+   "item": "Donor antenna isolation",
+   "value": "Isolation between donor and all inside antennas at least 20 dB greater than system gain under all operating conditions",
+   "spec": "IFC 2018",
+   "section": "510.4.2.4",
+   "note": "Not a PIM test, but measured on the same visit.",
+   "sources": [
+    "ifc2018_510",
+    "saferbuildings_erces"
+   ]
+  },
+  {
+   "topic": "Public safety code",
+   "item": "AHJ technical criteria",
+   "value": "The fire code official keeps a document listing required frequencies, radio sites, ERP, max propagation delay, applications",
+   "spec": "IFC 2018",
+   "section": "510.4.2.2",
+   "note": "Use this frequency list to compute which IM products can land in ERCES uplinks.",
+   "sources": [
+    "ifc2018_510"
+   ]
+  },
+  {
+   "topic": "Public safety code",
+   "item": "Acceptance coverage test",
+   "value": "Two-way coverage not less than 95% per floor; 20 equal grid areas; calibrated portable radio of the agency's model",
+   "spec": "IFC 2018",
+   "section": "510.5.3",
+   "note": "",
+   "sources": [
+    "ifc2018_510"
+   ]
+  },
+  {
+   "topic": "Public safety code",
+   "item": "NFPA 1225 Chapter 18",
+   "value": "Install/test/maintain ERCES: acceptance, annual and five-yearly quantitative re-test; DAQ 3.0 in 95% of general and 99% of critical areas",
+   "spec": "NFPA 1225 (2022), Ch. 18 (per secondary source)",
+   "section": "Ch. 18; 20.3.10.2.3.3",
+   "note": "NFPA text not opened (paywalled); the SBC primer that summarizes it does not mention PIM. No source found that makes PIM testing a code requirement.",
+   "sources": [
+    "saferbuildings_erces"
+   ]
+  },
+  {
+   "topic": "Public safety AHJ",
+   "item": "Washington DC OUC",
+   "value": "Pre-acceptance documentation includes antenna and cable sweep results and 'PIM Testing results (if applicable)'",
+   "spec": "DC OUC acceptance requirements v3.2",
+   "section": "Sec. 3 Acceptance Testing Prerequisites, 1.e-f",
+   "note": "Example of an AHJ asking for PIM results without setting a limit.",
+   "sources": [
+    "dc_ouc"
+   ]
+  },
+  {
+   "topic": "Training",
+   "item": "ETA DAST competencies",
+   "value": "Technicians are expected to define PIM, describe a PIM tester, and interpret antenna line sweeps (RL, IL, DTF)",
+   "spec": "ETA DAST (2025)",
+   "section": "3.3, 5.6; antenna line sweep items",
+   "note": "Training scope, not a code requirement.",
+   "sources": [
+    "eta_dast"
+   ]
+  },
+  {
+   "topic": "Owner spec (example)",
+   "item": "CU Denver Div. 27 DAS",
+   "value": "Sweep every cable segment around 160, 460, 700, 840, 930 and 1925 MHz; return loss over 20 dB at any connector; inspect and clean all connectors before mating; prefer factory-made passive assemblies to reduce PIM",
+   "spec": "CU Denver 27 53 19 (2020)",
+   "section": "1.4 Q",
+   "note": "No numeric PIM limit in this spec. Its blanket torque line (16-18 ft-lb or manufacturer) fits 7/16 DIN only - see torque table.",
+   "sources": [
+    "cudenver_div27"
+   ]
+  },
+  {
+   "topic": "Carrier spec",
+   "item": "AT&T (incl. FirstNet)",
+   "value": "AT&T's MOP sets PIM pass/fail values; not public. Anritsu describes the flow: 1-port PIM vs time + swept PIM, DTP if failing, 2-port test (F1 on band 14 antenna, F2 on band 17 antenna) for external IM3, LTE-M Pilot as the network-side check",
+   "spec": "AT&T MOP (not public)",
+   "section": "-",
+   "note": "Values come only via the carrier/contract. Secondary source only.",
+   "sources": [
+    "anritsu_firstnet"
+   ]
+  },
+  {
+   "topic": "Carrier spec",
+   "item": "Verizon, T-Mobile",
+   "value": "No public PIM acceptance spec found",
+   "spec": "-",
+   "section": "-",
+   "note": "Anritsu: acceptable PIM is set by the site/equipment owner and must be specified at procurement with test parameters and power. Get the MOP from the carrier or GC.",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "topic": "Carrier spec",
+   "item": "Secondary statement on operators",
+   "value": "'Most operators' require IM3 at -140 dBc with 2 x 20 W tones (DAS context)",
+   "spec": "Anritsu app note (secondary)",
+   "section": "PIM versus Time",
+   "note": "Vendor statement, not a carrier document.",
+   "sources": [
+    "anritsu_testing_das"
+   ]
+  },
+  {
+   "topic": "Carrier DAS spec (Australia)",
+   "item": "MCF DAS Design Specification 2023",
+   "value": "Each passive DAS segment at the multi-network combiner <= -140 dBc at design power; segments <= 5 W: <= -140 dBc with 2 x 33 dBm; test low/mid/high bands; PIM vs time >= 10 s; calibrated analyzer; hand over original result files",
+   "spec": "MCF DAS spec 2023 (draft 1.0)",
+   "section": "3.18.2, 7.5",
+   "note": "Public carrier-forum spec from Australia; useful model, not binding in the US.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Carrier DAS spec (Australia)",
+   "item": "MCF component and cable rules",
+   "value": "Splitters/couplers <= -150 dBc @ 2 x 43 dBm; terminations <5 W <= -140 dBc @ 2 x 33 dBm; terminations >=5 W <= -150 dBc @ 2 x 43 dBm; patch cables <= -150 dBc @ 2 x 43 dBm static and dynamic; no braided/foil cables (e.g., LMR400, RG214); no joiners or inter-series adapters",
+   "spec": "MCF DAS spec 2023",
+   "section": "3.22.3-3.22.6",
+   "note": "",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Industry best practice",
+   "item": "IWPC PIM Testing Best Practices (TTER, Nov 2014)",
+   "value": "Field best-practice document cited by the MCF spec; quoted as saying lower test power may be required for small cell and DAS testing",
+   "spec": "IWPC TTER (gated download)",
+   "section": "-",
+   "note": "Not opened: download requires an IWPC request form. Content known only via MCF and Valmont citations.",
+   "sources": [
+    "mcf_das_2023",
+    "valmont_das"
+   ]
+  }
+ ],
+ "checklists": [
+  {
+   "name": "Pre-test planning",
+   "when": "Before mobilizing to site",
+   "items": [
+    {
+     "step": "Get the written test spec",
+     "detail": "Limit, test power, IM order, bands or exact F1/F2, dynamic stimulus, test duration. IEC lists these as what a test spec must state.",
+     "sources": [
+      "iec62037_1_2025",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Confirm who owns the limit",
+     "detail": "Carrier MOP, neutral host, or building owner. Limits are set by the site/equipment owner; carrier MOPs (e.g., AT&T) are not public.",
+     "sources": [
+      "anritsu_understanding",
+      "anritsu_firstnet"
+     ]
+    },
+    {
+     "step": "Pick analyzer band(s) that pass the system",
+     "detail": "Each analyzer is band-specific. Check filter combiners/diplexers in the path: F1, F2 and the IM product must all pass, or plan to bypass that device.",
+     "sources": [
+      "anritsu_testing_das",
+      "anritsu_das_pim",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Plan F1/F2 and check the IM product frequency",
+     "detail": "Put F1/F2 in guard bands and land the IM product in unused spectrum; survey local signals first.",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Get permission before radiating",
+     "detail": "Testing into an antenna outside a chamber may breach licensing; get advance permission from licensees who could be affected.",
+     "sources": [
+      "kaelus_ixa_ds",
+      "kaelus_ipa_ds"
+     ]
+    },
+    {
+     "step": "Book the outage / NOC window",
+     "detail": "The path must be off-air. CommScope/Andrew prefer evening maintenance windows and testing lines into loads to limit radiation.",
+     "sources": [
+      "commscope_pim_faq",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Check component power ratings",
+     "detail": "Analyzer can put out up to 2 x 40 W (80 W). Confirm DAS antennas, dividers and loads can take the planned test power.",
+     "sources": [
+      "anritsu_testing_das",
+      "anritsu_mw82119b_ds",
+      "iec62037_1_2025"
+     ]
+    },
+    {
+     "step": "Get drawings and baseline sweeps",
+     "detail": "As-built drawing, cable types and velocity factor, prior DTF-RL-Load and DTF-RL-Short traces for DTP/DTF overlay.",
+     "sources": [
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "step": "Calibration paperwork",
+     "detail": "Analyzer calibration current; carriers' DAS specs require a validly calibrated instrument.",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "step": "Pack the PIM kit",
+     "detail": "Low-PIM termination(s), PIM standard, low-PIM test cable and adapters (not line-sweep precision adapters), torque wrenches for each connector type, cleaning wipes and swabs, steel wool in a plastic bag plus painter's tape (PIM marker).",
+     "sources": [
+      "anritsu_mw82119b_ds",
+      "kaelus_ixa_ds",
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "step": "ERCES jobs: get the AHJ frequency list",
+     "detail": "The fire code official's technical criteria document lists the required frequencies; use it to compute which IM products can hit the uplinks.",
+     "sources": [
+      "ifc2018_510"
+     ]
+    }
+   ],
+   "sources": [
+    "iec62037_1_2025",
+    "iec62037_7",
+    "anritsu_understanding",
+    "anritsu_firstnet",
+    "anritsu_testing_das",
+    "anritsu_das_pim",
+    "kaelus_ixa_ds",
+    "kaelus_ipa_ds",
+    "commscope_pim_faq",
+    "anritsu_mw82119b_ds",
+    "anritsu_dtp_dtf",
+    "mcf_das_2023",
+    "ifc2018_510"
+   ]
+  },
+  {
+   "name": "On-site safety",
+   "when": "On arrival, before any connector is opened",
+   "items": [
+    {
+     "step": "Lock off the radios / BDA",
+     "detail": "Lock off and confirm non-transmitting every radio feeding the line before disconnecting at the radio port (RF burn risk).",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "RF exposure distance",
+     "detail": "When testing through antennas, stay a safe distance away and do not stand in front of or under the antenna; nobody touches antennas under test.",
+     "sources": [
+      "iec62037_7",
+      "anritsu_testing_das",
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "step": "Clear the antenna field",
+     "detail": "Move keys, phones, ladders and tools away from the front of the antenna; tower crew climbs away during the test (tools and safety belts create PIM).",
+     "sources": [
+      "iec62037_7",
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "step": "Confirm power-handling",
+     "detail": "Up to 80 W total is available; check every device in the path is rated for the test power.",
+     "sources": [
+      "anritsu_testing_das",
+      "iec62037_1_2025"
+     ]
+    },
+    {
+     "step": "Leave the return-loss protection on",
+     "detail": "Kaelus iXA/iPA shut down on high return loss; Anritsu files flag tests run with the High Reflection Warning bypassed. Investigate rather than bypass.",
+     "sources": [
+      "kaelus_ixa_ds",
+      "kaelus_ipa_ds",
+      "anritsu_pim_reports"
+     ]
+    },
+    {
+     "step": "DAS EME precautions",
+     "detail": "Follow EME precautions when testing a DAS with antennas connected.",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    }
+   ],
+   "sources": [
+    "iec62037_7",
+    "anritsu_testing_das",
+    "anritsu_troubleshooting",
+    "iec62037_1_2025",
+    "kaelus_ixa_ds",
+    "kaelus_ipa_ds",
+    "anritsu_pim_reports",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "name": "Test setup and verification",
+   "when": "Each time the analyzer is set up, and whenever results look wrong",
+   "items": [
+    {
+     "step": "Warm up",
+     "detail": "Anritsu MW82119B specs apply after 10 minutes powered on.",
+     "sources": [
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "step": "Clean and inspect the set-up",
+     "detail": "Analyzer port, test lead, adapters and load: isopropyl alcohol on a lint-free wipe, remove metal flakes, replace worn parts.",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Use low-PIM parts only",
+     "detail": "Calibration components and precision line-sweep adapters are not low-PIM and not rated for PIM power.",
+     "sources": [
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "step": "No seals on test cables",
+     "detail": "Seals on repeatedly mated test cables collect metal shavings that contaminate every later connection.",
+     "sources": [
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "step": "Residual PIM check",
+     "detail": "Test lead + adapters into a low-PIM load, flex the lead; peak must be at least 10 dB below the limit.",
+     "sources": [
+      "iec62037_7",
+      "iec62037_1_2025"
+     ]
+    },
+    {
+     "step": "PIM standard check",
+     "detail": "Standard + termination on the analyzer port reads within 3 dB of its stated value (Anritsu standard: -80 dBm +/-3 dB at 1730 MHz with 2 x 20 W).",
+     "sources": [
+      "iec62037_7",
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "step": "VSWR check",
+     "detail": "Through the test lead and adapters at f1, f2 and the IM frequency: below 1.92:1 (10 dB RL) unless specified.",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Noise / interference check",
+     "detail": "Tones off, receiver on: external signal at the IM frequency at least 10 dB below the limit; otherwise move F1/F2.",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Set parameters and limit line",
+     "detail": "Power, F1, F2, IM order, duration and the pass/fail limit line in the instrument.",
+     "sources": [
+      "anritsu_mw82119b_ds",
+      "iec62037_1_2025"
+     ]
+    },
+    {
+     "step": "Set the analyzer clock",
+     "detail": "Carrier DAS specs ask for screenshots with correct local date and time.",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    }
+   ],
+   "sources": [
+    "anritsu_mw82119b_ds",
+    "iec62037_7",
+    "anritsu_troubleshooting",
+    "iec62037_1_2025",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "name": "PIM test",
+   "when": "Per sector / line / DAS segment",
+   "items": [
+    {
+     "step": "Static PIM vs time",
+     "detail": "Fixed F1/F2; run at least the spec duration (MCF: >= 10 s; AWT: >= 30 s to energize and heat the system). Readings should be stable; AWT treats 2-4 dB swings as acceptable.",
+     "sources": [
+      "iec62037_7",
+      "mcf_das_2023",
+      "awt_testing"
+     ]
+    },
+    {
+     "step": "Swept PIM",
+     "detail": "Hold one tone, sweep the other across the receive band so phase cancellation between two sources cannot hide a failure.",
+     "sources": [
+      "iec62037_7",
+      "anritsu_understanding"
+     ]
+    },
+    {
+     "step": "Dynamic (tap/flex) test",
+     "detail": "Fixed frequencies, PIM vs time long enough to reach every point (Anritsu: 30-60 s typical). Tap/flex every connection; the peak must stay under the limit.",
+     "sources": [
+      "iec62037_7",
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "step": "Record peak, not average",
+     "detail": "Report the maximum PIM over the test duration.",
+     "sources": [
+      "iec62037_1_2025",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "If it fails: DTP before touching anything",
+     "detail": "Run Distance-to-PIM to see where the source is before opening good connections.",
+     "sources": [
+      "anritsu_firstnet",
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "step": "Save and name files",
+     "detail": "Save each measurement into a per-site directory; name/subtitle by sector and line for reporting.",
+     "sources": [
+      "anritsu_pim_reports"
+     ]
+    }
+   ],
+   "sources": [
+    "iec62037_7",
+    "mcf_das_2023",
+    "awt_testing",
+    "anritsu_understanding",
+    "anritsu_testing_das",
+    "iec62037_1_2025",
+    "anritsu_firstnet",
+    "anritsu_dtp_dtf",
+    "anritsu_pim_reports"
+   ]
+  },
+  {
+   "name": "Fault finding",
+   "when": "After a failed static or dynamic test",
+   "items": [
+    {
+     "step": "Locate with DTP + DTF overlay",
+     "detail": "DTP shows PIM vs distance; overlay a DTF trace to map it to the nearest connector. Use the same velocity factor for both.",
+     "sources": [
+      "anritsu_dtp_dtf",
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "step": "Inside or beyond the antenna?",
+     "detail": "Tape steel wool (bagged) to the radome centre, store the DTP trace as a PIM marker, remove it at least 3 m, re-measure. Relative distance > 0: beyond antenna; = 0: at antenna; < 0: in feed/antenna.",
+     "sources": [
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "step": "Step through with a low-PIM load",
+     "detail": "Move the low-PIM load along the line (or terminate divider outputs) to isolate the failing segment, then add branches back one at a time.",
+     "sources": [
+      "anritsu_troubleshooting",
+      "anritsu_dtp_dtf",
+      "commscope_pim_faq"
+     ]
+    },
+    {
+     "step": "Work the connector at the hit",
+     "detail": "Inspect, clean, re-torque or re-terminate; remove foam/adhesive that blocks metal-to-metal contact.",
+     "sources": [
+      "anritsu_dtp_dtf",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Suspect a whole crew's work",
+     "detail": "If one connector was installed wrong, most others by the same installer likely need attention.",
+     "sources": [
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "step": "Read the symptoms",
+     "detail": "Noise-floor imbalance between Rx diversity paths points to PIM in the noisy path; raised noise on both paths points outside the antenna system; site better after rain points to rusty mounts nearby.",
+     "sources": [
+      "anritsu_understanding",
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "step": "External PIM",
+     "detail": "Hunt beyond the antenna (PIM Hunter probe on the DTP distance arc); for cross-band IM3 between separate antennas use a 2-port test.",
+     "sources": [
+      "anritsu_pim_page",
+      "anritsu_firstnet",
+      "kaelus_ixa_ds"
+     ]
+    },
+    {
+     "step": "DAS antenna nudge",
+     "detail": "Moving a DAS antenna within about a 1 m circle away from the external source clears most external PIM without hurting coverage.",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "step": "Re-test fully",
+     "detail": "Repeat residual, static and dynamic after the repair; document any IM sources beyond the antenna for the owner.",
+     "sources": [
+      "iec62037_7",
+      "anritsu_firstnet"
+     ]
+    }
+   ],
+   "sources": [
+    "anritsu_dtp_dtf",
+    "anritsu_mw82119b_ds",
+    "anritsu_troubleshooting",
+    "commscope_pim_faq",
+    "mcf_das_2023",
+    "anritsu_understanding",
+    "anritsu_pim_page",
+    "anritsu_firstnet",
+    "kaelus_ixa_ds",
+    "anritsu_testing_das",
+    "iec62037_7"
+   ]
+  },
+  {
+   "name": "Connector inspect, clean and torque",
+   "when": "Every time a connector is opened or made",
+   "items": [
+    {
+     "step": "Caps on until mating",
+     "detail": "Leave protective caps on until the mating cable is ready.",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Inspect",
+     "detail": "With a magnifier: no loose centre conductor, dents, scratches, metal flakes or corrosion; check centre-pin depth.",
+     "sources": [
+      "anritsu_understanding",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Blow out loose particles",
+     "detail": "Low-pressure compressed air; a toothpick for particles the air leaves.",
+     "sources": [
+      "anritsu_understanding"
+     ]
+    },
+    {
+     "step": "Wipe with alcohol",
+     "detail": "Isopropyl alcohol on a swab or lint-free wipe; use little, it can soften plastic parts.",
+     "sources": [
+      "anritsu_understanding",
+      "iec62037_7",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Dry",
+     "detail": "Low-pressure air again to remove residue and dry.",
+     "sources": [
+      "anritsu_understanding",
+      "awt_testing"
+     ]
+    },
+    {
+     "step": "Cable prep (terminations)",
+     "detail": "Sharp, correct tools; cut with the cable facing down; deburr; keep foam and adhesive off contact surfaces; clean solder flux.",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_understanding"
+     ]
+    },
+    {
+     "step": "Mate straight, do not twist",
+     "detail": "Align before mating; twisting scratches the centre pin.",
+     "sources": [
+      "anritsu_understanding",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Torque with a calibrated wrench",
+     "detail": "Manufacturer value for that interface (see torque table); never over-torque.",
+     "sources": [
+      "iec62037_1_2025",
+      "mcf_das_2023",
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "step": "Watch mating-cycle life",
+     "detail": "Antenna connectors can loosen after a few torque cycles; troubleshoot DIN joints without the seal at hand-tight, then refit seals and torque for final certification.",
+     "sources": [
+      "anritsu_understanding",
+      "anritsu_troubleshooting"
+     ]
+    }
+   ],
+   "sources": [
+    "mcf_das_2023",
+    "anritsu_understanding",
+    "iec62037_7",
+    "awt_testing",
+    "iec62037_1_2025",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "name": "Close-out and report",
+   "when": "Before leaving site",
+   "items": [
+    {
+     "step": "Residual PIM recorded",
+     "detail": "Residual of the measurement system as tested.",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Peak PIM per line under dynamic loading",
+     "detail": "Plus static and swept results; dBm and dBc with test power.",
+     "sources": [
+      "iec62037_7",
+      "anritsu_pim_reports"
+     ]
+    },
+    {
+     "step": "Parameters on every result",
+     "detail": "F1, F2, power per tone, IM order, IM frequency, duration, limit, pass/fail.",
+     "sources": [
+      "iec62037_1_2025",
+      "commscope_pim_faq"
+     ]
+    },
+    {
+     "step": "Evidence",
+     "detail": "Screenshots with date/time; original instrument files; DTP/DTF traces; photos.",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "step": "Restore the site",
+     "detail": "Refit DIN seals removed during troubleshooting and torque; replace caps; reconnect radios and remove lock-off.",
+     "sources": [
+      "anritsu_troubleshooting",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Tabular summary",
+     "detail": "Table of all measurements and pass/fail (PDF or Excel).",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_pim_reports"
+     ]
+    }
+   ],
+   "sources": [
+    "iec62037_7",
+    "anritsu_pim_reports",
+    "iec62037_1_2025",
+    "commscope_pim_faq",
+    "mcf_das_2023",
+    "anritsu_dtp_dtf",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "name": "DAS PIM",
+   "when": "Whenever a DAS is built, expanded or troubleshot",
+   "items": [
+    {
+     "step": "Test as you build",
+     "detail": "Sweep and PIM at cable, branch, floor, sector, then system level; high DAS loss hides defects if you only test at the head-end.",
+     "sources": [
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "step": "Pre-test antenna locations",
+     "detail": "Low-power PIM test at each design location with a temporary antenna; if high, move about 1 m.",
+     "sources": [
+      "anritsu_testing_das",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Bands",
+     "detail": "At least one low band (700-900 MHz) and one high band; MCF requires low, mid and high (3500 MHz where used).",
+     "sources": [
+      "anritsu_testing_das",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Power to match the location",
+     "detail": "Indoor DAS runs from 20 W down to 0.1 W; set PIM power close to what that point really sees.",
+     "sources": [
+      "anritsu_understanding",
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "step": "Adjust limits for loss",
+     "detail": "Valmont: moving the test point in by L dB of loss relaxes the dBm limit by L and the dBc limit by 2L when power is also cut by L.",
+     "sources": [
+      "valmont_das"
+     ]
+    },
+    {
+     "step": "Head-end / MNC first",
+     "detail": "Each multi-network combiner input with outputs on a precision load; then each segment alone with the others terminated.",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Riser",
+     "detail": "Sweep and PIM the riser with low-PIM terminations on the tapper outputs.",
+     "sources": [
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "step": "Bypass what blocks the tones",
+     "detail": "Filter combiners/diplexers that stop F1, F2 or the IM product: bypass with short low-PIM jumpers.",
+     "sources": [
+      "anritsu_das_pim",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Active/hybrid DAS",
+     "detail": "Treat each remote's RF port as the combiner point and PIM the passive network from there; never feed PIM tones into BDA/remote ports.",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_testing_das",
+      "iec62037_7"
+     ]
+    },
+    {
+     "step": "Clean ceilings",
+     "detail": "Keep antennas off cable trays, vents, AC units, flashing; no loose metal within 500 mm.",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "Approved parts only",
+     "detail": "Carrier approved-material lists; solid-outer-conductor cable; no braided cables, joiners or inter-series adapters.",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "step": "ERCES",
+     "detail": "Codes (IFC 510, NFPA 1225) do not require PIM testing, but AHJs may ask for PIM results (e.g., DC OUC).",
+     "sources": [
+      "ifc2018_510",
+      "saferbuildings_erces",
+      "dc_ouc"
+     ]
+    }
+   ],
+   "sources": [
+    "anritsu_testing_das",
+    "mcf_das_2023",
+    "anritsu_understanding",
+    "valmont_das",
+    "anritsu_das_pim",
+    "iec62037_7",
+    "ifc2018_510",
+    "saferbuildings_erces",
+    "dc_ouc"
+   ]
+  }
+ ],
+ "sops": [
+  {
+   "name": "Residual PIM check (set-up verification)",
+   "purpose": "Prove the analyzer, test lead and adapters are quiet enough before trusting any reading.",
+   "steps": [
+    {
+     "n": 1,
+     "action": "Warm up the analyzer",
+     "detail": "Power on and leave on for 10 minutes (Anritsu MW82119B spec condition).",
+     "acceptance": "",
+     "sources": [
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "n": 2,
+     "action": "Clean and inspect",
+     "detail": "Analyzer port, test cable, adapters, low-PIM load: IPA on lint-free wipe; remove metal flakes; replace worn parts.",
+     "acceptance": "No visible damage or debris",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 3,
+     "action": "Assemble exactly as you will test",
+     "detail": "Test lead + every adapter you will use, terminated in a low-PIM termination. Torque each joint.",
+     "acceptance": "",
+     "sources": [
+      "iec62037_7",
+      "iec62037_1_2025"
+     ]
+    },
+    {
+     "n": 4,
+     "action": "Set the test",
+     "detail": "Same power, F1/F2 and IM order as the job's test spec.",
+     "acceptance": "",
+     "sources": [
+      "iec62037_7",
+      "anritsu_power"
+     ]
+    },
+    {
+     "n": 5,
+     "action": "Run PIM vs time and flex the lead",
+     "detail": "Flex the test cable along its length during the run.",
+     "acceptance": "Peak residual at least 10 dB below the job limit (e.g., limit -150 dBc / -107 dBm at 2 x 43 dBm -> residual <= -117 dBm / -160 dBc)",
+     "sources": [
+      "iec62037_7",
+      "iec62037_1_2025",
+      "anritsu_power"
+     ]
+    },
+    {
+     "n": 6,
+     "action": "Check the PIM standard",
+     "detail": "Connect the PIM standard (with termination if in-line) directly on the analyzer port; measure IM3 at its stated frequencies and power.",
+     "acceptance": "Within 3 dB of the stated value (Anritsu 1091-446-R: -80 dBm +/-3 dB at 1730 MHz, 2 x 20 W)",
+     "sources": [
+      "iec62037_7",
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "n": 7,
+     "action": "Fix and repeat on failure",
+     "detail": "Re-clean, swap test lead/adapters, re-torque; if it still fails, the instrument needs service.",
+     "acceptance": "",
+     "sources": [
+      "iec62037_7",
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "n": 8,
+     "action": "Record",
+     "detail": "Save the residual trace; it goes in the report.",
+     "acceptance": "Residual value in the report",
+     "sources": [
+      "iec62037_7"
+     ]
+    }
+   ],
+   "sources": [
+    "anritsu_mw82119b_ds",
+    "iec62037_7",
+    "iec62037_1_2025",
+    "anritsu_power",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "name": "Static PIM test",
+   "purpose": "Measure the line's PIM at rest, fixed and swept.",
+   "steps": [
+    {
+     "n": 1,
+     "action": "Take the path off-air",
+     "detail": "Lock off radios feeding the line; disconnect at the radio port; inject at that connector.",
+     "acceptance": "Radios confirmed non-transmitting",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 2,
+     "action": "VSWR check",
+     "detail": "Measure through the test lead at f1, f2 and the IM frequency.",
+     "acceptance": "< 1.92:1 (10 dB RL) unless specified",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 3,
+     "action": "Interference check",
+     "detail": "Tones off, receiver on at the IM frequency.",
+     "acceptance": "External signal >= 10 dB below the limit",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 4,
+     "action": "Set parameters",
+     "detail": "Spec power (2 x 43 dBm unless the spec says otherwise), F1/F2 in guard bands, IM3 (or spec order).",
+     "acceptance": "",
+     "sources": [
+      "iec62037_1_2025",
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 5,
+     "action": "PIM vs time",
+     "detail": "Fixed tones for the spec duration (MCF >= 10 s; AWT >= 30 s).",
+     "acceptance": "Peak below the limit; stable (AWT: 2-4 dB swing acceptable)",
+     "sources": [
+      "mcf_das_2023",
+      "awt_testing",
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 6,
+     "action": "Swept PIM",
+     "detail": "One tone fixed, the other swept so the IM product covers the receive band.",
+     "acceptance": "Peak below the limit across the sweep",
+     "sources": [
+      "iec62037_7",
+      "anritsu_understanding"
+     ]
+    },
+    {
+     "n": 7,
+     "action": "Record",
+     "detail": "Peak in dBm and dBc, F1, F2, power, IM order, IM frequency; save file named for site/sector/line.",
+     "acceptance": "",
+     "sources": [
+      "iec62037_1_2025",
+      "anritsu_pim_reports"
+     ]
+    },
+    {
+     "n": 8,
+     "action": "Branch",
+     "detail": "Pass -> dynamic test. Fail -> fault finding (DTP) before dynamic.",
+     "acceptance": "",
+     "sources": [
+      "iec62037_7"
+     ]
+    }
+   ],
+   "sources": [
+    "iec62037_7",
+    "iec62037_1_2025",
+    "mcf_das_2023",
+    "awt_testing",
+    "anritsu_understanding",
+    "anritsu_pim_reports"
+   ]
+  },
+  {
+   "name": "Dynamic tap test",
+   "purpose": "Find loose or unstable joints that only show under movement.",
+   "steps": [
+    {
+     "n": 1,
+     "action": "Start PIM vs time at fixed frequencies",
+     "detail": "Long enough to reach every joint (Anritsu: 30-60 s typical; MW82119B allows 1-1200 s).",
+     "acceptance": "",
+     "sources": [
+      "iec62037_7",
+      "anritsu_testing_das",
+      "anritsu_mw82119b_ds"
+     ]
+    },
+    {
+     "n": 2,
+     "action": "Tap connectors",
+     "detail": "5 impacts each with the plastic end of a screwdriver or rubberized end of a wrench; never strike the coax; no harder than knocking on a door. IEC caps energy at the IEC 62037-3 Table 1 value.",
+     "acceptance": "No spike above the limit",
+     "sources": [
+      "iec62037_7",
+      "anritsu_understanding",
+      "anritsu_troubleshooting"
+     ]
+    },
+    {
+     "n": 3,
+     "action": "Tap passive devices",
+     "detail": "Splitters, couplers, combiners, filters, LNAs: 2 impacts on the body by each connector; 3 along each connector-free side; <= 0.14 J.",
+     "acceptance": "No spike above the limit",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 4,
+     "action": "Tap antennas",
+     "detail": "Rear surface: 2 by each connector, then every 30 cm of height; <= 1 J; avoid fragile parts.",
+     "acceptance": "No spike above the limit",
+     "sources": [
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 5,
+     "action": "Flex cables and jumpers",
+     "detail": "IEC: hold at 4 x repeated bend radius, rotate 3 cycles at radius ~ cable diameter + 10 mm. Anritsu: hold 12 in from the connector, move no more than 1 in off axis. AWT: ~10 cm circle, 10 turns each way.",
+     "acceptance": "Reading stays stable",
+     "sources": [
+      "iec62037_7",
+      "anritsu_understanding",
+      "anritsu_troubleshooting",
+      "awt_testing"
+     ]
+    },
+    {
+     "n": 6,
+     "action": "Mark spikes",
+     "detail": "Note which joint produced the spike; re-open, clean with alcohol, dry, re-torque, re-tap.",
+     "acceptance": "",
+     "sources": [
+      "awt_testing"
+     ]
+    },
+    {
+     "n": 7,
+     "action": "Record the peak",
+     "detail": "Peak PIM per line under dynamic loading.",
+     "acceptance": "Peak <= pass/fail level",
+     "sources": [
+      "iec62037_7",
+      "iec62037_1_2025"
+     ]
+    }
+   ],
+   "sources": [
+    "iec62037_7",
+    "anritsu_testing_das",
+    "anritsu_mw82119b_ds",
+    "anritsu_understanding",
+    "anritsu_troubleshooting",
+    "awt_testing",
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "name": "Distance-to-PIM fault location",
+   "purpose": "Find where a PIM source sits: in the feed, at the antenna, or beyond it.",
+   "steps": [
+    {
+     "n": 1,
+     "action": "Run DTP",
+     "detail": "Set correct cable velocity factor; DTP sweeps F1 or F2 to produce IM vs distance.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_mw82119b_ds",
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "n": 2,
+     "action": "Overlay DTF",
+     "detail": "Manual: high-res DTF from a Site Master or Option 331 (100s of MHz). Automatic: low-res DTF through the PIM port. Resolution (m) = 150 x Vp / sweep width (MHz).",
+     "acceptance": "PIM peak lines up with a connector or device",
+     "sources": [
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "n": 3,
+     "action": "Make a PIM marker if the hit is near the antenna",
+     "detail": "Bagged steel wool taped to the radome centre; store trace as overlay.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_dtp_dtf",
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "n": 4,
+     "action": "Remove marker and re-measure",
+     "detail": "Move it at least 3 m away; read relative distance between peaks; set Vp = 1.0 for distances in air.",
+     "acceptance": "> 0 beyond antenna; = 0 at antenna; < 0 inside feed/antenna",
+     "sources": [
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "n": 5,
+     "action": "Repair internal sources",
+     "detail": "Inspect, clean, re-terminate, replace the component at the DTP location.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_dtp_dtf",
+      "anritsu_firstnet"
+     ]
+    },
+    {
+     "n": 6,
+     "action": "Hunt external sources",
+     "detail": "Walk the DTP distance arc with a PIM probe; for cross-band IM3 from separate antennas use 2-port mode (F1 port 1, F2 port 2).",
+     "acceptance": "",
+     "sources": [
+      "anritsu_pim_page",
+      "anritsu_firstnet",
+      "kaelus_ixa_ds"
+     ]
+    },
+    {
+     "n": 7,
+     "action": "Re-test and document",
+     "detail": "Repeat static and dynamic; record mitigated sources and any left beyond the antenna for the owner.",
+     "acceptance": "Static and dynamic pass",
+     "sources": [
+      "anritsu_firstnet",
+      "iec62037_7"
+     ]
+    }
+   ],
+   "sources": [
+    "anritsu_mw82119b_ds",
+    "anritsu_dtp_dtf",
+    "anritsu_testing_das",
+    "anritsu_firstnet",
+    "anritsu_pim_page",
+    "kaelus_ixa_ds",
+    "iec62037_7"
+   ]
+  },
+  {
+   "name": "Connector inspection and cleaning",
+   "purpose": "Remove the most common cause of PIM: dirty, damaged or badly made connections.",
+   "steps": [
+    {
+     "n": 1,
+     "action": "Keep caps on",
+     "detail": "Leave protective caps on until mating.",
+     "acceptance": "",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 2,
+     "action": "Inspect",
+     "detail": "Magnifier: centre conductor tight, no dents/scratches, no metal flakes, no corrosion, correct pin depth.",
+     "acceptance": "No damage; replace if damaged",
+     "sources": [
+      "anritsu_understanding",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 3,
+     "action": "Air",
+     "detail": "Low-pressure compressed air; toothpick for stubborn particles.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_understanding"
+     ]
+    },
+    {
+     "n": 4,
+     "action": "Alcohol",
+     "detail": "Isopropyl alcohol on swab or lint-free wipe; minimum amount.",
+     "acceptance": "Mating surfaces free of oil, dirt, flux",
+     "sources": [
+      "anritsu_understanding",
+      "iec62037_7",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 5,
+     "action": "Dry",
+     "detail": "Low-pressure air (moisture-free).",
+     "acceptance": "",
+     "sources": [
+      "anritsu_understanding",
+      "awt_testing"
+     ]
+    },
+    {
+     "n": 6,
+     "action": "Mate",
+     "detail": "Align first; do not twist; hand-start the nut.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_understanding",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 7,
+     "action": "Torque",
+     "detail": "Calibrated torque wrench, manufacturer value (see torque table); hold the body with a second wrench where needed.",
+     "acceptance": "Clicks at the set value; no over-torque",
+     "sources": [
+      "mcf_das_2023",
+      "taoglas_sma",
+      "rosenberger_43_10"
+     ]
+    }
+   ],
+   "sources": [
+    "mcf_das_2023",
+    "anritsu_understanding",
+    "iec62037_7",
+    "awt_testing",
+    "taoglas_sma",
+    "rosenberger_43_10"
+   ]
+  },
+  {
+   "name": "DAS passive network PIM test",
+   "purpose": "Verify a passive DAS (or the passive side of an active/hybrid DAS) from antennas to head-end.",
+   "steps": [
+    {
+     "n": 1,
+     "action": "Set power per test point",
+     "detail": "Use power close to what the point sees in service (20 W down to 0.1 W indoors). MCF: <= 5 W segments at 2 x 33 dBm; larger segments at design power.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_understanding",
+      "anritsu_testing_das",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 2,
+     "action": "Set limits per test point",
+     "detail": "Start from the head-end limit (e.g., -97 dBm / -140 dBc at 2 x 43 dBm) and adjust for loss to that point (Valmont rule: dBm limit moves by 1 x loss, dBc by 2 x loss).",
+     "acceptance": "",
+     "sources": [
+      "valmont_das",
+      "anritsu_das_pim"
+     ]
+    },
+    {
+     "n": 3,
+     "action": "Antenna locations",
+     "detail": "Before mounting, low-power PIM test at each design location; move ~1 m if high.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_testing_das",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 4,
+     "action": "Cables and floors as built",
+     "detail": "Sweep and PIM each cable, then each floor (antennas + cables + splitters).",
+     "acceptance": "Pass at the point's limit",
+     "sources": [
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "n": 5,
+     "action": "Riser",
+     "detail": "Sweep and PIM the riser with low-PIM terminations on tapper outputs.",
+     "acceptance": "Pass",
+     "sources": [
+      "anritsu_testing_das"
+     ]
+    },
+    {
+     "n": 6,
+     "action": "Head-end / combiner",
+     "detail": "Each multi-network combiner input with outputs on a precision load; then each segment individually with the others terminated. Bypass filter combiners that block test tones.",
+     "acceptance": "MCF: <= -140 dBc per segment",
+     "sources": [
+      "mcf_das_2023",
+      "anritsu_das_pim",
+      "iec62037_7"
+     ]
+    },
+    {
+     "n": 7,
+     "action": "System level",
+     "detail": "From the DAS input with floors connected; low and high band (MCF: low, mid, high).",
+     "acceptance": "Owner/carrier limit",
+     "sources": [
+      "anritsu_testing_das",
+      "mcf_das_2023"
+     ]
+    },
+    {
+     "n": 8,
+     "action": "Fail -> isolate",
+     "detail": "Terminate all divider outputs, re-add branches one at a time, then DTP/DTF on the failing branch.",
+     "acceptance": "",
+     "sources": [
+      "anritsu_dtp_dtf"
+     ]
+    },
+    {
+     "n": 9,
+     "action": "Hand over",
+     "detail": "Table of all results with pass/fail, date/time screenshots, original files.",
+     "acceptance": "",
+     "sources": [
+      "mcf_das_2023"
+     ]
+    }
+   ],
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_testing_das",
+    "mcf_das_2023",
+    "valmont_das",
+    "anritsu_das_pim",
+    "iec62037_7",
+    "anritsu_dtp_dtf"
+   ]
+  }
+ ],
+ "torque": [
+  {
+   "connector": "4.3-10, screw (hex) coupling",
+   "torque": "5 N-m (Rosenberger recommended); wrench set 5 +/- 0.3 N-m",
+   "tool": "22 mm torque wrench (Rosenberger 64W022-001; Anritsu 01-528-R)",
+   "note": "PIM is designed to be independent of torque; Rosenberger's comparison table writes '> 5 Nm'.",
+   "sources": [
+    "rosenberger_43_10",
+    "anritsu_mw82119b_ds"
+   ]
+  },
+  {
+   "connector": "4.3-10, hand-screw coupling",
+   "torque": "Hand tight - no torque",
+   "tool": "None",
+   "note": "Has a release inhibitor against accidental loosening.",
+   "sources": [
+    "rosenberger_43_10"
+   ]
+  },
+  {
+   "connector": "4.3-10, push-pull coupling",
+   "torque": "No tools; self-locking",
+   "tool": "None",
+   "note": "Same universal jack mates all three plug types.",
+   "sources": [
+    "rosenberger_43_10"
+   ]
+  },
+  {
+   "connector": "7-16 (7/16 DIN)",
+   "torque": "Sources differ: > 25 N-m (Rosenberger); 25-30 N-m / 221-265 in-lb (Microwaves101 table); 20 ft-lb (~27 N-m) 'accepted' (Anritsu)",
+   "tool": "1-1/4 in torque wrench listed in Anritsu's PIM kit (01-513-R); that it is the 7/16 wrench is inferred",
+   "note": "Anritsu: use the manufacturer's value where it differs. During troubleshooting Anritsu suggests removing seals and testing hand-tight, then refitting seals and torquing for certification. One owner spec (CU Denver) applies 16-18 ft-lb blanket - correct only for 7/16 DIN.",
+   "sources": [
+    "rosenberger_43_10",
+    "microwaves101_torque",
+    "anritsu_understanding",
+    "anritsu_troubleshooting",
+    "cudenver_div27"
+   ]
+  },
+  {
+   "connector": "N type",
+   "torque": "Sources differ: 0.7-1.1 N-m (Rosenberger); 12 in-lb (~1.4 N-m) 'common' (Anritsu); stainless 12-15 in-lb (1.4-1.7 N-m) / brass 6.2-9.7 in-lb (0.7-1.1 N-m) (Microwaves101)",
+   "tool": "N torque wrench at the manufacturer's value",
+   "note": "Small male outer-contact area is easily damaged by over-torque; Anritsu advises avoiding N in PIM-critical paths where possible.",
+   "sources": [
+    "rosenberger_43_10",
+    "anritsu_understanding",
+    "microwaves101_torque",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "connector": "NEX10, screw coupling",
+   "torque": "1.5 N-m (CommScope TW-N10: 1.505 N-m / 13.32 in-lb; SPINNER 1.5 N-m)",
+   "tool": "11 mm torque wrench",
+   "note": "CommScope lists a 6-month calibration interval for its wrench. NEX10 also comes in a push-pull version.",
+   "sources": [
+    "commscope_tw_n10",
+    "spinner_nex10"
+   ]
+  },
+  {
+   "connector": "SMA",
+   "torque": "Brass 0.57 N-m (5 in-lb); stainless 0.9 N-m (8 in-lb) (Taoglas). Microwaves101: stainless 7-10 in-lb (0.8-1.13 N-m), brass 3-5 in-lb (0.34-0.57 N-m)",
+   "tool": "5/16 in break-over torque wrench plus anti-torque wrench on the body hex",
+   "note": "Brass thin-wall male shells can roll over at stainless torque.",
+   "sources": [
+    "taoglas_sma",
+    "microwaves101_torque"
+   ]
+  },
+  {
+   "connector": "QMA",
+   "torque": "No torque",
+   "tool": "None (snap-on quick-lock)",
+   "note": "Not intermateable with SMA; rotates 360 deg after mating.",
+   "sources": [
+    "hs_qma"
+   ]
+  },
+  {
+   "connector": "TNC",
+   "torque": "Stainless 12-15 in-lb (1.4-1.7 N-m); brass 4.1-6.1 in-lb (0.46-0.69 N-m)",
+   "tool": "TNC torque wrench",
+   "note": "Single source (encyclopedia table); confirm against the connector maker.",
+   "sources": [
+    "microwaves101_torque"
+   ]
+  }
+ ],
+ "testers": [
+  {
+   "vendor": "Anritsu",
+   "product": "PIM Master MW82119B",
+   "bands": "One band per unit: LTE 600 w/1900 (Tx 617-618 / 633-652; Rx 663-698 and 1867-1888), LTE 700 (Tx 731-734.5 / 746-768; Rx 698-717, 777-806), APT 700, LTE 800, Cellular 850 (Tx 869-871 / 881.5-894; Rx 824-849), E-GSM 900, E-GSM 900 w/IM2, DCS 1800, PCS/AWS (Tx 1930-1945 / 1965-1995 / 2110-2155; Rx 1850-1910, 1710-1755), UMTS 2100, LTE 2600",
+   "power": "Two CW tones, 20-46 dBm each in 0.1 dB steps (up to 2 x 40 W)",
+   "features": "Reverse PIM per IEC 62037-1; IM3/5/7 (IM2 with Option 902); residual < -117 dBm (-125 dBm typ) at 2 x 43 dBm; PIM vs time, swept PIM, noise floor, DTP (< 3 m typ with enhanced resolution); Option 331 Site Master 2 MHz-3 GHz (RL, VSWR, cable loss, DTF); test duration 1-1200 s; GPS tagging option; 9.2-12.4 kg",
+   "sources": [
+    "anritsu_mw82119b_ds"
+   ]
+  },
+  {
+   "vendor": "Anritsu",
+   "product": "PIM Master MW82119B-0703 (2-port 700 MHz)",
+   "bands": "700 MHz (bands 14 and 17)",
+   "power": "Up to 40 W per tone in 2-port mode",
+   "features": "F1 from the PIM port, F2 from Port 2 so tones mix only beyond the antennas; built for AT&T FirstNet MOP external-PIM hunting; 1-port and 2-port calibration routines",
+   "sources": [
+    "anritsu_firstnet",
+    "anritsu_mw82119b_ds"
+   ]
+  },
+  {
+   "vendor": "Anritsu",
+   "product": "PIM accessories (from MW82119B data sheet)",
+   "bands": "-",
+   "power": "-",
+   "features": "Low-PIM terminations 700-2600 MHz 10 W (7/16 and 4.3-10) and 663-2800 MHz 40 W; PIM standards -80 dBm at 1730 MHz with 2 x 20 W (7/16 and 4.3-10); low-PIM adapters; 3 m and armored PIM test cables; PIM Hunter probe 2000-1884-R; MA2700A interference hunter; torque wrenches; cleaning wipes and swabs. Line-sweep precision adapters and OSL kits are NOT low-PIM.",
+   "sources": [
+    "anritsu_mw82119b_ds"
+   ]
+  },
+  {
+   "vendor": "Anritsu",
+   "product": "BTS Master MT8220T (PIM over CPRI)",
+   "bands": "Uses the site's own radios",
+   "power": "Live traffic",
+   "features": "Finds PIM over CPRI from the ground without taking the site down or disconnecting the line; indicates before/after antenna (vendor advert)",
+   "sources": [
+    "intftech_overview"
+   ]
+  },
+  {
+   "vendor": "Kaelus",
+   "product": "iPA series (single-port, battery)",
+   "bands": "One band per unit: 700 Low/High (iPA-0707A: Tx 728-731.5 / 741-764; Rx 698-716, 776-802), APT700, LTE 800, 850, GSM900, EGSM900, DCS1800, PCS/AWS, UMTS 2100, LTE 2600",
+   "power": "0.1-20 W per tone (+20 to +43 dBm, 1 dB steps); some models from +5 dBm",
+   "features": "Residual < -117 dBm / -160 dBc max (-125 dBm / -168 dBc typ) at 2 x 20 W; IM3/IM5 (IM7 on 2100); optional Range-to-Fault module; auto shut-down on high return loss; 12 kg; vendor states it supports in-building DAS testing (2014 data sheet)",
+   "sources": [
+    "kaelus_ipa_ds"
+   ]
+  },
+  {
+   "vendor": "Kaelus",
+   "product": "iXA-0707A (dual-port, battery)",
+   "bands": "700 MHz Low/High: Tx 728-740 / 741-764; Rx 692-716, 776-800",
+   "power": "1-port 0.5-20 W per tone; 2-port 1-40 W per tone",
+   "features": "Residual < -123 dBm / -166 dBc max (< -128 / -171 typ) at 2 x 43 dBm; IM3/5/7; Range-to-Fault on both ports; switches 1-port/2-port without reconnection; vendor lists DAS and external PIM finding; RL alarm shut-down; 19 kg",
+   "sources": [
+    "kaelus_ixa_ds"
+   ]
+  },
+  {
+   "vendor": "Kaelus",
+   "product": "Accessories (iXA data sheet)",
+   "bands": "-",
+   "power": "-",
+   "features": "PIL-0005A low-PIM load; CIS-0001A PIM source; ACE-1000A self-calibration tool; 2.7 m low-PIM cables 7/16-7/16 and 7/16-4.3-10",
+   "sources": [
+    "kaelus_ixa_ds"
+   ]
+  },
+  {
+   "vendor": "Rosenberger",
+   "product": "PIM Site Analyzer alpha",
+   "bands": "700-2700 MHz (600 MHz optional) via interchangeable band filter units",
+   "power": "Not stated on the product page",
+   "features": "Residual < -125 dBm (< -130 dBm typ at 2 x 43 dBm); IEC 62037-1 CW method; 1-port and 2-port; fault-location accuracy better than 0.3 m (product page); VSWR/RL; antenna isolation; spectrum analyzer; optional PIM-probe Rx port",
+   "sources": [
+    "rosenberger_alpha"
+   ]
+  },
+  {
+   "vendor": "AWT Global",
+   "product": "PIM S1L TETRA & UHF MK2",
+   "bands": "PS1L400 (Tx 390-400 / Rx 380-385), PS1L400E (420-430 / 410-412), PS1L385, PS1L450 (LTE 450 B31: Tx 460-470 / Rx 450-455), PS1L465; custom on request",
+   "power": "15-44 dBm per carrier",
+   "features": "-163 dBc typ at 2 x 43 dBm; DTP/VSWR/DTF option (~1 m); low-PIM loads < -163 dBc 380-2800 MHz; PIM generator -80 dBm (+/-10); IEC 62037 conformant. Only field analyzer found covering part of the UHF public-safety range; no VHF analyzer found.",
+   "sources": [
+    "awt_s1l"
+   ]
+  },
+  {
+   "vendor": "CommScope (Andrew)",
+   "product": "Optical PIM Tester (OPT)",
+   "bands": "Site's operating bands (uses the site's RRHs)",
+   "power": "Site's own transmit power",
+   "features": "Active PIM test over CPRI from the baseband unit, no tower climb or coax disconnection; cross-band added 2015. Status after 2016 not confirmed. CommScope/Andrew historically used Summitek analyzers for coax PIM testing.",
+   "sources": [
+    "commscope_blog_smart",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "vendor": "Summitek Instruments (now Kaelus) / Boonton",
+   "product": "Summitek SI series; Boonton PIM 31",
+   "bands": "AMPS, GSM, PCS etc.",
+   "power": "Summitek: two 25 W carriers",
+   "features": "Summitek: -140 dBm receiver sensitivity; rebranded Kaelus in 2011. Boonton (Wireless Telecom Group) PIM 31 mentioned only; no specs found.",
+   "sources": [
+    "mwrf_pim"
+   ]
+  },
+  {
+   "vendor": "Anritsu",
+   "product": "Site Master S331P (cable & antenna analyzer)",
+   "bands": "150 kHz-4 GHz (S331P-0704) or 150 kHz-6 GHz (S331P-0706)",
+   "power": "USB-powered from a PC/tablet",
+   "features": "Return loss (0-60 dB), VSWR, cable loss, DTF RL/VSWR (to 1500 m); N(m) test port; factory ReadyCal. Sweep the line alongside PIM - PIM does not find impedance faults and sweeps do not find PIM.",
+   "sources": [
+    "anritsu_s331p_ds",
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "vendor": "Bird",
+   "product": "SiteHawk SK-4500-TC / SK-6000-TC / SK-9000-TC",
+   "bands": "1 MHz-4.5 / 6 / 9 GHz",
+   "power": "-10 dBm typical output",
+   "features": "Return loss 0 to -60 dB; VSWR 1.0-65.0; cable loss 0-30 dB; DTF 0-1500 m; 51-3201 points; 10 h battery; 3-year calibration interval",
+   "sources": [
+    "bird_sitehawk"
+   ]
+  }
+ ],
+ "limits": [
+  {
+   "what": "System / site, legacy common pass",
+   "limit": "-140 dBc (-97 dBm)",
+   "condition": "IM3, 2 x 43 dBm (2 x 20 W), reverse",
+   "who_uses_it": "Anritsu calls it the standard worldwide figure for system-level site tests; Anritsu says 'most operators' required -140 dBc (DAS); Valmont uses -97 dBm at the DAS input",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_troubleshooting",
+    "anritsu_testing_das",
+    "anritsu_dtp_dtf",
+    "valmont_das"
+   ]
+  },
+  {
+   "what": "DAS passive segment at the combiner (Australia)",
+   "limit": "<= -140 dBc",
+   "condition": "IM3 at the segment's design input power; antennas connected; >= 10 s; low/mid/high bands",
+   "who_uses_it": "MCF (Australian carriers) DAS spec 2023",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "what": "DAS low-power segment (<= 5 W) (Australia)",
+   "limit": "<= -140 dBc",
+   "condition": "IM3, 2 x 33 dBm into the POI/remote point",
+   "who_uses_it": "MCF DAS spec 2023",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "what": "Receiver-sensitivity target",
+   "limit": "-150 dBc (-107 dBm)",
+   "condition": "IM3, 2 x 43 dBm",
+   "who_uses_it": "Anritsu advises meeting typical receiver sensitivity (~-107 dBm / -150 dBc) because -140 dBc 'may not be enough' with LTE",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "what": "Antenna systems, typical guideline range",
+   "limit": "-150 to -160 dBc (Anritsu app note) / -150 to -170 dBc (Anritsu white paper)",
+   "condition": "IM3, 2 x 20 W; new systems at the lower end",
+   "who_uses_it": "Anritsu (two Anritsu documents give different upper ends)",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "what": "RF components 'good'",
+   "limit": "< -150 dBc (-107 dBm)",
+   "condition": "IM3, 2 x 43 dBm",
+   "who_uses_it": "Anritsu power-level app note",
+   "sources": [
+    "anritsu_power"
+   ]
+  },
+  {
+   "what": "DAS splitters/couplers, high-power terminations, patch cables (Australia)",
+   "limit": "<= -150 dBc",
+   "condition": "IM3, 2 x 43 dBm; cables static and dynamic",
+   "who_uses_it": "MCF DAS spec 2023",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "what": "DAS low-power terminations < 5 W (Australia)",
+   "limit": "<= -140 dBc",
+   "condition": "IM3, 2 x 33 dBm",
+   "who_uses_it": "MCF DAS spec 2023",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "what": "DAS antennas (research requirement)",
+   "limit": "< -150 dBc peak",
+   "condition": "IM3, 2 x 43 dBm; tested at 380, 700, 1920 MHz",
+   "who_uses_it": "Sensors 2020 low-PIM DAS antenna paper (states DAS applications require it)",
+   "sources": [
+    "sensors2020"
+   ]
+  },
+  {
+   "what": "Commonly accepted component spec",
+   "limit": "-153 dBc (-110 dBm)",
+   "condition": "IM3, 2 x 20 W",
+   "who_uses_it": "Microlab: 'the accepted PIM performance for standard 2 x 20 W test'; Rosenberger DAS splitters, couplers, hybrids, duplexers; Norsat DDC240 138-960 MHz coupler; CommScope CMAX antenna incl. 350-470 MHz",
+   "sources": [
+    "microlab_lowpower",
+    "rosenberger_das",
+    "norsat_ddc240",
+    "commscope_cmax"
+   ]
+  },
+  {
+   "what": "Component trend",
+   "limit": "-140 -> -150 -> -153 / -160 dBc",
+   "condition": "2014 statement about DAS splitters, couplers, antennas",
+   "who_uses_it": "CommScope blog (2014)",
+   "sources": [
+    "commscope_blog_das"
+   ]
+  },
+  {
+   "what": "Hybrid coupler (single vendor)",
+   "limit": "< -155 dBc (-112 dBm)",
+   "condition": "2 x 43 dBm",
+   "who_uses_it": "Microlab CA-EP-2X2-738FN",
+   "sources": [
+    "microlab_hybrid"
+   ]
+  },
+  {
+   "what": "Jumpers / connector interfaces (single vendor)",
+   "limit": "-160 dBc (-117 dBm); typ -163 dBc",
+   "condition": "2 x 20 W",
+   "who_uses_it": "Rosenberger coax jumpers; 7-16 and N interface rating 160 dBc",
+   "sources": [
+    "rosenberger_43_10"
+   ]
+  },
+  {
+   "what": "4.3-10 splitters and couplers (single vendor)",
+   "limit": "-161 dBc",
+   "condition": "Rated PIM (test power not stated next to the value)",
+   "who_uses_it": "Rosenberger 4.3-10 catalog",
+   "sources": [
+    "rosenberger_43_10"
+   ]
+  },
+  {
+   "what": "4.3-10 connector interface (single vendor)",
+   "limit": "-166 dBc",
+   "condition": "2 x 43 dBm",
+   "who_uses_it": "Rosenberger 4.3-10 catalog; Anritsu notes this equals -160 dBc at 2 x 46 dBm",
+   "sources": [
+    "rosenberger_43_10",
+    "anritsu_power"
+   ]
+  },
+  {
+   "what": "Low-power component benchmark",
+   "limit": "-150 dBc (-117 dBm)",
+   "condition": "2 x 2 W (2 x 33 dBm)",
+   "who_uses_it": "Microlab proposal; says it covers up to ~8 W total even with worst-case slope",
+   "sources": [
+    "microlab_lowpower"
+   ]
+  },
+  {
+   "what": "Old antennas (realistic ceiling)",
+   "limit": "-80 dBm / -123 dBc",
+   "condition": "2 x 20 W; antennas installed ~10 years earlier",
+   "who_uses_it": "Anritsu: unrealistic to demand better from pre-PIM-era antennas",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "what": "'Low PIM' device threshold",
+   "limit": "Below -100 dBm IM3",
+   "condition": "2 x 43 dBm",
+   "who_uses_it": "Anritsu DAS app note",
+   "sources": [
+    "anritsu_das_pim"
+   ]
+  },
+  {
+   "what": "Higher-power sites",
+   "limit": "Tighten the limit by slope x power delta",
+   "condition": "Example: site at 50 W (+47 dBm) vs -97 dBm at 2 x 43 dBm with 2.2 dB/dB -> about -105.8 dBm",
+   "who_uses_it": "Anritsu white paper",
+   "sources": [
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "what": "Analyzer residual margin (setup validity)",
+   "limit": "Residual >= 10 dB below the limit",
+   "condition": "Same power and frequencies as the test",
+   "who_uses_it": "IEC 62037-1 and 62037-7",
+   "sources": [
+    "iec62037_1_2025",
+    "iec62037_7"
+   ]
+  }
+ ],
+ "das": [
+  {
+   "topic": "Why DAS is different",
+   "detail": "DAS can have thousands of RF joints. Insertion loss between a PIM source and the head-end cuts the PIM seen at the BTS by about 3.5 dB per dB of loss (2.5 dB/dB slope + 1 dB return path), so sources deep in the network matter less - but bad workmanship near indoor antennas has produced harmful PIM hundreds of metres from the input.",
+   "sources": [
+    "anritsu_das_pim"
+   ]
+  },
+  {
+   "topic": "Power levels",
+   "detail": "Indoor DAS power ranges from 20 W down to 0.1 W; test near the real power at each point. Low-power defects with slopes near 2.2 dB/dB can be worse in service than 20 W results suggest.",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_pim_page"
+   ]
+  },
+  {
+   "topic": "Limits at internal points",
+   "detail": "Derive internal limits from the head-end limit and the loss to that point: the dBm limit relaxes by 1 x loss and the dBc limit by 2 x loss when test power is reduced by the same loss (Valmont example: -87 dBm at +33 dBm through 10 dB = -97 dBm at the input). Applying the head-end number everywhere over-tests.",
+   "sources": [
+    "valmont_das"
+   ]
+  },
+  {
+   "topic": "Where to test",
+   "detail": "Antenna locations (pre-install), each cable, each floor, the riser (tapper outputs terminated), each sector, the full system from the DAS input; MCF adds each multi-network-combiner input and each segment individually.",
+   "sources": [
+    "anritsu_testing_das",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Floor isolation method",
+   "detail": "Terminate all outputs of the floor's divider in low-PIM loads to prove the feed and divider, then add branches one at a time; DTP/DTF on the failing branch.",
+   "sources": [
+    "anritsu_dtp_dtf"
+   ]
+  },
+  {
+   "topic": "Bands to test",
+   "detail": "One low band (700-900 MHz) plus one high band is generally enough to find DAS PIM; MCF requires low, mid and high (3500 MHz where present) and accepts 2600 MHz in lieu of 3500 MHz under conditions.",
+   "sources": [
+    "anritsu_testing_das",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Filter combiners and BDAs/remotes",
+   "detail": "Test tones and IM product must pass every device in the path; bypass filter combiners that block them. For hybrid DAS the remote unit is treated as the combiner point, and the passive network is PIM-tested from there. Check antennas and dividers are rated for the test power.",
+   "sources": [
+    "anritsu_das_pim",
+    "iec62037_7",
+    "mcf_das_2023",
+    "anritsu_testing_das"
+   ]
+  },
+  {
+   "topic": "Hybrid combiner loads",
+   "detail": "High-power terminations on hybrid combiners often have poor IM3. Where only one operator's main/diversity are combined, IM7/IM9 may be what lands in-band, so a 'poor IM3' load can be fine; where multiple operators/bands share the hybrid, use a low-PIM cable load.",
+   "sources": [
+    "anritsu_das_pim"
+   ]
+  },
+  {
+   "topic": "Multiple operators / neutral host",
+   "detail": "Multiband, multicarrier signals mix at each passive stage, so components close to the sources need the best PIM ratings (CommScope 2014: -140 -> -150 dBc, moving to -153/-160 dBc).",
+   "sources": [
+    "commscope_blog_das"
+   ]
+  },
+  {
+   "topic": "Low-PIM component ratings seen",
+   "detail": "Splitters/couplers/hybrids/duplexers -153 dBc (Rosenberger RSS); 4.3-10 splitters/couplers -161 dBc (Rosenberger); hybrid < -155 dBc at 2 x 43 dBm (Microlab); 138-960 MHz public-safety coupler <= -153 dBc (Norsat DDC240); in-building antenna -153 dBc at 2 x 20 W incl. 350-470 MHz (CommScope CMAX-D-TCPUSEi53).",
+   "sources": [
+    "rosenberger_das",
+    "rosenberger_43_10",
+    "microlab_hybrid",
+    "norsat_ddc240",
+    "commscope_cmax"
+   ]
+  },
+  {
+   "topic": "Cable",
+   "detail": "Use solid-outer-conductor cable; braided/foil cables such as LMR400 and RG214 have poor PIM regardless of connectors. Plenum example: RFS ICA12-50JPL 1/2 in corrugated, NFPA 262/CMP/CATVP, solid inner and outer conductor (no dBc figure published on the page).",
+   "sources": [
+    "mcf_das_2023",
+    "anritsu_understanding",
+    "rfs_ica12"
+   ]
+  },
+  {
+   "topic": "Connectors and adapters",
+   "detail": "MCF allows 7-16, 4.3-10 and N (subject to lead carrier); no joiners or inter-series adapters in patch cables. Prefer factory-terminated, PIM-certified jumpers and compression connectors from the approved list.",
+   "sources": [
+    "mcf_das_2023",
+    "cudenver_div27"
+   ]
+  },
+  {
+   "topic": "Radiating cable",
+   "detail": "Sweep from each end on runs over 400 ft, or measure insertion loss with a source at one end and a spectrum analyzer at the other. No published dBc PIM figure found for radiating cable or its connectors.",
+   "sources": [
+    "anritsu_testing_das",
+    "rfs_radiaflex_conn"
+   ]
+  },
+  {
+   "topic": "External PIM in ceilings",
+   "detail": "Small low-gain DAS antennas light up nearby metal (often behind the antenna): cable trays, vent pipes, AC ducts, flashing, loose metal. Keep 500 mm clear; avoid concealing antennas in ceiling cavities or low-profile antennas without a backplane - MCF says the lead carrier will not commission a DAS whose concealed antennas fail PIM.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Mounting",
+   "detail": "Mount components to a solid surface with strain relief and tool access; components hung from plasterboard anchors pulled out and PIM became erratic.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Workmanship",
+   "detail": "Main DAS PIM causes: poor components, poor workmanship (installers not trained in carrier-grade RF), antenna placement, reflective objects near antennas. A real case: foam and glue in connectors near two antennas found by DTP/DTF 108-147 m down a branch.",
+   "sources": [
+    "mcf_das_2023",
+    "anritsu_dtp_dtf"
+   ]
+  },
+  {
+   "topic": "PIM shows up after handover",
+   "detail": "PIM rises with power and traffic, so problems often appear once the DAS carries load; carriers stress-test to emulate full-power operation.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "topic": "Public safety (ERCES) and PIM",
+   "detail": "IFC 510 (2018 text) and the NFPA 1225 summaries contain no PIM requirement. AHJs may still ask for PIM results (DC OUC: 'PIM Testing results (if applicable)'). ETA's DAST certification expects technicians to know PIM testers.",
+   "sources": [
+    "ifc2018_510",
+    "saferbuildings_erces",
+    "dc_ouc",
+    "eta_dast"
+   ]
+  },
+  {
+   "topic": "Public safety bands and PIM",
+   "detail": "Public-safety DAS must carry VHF and UHF (incl. 380, 700, 800 MHz) - low-PIM DAS antennas have been measured at 380/700/1920 MHz. Field PIM analyzers found: AWT UHF/TETRA (380-470 MHz) and the 700 MHz units; no VHF field analyzer found.",
+   "sources": [
+    "sensors2020",
+    "awt_s1l",
+    "anritsu_mw82119b_ds"
+   ]
+  },
+  {
+   "topic": "Shared cellular + public safety networks",
+   "detail": "When public-safety 800 MHz downlinks (851-854 MHz NPSPAC) share passive hardware with cellular, compute IM products against every uplink: e.g., 2 x 853.0 - 869.5 = 836.5 MHz falls in the 824-849 MHz cellular uplink (computed example).",
+   "sources": [
+    "fcc_da09_1783",
+    "anritsu_mw82119b_ds",
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "topic": "Sweep plus PIM",
+   "detail": "Sweep (RL/DTF) the DAS in small sections - high insertion loss masks reflections at the far end - then PIM test. Example plan: sweep 400-2700 MHz and PIM at 700 and 1900 MHz for public safety through LTE 2600.",
+   "sources": [
+    "anritsu_testing_das"
+   ]
+  },
+  {
+   "topic": "Hand-over package (Australia model)",
+   "detail": "Calibrated analyzer, PIM vs time >= 10 s, table of all results with pass/fail, date/time-stamped screenshots, original result files.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  }
+ ],
+ "report_fields": [
+  {
+   "field": "Site name/ID, address, building/venue",
+   "why": "Identifies the test record; Anritsu LST report headers and CommScope reports carry site-specific information.",
+   "sources": [
+    "anritsu_pim_reports",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "field": "Sector / line / branch / DAS segment description",
+   "why": "Each feed line gets its own result; IEC 62037-7 reports peak PIM per feed line.",
+   "sources": [
+    "commscope_pim_faq",
+    "iec62037_7"
+   ]
+  },
+  {
+   "field": "Test point and injection connector",
+   "why": "Field tests inject where the radio's transmit enters; DAS limits depend on where you test.",
+   "sources": [
+    "iec62037_7",
+    "valmont_das"
+   ]
+  },
+  {
+   "field": "Band and analyzer frequency option",
+   "why": "Analyzers are band-specific; results must say which band was tested.",
+   "sources": [
+    "anritsu_testing_das",
+    "anritsu_mw82119b_ds"
+   ]
+  },
+  {
+   "field": "F1 and F2 (MHz)",
+   "why": "Required in IEC reporting; results at different frequencies go in separate tables.",
+   "sources": [
+    "iec62037_1_2025",
+    "anritsu_pim_reports"
+   ]
+  },
+  {
+   "field": "Power per tone (dBm / W)",
+   "why": "dBc is meaningless without the test power; IEC requires the input power.",
+   "sources": [
+    "iec62037_1_2025",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "field": "IM order and IM frequency",
+   "why": "Part of the test specification and the reported result.",
+   "sources": [
+    "iec62037_1_2025",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "field": "Test type: static, swept, dynamic; 1-port or 2-port",
+   "why": "Different tests catch different faults; dynamic peak is the IEC field report item.",
+   "sources": [
+    "iec62037_7",
+    "anritsu_firstnet"
+   ]
+  },
+  {
+   "field": "Test duration",
+   "why": "MCF requires PIM vs time of at least 10 s; IEC 2025 reports the max over the duration.",
+   "sources": [
+    "mcf_das_2023",
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "field": "Result: peak PIM in dBm and dBc",
+   "why": "Anritsu reports can be set to dBm or dBc; record both to avoid confusion.",
+   "sources": [
+    "anritsu_pim_reports",
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "field": "Pass/fail limit and its source",
+   "why": "Report compares peak to the limit; the limit belongs to the owner/carrier.",
+   "sources": [
+    "anritsu_pim_reports",
+    "commscope_pim_faq",
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "field": "Pass / fail",
+   "why": "Tabular pass/fail summary is a standard deliverable.",
+   "sources": [
+    "anritsu_pim_reports",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "field": "Residual PIM of the set-up",
+   "why": "IEC 62037-7 report item; proves the reading is not the test gear.",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "field": "PIM standard reading",
+   "why": "Shows the analyzer read a known source correctly (within 3 dB).",
+   "sources": [
+    "iec62037_7"
+   ]
+  },
+  {
+   "field": "VSWR / return loss at test frequencies",
+   "why": "PIM test validity check (< 1.92:1) and separate sweep deliverable.",
+   "sources": [
+    "iec62037_7",
+    "dc_ouc"
+   ]
+  },
+  {
+   "field": "DTP trace (and DTF overlay)",
+   "why": "Shows where any PIM source sits; DTF-RL-Load and DTF-RL-Short are the typical companion traces.",
+   "sources": [
+    "anritsu_dtp_dtf"
+   ]
+  },
+  {
+   "field": "External PIM found beyond the antenna",
+   "why": "Often the operator's, not the installer's, responsibility; document with DTP data.",
+   "sources": [
+    "anritsu_dtp_dtf",
+    "anritsu_firstnet"
+   ]
+  },
+  {
+   "field": "Date and time stamps",
+   "why": "Required on screenshots; instrument clock set to local time.",
+   "sources": [
+    "mcf_das_2023",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "field": "Technician / operator",
+   "why": "CommScope reports include operator information.",
+   "sources": [
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "field": "Analyzer make, model, serial, calibration date",
+   "why": "Carrier DAS specs require a validly calibrated instrument; Anritsu reports split results by instrument.",
+   "sources": [
+    "mcf_das_2023",
+    "anritsu_pim_reports"
+   ]
+  },
+  {
+   "field": "Original instrument files",
+   "why": "Hand over the raw result files, not just a PDF.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "field": "Photos",
+   "why": "Screenshots/photographs of measurements are a stated deliverable; photos of repaired joints support the record.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "field": "High-reflection warning bypassed?",
+   "why": "Anritsu places such results in separate tables - flag it.",
+   "sources": [
+    "anritsu_pim_reports"
+   ]
+  }
+ ],
+ "glossary": [
+  {
+   "term": "PIM (passive intermodulation)",
+   "meaning": "Unwanted signals made when two or more strong signals pass through a non-linear junction in 'passive' parts - connectors, cables, antennas, nearby rusty metal. Also called the diode effect or rusty bolt effect."
+  },
+  {
+   "term": "F1, F2",
+   "meaning": "The two test tones (or carriers) whose mixing makes the IM products."
+  },
+  {
+   "term": "IM order",
+   "meaning": "n + m in nF1 - mF2. IM3 = 2F1 - F2 and 2F2 - F1; IM5 = 3F1 - 2F2 and 3F2 - 2F1; IM7 = 4F1 - 3F2 and 4F2 - 3F1. Lower orders are usually stronger."
+  },
+  {
+   "term": "IM bandwidth",
+   "meaning": "Products from modulated carriers are wider than the carriers: IM3 about 3x, IM5 about 5x the carrier bandwidth."
+  },
+  {
+   "term": "dBm",
+   "meaning": "Absolute power relative to 1 mW (43 dBm = 20 W, 46 dBm = 40 W, 33 dBm = 2 W)."
+  },
+  {
+   "term": "dBc",
+   "meaning": "PIM level relative to one test tone: dBc = PIM dBm - tone dBm. At 2 x 43 dBm, -150 dBc = -107 dBm, -153 dBc = -110 dBm."
+  },
+  {
+   "term": "2 x 20 W / 2 x 43 dBm",
+   "meaning": "Two tones of 20 W each - the IEC 62037-1 general recommendation for mobile systems."
+  },
+  {
+   "term": "PIM slope",
+   "meaning": "dB of PIM change per dB of tone power change. Theory for IM3: 3 dB/dB; field values typically 2.2-2.8 dB/dB."
+  },
+  {
+   "term": "Residual PIM",
+   "meaning": "The PIM the analyzer, test lead and adapters make themselves, measured into a low-PIM load."
+  },
+  {
+   "term": "Low-PIM termination (load)",
+   "meaning": "A 50-ohm load built to generate very little PIM; the reference for residual checks and for terminating ports."
+  },
+  {
+   "term": "PIM standard (PIM source)",
+   "meaning": "A device that produces a known IM3 level at a stated power and frequency, used to check the analyzer reads correctly."
+  },
+  {
+   "term": "Static PIM test",
+   "meaning": "PIM measured without movement or stress."
+  },
+  {
+   "term": "Dynamic PIM test (tap test)",
+   "meaning": "PIM measured while tapping connectors/devices and flexing cables to reveal loose or unstable joints."
+  },
+  {
+   "term": "PIM vs time",
+   "meaning": "Fixed F1/F2, IM level plotted over time; used for static and tap tests."
+  },
+  {
+   "term": "Swept PIM",
+   "meaning": "One tone fixed, the other swept, so the IM product moves across the receive band; avoids false passes from phase cancellation."
+  },
+  {
+   "term": "Reverse (reflected) PIM",
+   "meaning": "PIM measured travelling back toward the source port - what field analyzers measure."
+  },
+  {
+   "term": "Forward PIM",
+   "meaning": "PIM measured at the output of a two-port device."
+  },
+  {
+   "term": "1-port / 2-port PIM",
+   "meaning": "1-port: both tones out one port. 2-port: F1 and F2 out separate ports/antennas so they mix only beyond the antennas (external cross-band PIM)."
+  },
+  {
+   "term": "DTP (Distance-to-PIM)",
+   "meaning": "IM magnitude vs distance along the line and beyond the antenna (Anritsu term)."
+  },
+  {
+   "term": "RTF (Range-to-Fault)",
+   "meaning": "Kaelus term for distance to PIM and return-loss faults."
+  },
+  {
+   "term": "DTF (Distance-to-Fault)",
+   "meaning": "Return loss or VSWR vs distance from a swept measurement; maps connectors and damage."
+  },
+  {
+   "term": "Vp (velocity of propagation)",
+   "meaning": "Cable velocity factor used to convert time/frequency data to distance; use 1.0 for distances in air."
+  },
+  {
+   "term": "PIM marker",
+   "meaning": "A strong PIM source (bagged steel wool) taped to the radome to show the antenna's position on a DTP trace."
+  },
+  {
+   "term": "Internal vs external PIM",
+   "meaning": "Internal: inside the feed/antenna. External: from objects in front of or near the antenna, or where two antennas' signals mix."
+  },
+  {
+   "term": "Rusty bolt effect",
+   "meaning": "PIM from corroded metal (fences, roofs, mast bolts, AC ducts) excited by nearby transmit signals."
+  },
+  {
+   "term": "Fritting / micro-arcing",
+   "meaning": "Breakdown of thin oxide films between contacts; produces bursty wideband interference."
+  },
+  {
+   "term": "Ferromagnetic material",
+   "meaning": "Iron, nickel, cobalt and some alloys; strong PIM generators - avoid in RF current paths (incl. nickel plating, stainless steel)."
+  },
+  {
+   "term": "Return loss / VSWR",
+   "meaning": "Impedance-match measures from a line sweep; independent of PIM - a line can pass one and fail the other."
+  },
+  {
+   "term": "Noise floor / Rx diversity imbalance",
+   "meaning": "Uneven uplink noise between the two receive paths of a sector; a classic sign of PIM in the noisy path."
+  },
+  {
+   "term": "DAS",
+   "meaning": "Distributed antenna system: passive (coax, splitters, couplers) or active/hybrid (fiber to remote units) network distributing RF indoors."
+  },
+  {
+   "term": "Neutral host",
+   "meaning": "A DAS owner/operator that carries several carriers on one shared system."
+  },
+  {
+   "term": "Multi-network combiner (MNC) / POI",
+   "meaning": "Head-end point where operators' signals are combined and fed into the DAS; MCF tests PIM at each input."
+  },
+  {
+   "term": "Tapper / directional coupler",
+   "meaning": "Unequal power divider (e.g., 6 dB coupled / 1.7 dB through) that taps signal off a riser to a floor."
+  },
+  {
+   "term": "Hybrid combiner",
+   "meaning": "Equal-split combiner (3 dB per stage) used to combine radios; unused ports need loads."
+  },
+  {
+   "term": "ERCES",
+   "meaning": "Emergency responder communication enhancement system - in-building public safety radio coverage (IFC 510, NFPA 1225)."
+  },
+  {
+   "term": "BDA (bi-directional amplifier)",
+   "meaning": "Signal booster used in ERCES and some DAS; an active device - do not inject PIM test tones into it."
+  },
+  {
+   "term": "DAQ 3.0",
+   "meaning": "Delivered Audio Quality 3.0 - the ERCES coverage benchmark (speech understandable with repetition only rarely required)."
+  },
+  {
+   "term": "IEC 62037",
+   "meaning": "IEC series on measuring PIM in passive RF devices: Part 1 general, 2 cable assemblies, 3 connectors, 4 cables, 5 filters, 6 antennas, 7 field measurements, 8 radiated PIM of objects."
+  },
+  {
+   "term": "PIM over CPRI",
+   "meaning": "Detecting PIM from the baseband side using the site's own radios and live or test signals, without disconnecting coax."
+  }
+ ],
+ "pim_sources": [
+  {
+   "source": "Loose or under-torqued connectors",
+   "why": "Gaps and low contact pressure make non-linear junctions; the most common field fault (e.g., a loose back nut on a jumper).",
+   "fix": "Torque to the manufacturer's value with a calibrated wrench; tap test.",
+   "sources": [
+    "anritsu_troubleshooting",
+    "anritsu_understanding",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "source": "Over-torqued / deformed connectors",
+   "why": "Over-tightening distorts contact surfaces and damages the centre conductor; first instinct to over-tighten usually makes it worse.",
+   "fix": "Replace damaged parts; use the correct torque, not more.",
+   "sources": [
+    "anritsu_understanding",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "source": "Dirt, metal flakes, debris in connectors",
+   "why": "Particles from cutting and repeated mating touch current-carrying surfaces; intermittent PIM as cables flex.",
+   "fix": "Cut with the cable facing down, deburr, blow out, alcohol-clean, inspect.",
+   "sources": [
+    "anritsu_understanding",
+    "mcf_das_2023",
+    "iec62037_7"
+   ]
+  },
+  {
+   "source": "Foam dielectric or adhesive trapped in the joint",
+   "why": "Blocks metal-to-metal contact (DAS field case near two antennas).",
+   "fix": "Re-work the connector; remove foam and glue.",
+   "sources": [
+    "anritsu_dtp_dtf",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "source": "Corrosion / oxidation",
+   "why": "Oxide films act like diodes; worst in coastal humidity and salt air.",
+   "fix": "Clean regularly in coastal areas; weatherproof; replace corroded parts.",
+   "sources": [
+    "anritsu_understanding",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "source": "Ferromagnetic materials and plating",
+   "why": "Iron/nickel/cobalt are strong PIM sources: stainless steel can add 10-20 dB, nickel or gold-over-nickel plating 20-40 dB.",
+   "fix": "Use non-ferrous connectors plated with silver, white bronze or gold; avoid nickel and non-magnetic stainless in current paths.",
+   "sources": [
+    "anritsu_understanding",
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "source": "Ferrites (circulators, isolators)",
+   "why": "Ferrite devices can be prominent IM sources.",
+   "fix": "Minimize them in high-power paths; PIM-test them.",
+   "sources": [
+    "anritsu_understanding",
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "source": "Dissimilar metals",
+   "why": "Galvanic corrosion risk.",
+   "fix": "Avoid dissimilar-metal junctions.",
+   "sources": [
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "source": "Braided / foil-screened cables",
+   "why": "The braid acts like hundreds of loose connections, worse with age (LMR400, RG214 named).",
+   "fix": "Use solid-outer-conductor cable; braided only where the carrier approves single-band use.",
+   "sources": [
+    "anritsu_understanding",
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "source": "Damaged or poorly made cable",
+   "why": "Seams in shielding corrode; plated copper can flake off aluminium cores; water in the line.",
+   "fix": "Replace; use quality cable; keep water out.",
+   "sources": [
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "source": "Temperature-driven change",
+   "why": "Sun warms cables, changing electrical length and contact state; PIM can appear hot and vanish cold or vice versa.",
+   "fix": "Repeat tests at different times; repair marginal joints.",
+   "sources": [
+    "anritsu_understanding",
+    "iec62037_1_2025"
+   ]
+  },
+  {
+   "source": "Antennas",
+   "why": "Fatigue breaks, cold solder joints, corrosion; weak connector mounts loosen after a few torque cycles; most pre-2006 antennas were not built for PIM.",
+   "fix": "Ground-test antennas on non-metal stands facing clear sky; keep a known-good antenna; limit torque cycles.",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_troubleshooting"
+   ]
+  },
+  {
+   "source": "External 'rusty bolt' objects",
+   "why": "Corroded fences, roofs, mast bolts, AC ducts, guard rails, billboards, roofing materials near antennas.",
+   "fix": "Locate with DTP + PIM marker and probe; remove/replace/insulate the object or move the antenna; document for the owner.",
+   "sources": [
+    "anritsu_understanding",
+    "anritsu_firstnet",
+    "anritsu_dtp_dtf"
+   ]
+  },
+  {
+   "source": "DAS ceiling clutter",
+   "why": "Small DAS antennas excite nearby metal - cable trays, vent pipes, AC units, flashing, loose hardware - often behind the antenna.",
+   "fix": "Keep 500 mm clear; relocate within about 1 m; avoid concealed/low-profile antennas without a backplane.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "source": "Lightning arrestors",
+   "why": "As they age their breakdown voltage drops until RF peaks cause micro-arcing.",
+   "fix": "Test and replace aged arrestors.",
+   "sources": [
+    "anritsu_understanding"
+   ]
+  },
+  {
+   "source": "High-power terminations on hybrids",
+   "why": "Often high IM3; harmful where several operators/bands share the hybrid.",
+   "fix": "Use low-PIM cable loads at multi-operator points.",
+   "sources": [
+    "anritsu_das_pim"
+   ]
+  },
+  {
+   "source": "Cheap components / thin plating",
+   "why": "Thinner coatings and more ferromagnetic content; degrade faster with corrosion and handling.",
+   "fix": "Buy from approved material lists with published PIM specs and factory test data.",
+   "sources": [
+    "mcf_das_2023",
+    "commscope_pim_faq"
+   ]
+  },
+  {
+   "source": "Poor workmanship",
+   "why": "Installers not trained in carrier-grade RF termination; problems surface only at PIM test.",
+   "fix": "Manufacturer training; correct prep tools; factory-made jumpers.",
+   "sources": [
+    "mcf_das_2023",
+    "anritsu_understanding",
+    "cudenver_div27"
+   ]
+  },
+  {
+   "source": "Mechanical stress on joints",
+   "why": "Components hanging on cables or weak anchors stress connectors; PIM becomes erratic.",
+   "fix": "Mount solidly, add strain relief, leave wrench access.",
+   "sources": [
+    "mcf_das_2023"
+   ]
+  },
+  {
+   "source": "Test-gear contamination",
+   "why": "Seals on test cables collect metal shavings; precision line-sweep adapters are not low-PIM; tools and safety belts near antennas create PIM.",
+   "fix": "No seals on test cables; low-PIM adapters only; residual check; clear the antenna field.",
+   "sources": [
+    "anritsu_troubleshooting",
+    "anritsu_mw82119b_ds",
+    "iec62037_7"
+   ]
+  },
+  {
+   "source": "N-type connectors in high-power multi-carrier paths",
+   "why": "Very small male outer-conductor contact area, easily damaged by over-torque; sensitive to torque and vibration.",
+   "fix": "Prefer 4.3-10 or 7-16 where possible; torque N carefully.",
+   "sources": [
+    "anritsu_troubleshooting",
+    "anritsu_understanding"
+   ]
+  }
+ ]
+}

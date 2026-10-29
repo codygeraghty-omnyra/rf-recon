@@ -1,0 +1,3233 @@
+{
+ "updated": "2026-10-29",
+ "sources": [
+  {
+   "key": "cfr_90_219",
+   "title": "47 CFR 90.219 Use of signal boosters (eCFR text via Cornell LII; amended 83 FR 61097, Nov. 27, 2018)",
+   "url": "https://www.law.cornell.edu/cfr/text/47/90.219",
+   "kind": "regulation"
+  },
+  {
+   "key": "cfr_20_21",
+   "title": "47 CFR 20.21 Signal boosters (consumer/CMRS boosters; eCFR text via Cornell LII) - source of MSCL/BSCL gain formulas",
+   "url": "https://www.law.cornell.edu/cfr/text/47/20.21",
+   "kind": "regulation"
+  },
+  {
+   "key": "ifc2024_510",
+   "title": "2024 International Fire Code, Section 510 Emergency Responder Communications Enhancement Systems (ICC Digital Codes, read in browser)",
+   "url": "https://codes.iccsafe.org/content/IFC2024V2.0/chapter-5-fire-service-features",
+   "kind": "code"
+  },
+  {
+   "key": "ifc2021_510",
+   "title": "2021 International Fire Code, Section 510 (ICC Digital Codes, read in browser)",
+   "url": "https://codes.iccsafe.org/content/IFC2021P2/chapter-5-fire-service-features",
+   "kind": "code"
+  },
+  {
+   "key": "ifc2018_510",
+   "title": "2018 International Fire Code Section 510 (text reproduction by callmc.com)",
+   "url": "https://callmc.com/wp-content/uploads/2021/10/IFC_510_Sheet-1.pdf",
+   "kind": "code"
+  },
+  {
+   "key": "nfpa1225_ch18",
+   "title": "NFPA 1225 (2022) Standard for Emergency Services Communications, Chapter 18 and Annex A.18/A.20.3.10 - copy posted by Georgia Office of Commissioner of Insurance (NFPA text is otherwise paywalled)",
+   "url": "https://oci.georgia.gov/document/document/nfpa-1225-chapter-18/download",
+   "kind": "code"
+  },
+  {
+   "key": "sbc_codes_2022",
+   "title": "Safer Buildings Coalition, NFPA code comparison: NFPA 72-2013 / 1221-2016 / 1221-2019 / 1225-2022 (2022) - public summary",
+   "url": "https://sbc.memberclicks.net/assets/docs/NFPA-Codes-2022.pdf",
+   "kind": "summary"
+  },
+  {
+   "key": "sbc_quick_ref",
+   "title": "Safer Buildings Coalition, SBC Quick Code Reference - NFPA [2013-2022] and IFC [2015-2024] (web table) - public summary",
+   "url": "https://www.saferbuildings.us/sbc-quick-code-reference-nfpa-2013-2022-and-ifc-2015-2024",
+   "kind": "summary"
+  },
+  {
+   "key": "rsi_min_signal",
+   "title": "Radio Solutions, Inc. (Derek Case), Minimum Inbound / Outbound Signal Strength (2022; posted by PennBOC 2023-09-22) - quotes NFPA 72-2013 24.5.2 and IFC 2015 510.4.1 and gives a DL/UL example",
+   "url": "https://www.pennboc.org/wp-content/uploads/2023/09/2023-09-22-ERCES-RSI-Min-Outbound-Signal-Strength-Derek-Case.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "itu_p1238_13",
+   "title": "Recommendation ITU-R P.1238-13 (09/2025), Propagation data and prediction methods for indoor radiocommunication systems, 300 MHz to 450 GHz (in force; ITU edition list checked 2026-10-29)",
+   "url": "https://www.itu.int/rec/R-REC-P.1238-13-202509-I/en",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p1238_10",
+   "title": "Recommendation ITU-R P.1238-10 (08/2019) - last edition whose Table 2 still lists N for 0.8-2.2 GHz",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.1238-10-201908-S!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p1238_11",
+   "title": "Recommendation ITU-R P.1238-11 (09/2021) - opened to confirm the sub-6 GHz N rows were removed from the N table",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.1238-11-202109-S!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "itu_p525_5",
+   "title": "Recommendation ITU-R P.525-5 (11/2024), Calculation of free-space attenuation",
+   "url": "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.525-5-202411-I!!PDF-E.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "cost231_ch4",
+   "title": "COST Action 231 Final Report, Chapter 4 Propagation Prediction Models, Sec. 4.7 Indoor propagation models (multi-wall model, Tab. 4.7.2) - hosted by IST Lisbon",
+   "url": "http://www.lx.it.pt/cost231/final_report.htm",
+   "kind": "report"
+  },
+  {
+   "key": "npstc_ibwg",
+   "title": "NPSTC In-Building Working Group White Paper, Appendices A-E (2007-12-12)",
+   "url": "https://www.npstc.org/documents/20071212_IBWG%20White%20Paper%20Appendix%20A-E.pdf",
+   "kind": "report"
+  },
+  {
+   "key": "comba_4port",
+   "title": "Comba Telecom, Design Considerations for Simplex/Split DAS Using 4-Port Bi-Directional Amplifiers (rev. 4-7-2026) - includes a complete VHF link budget",
+   "url": "https://combausa.com/wp-content/uploads/Comba-4-Port-BDA-Simplex-BDA-Design-considerations-and-requirments-4-Port-BDA-4-7-2026.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "durham_bda",
+   "title": "City/County of Durham NC, BDA/ERCES Systems Permit Requirements, Doc. 47330 Rev. 10/12/2026",
+   "url": "https://www.durhamnc.gov/DocumentCenter/View/47330/BDA-Application-Requirements-City-of-Durham-NC-",
+   "kind": "ahj"
+  },
+  {
+   "key": "ocsd_errcs",
+   "title": "Orange County (CA) Sheriff's Department, ERRCS Deployment Guidelines Rev 4.5 (8-4-2025), 800 MHz P25 CCCS",
+   "url": "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "sdfd_c1",
+   "title": "San Diego Fire-Rescue Standard C-1, Emergency Responder Communication Enhancement Systems (eff. 06/01/2023, rev. 01/22/2026) incl. Appendix A site TX ERP table",
+   "url": "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "sccfd_c2",
+   "title": "Santa Clara County Fire Department Standard C-2, Emergency Responder Radio Coverage Systems (rev. 09/01/20)",
+   "url": "https://www.sccfd.org/wp-content/uploads/2024/10/C-2-Emergency-Respodner-Radio-Coverage-Systems.pdf",
+   "kind": "ahj"
+  },
+  {
+   "key": "apx8000_na",
+   "title": "Motorola Solutions APX 8000 All-Band P25 Portable Radio data sheet (North America)",
+   "url": "https://www.motorolasolutions.com/content/dam/msi/docs/products/apx/apx_8000_na_data_sheet.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "xl200p",
+   "title": "L3Harris XL Converge 200P Full-Spectrum Multiband Portable Radio datasheet (rev. R, 2026-03)",
+   "url": "https://www.l3harris.com/sites/default/files/2026-03/l3harris-xl-converge-200p-multiband-portable-radio-datasheet-r-csd-pspc.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "mototrbo_r7",
+   "title": "Motorola Solutions MOTOTRBO R7 (DMR) portable data sheet (North America)",
+   "url": "https://www.motorolasolutions.com/content/dam/msi/docs/mototrbo/r7/r7-datasheet-na.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "gseries_ds",
+   "title": "Motorola Solutions ASTRO 25 G-Series Site Equipment data sheet (GTR 8000 base radio), 2022",
+   "url": "https://www.motorolasolutions.com/content/dam/msi/docs/business/product_lines/astro_25_network/_documents/static_files/astro_25_g-series_site_equipment_data_sheet.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "tsb881c_draft",
+   "title": "TIA TR-8.18 draft PN3-4744.1-RV3 Version Fb (Oct. 9, 2006), 'To be published as TSB-88.1-C' - public draft; the published TSB-88 series is paywalled",
+   "url": "http://www.simulcastsolutions.com/userfiles/file/appnotes/pTR8.18-06-10-0035-PN3-4744.1-RV3-Fb.pdf",
+   "kind": "standard-draft"
+  },
+  {
+   "key": "ntia_07447",
+   "title": "NTIA Report 07-447, Assessment of Federal and Non-Federal Land Mobile Radio Frequency Assignment Methodologies (summarizes TSB-88-B)",
+   "url": "https://its.ntia.gov/publications/download/07-447.pdf",
+   "kind": "report"
+  },
+  {
+   "key": "pericle_drive",
+   "title": "Pericle Communications, Guidelines for Conducting Drive Test Surveys for 800 MHz Rebanding (2010)",
+   "url": "https://www.pericle.com/wp-content/uploads/Drive_Test-Guidelines031210.pdf",
+   "kind": "report"
+  },
+  {
+   "key": "pericle_atp",
+   "title": "Pericle Communications, Acceptance Testing for Digital Land Mobile Radio Systems (slides)",
+   "url": "https://www.pericle.com/wp-content/uploads/W07_ATP_for_LMR-Slides_V2.pdf",
+   "kind": "report"
+  },
+  {
+   "key": "urgent_close_race",
+   "title": "J. Jacobsmeyer (Pericle), 'Close race', Urgent Communications, Nov. 1, 2009 - cites Hill & Kneisel portable body-loss measurements",
+   "url": "https://urgentcomm.com/land-mobile-radio/close-race",
+   "kind": "article"
+  },
+  {
+   "key": "keysight_nf",
+   "title": "Keysight help: Noise Figure (summary of Keysight App Note 57-1) - kTB = -174 dBm/Hz at 290 K",
+   "url": "https://helpfiles.keysight.com/csg/NA520xA/Applications/Noise_Figure.htm",
+   "kind": "vendor"
+  },
+  {
+   "key": "campbell_lb",
+   "title": "Campbell Scientific App Note 3RF-F, The Link Budget and Fade Margin (9/16)",
+   "url": "https://s.campbellsci.com/documents/us/technical-papers/link-budget.pdf",
+   "kind": "vendor"
+  },
+  {
+   "key": "rosenberger_4310",
+   "title": "Rosenberger, Low PIM Connectors and Components 4.3-10 catalog (2020), p.10 jumper insertion loss",
+   "url": "https://www.rosenberger.com/fileadmin/content/headquarter/Downloads/RF_Coaxial_Connectors/COM_43_10_Catalog_2020.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "suneast_spacing",
+   "title": "Suneast Pte Ltd (Singapore integrator blog), In-Building DAS Antenna Spacing Per Floor: Rule of Thumb (UHF 400-470 MHz) - low-authority source",
+   "url": "https://www.suneast.com.sg/post/das-antenna-spacing-per-floor",
+   "kind": "blog"
+  },
+  {
+   "key": "fiplex_bd441",
+   "title": "Fiplex by Honeywell HONBDA-7S FLEX All-in-One BDA datasheet, BD441.1, 08/01/2023",
+   "url": "https://prod-edam.honeywell.com/content/dam/honeywell-edam/hbt/en-us/documents/literature-and-specs/datasheets/hbt-fire-fiplex-BD441-BDA-BBU-HONBDA-7S-datasheet.pdf?download=false",
+   "kind": "datasheet"
+  },
+  {
+   "key": "fiplex_bd426",
+   "title": "Fiplex by Honeywell FLEX 2.0 High Power OTA Public Safety Fiber DAS 136-512 MHz datasheet, BD426.7, 04/04/2025",
+   "url": "https://prod-edam.honeywell.com/content/dam/honeywell-edam/hbt/en-us/documents/literature-and-specs/datasheets/fiplex-02022026/hon-ba-fire-bd426-7-flex2-0-high-power-psc-das-vhf-uhf-ota.pdf?download=false",
+   "kind": "datasheet"
+  },
+  {
+   "key": "adrf_psr9537u",
+   "title": "ADRF PSR-78-9537-U Channelized 5 W Digital Repeater 700/800 MHz spec sheet (Nov 2022; Windy City Wire copy)",
+   "url": "https://cdn.windycitywire.com/partners/das/adrf/PSR-78-9537-U_v8_SS.PDF",
+   "kind": "datasheet"
+  },
+  {
+   "key": "comba_v3ng",
+   "title": "Comba CriticalPoint V3/NG 700/800 MHz Class A/B 27/33 dBm Fiber DAS datasheet DS-Control 0-2-6 (Alliance Corporation copy)",
+   "url": "https://www.alliancecorporation.ca/wp-content/uploads/2025/12/RXxxV3-RHxxV3-NG-700-800MHz-Public-Safety-BDA-DAS-27-33dBm-and-Battery-Backup-Unit-DS-0-2-6.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "nextivity_solo",
+   "title": "Nextivity SHIELD SOLO Integrated Public Safety BDA L41-7EB data sheet (Rev26-0709)",
+   "url": "https://nextivityinc.com/wp-content/uploads/2023/03/SHIELD-SOLO_datasheet.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "notifier_dn61014",
+   "title": "Honeywell/NOTIFIER BDA datasheet DN-61014:C (12/11/18)",
+   "url": "https://prod-edam.honeywell.com/content/dam/honeywell-edam/hbt/en-us/documents/literature-and-specs/datasheets/notifier-us/hon-ba-fire-dn-61014.pdf?download=false",
+   "kind": "datasheet"
+  },
+  {
+   "key": "norsat_ddc240",
+   "title": "DDC240 Series DAS Directional Coupler 138-960 MHz (Talley copy)",
+   "url": "https://www.talleycom.com/images/PDF/SINDDC240.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "microlab_ck7x1",
+   "title": "Microlab Directional Coupler CK-7x1 series 350-2700 MHz Rev. A (19JUL2018)",
+   "url": "https://microlabtech.com/pub/media/asset/Datasheets/ck-7x1.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "microlab_dx61",
+   "title": "Microlab D2-61 Wideband 2-way Wilkinson Power Splitter 70-2700 MHz Rev. D (28OCT2026)",
+   "url": "https://microlabtech.com/pub/media/asset/Datasheets/dx-61.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "microlab_dx08",
+   "title": "Microlab Dx-08 2/3/4-way reactive Power Splitters 380-2700 MHz Rev. E (06FEB2019)",
+   "url": "https://microlabtech.com/pub/media/asset/Datasheets/dx-08.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "rfs_pds",
+   "title": "RFS PDS2/3/4-43-350/2700-01 Power Splitters datasheet Rev A1 (15 Nov 2025)",
+   "url": "https://www.rfsworld.com/product/PDS2-43-350/2700-01/pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "microlab_caps196",
+   "title": "Microlab CA-PS-2x2-196FN Public Safety Hybrid Coupler 128-1000 MHz Rev. A (31JUL2025)",
+   "url": "https://microlabtech.com/pub/media/asset/Datasheets/ca-ps-2x2-196fn.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "polyphaser_is50nx",
+   "title": "PolyPhaser IS-50NX-C2-ME Type N surge protector 125 MHz-1 GHz datasheet REV 1.1",
+   "url": "https://www.polyphaser.com/Images/Downloadables/Datasheets/IS-50NX-C2-ME_datasheets_US.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "commscope_ldf4",
+   "title": "CommScope LDF4-50A HELIAX 1/2 in coax datasheet (rev. 2018-09-21; Talley copy) - attenuation table",
+   "url": "https://www.talleycom.com/images/pdf/LDF4-50A.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "sinclair_si240f",
+   "title": "Sinclair SI240F-O in-building omni 132-960 MHz spec sheet Issue 6 (Talley copy)",
+   "url": "https://www.talleycom.com/images/PDF/SINSI240F-OWBL4F.pdf",
+   "kind": "datasheet"
+  },
+  {
+   "key": "sinclair_sy307r",
+   "title": "Sinclair SY307R-HF2SNF 10 dBd UHF Yagi spec sheet Issue 8",
+   "url": "https://cdn.shopify.com/s/files/1/0531/8970/5898/files/SY307R-HF2SNF-2I.pdf?v=1787149592",
+   "kind": "datasheet"
+  }
+ ],
+ "parameters": [
+  {
+   "id": "portable_power_vhf_dbm",
+   "name": "Portable transmit power, VHF",
+   "unit": "dBm",
+   "default": 37.8,
+   "range": [
+    37.0,
+    37.8
+   ],
+   "applies_to": "uplink; VHF 136-174 MHz",
+   "why": "6 W max on APX 8000 (VHF 1-6 W) and XL Converge 200P (VHF 1-6 W) = 37.8 dBm. MOTOTRBO R7 (DMR) is 5 W = 37.0 dBm. Conducted rated power, before antenna/body loss.",
+   "sources": [
+    "apx8000_na",
+    "xl200p",
+    "mototrbo_r7"
+   ]
+  },
+  {
+   "id": "portable_power_uhf_dbm",
+   "name": "Portable transmit power, UHF",
+   "unit": "dBm",
+   "default": 37.0,
+   "range": [
+    36.0,
+    37.0
+   ],
+   "applies_to": "uplink; UHF 380-520 MHz",
+   "why": "5 W max on APX 8000 (UHF R1 and R2 1-5 W) and XL Converge 200P (1-5 W) = 37.0 dBm. MOTOTRBO R7 UHF is 4 W = 36.0 dBm.",
+   "sources": [
+    "apx8000_na",
+    "xl200p",
+    "mototrbo_r7"
+   ]
+  },
+  {
+   "id": "portable_power_700_dbm",
+   "name": "Portable transmit power, 700 MHz",
+   "unit": "dBm",
+   "default": 34.0,
+   "range": [
+    34.0,
+    34.8
+   ],
+   "applies_to": "uplink; 700 MHz (799-805 MHz mobile TX)",
+   "why": "APX 8000 is 1-2.5 W at 700 MHz (34.0 dBm); XL Converge 200P is 0.5-3 W on 700/800 (34.8 dBm). Default uses the lower, more conservative maximum.",
+   "sources": [
+    "apx8000_na",
+    "xl200p"
+   ]
+  },
+  {
+   "id": "portable_power_800_dbm",
+   "name": "Portable transmit power, 800 MHz",
+   "unit": "dBm",
+   "default": 34.8,
+   "range": [
+    34.0,
+    34.8
+   ],
+   "applies_to": "uplink; 800 MHz (806-824 MHz mobile TX)",
+   "why": "APX 8000 800 MHz 1-3 W and XL Converge 200P 3 W = 34.8 dBm; MOTOTRBO R7 800/900 is 2.5 W = 34.0 dBm.",
+   "sources": [
+    "apx8000_na",
+    "xl200p",
+    "mototrbo_r7"
+   ]
+  },
+  {
+   "id": "portable_design_level_dbm",
+   "name": "AHJ design portable transmit level",
+   "unit": "dBm",
+   "default": 34,
+   "range": [
+    34,
+    35
+   ],
+   "applies_to": "uplink; 800 MHz P25 (OCSD) and general",
+   "why": "OCSD requires designs to assume a 34 dBm portable; Radio Solutions' example uses a 3 W/34 dBm ERP portable; Comba's example uses about +35 dBm radiated. Use when the AHJ fixes the portable level instead of the radio's rated power.",
+   "sources": [
+    "ocsd_errcs",
+    "rsi_min_signal",
+    "comba_4port"
+   ]
+  },
+  {
+   "id": "portable_antenna_corr_vhf_dbd",
+   "name": "Portable antenna correction (incl. body absorption, head level), VHF",
+   "unit": "dBd",
+   "default": -10,
+   "range": [
+    -11.3,
+    -10
+   ],
+   "applies_to": "uplink and downlink at the portable; 136-174 MHz",
+   "why": "TSB-88.1-C draft Table D-3: -10 dBd for 136-174 MHz, relative to a half-wave dipole, including antenna efficiency, polarization and body absorption at head level. Hill & Kneisel measured -11.3 dBd median for a VHF helical at head height (via Urgent Communications). Hip-worn radios lose more (TSB-88 Table D-5, not public).",
+   "sources": [
+    "tsb881c_draft",
+    "urgent_close_race"
+   ]
+  },
+  {
+   "id": "portable_antenna_corr_uhf_dbd",
+   "name": "Portable antenna correction (incl. body absorption, head level), UHF",
+   "unit": "dBd",
+   "default": -6,
+   "range": null,
+   "applies_to": "406-512 MHz",
+   "why": "TSB-88.1-C draft Table D-3: -6 dBd for 406-512 MHz, head level.",
+   "sources": [
+    "tsb881c_draft"
+   ]
+  },
+  {
+   "id": "portable_antenna_corr_700_800_dbd",
+   "name": "Portable antenna correction (incl. body absorption, head level), 700/800 MHz",
+   "unit": "dBd",
+   "default": -5,
+   "range": [
+    -5,
+    -4.5
+   ],
+   "applies_to": "700 and 800 MHz bands",
+   "why": "TSB-88.1-C draft Table D-3: -5 dBd for the 700, 800 and 900 MHz bands, head level. Hill & Kneisel measured -4.5 dBd median for an 800 MHz coaxial dipole at head height.",
+   "sources": [
+    "tsb881c_draft",
+    "urgent_close_race"
+   ]
+  },
+  {
+   "id": "body_loss_db",
+   "name": "Separate body loss (only when the portable antenna is entered as a free-space gain)",
+   "unit": "dB",
+   "default": 3,
+   "range": [
+    0,
+    3
+   ],
+   "applies_to": "uplink and downlink at the portable",
+   "why": "Suneast's UHF rule-of-thumb budget uses 3 dB body loss (low-authority integrator blog). Set to 0 when the TSB-88 portable antenna correction is used, because that correction already includes body absorption. No public source gives hip-worn loss values; TSB-88 Table D-5 (median portable antenna loss) is paywalled.",
+   "sources": [
+    "suneast_spacing",
+    "tsb881c_draft"
+   ]
+  },
+  {
+   "id": "dl_min_dbm",
+   "name": "Minimum downlink signal at the portable",
+   "unit": "dBm",
+   "default": -95,
+   "range": [
+    -100,
+    -95
+   ],
+   "applies_to": "downlink, every test grid",
+   "why": "-95 dBm: IFC 2021 510.4.1.1 (plus DAQ 3.0), IFC 2015 and NFPA 72-2013 24.5.2.3.1, San Diego C-1, Durham grid test, OCSD grid test. IFC 2024 and NFPA 1225-2022 specify DAQ only, no dBm. Durham accepts -100 dBm (with BER <= 2.0% and SINR >= 17.7 dB) in the initial pre-construction survey.",
+   "sources": [
+    "ifc2021_510",
+    "rsi_min_signal",
+    "sbc_quick_ref",
+    "sdfd_c1",
+    "durham_bda",
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "ul_min_dbm",
+   "name": "Minimum uplink signal at the donor site receiver",
+   "unit": "dBm",
+   "default": -95,
+   "range": null,
+   "applies_to": "uplink at the agency site",
+   "why": "NFPA 72-2013 24.5.2.3.2: -95 dBm outbound at the donor site; OCSD: per-channel uplink at the donor site not less than -95 dBm; Durham: greater than -95 dBm received at the tower; Santa Clara County C-2: -95 dBm at the designated donor site receiver antenna.",
+   "sources": [
+    "rsi_min_signal",
+    "ocsd_errcs",
+    "durham_bda",
+    "sccfd_c2"
+   ]
+  },
+  {
+   "id": "ul_max_dbm",
+   "name": "Maximum uplink signal at the donor site receiver",
+   "unit": "dBm",
+   "default": -75,
+   "range": [
+    -80,
+    -75
+   ],
+   "applies_to": "uplink at the agency site",
+   "why": "OCSD: not greater than -75 dBm per channel at the donor site; Durham: less than -80 dBm at the tower.",
+   "sources": [
+    "ocsd_errcs",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "dl_max_perimeter_dbm",
+   "name": "Maximum downlink level at or near the building interior perimeter",
+   "unit": "dBm",
+   "default": -75,
+   "range": null,
+   "applies_to": "downlink leakage control",
+   "why": "OCSD 9(a)(i): avoid downlink levels exceeding -75 dBm at or near the building interior perimeter.",
+   "sources": [
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "leakage_50ft_max_dbm",
+   "name": "Maximum signal leakage 50 ft outside the building",
+   "unit": "dBm",
+   "default": -89,
+   "range": null,
+   "applies_to": "downlink leakage (Durham)",
+   "why": "Durham: leakage map and CW test must show no more than -89 dBm at 50 ft from the building edge.",
+   "sources": [
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "leakage_100ft_max_dbm",
+   "name": "Maximum signal leakage 100 ft outside the building",
+   "unit": "dBm",
+   "default": -95,
+   "range": null,
+   "applies_to": "downlink leakage (Durham)",
+   "why": "Durham: no more than -95 dBm at 100 ft from the building edge.",
+   "sources": [
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "leakage_below_donor_db",
+   "name": "Booster signal margin below the outdoor (macro) signal at the building edge",
+   "unit": "dB",
+   "default": 15,
+   "range": null,
+   "applies_to": "downlink leakage",
+   "why": "OCSD: leakage at ground level 3-25 ft outside must be at least 15 dB below the measured donor signal; Santa Clara County C-2: booster signal immediately inside exterior walls at least 15 dB below the exterior macro signal.",
+   "sources": [
+    "ocsd_errcs",
+    "sccfd_c2"
+   ]
+  },
+  {
+   "id": "daq_min",
+   "name": "Minimum Delivered Audio Quality",
+   "unit": "DAQ",
+   "default": 3.0,
+   "range": null,
+   "applies_to": "downlink and uplink",
+   "why": "IFC 2024 510.4.1.1/510.4.1.2 and NFPA 1225-2022 18.9.1/18.9.2 require DAQ 3.0 both ways.",
+   "sources": [
+    "ifc2024_510",
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "daq_design",
+   "name": "Design DAQ target",
+   "unit": "DAQ",
+   "default": 3.4,
+   "range": [
+    3.0,
+    3.4
+   ],
+   "applies_to": "downlink and uplink",
+   "why": "NFPA 1225 A.18.9.1 recommends designing for DAQ 3.4 as a safety factor; San Diego C-1, Santa Clara C-2 (digital) and OCSD acceptance require DAQ 3.4.",
+   "sources": [
+    "nfpa1225_ch18",
+    "sdfd_c1",
+    "sccfd_c2",
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "sinr_min_db",
+   "name": "Minimum SINR for DAQ (P25 C4FM)",
+   "unit": "dB",
+   "default": 17.7,
+   "range": [
+    16.5,
+    20
+   ],
+   "applies_to": "downlink measurement with a P25 decoder",
+   "why": "TSB-88.1-C draft Table A-1, C4FM narrow IF: 16.5 dB for DAQ 3.0, 17.7 dB for DAQ 3.4. Durham requires 17.7 dB; NFPA 1225 A.20.3.10 cites 18 dB; San Diego C-1 requires 20 dB.",
+   "sources": [
+    "tsb881c_draft",
+    "durham_bda",
+    "nfpa1225_ch18",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "id": "ber_max_pct",
+   "name": "Maximum BER for DAQ (P25 C4FM)",
+   "unit": "%",
+   "default": 2.0,
+   "range": [
+    2.0,
+    2.6
+   ],
+   "applies_to": "downlink measurement with a P25 decoder",
+   "why": "TSB-88.1-C draft Table A-1, C4FM: 2.6% BER for DAQ 3.0, 2.0% for DAQ 3.4. Durham and San Diego require <= 2.0%; NFPA 1225 A.20.3.10 cites 2.5%.",
+   "sources": [
+    "tsb881c_draft",
+    "durham_bda",
+    "sdfd_c1",
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "coverage_general_pct",
+   "name": "Required coverage, general areas",
+   "unit": "% of floor area/grids",
+   "default": 95,
+   "range": [
+    90,
+    95
+   ],
+   "applies_to": "each floor",
+   "why": "IFC 2024 510.4.1 and NFPA 1225 18.8.4: 95%. NFPA 72-2013 and NFPA 1221 (2016/2019) used 90%; Santa Clara C-2 still uses 90%.",
+   "sources": [
+    "ifc2024_510",
+    "nfpa1225_ch18",
+    "sbc_quick_ref",
+    "sccfd_c2"
+   ]
+  },
+  {
+   "id": "coverage_critical_pct",
+   "name": "Required coverage, critical areas",
+   "unit": "% of floor area",
+   "default": 99,
+   "range": null,
+   "applies_to": "critical areas (fire command center, pump room, exit stairs, elevator lobbies, standpipes...)",
+   "why": "IFC 2024 510.4.1 and NFPA 1225 18.8.3: 99%.",
+   "sources": [
+    "ifc2024_510",
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "isolation_margin_db",
+   "name": "Donor-to-server isolation margin above system gain",
+   "unit": "dB",
+   "default": 20,
+   "range": [
+    15,
+    20
+   ],
+   "applies_to": "BDA stability",
+   "why": "NFPA 1225-2022 18.3.3.2 and 18.10, IFC 2018/2021/2024 510.4.2.4 item 4, Fiplex HONBDA-7S datasheet (Max Gain + 20 dB), OCSD (20 dB above the amplifier's maximum rated gain, >100 dB desired), San Diego C-1, Durham (max gain = isolation - 20 dB). NFPA 72-2013 24.5.2.3.3 required 15 dB, and NPSTC's 2007 rule of thumb is gain + 15 dB.",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2024_510",
+    "ifc2021_510",
+    "ifc2018_510",
+    "fiplex_bd441",
+    "ocsd_errcs",
+    "sdfd_c1",
+    "durham_bda",
+    "sbc_codes_2022",
+    "npstc_ibwg"
+   ]
+  },
+  {
+   "id": "ul_gain_max_db",
+   "name": "Maximum uplink gain allowed by AHJ",
+   "unit": "dB",
+   "default": 65,
+   "range": null,
+   "applies_to": "BDA uplink setting",
+   "why": "OCSD (without prior approval), San Diego C-1 (unless approved) and Durham all cap uplink gain at 65 dB. 47 CFR 90.219 has no gain limit.",
+   "sources": [
+    "ocsd_errcs",
+    "sdfd_c1",
+    "durham_bda",
+    "cfr_90_219"
+   ]
+  },
+  {
+   "id": "ul_donor_port_max_dbm",
+   "name": "Maximum uplink power at the BDA donor port",
+   "unit": "dBm",
+   "default": 27,
+   "range": null,
+   "applies_to": "uplink (OCSD)",
+   "why": "OCSD 9(c): uplink not to exceed 27 dBm at the amplifier donor port.",
+   "sources": [
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "per_channel_erp_max_dbm",
+   "name": "Maximum ERP per retransmitted channel",
+   "unit": "dBm ERP",
+   "default": 37.0,
+   "range": null,
+   "applies_to": "downlink (server antennas) and uplink (donor antenna)",
+   "why": "47 CFR 90.219(d)(3)(i): 5 W ERP per retransmitted channel on forward and reverse links = 37.0 dBm ERP. OCSD also caps uplink at 37 dBm ERP.",
+   "sources": [
+    "cfr_90_219",
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "ul_input_range_max_db",
+   "name": "Maximum spread of uplink input levels at the BDA (near vs far portable)",
+   "unit": "dB",
+   "default": 20,
+   "range": null,
+   "applies_to": "uplink near-far design",
+   "why": "OCSD 9(a)(ii): uplink power presented to the amplifier should vary by no more than 20 dB from minimum to maximum and stay inside the AGC range. NFPA 1225 18.3.4.1 and IFC 510.4.2.8 require minimizing near-far effects but give no number.",
+   "sources": [
+    "ocsd_errcs",
+    "nfpa1225_ch18",
+    "ifc2024_510"
+   ]
+  },
+  {
+   "id": "bda_nf_db",
+   "name": "BDA noise figure",
+   "unit": "dB",
+   "default": 9,
+   "range": [
+    5,
+    9
+   ],
+   "applies_to": "uplink noise and sensitivity",
+   "why": "47 CFR 90.219(e)(2) caps booster noise figure at 9 dB in either direction; use 9 dB when the datasheet is not at hand. Datasheets: Fiplex HONBDA-7S 9.0 dB max, Fiplex FLEX 2.0 <9 dB, ADRF PSR-78-9537-U 5 dB at max gain, Nextivity SHIELD SOLO 5 dB, Comba V3/NG UL <5 dB at 90 dB gain and <9 dB at 67 dB gain, NOTIFIER 6.5 dB typ / 8 dB max.",
+   "sources": [
+    "cfr_90_219",
+    "fiplex_bd441",
+    "fiplex_bd426",
+    "adrf_psr9537u",
+    "nextivity_solo",
+    "comba_v3ng",
+    "notifier_dn61014"
+   ]
+  },
+  {
+   "id": "bda_dl_composite_dbm",
+   "name": "BDA maximum composite downlink output (per band)",
+   "unit": "dBm",
+   "default": null,
+   "range": [
+    27,
+    37
+   ],
+   "applies_to": "downlink headroom",
+   "why": "Product-specific, so no default: Fiplex HONBDA-7S +27 or +33 dBm; Comba V3/NG 27/33 dBm; Nextivity SHIELD SOLO 27 dBm; NOTIFIER 28-32 dBm; ADRF PSR-78-9537-U 37 dBm; Fiplex FLEX 2.0 remote VHF 30 / UHF 37 dBm.",
+   "sources": [
+    "fiplex_bd441",
+    "comba_v3ng",
+    "nextivity_solo",
+    "notifier_dn61014",
+    "adrf_psr9537u",
+    "fiplex_bd426"
+   ]
+  },
+  {
+   "id": "bda_ul_composite_dbm",
+   "name": "BDA maximum composite uplink output (per band)",
+   "unit": "dBm",
+   "default": null,
+   "range": [
+    24,
+    30
+   ],
+   "applies_to": "uplink headroom",
+   "why": "Product-specific: Fiplex 24 dBm, Nextivity 26 dBm, Comba 27 dBm (master unit), ADRF 30 dBm.",
+   "sources": [
+    "fiplex_bd441",
+    "nextivity_solo",
+    "comba_v3ng",
+    "adrf_psr9537u"
+   ]
+  },
+  {
+   "id": "bda_max_gain_db",
+   "name": "BDA maximum gain",
+   "unit": "dB",
+   "default": null,
+   "range": [
+    85,
+    95
+   ],
+   "applies_to": "isolation check (some AHJs use maximum rated gain)",
+   "why": "Product-specific: Fiplex 85 dB, Comba 90 dB, Nextivity 90 dB, NOTIFIER 92 dB max, ADRF 95 dB.",
+   "sources": [
+    "fiplex_bd441",
+    "comba_v3ng",
+    "nextivity_solo",
+    "notifier_dn61014",
+    "adrf_psr9537u"
+   ]
+  },
+  {
+   "id": "bda_max_input_dbm",
+   "name": "BDA maximum input without overdrive",
+   "unit": "dBm",
+   "default": null,
+   "range": [
+    -20,
+    -5
+   ],
+   "applies_to": "downlink and uplink input check",
+   "why": "Product-specific: ADRF -20 dBm (no overdrive), NOTIFIER -20 dBm (for FCC spurious compliance), Comba -10 dBm (no overdrive), Fiplex -5 dBm (normal operation). Comba's guidance: set the donor level so the BDA is not in AGC under normal conditions.",
+   "sources": [
+    "adrf_psr9537u",
+    "notifier_dn61014",
+    "comba_v3ng",
+    "fiplex_bd441",
+    "comba_4port"
+   ]
+  },
+  {
+   "id": "output_backoff_db",
+   "name": "Extra output backoff below composite - 10log(N)",
+   "unit": "dB",
+   "default": null,
+   "range": null,
+   "applies_to": "downlink per-channel power",
+   "why": "No opened source gives a backoff value. NPSTC and Durham use composite - 10log10(N) only; vendors specify IMD/spurious at < -13 dBm at rated power. Leave 0 unless the manufacturer specifies one.",
+   "sources": [
+    "npstc_ibwg",
+    "durham_bda",
+    "fiplex_bd441"
+   ]
+  },
+  {
+   "id": "connector_loss_db",
+   "name": "Loss per connector, feed-through or adapter",
+   "unit": "dB",
+   "default": 0.1,
+   "range": null,
+   "applies_to": "all passive chains",
+   "why": "Campbell Scientific: an acceptable approximation is 0.1 dB per connector, feed-thru or adapter. Count each mated interface once.",
+   "sources": [
+    "campbell_lb"
+   ]
+  },
+  {
+   "id": "jumper_loss_db_per_m",
+   "name": "Jumper loss, 1/2 in superflexible, DC-1 GHz",
+   "unit": "dB/m",
+   "default": 0.1,
+   "range": [
+    0.07,
+    0.1
+   ],
+   "applies_to": "jumpers at BDA, donor and antennas",
+   "why": "Rosenberger 4.3-10 jumper assemblies, DC-1 GHz: <= 0.10 dB/m + 0.01 dB (1/2 in superflexible), <= 0.07 dB/m + 0.01 dB (1/2 in flexible). Add 0.01 dB per jumper.",
+   "sources": [
+    "rosenberger_4310"
+   ]
+  },
+  {
+   "id": "surge_protector_loss_db",
+   "name": "Surge (lightning) protector insertion loss",
+   "unit": "dB",
+   "default": 0.1,
+   "range": [
+    0.1,
+    0.5
+   ],
+   "applies_to": "donor line",
+   "why": "PolyPhaser IS-50NX-C2-ME (125 MHz-1 GHz): 0.1 dB. Campbell's example budget uses 0.5 dB for a surge kit.",
+   "sources": [
+    "polyphaser_is50nx",
+    "campbell_lb"
+   ]
+  },
+  {
+   "id": "cable_loss_db_per_100ft",
+   "name": "Coax attenuation",
+   "unit": "dB/100 ft",
+   "default": null,
+   "range": null,
+   "applies_to": "every cable run",
+   "why": "Cable- and frequency-specific, so no default. Example CommScope LDF4-50A (1/2 in): 0.815 @150 MHz, 0.88 @174, 1.447 @450, 1.831 @700, 1.968 @800, 2.089 @894 MHz (dB/100 ft, 20 C).",
+   "sources": [
+    "commscope_ldf4"
+   ]
+  },
+  {
+   "id": "splitter_2way_db",
+   "name": "2-way splitter loss (split + dissipative)",
+   "unit": "dB",
+   "default": 3.6,
+   "range": [
+    3.1,
+    3.6
+   ],
+   "applies_to": "passive network",
+   "why": "Microlab D2-61 (70-2700 MHz, covers VHF): 3 dB split + <0.6 dB dissipative at 150-1000 MHz (<0.5 at 120-150) = 3.6 dB. RFS PDS2 (350-2700): 3.3 dB. Microlab D2-08 (380-2700): 3 dB + <0.1 dB. Default is the only VHF-capable sheet.",
+   "sources": [
+    "microlab_dx61",
+    "rfs_pds",
+    "microlab_dx08"
+   ]
+  },
+  {
+   "id": "splitter_3way_db",
+   "name": "3-way splitter loss",
+   "unit": "dB",
+   "default": 5.2,
+   "range": [
+    4.9,
+    5.2
+   ],
+   "applies_to": "passive network (UHF and up)",
+   "why": "RFS PDS3 (350-2700): 5.2 dB; Microlab D3-08 (380-2700): 4.8 dB + <0.1 dB. No VHF 3-way sheet opened.",
+   "sources": [
+    "rfs_pds",
+    "microlab_dx08"
+   ]
+  },
+  {
+   "id": "splitter_4way_db",
+   "name": "4-way splitter loss",
+   "unit": "dB",
+   "default": 6.5,
+   "range": [
+    6.1,
+    6.5
+   ],
+   "applies_to": "passive network (UHF and up)",
+   "why": "RFS PDS4 (350-2700): 6.5 dB; Microlab D4-08 (380-2700): 6 dB + <0.1 dB. No VHF 4-way sheet opened.",
+   "sources": [
+    "rfs_pds",
+    "microlab_dx08"
+   ]
+  },
+  {
+   "id": "coupler_through_6db_db",
+   "name": "6 dB coupler through (insertion) loss",
+   "unit": "dB",
+   "default": 1.8,
+   "range": null,
+   "applies_to": "passive network",
+   "why": "DDC240-06 (138-960 MHz): 1.8 dB; Microlab CK-761 (350-2700): 1.8 dB.",
+   "sources": [
+    "norsat_ddc240",
+    "microlab_ck7x1"
+   ]
+  },
+  {
+   "id": "coupler_through_10db_db",
+   "name": "10 dB coupler through loss",
+   "unit": "dB",
+   "default": 1.2,
+   "range": [
+    1.1,
+    1.2
+   ],
+   "applies_to": "passive network",
+   "why": "DDC240-10 (138-960 MHz): 1.2 dB; Microlab CK-771: 1.1 dB.",
+   "sources": [
+    "norsat_ddc240",
+    "microlab_ck7x1"
+   ]
+  },
+  {
+   "id": "coupler_through_15db_db",
+   "name": "15 dB coupler through loss",
+   "unit": "dB",
+   "default": 0.5,
+   "range": null,
+   "applies_to": "passive network",
+   "why": "DDC240-15: 0.5 dB; Microlab CK-751: 0.5 dB.",
+   "sources": [
+    "norsat_ddc240",
+    "microlab_ck7x1"
+   ]
+  },
+  {
+   "id": "coupler_through_20db_db",
+   "name": "20 dB coupler through loss",
+   "unit": "dB",
+   "default": 0.4,
+   "range": null,
+   "applies_to": "passive network",
+   "why": "DDC240-20 (138-960 MHz): 0.4 dB (25 dB: 0.4, 30 dB: 0.3).",
+   "sources": [
+    "norsat_ddc240"
+   ]
+  },
+  {
+   "id": "coupler_tap_6db_db",
+   "name": "6 dB coupler tap loss",
+   "unit": "dB",
+   "default": 6,
+   "range": [
+    4.5,
+    7.5
+   ],
+   "applies_to": "passive network",
+   "why": "Nominal coupling value; DDC240-06 tolerance +/-1.5 dB (CK-761 +/-1.0 dB above 380 MHz).",
+   "sources": [
+    "norsat_ddc240",
+    "microlab_ck7x1"
+   ]
+  },
+  {
+   "id": "coupler_tap_10db_db",
+   "name": "10 dB coupler tap loss",
+   "unit": "dB",
+   "default": 10,
+   "range": [
+    8.3,
+    11.7
+   ],
+   "applies_to": "passive network",
+   "why": "Nominal coupling value; DDC240-10 tolerance +/-1.7 dB.",
+   "sources": [
+    "norsat_ddc240"
+   ]
+  },
+  {
+   "id": "coupler_tap_15db_db",
+   "name": "15 dB coupler tap loss",
+   "unit": "dB",
+   "default": 15,
+   "range": [
+    13.3,
+    16.7
+   ],
+   "applies_to": "passive network",
+   "why": "Nominal coupling value; DDC240-15 tolerance +/-1.7 dB.",
+   "sources": [
+    "norsat_ddc240"
+   ]
+  },
+  {
+   "id": "coupler_tap_20db_db",
+   "name": "20 dB coupler tap loss",
+   "unit": "dB",
+   "default": 20,
+   "range": [
+    18.3,
+    21.7
+   ],
+   "applies_to": "passive network",
+   "why": "Nominal coupling value; DDC240-20 tolerance +/-1.7 dB.",
+   "sources": [
+    "norsat_ddc240"
+   ]
+  },
+  {
+   "id": "hybrid_combiner_db",
+   "name": "2x2 hybrid combiner loss per path",
+   "unit": "dB",
+   "default": 3.1,
+   "range": [
+    1.9,
+    4.3
+   ],
+   "applies_to": "combining two BDAs/bands",
+   "why": "Microlab CA-PS-2x2-196FN (128-1000 MHz): 3.1 +/- 1.2 dB all paths, 23 dB min input isolation; unused port must be terminated.",
+   "sources": [
+    "microlab_caps196"
+   ]
+  },
+  {
+   "id": "vswr_mismatch_2to1_db",
+   "name": "Mismatch loss at VSWR 2:1",
+   "unit": "dB",
+   "default": 0.511,
+   "range": null,
+   "applies_to": "antenna ports (optional)",
+   "why": "Campbell Scientific: VSWR 2:1 equals 0.511 dB mismatch loss.",
+   "sources": [
+    "campbell_lb"
+   ]
+  },
+  {
+   "id": "server_antenna_gain_vhf_dbi",
+   "name": "Indoor omni gain, VHF",
+   "unit": "dBi",
+   "default": -3,
+   "range": [
+    -3,
+    -1
+   ],
+   "applies_to": "server antennas",
+   "why": "Sinclair SI240F-O: -3 to -1 dBi typical at 132-174 MHz; default is the low end.",
+   "sources": [
+    "sinclair_si240f"
+   ]
+  },
+  {
+   "id": "server_antenna_gain_uhf_dbi",
+   "name": "Indoor omni gain, UHF",
+   "unit": "dBi",
+   "default": 0,
+   "range": [
+    0,
+    2
+   ],
+   "applies_to": "server antennas",
+   "why": "Sinclair SI240F-O: 0 to 2 dBi typical at 350-520 MHz; default is the low end.",
+   "sources": [
+    "sinclair_si240f"
+   ]
+  },
+  {
+   "id": "server_antenna_gain_700_800_dbi",
+   "name": "Indoor omni gain, 700/800 MHz",
+   "unit": "dBi",
+   "default": 1,
+   "range": [
+    1,
+    4
+   ],
+   "applies_to": "server antennas",
+   "why": "Sinclair SI240F-O: 1 to 4 dBi typical at 698-960 MHz; default is the low end.",
+   "sources": [
+    "sinclair_si240f"
+   ]
+  },
+  {
+   "id": "donor_antenna_gain_dbi",
+   "name": "Donor antenna gain",
+   "unit": "dBi",
+   "default": null,
+   "range": [
+    12.1,
+    15
+   ],
+   "applies_to": "donor link",
+   "why": "Design input, no default. OCSD requires >= 13 dBd (15 dBi) and 30 dB front-to-back at 800 MHz; Sinclair SY307R UHF Yagi 10 dBd (12.1 dBi), F/B 15 dB; NPSTC calls a 10 dB directional typical at 800 MHz.",
+   "sources": [
+    "ocsd_errcs",
+    "sinclair_sy307r",
+    "npstc_ibwg"
+   ]
+  },
+  {
+   "id": "site_erp_dbm",
+   "name": "Agency site ERP per channel",
+   "unit": "dBm ERP",
+   "default": null,
+   "range": [
+    42.1,
+    53
+   ],
+   "applies_to": "downlink source",
+   "why": "Get it from the AHJ technical document (IFC 510.4.2.2 requires the fire code official to publish site ERPs). Published examples: San Diego 800/700 P25 sites 42.14-50 dBm ERP; Comba VHF example +53 dBm per channel; Radio Solutions example 47 dBm (50 W).",
+   "sources": [
+    "ifc2024_510",
+    "sdfd_c1",
+    "comba_4port",
+    "rsi_min_signal"
+   ]
+  },
+  {
+   "id": "site_sensitivity_dbm",
+   "name": "Site receiver static sensitivity, P25 C4FM 5% BER (700/800/UHF)",
+   "unit": "dBm",
+   "default": -118,
+   "range": [
+    -119,
+    -116
+   ],
+   "applies_to": "uplink at the agency site",
+   "why": "Motorola GTR 8000 (G-Series data sheet): C4FM 5% BER -118 dBm at 700/800 and UHF, -119 dBm at VHF; H-CPM (Phase 2) -116 dBm (700/800, UHF) and -117 dBm (VHF). Pericle cites -118 dBm as a typical P25 Phase I static sensitivity.",
+   "sources": [
+    "gseries_ds",
+    "pericle_atp"
+   ]
+  },
+  {
+   "id": "site_sensitivity_vhf_dbm",
+   "name": "Site receiver static sensitivity, P25 C4FM 5% BER, VHF",
+   "unit": "dBm",
+   "default": -119,
+   "range": null,
+   "applies_to": "uplink at VHF sites",
+   "why": "GTR 8000 VHF C4FM 5% BER.",
+   "sources": [
+    "gseries_ds"
+   ]
+  },
+  {
+   "id": "site_sensitivity_hcpm_dbm",
+   "name": "Site receiver static sensitivity, P25 Phase 2 H-CPM 5% BER",
+   "unit": "dBm",
+   "default": -116,
+   "range": [
+    -117,
+    -116
+   ],
+   "applies_to": "uplink, TDMA",
+   "why": "GTR 8000: -116 dBm (700/800, UHF), -117 dBm (VHF).",
+   "sources": [
+    "gseries_ds"
+   ]
+  },
+  {
+   "id": "site_analog_12db_sinad_dbm",
+   "name": "Site receiver analog sensitivity 12 dB SINAD, 12.5 kHz",
+   "unit": "dBm",
+   "default": -118,
+   "range": [
+    -119,
+    -118
+   ],
+   "applies_to": "uplink, analog FM",
+   "why": "GTR 8000: -118 dBm (700/800, UHF), -119 dBm (VHF).",
+   "sources": [
+    "gseries_ds"
+   ]
+  },
+  {
+   "id": "faded_daq34_p25_dbm",
+   "name": "Faded threshold for DAQ 3.4, P25",
+   "unit": "dBm",
+   "default": -106,
+   "range": [
+    -108,
+    -105
+   ],
+   "applies_to": "downlink at portable and uplink at site",
+   "why": "Pericle drive-test guide: common DAQ 3.4 fading-channel thresholds are -106 dBm for P25 and -101 dBm for analog NPSPAC radios (from TSB-88); Pericle ATP slides: -105 dBm. Computing from TSB-88.1-C draft (GTR 8000 -118 dBm, Cs/N 7.6 dB, Cf/(I+N) 17.7 dB) gives -107.9 dBm.",
+   "sources": [
+    "pericle_drive",
+    "pericle_atp",
+    "tsb881c_draft",
+    "gseries_ds"
+   ]
+  },
+  {
+   "id": "cs_n_c4fm_db",
+   "name": "Static Cs/N at reference sensitivity, C4FM 12.5 kHz (narrow IF)",
+   "unit": "dB",
+   "default": 7.6,
+   "range": [
+    5.4,
+    7.6
+   ],
+   "applies_to": "DAQ threshold calculation",
+   "why": "TSB-88.1-C draft Table A-1: 5% BER at 7.6 dB (narrow IF); 5.4 dB with wide IF.",
+   "sources": [
+    "tsb881c_draft",
+    "ntia_07447"
+   ]
+  },
+  {
+   "id": "cf_n_daq30_c4fm_db",
+   "name": "Faded Cf/(I+N) for DAQ 3.0, C4FM",
+   "unit": "dB",
+   "default": 16.5,
+   "range": [
+    15.2,
+    16.5
+   ],
+   "applies_to": "DAQ threshold calculation",
+   "why": "TSB-88.1-C draft Table A-1: 2.6% BER / 16.5 dB (narrow IF), 15.2 dB (wide IF).",
+   "sources": [
+    "tsb881c_draft",
+    "ntia_07447"
+   ]
+  },
+  {
+   "id": "cf_n_daq34_c4fm_db",
+   "name": "Faded Cf/(I+N) for DAQ 3.4, C4FM",
+   "unit": "dB",
+   "default": 17.7,
+   "range": [
+    16.2,
+    17.7
+   ],
+   "applies_to": "DAQ threshold calculation",
+   "why": "TSB-88.1-C draft Table A-1: 2.0% BER / 17.7 dB (narrow IF), 16.2 dB (wide IF).",
+   "sources": [
+    "tsb881c_draft",
+    "ntia_07447"
+   ]
+  },
+  {
+   "id": "cs_n_analog_12k5_db",
+   "name": "Static Cs/N at 12 dB SINAD, analog FM +/-2.5 kHz",
+   "unit": "dB",
+   "default": 7,
+   "range": null,
+   "applies_to": "analog DAQ calculation",
+   "why": "TSB-88.1-C draft Table A-1.",
+   "sources": [
+    "tsb881c_draft"
+   ]
+  },
+  {
+   "id": "cf_n_daq30_analog_12k5_db",
+   "name": "Faded C/(I+N) for DAQ 3.0, analog FM 12.5 kHz",
+   "unit": "dB",
+   "default": 23,
+   "range": null,
+   "applies_to": "analog DAQ calculation",
+   "why": "TSB-88.1-C draft Table A-1 (17 dB for 25 kHz +/-5 kHz; 19 dB for NPSPAC +/-4 kHz).",
+   "sources": [
+    "tsb881c_draft"
+   ]
+  },
+  {
+   "id": "cf_n_daq34_analog_12k5_db",
+   "name": "Faded C/(I+N) for DAQ 3.4, analog FM 12.5 kHz",
+   "unit": "dB",
+   "default": 26,
+   "range": null,
+   "applies_to": "analog DAQ calculation",
+   "why": "TSB-88.1-C draft Table A-1 and NTIA 07-447 (26 dB); 20 dB for 25 kHz, 22 dB for NPSPAC.",
+   "sources": [
+    "tsb881c_draft",
+    "ntia_07447"
+   ]
+  },
+  {
+   "id": "site_noise_derate_db",
+   "name": "Environmental noise degradation at the site",
+   "unit": "dB",
+   "default": null,
+   "range": [
+    3,
+    6
+   ],
+   "applies_to": "site sensitivity",
+   "why": "TSB-88.1-C draft D.3.12: assume 6 dB derating for 132-174 MHz, 3 dB for 406-512 MHz and 3 dB at 700 MHz (CMRS noise). Band-specific, so no single default.",
+   "sources": [
+    "tsb881c_draft"
+   ]
+  },
+  {
+   "id": "ktb_dbm_per_hz",
+   "name": "Thermal noise density at 290 K",
+   "unit": "dBm/Hz",
+   "default": -174,
+   "range": null,
+   "applies_to": "noise calculations",
+   "why": "Keysight (App Note 57-1 summary): -174 dBm/Hz at 290 K.",
+   "sources": [
+    "keysight_nf"
+   ]
+  },
+  {
+   "id": "bandwidth_khz",
+   "name": "Channel bandwidth for noise calculations",
+   "unit": "kHz",
+   "default": 12.5,
+   "range": [
+    6.25,
+    25
+   ],
+   "applies_to": "noise floor, noise at site",
+   "why": "P25/DMR/analog narrowband channels are 12.5 kHz; P25 Phase 2 TDMA is 6.25 kHz equivalent; 25 kHz legacy wideband. 47 CFR 90.219(d)(6) noise limits and NFPA 1225 A.18.9.3 measurements use a 10 kHz bandwidth.",
+   "sources": [
+    "xl200p",
+    "cfr_90_219",
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "noise_meas_bw_khz",
+   "name": "Noise measurement bandwidth",
+   "unit": "kHz",
+   "default": 10,
+   "range": null,
+   "applies_to": "uplink noise ERP and site noise checks",
+   "why": "47 CFR 90.219(d)(6)(i)-(iii) state limits in a 10 kHz measurement bandwidth; NFPA 1225 A.18.9.3 says use 10 kHz for 12.5 kHz and 800 MHz 25 kHz systems; OCSD measures transmitted noise in 10 kHz.",
+   "sources": [
+    "cfr_90_219",
+    "nfpa1225_ch18",
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "noise_erp_max_dbm",
+   "name": "Maximum uplink noise ERP within the passband",
+   "unit": "dBm ERP/10 kHz",
+   "default": -43,
+   "range": null,
+   "applies_to": "uplink noise",
+   "why": "47 CFR 90.219(d)(6)(ii); San Diego C-1 and OCSD repeat it.",
+   "sources": [
+    "cfr_90_219",
+    "sdfd_c1",
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "id": "noise_erp_oob_max_dbm",
+   "name": "Maximum noise ERP more than 1 MHz outside the passband",
+   "unit": "dBm ERP/10 kHz",
+   "default": -70,
+   "range": null,
+   "applies_to": "uplink noise",
+   "why": "47 CFR 90.219(d)(6)(iii).",
+   "sources": [
+    "cfr_90_219",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "id": "noise_at_site_max_dbm",
+   "name": "Maximum BDA noise received at the donor site",
+   "unit": "dBm",
+   "default": -150,
+   "range": [
+    -153,
+    -150
+   ],
+   "applies_to": "uplink noise",
+   "why": "OCSD (calculated noise at donor site not greater than -150 dBm), San Diego C-1 (-150 dBm), Santa Clara C-2 (-150 dBm in-band); Durham uses -153 dBm. None of these states the bandwidth; compute in 10 kHz.",
+   "sources": [
+    "ocsd_errcs",
+    "sdfd_c1",
+    "sccfd_c2",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "noise_rise_max_db",
+   "name": "Maximum noise-floor rise at the closest site",
+   "unit": "dB",
+   "default": 1,
+   "range": null,
+   "applies_to": "uplink noise",
+   "why": "NFPA 1225 18.9.3 forbids raising the site noise floor; A.18.9.3 says a rise of 1 dB or more requires attenuation or gain reduction.",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "noise_safety_atten_db",
+   "name": "Extra uplink attenuation after noise returns to idle",
+   "unit": "dB",
+   "default": 3,
+   "range": null,
+   "applies_to": "uplink noise",
+   "why": "NFPA 1225 A.18.9.3: add 3 dB more attenuation or gain reduction as a safety factor.",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "fade_margin_db",
+   "name": "Design (fade) margin over the required level",
+   "unit": "dB",
+   "default": 15,
+   "range": [
+    10,
+    15
+   ],
+   "applies_to": "downlink edge and uplink at site",
+   "why": "No code sets a dB margin. Suneast (integrator blog, low authority) uses 15 dB for life-safety and 10 dB for commercial designs over -95 dBm; NPSTC notes designers commonly target -85 dBm (10 dB over -95). Prefer the statistical margin z*sigma when sigma is known.",
+   "sources": [
+    "suneast_spacing",
+    "npstc_ibwg"
+   ]
+  },
+  {
+   "id": "shadow_sigma_db",
+   "name": "Indoor shadow-fading standard deviation",
+   "unit": "dB",
+   "default": 5.01,
+   "range": [
+    2.62,
+    10
+   ],
+   "applies_to": "statistical margin",
+   "why": "P.1238-13 Table 2 site-general sigma: office NLoS 5.01 dB (range 2.62-7.58 across environments). P.1238-10 Table 4: 3.4 dB at 0.8 GHz open office (LoS), 10 dB office/commercial at 1.8-2 GHz.",
+   "sources": [
+    "itu_p1238_13",
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "id": "z_one_sided_95",
+   "name": "One-sided normal z for 95% confidence",
+   "unit": "-",
+   "default": 1.65,
+   "range": [
+    1.28,
+    2.32
+   ],
+   "applies_to": "statistical margin",
+   "why": "Pericle Table A.2: z = 1.28 (90%), 1.65 (95%), 2.32 (99%) for a 'greater than' test.",
+   "sources": [
+    "pericle_drive"
+   ]
+  },
+  {
+   "id": "cost231_light_wall_db",
+   "name": "COST 231 multi-wall: light wall loss (1800 MHz)",
+   "unit": "dB",
+   "default": 3.4,
+   "range": null,
+   "applies_to": "in-building leg",
+   "why": "COST 231 Tab. 4.7.2 at 1800 MHz. At 900 MHz the light-wall loss was 1.5 dB lower; Ericsson measured 2.1 dB for plasterboard at 900 MHz.",
+   "sources": [
+    "cost231_ch4"
+   ]
+  },
+  {
+   "id": "cost231_heavy_wall_db",
+   "name": "COST 231 multi-wall: heavy wall loss (1800 MHz)",
+   "unit": "dB",
+   "default": 6.9,
+   "range": null,
+   "applies_to": "in-building leg",
+   "why": "COST 231 Tab. 4.7.2; no 900 MHz adjustment given for heavy walls.",
+   "sources": [
+    "cost231_ch4"
+   ]
+  },
+  {
+   "id": "cost231_floor_db",
+   "name": "COST 231 multi-wall: floor loss (1800 MHz)",
+   "unit": "dB",
+   "default": 18.3,
+   "range": null,
+   "applies_to": "in-building leg",
+   "why": "COST 231 Tab. 4.7.2; floor loss was 3.5 dB lower at 900 MHz.",
+   "sources": [
+    "cost231_ch4"
+   ]
+  },
+  {
+   "id": "cost231_b",
+   "name": "COST 231 multi-wall floor exponent b",
+   "unit": "-",
+   "default": 0.46,
+   "range": null,
+   "applies_to": "in-building leg",
+   "why": "COST 231 Tab. 4.7.2.",
+   "sources": [
+    "cost231_ch4"
+   ]
+  },
+  {
+   "id": "server_antenna_spacing_ft",
+   "name": "Indoor antenna spacing rule of thumb",
+   "unit": "ft",
+   "default": null,
+   "range": [
+    50,
+    150
+   ],
+   "applies_to": "first-pass antenna count",
+   "why": "No universal default. Comba (simplex/split DAS): downlink antennas about 100-150 ft apart, first one within about 50 ft of the perimeter. Suneast (UHF, blog): 20-35 m (66-115 ft) apart in open floors, 15-20 m (49-66 ft) in partitioned floors; one antenna per 1,000-1,500 m2 open or 400-700 m2 partitioned.",
+   "sources": [
+    "comba_4port",
+    "suneast_spacing"
+   ]
+  }
+ ],
+ "formulas": [
+  {
+   "id": "watts_to_dbm",
+   "name": "Power conversion",
+   "formula": "P_dBm = 10*log10(P_W * 1000)",
+   "explain": "Use for datasheet watts (5 W = 37.0 dBm, 3 W = 34.8 dBm, 2.5 W = 34.0 dBm).",
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "id": "uv_to_dbm",
+   "name": "Receiver sensitivity conversion (50 ohm)",
+   "formula": "P_dBm = 20*log10(V_uV) - 107",
+   "explain": "From P = V^2/50 ohm: 1 uV = -107 dBm. APX 8000 700/800: 0.211 uV (5% BER) = -120.5 dBm; 0.562 uV (5% BER faded) = -112.0 dBm.",
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "id": "erp_eirp",
+   "name": "ERP to EIRP",
+   "formula": "EIRP_dBm = ERP_dBm + 2.15",
+   "explain": "A half-wave dipole is 2.15 dBi (TSB-88.1-C draft Table D-2). FCC 90.219 and most AHJs state ERP; antenna gains in dBd go with ERP.",
+   "sources": [
+    "tsb881c_draft",
+    "cfr_90_219"
+   ]
+  },
+  {
+   "id": "eirp",
+   "name": "Radiated power",
+   "formula": "EIRP = P_tx - L_line - L_connectors + G_ant_dBi",
+   "explain": "Transmitter power minus feeder losses plus antenna gain.",
+   "sources": [
+    "ntia_07447",
+    "campbell_lb"
+   ]
+  },
+  {
+   "id": "fspl",
+   "name": "Free-space basic transmission loss",
+   "formula": "L_bf = 32.4 + 20*log10(f_MHz) + 20*log10(d_km)",
+   "explain": "ITU-R P.525-5 eq. (6). Minimum possible loss; real donor paths add diffraction and clutter (Durham requires FSPL estimates plus an elevation profile).",
+   "sources": [
+    "itu_p525_5",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "p1238_n_model",
+   "name": "ITU-R P.1238 distance-coefficient model",
+   "formula": "L_total = 20*log10(f_MHz) + N*log10(d_m) + Lf(n) - 28",
+   "explain": "P.1238-10 eq. (1), P.1238-13 eq. (2). d > 1 m, reference L(1 m) = 20log f - 28. N already includes walls on one floor; Lf(n) = 0 on the same floor. Use the p1238 table for N and Lf. From P.1238-11 (09/2021) on, the N table no longer lists 0.8-2.2 GHz values, so sub-GHz N comes from P.1238-10.",
+   "sources": [
+    "itu_p1238_10",
+    "itu_p1238_11",
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "id": "p1238_site_general",
+   "name": "ITU-R P.1238-13 site-general model",
+   "formula": "L_b = 10*alpha*log10(d_m) + beta + 10*gamma*log10(f_GHz) + N(0, sigma)",
+   "explain": "P.1238-13 eq. (1), same-floor only, f >= 0.3 GHz (0.45 or 0.625 GHz for some rows). Not valid at VHF.",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "id": "cost231_mwm",
+   "name": "COST 231 multi-wall model",
+   "formula": "L = L_FS + L_c + sum_i(k_wi*L_wi) + k_f^((k_f+2)/(k_f+1) - b) * L_f",
+   "explain": "Free-space loss plus loss per penetrated wall type and a non-linear floor term. L_c is a regression constant, normally close to zero. Coefficients in parameters cost231_*.",
+   "sources": [
+    "cost231_ch4"
+   ]
+  },
+  {
+   "id": "shadow_margin",
+   "name": "Location margin from shadow fading",
+   "formula": "M_dB = z * sigma",
+   "explain": "z from the confidence level (1.65 for 95%), sigma from P.1238. Office NLoS at 95%: 1.65*5.01 = 8.3 dB.",
+   "sources": [
+    "pericle_drive",
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "id": "composite_power",
+   "name": "Composite power of several carriers",
+   "formula": "P_comp_dBm = 10*log10(sum_i 10^(P_i/10))",
+   "explain": "Total power through a broadband amplifier is the sum of all carriers in its passband (NPSTC Appendix E).",
+   "sources": [
+    "npstc_ibwg"
+   ]
+  },
+  {
+   "id": "per_channel_power",
+   "name": "Per-channel output at full composite",
+   "formula": "P_ch = P_comp_max - 10*log10(N_channels) - backoff",
+   "explain": "NPSTC: 27 dBm/ch for 2 channels = 24 dBm/ch for 4 = 21 for 8; 1 W composite with 40 channels = +14 dBm/ch. Durham: max output = BDA output - 10log(24).",
+   "sources": [
+    "npstc_ibwg",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "dl_chain",
+   "name": "Downlink chain to the far edge",
+   "formula": "P_in = ERP_site + 2.15 - PL_out + G_donor_dBi - L_donor; P_out_ch = min(P_in + G_dl, P_ch); P_ant = P_out_ch - L_passive; P_edge = P_ant + G_srv_dBi - L_in(d) + G_port_dBi - L_body",
+   "explain": "Site EIRP, outdoor path, donor gain, donor line, BDA gain capped by per-channel power, passive network, server antenna, indoor path, portable antenna/body. Comba's worked example follows this order.",
+   "sources": [
+    "comba_4port",
+    "ntia_07447"
+   ]
+  },
+  {
+   "id": "ul_chain",
+   "name": "Uplink chain to the site receiver",
+   "formula": "EIRP_port = P_port + G_port_dBi - L_body; P_bda_in = EIRP_port - L_in(d) + G_srv_dBi - L_passive; P_bda_out = min(P_bda_in + G_ul, P_ul_max); ERP_donor = P_bda_out - L_donor - L_atten + G_donor_dBd; P_site = ERP_donor + 2.15 - PL_out + G_site_dBi - L_site_feed",
+   "explain": "Comba's example stops at the tower (-95 dBm 'received at tower'), the convention used by OCSD, Durham and Santa Clara for the -95 dBm uplink rule.",
+   "sources": [
+    "comba_4port",
+    "ocsd_errcs",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "passive_loss",
+   "name": "Passive network loss to one antenna",
+   "formula": "L_passive = sum(cable_dB_per_100ft * len_ft/100) + n_conn*0.1 + sum(jumper 0.10*L_m + 0.01) + splitters + coupler_through(s) + coupler_tap (if on the tap leg) + hybrid + surge",
+   "explain": "Walk the path from BDA port to the antenna; a coupler costs its through loss on the main line and its coupling value on the tap.",
+   "sources": [
+    "campbell_lb",
+    "rosenberger_4310",
+    "norsat_ddc240",
+    "microlab_dx61",
+    "commscope_ldf4"
+   ]
+  },
+  {
+   "id": "vswr_mismatch",
+   "name": "Mismatch loss",
+   "formula": "ML = -10*log10(1 - ((VSWR-1)/(VSWR+1))^2)",
+   "explain": "VSWR 2:1 gives 0.511 dB (Campbell eq. 3-1).",
+   "sources": [
+    "campbell_lb"
+   ]
+  },
+  {
+   "id": "noise_floor",
+   "name": "Thermal noise floor",
+   "formula": "N_dBm = -174 + 10*log10(B_Hz) + NF_dB",
+   "explain": "12.5 kHz: -133.0 dBm + NF; 10 kHz: -134.0 dBm + NF; 6.25 kHz: -136.0 dBm + NF. Urgent Communications uses kTB = -133 dBm for 12.6 kHz.",
+   "sources": [
+    "keysight_nf",
+    "urgent_close_race"
+   ]
+  },
+  {
+   "id": "bda_output_noise",
+   "name": "BDA uplink output noise",
+   "formula": "N_out = -174 + 10*log10(B_Hz) + NF_bda + G_ul",
+   "explain": "Input-referred thermal noise amplified by the uplink gain (Comba estimates channel noise at the BDA output from kTB and NF).",
+   "sources": [
+    "keysight_nf",
+    "comba_4port"
+   ]
+  },
+  {
+   "id": "uplink_noise_erp",
+   "name": "Uplink noise ERP from the donor antenna",
+   "formula": "N_ERP = N_out(10 kHz) - L_donor - L_atten + G_donor_dBd",
+   "explain": "Compare with -43 dBm in 10 kHz (90.219(d)(6)(ii)). Example: NF 5, G 65 dB: -134+5+65 = -64 dBm; -2 dB line, +8 dBd = -58 dBm ERP.",
+   "sources": [
+    "cfr_90_219",
+    "keysight_nf"
+   ]
+  },
+  {
+   "id": "uplink_noise_at_site",
+   "name": "BDA noise delivered to the site",
+   "formula": "N_site = N_ERP + 2.15 - PL_out + G_site_dBi - L_site_feed",
+   "explain": "Same path as the uplink signal. Compare with -150 dBm (OCSD, San Diego, Santa Clara) or -153 dBm (Durham).",
+   "sources": [
+    "ocsd_errcs",
+    "sdfd_c1",
+    "sccfd_c2",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "site_noise_floor_from_sens",
+   "name": "Site receiver noise floor from its sensitivity",
+   "formula": "N_site_floor = S_static - Cs/N",
+   "explain": "TSB-88 relation (NTIA 07-447): reference sensitivity sits Cs/N above the noise. GTR 8000 C4FM: -118 - 7.6 = -125.6 dBm. Add environmental derating where TSB-88 says (VHF 6 dB, UHF/700 3 dB).",
+   "sources": [
+    "ntia_07447",
+    "tsb881c_draft",
+    "gseries_ds"
+   ]
+  },
+  {
+   "id": "noise_rise",
+   "name": "Noise-floor rise at the site",
+   "formula": "dN_dB = 10*log10(1 + 10^((N_site - N_site_floor)/10))",
+   "explain": "Power sum of BDA noise and site noise. NFPA 1225 A.18.9.3 acts at 1 dB, reached when BDA noise is about 5.9 dB below the floor.",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "faded_threshold",
+   "name": "Faded performance threshold for a DAQ",
+   "formula": "C_f = C_s + (C_f/N - C_s/N)",
+   "explain": "NTIA 07-447 eq. (4-4) summarizing TSB-88-B. GTR 8000 C4FM -118 dBm: DAQ 3.0 = -118 + (16.5 - 7.6) = -109.1 dBm; DAQ 3.4 = -107.9 dBm. APX 8000 0.211 uV (-120.5 dBm): DAQ 3.4 = -110.4 dBm.",
+   "sources": [
+    "ntia_07447",
+    "tsb881c_draft",
+    "gseries_ds",
+    "apx8000_na"
+   ]
+  },
+  {
+   "id": "isolation_check",
+   "name": "Isolation requirement",
+   "formula": "I_required = G_system + 20 ; G_max_allowed = I_measured - 20",
+   "explain": "NFPA 1225 18.3.3.2/18.10 and IFC 510.4.2.4(4): 20 dB above system gain. OCSD uses the amplifier's maximum rated gain. Durham: maximum gain = isolation - 20 dB. NPSTC/NFPA 72-2013 used +15 dB.",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2024_510",
+    "ocsd_errcs",
+    "durham_bda",
+    "npstc_ibwg"
+   ]
+  },
+  {
+   "id": "isolation_measured",
+   "name": "Isolation measurement",
+   "formula": "I = P_injected_at_server_antenna - P_measured_at_donor",
+   "explain": "Durham commissioning: inject a tone into a server antenna and measure it at the donor; compute isolation per band and set gain from it.",
+   "sources": [
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "isolation_simplex_overall",
+   "name": "Overall isolation for a 4-port (simplex) BDA",
+   "formula": "I_overall >= G_DL + G_UL + M",
+   "explain": "Comba: overall isolation must exceed combined DL and UL gain by a design margin M; per-path targets: donor DL-UL port > 65 dB, DAS DL-UL > 90 dB, donor DL-DAS DL = DL gain + 20 dB, donor UL-DAS UL = UL gain + 20 dB.",
+   "sources": [
+    "comba_4port"
+   ]
+  },
+  {
+   "id": "ul_from_dl_offset",
+   "name": "Uplink at site from an inbound reading",
+   "formula": "UL_site = DL_inbound - (ERP_site - ERP_portable)",
+   "explain": "Radio Solutions: with a reciprocal path, the outbound level equals the inbound reading minus the ERP difference. Example: -85 dBm inbound, 47 - 34 = 13 dB, so -98 dBm outbound (fails -95).",
+   "sources": [
+    "rsi_min_signal"
+   ]
+  }
+ ],
+ "p1238": [
+  {
+   "environment": "office (open office 50x16x2.7 m, LoS, note 14)",
+   "freq_band": "0.8 GHz",
+   "n": 22.5,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office",
+   "freq_band": "0.9 GHz",
+   "n": 33,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "commercial",
+   "freq_band": "0.9 GHz",
+   "n": 20,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office",
+   "freq_band": "1.25 GHz",
+   "n": 32,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "commercial",
+   "freq_band": "1.25 GHz",
+   "n": 22,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "residential",
+   "freq_band": "1.9 GHz",
+   "n": 28,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office",
+   "freq_band": "1.9 GHz",
+   "n": 30,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "commercial",
+   "freq_band": "1.9 GHz",
+   "n": 22,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office (computer room, note 4)",
+   "freq_band": "2.1 GHz",
+   "n": 25.5,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "commercial",
+   "freq_band": "2.1 GHz",
+   "n": 20,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "factory",
+   "freq_band": "2.1 GHz",
+   "n": 21.1,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "corridor (LoS, note 9)",
+   "freq_band": "2.1 GHz",
+   "n": 17,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office (open office LoS, note 14)",
+   "freq_band": "2.2 GHz",
+   "n": 20.7,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office, 1 floor penetrated",
+   "freq_band": "0.9 GHz",
+   "n": null,
+   "floor_loss": 9,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office, 2 floors penetrated",
+   "freq_band": "0.9 GHz",
+   "n": null,
+   "floor_loss": 19,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office, 3 floors penetrated",
+   "freq_band": "0.9 GHz",
+   "n": null,
+   "floor_loss": 24,
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "residential, n floors",
+   "freq_band": "1.8-2 GHz",
+   "n": null,
+   "floor_loss": "4n",
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office, n floors",
+   "freq_band": "1.8-2 GHz",
+   "n": null,
+   "floor_loss": "15 + 4(n-1)",
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "commercial, n floors",
+   "freq_band": "1.8-2 GHz",
+   "n": null,
+   "floor_loss": "6 + 3(n-1)",
+   "edition": "ITU-R P.1238-10 (08/2019)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_10"
+   ]
+  },
+  {
+   "environment": "office, 1 floor penetrated",
+   "freq_band": "0.9 GHz",
+   "n": null,
+   "floor_loss": 9,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 5",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office, 2 floors penetrated",
+   "freq_band": "0.9 GHz",
+   "n": null,
+   "floor_loss": 19,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 5",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office, 3 floors penetrated",
+   "freq_band": "0.9 GHz",
+   "n": null,
+   "floor_loss": 24,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 5",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "residential, n floors",
+   "freq_band": "1.8-2 GHz",
+   "n": null,
+   "floor_loss": "4n",
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 5",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office, n floors",
+   "freq_band": "1.8-2 GHz",
+   "n": null,
+   "floor_loss": "15 + 4(n-1)",
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 5",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "commercial, n floors",
+   "freq_band": "1.8-2 GHz",
+   "n": null,
+   "floor_loss": "6 + 3(n-1)",
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 5",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office LoS, site-general eq.(1): alpha=1.47, beta=34.17, gamma=2.08, sigma=3.68 dB, d 2-27 m; n = 10*alpha",
+   "freq_band": "0.3-294.0 GHz",
+   "n": 14.7,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office NLoS, site-general eq.(1): alpha=2.39, beta=30.13, gamma=2.4, sigma=5.01 dB, d 4-30 m; n = 10*alpha",
+   "freq_band": "0.3-255.0 GHz",
+   "n": 23.9,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "corridor LoS, site-general eq.(1): alpha=1.57, beta=29.46, gamma=2.24, sigma=3.77 dB, d 2-160 m; n = 10*alpha",
+   "freq_band": "0.3-300.0 GHz",
+   "n": 15.7,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "corridor NLoS, site-general eq.(1): alpha=2.78, beta=28.62, gamma=2.54, sigma=7.58 dB, d 3-94 m; n = 10*alpha",
+   "freq_band": "0.625-159.0 GHz",
+   "n": 27.8,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "industrial LoS, site-general eq.(1): alpha=2.27, beta=24.79, gamma=2.1, sigma=2.62 dB, d 2-102 m; n = 10*alpha",
+   "freq_band": "0.625-294.0 GHz",
+   "n": 22.7,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "industrial NLoS, site-general eq.(1): alpha=2.8, beta=23.55, gamma=2.16, sigma=5.7 dB, d 3-110 m; n = 10*alpha",
+   "freq_band": "0.625-255.0 GHz",
+   "n": 28.0,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "conference/lecture room LoS, site-general eq.(1): alpha=1.56, beta=30.47, gamma=2.23, sigma=2.92 dB, d 2-21 m; n = 10*alpha",
+   "freq_band": "0.45-300.0 GHz",
+   "n": 15.6,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "conference/lecture room NLoS, site-general eq.(1): alpha=1.4, beta=39.53, gamma=2.37, sigma=3.33 dB, d 4-25 m; n = 10*alpha",
+   "freq_band": "0.45-159.0 GHz",
+   "n": 14.0,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 2",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "corridor LoS, directional (40 deg) Tx to omni Rx, single room: alpha=1.43, beta=29.3, gamma=2.38, sigma=2.92 dB, d 4-21 m; n = 10*alpha",
+   "freq_band": "0.6-73 GHz",
+   "n": 14.3,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "corridor NLoS, directional (40 deg) Tx to omni Rx, single room: alpha=3.19, beta=16.9, gamma=2.71, sigma=4.28 dB, d 5.8-23 m; n = 10*alpha",
+   "freq_band": "0.6-73 GHz",
+   "n": 31.9,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office LoS, directional (40 deg) Tx to omni Rx, single room: alpha=1.29, beta=32, gamma=2.32, sigma=2.75 dB, d 4.9-21.5 m; n = 10*alpha",
+   "freq_band": "0.6-73 GHz",
+   "n": 12.9,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "office NLoS, directional (40 deg) Tx to omni Rx, single room: alpha=3.46, beta=14.1, gamma=2.61, sigma=3.04 dB, d 14.2-29.2 m; n = 10*alpha",
+   "freq_band": "0.6-73 GHz",
+   "n": 34.6,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "industrial LoS, directional (40 deg) Tx to omni Rx, single room: alpha=1.84, beta=24.6, gamma=2.43, sigma=2.29 dB, d 5.8-25.7 m; n = 10*alpha",
+   "freq_band": "0.6-73 GHz",
+   "n": 18.4,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  },
+  {
+   "environment": "industrial NLoS, directional (40 deg) Tx to omni Rx, single room: alpha=2.92, beta=22.3, gamma=3.34, sigma=6.14 dB, d 6.5-25.9 m; n = 10*alpha",
+   "freq_band": "0.6-73 GHz",
+   "n": 29.2,
+   "floor_loss": null,
+   "edition": "ITU-R P.1238-13 (09/2025)",
+   "table": "Table 3",
+   "sources": [
+    "itu_p1238_13"
+   ]
+  }
+ ],
+ "fcc_90_219": [
+  {
+   "item": "Scope",
+   "value": "PLMRS signal boosters; CMRS boosters under Part 90 are governed by 47 CFR 20.21",
+   "paragraph": "47 CFR 90.219 (introductory text)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Class A signal booster",
+   "value": "Retransmits specific channels; no passband exceeds 75 kHz",
+   "paragraph": "90.219(a)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Class B signal booster",
+   "value": "Retransmits any signal in a wide band; any passband exceeds 75 kHz",
+   "paragraph": "90.219(a)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Who may operate",
+   "value": "Licensees on channels above 150 MHz, within their service band and service contour, without extending it",
+   "paragraph": "90.219(b)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Non-licensee operation",
+   "value": "Needs the licensee's express consent kept in a recordable format; operation is non-interference",
+   "paragraph": "90.219(b)(1)(i)-(ii)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Use",
+   "value": "Weak-signal areas only; must not extend the station's normal operating range",
+   "paragraph": "90.219(d)(1)-(2)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Maximum radiated power",
+   "value": "5 W ERP per retransmitted channel, forward and reverse links (37.0 dBm ERP)",
+   "paragraph": "90.219(d)(3)(i)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Railroad exception",
+   "value": "Class A, single channel, up to 30 W ERP on 452/457.9000-452/457.96875 MHz",
+   "paragraph": "90.219(d)(3)(ii)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Class B location",
+   "value": "Fixed locations only; mobile Class B prohibited after Nov. 1, 2014",
+   "paragraph": "90.219(d)(4)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Class B registration",
+   "value": "Must be registered in the FCC signal booster database",
+   "paragraph": "90.219(d)(5)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Intermodulation products",
+   "value": "ERP should not exceed -30 dBm in 10 kHz (in general)",
+   "paragraph": "90.219(d)(6)(i)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Noise within the passband (uplink noise limit)",
+   "value": "ERP of noise should not exceed -43 dBm in 10 kHz (in general)",
+   "paragraph": "90.219(d)(6)(ii)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Noise more than 1 MHz outside the passband",
+   "value": "ERP should not exceed -70 dBm in 10 kHz (in general)",
+   "paragraph": "90.219(d)(6)(iii)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Passband",
+   "value": "Limited to authorized service band(s); minimum passband that does the job; except in-building DAS, a Class B passband should not span both commercial and Part 90 land mobile/public safety services",
+   "paragraph": "90.219(d)(7)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Output power capability (device)",
+   "value": "Designed for deployments not exceeding 5 W ERP per retransmitted channel",
+   "paragraph": "90.219(e)(1)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Noise figure (device)",
+   "value": "Must not exceed 9 dB in either direction",
+   "paragraph": "90.219(e)(2)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Spurious emissions (device)",
+   "value": "Must not exceed -13 dBm in any 100 kHz measurement bandwidth",
+   "paragraph": "90.219(e)(3)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Retransmission",
+   "value": "Same channels as received; no change in occupied bandwidth; still meet 90.210 unwanted-emission limits",
+   "paragraph": "90.219(e)(4)(i)-(iii)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Labeling",
+   "value": "Class A or B label and the FCC advisory warning (since March 1, 2014)",
+   "paragraph": "90.219(e)(5)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "Gain limit",
+   "value": "None. 90.219 sets no numeric gain limit; AHJs cap uplink gain (65 dB: OCSD, San Diego, Durham)",
+   "paragraph": "not in 90.219",
+   "sources": [
+    "cfr_90_219",
+    "ocsd_errcs",
+    "sdfd_c1",
+    "durham_bda"
+   ]
+  },
+  {
+   "item": "Minimum coupling loss (MSCL)",
+   "value": "Not in 90.219. MSCL/BSCL appear only in the consumer-booster rules of 47 CFR 20.21 (below)",
+   "paragraph": "not in 90.219",
+   "sources": [
+    "cfr_90_219",
+    "cfr_20_21"
+   ]
+  },
+  {
+   "item": "Consumer wideband booster uplink gain (contrast, Part 20)",
+   "value": "Gain <= -34 dB - RSSI + MSCL",
+   "paragraph": "47 CFR 20.21(e)(8)(i)(C)(1)",
+   "sources": [
+    "cfr_20_21"
+   ]
+  },
+  {
+   "item": "Consumer wideband fixed booster max gain (contrast, Part 20)",
+   "value": "<= 6.5 dB + 20 log10(f_MHz, uplink mid-band)",
+   "paragraph": "47 CFR 20.21(e)(8)(i)(C)(2)(i)",
+   "sources": [
+    "cfr_20_21"
+   ]
+  },
+  {
+   "item": "Consumer wideband booster uplink noise (contrast, Part 20)",
+   "value": "<= -103 dBm/MHz - RSSI; fixed max -102.5 dBm/MHz + 20 log10(f_MHz)",
+   "paragraph": "47 CFR 20.21(e)(8)(i)(A)(1)-(2)",
+   "sources": [
+    "cfr_20_21"
+   ]
+  },
+  {
+   "item": "Provider-specific booster gain (contrast, Part 20)",
+   "value": "<= BSCL - 28 dB - (40 dB - MSCL); fixed max 19.5 dB + 20 log10(f_MHz) or 100 dB with isolation-based automatic gain adjustment",
+   "paragraph": "47 CFR 20.21(e)(9)(i)(C)(1)-(2)",
+   "sources": [
+    "cfr_20_21"
+   ]
+  }
+ ],
+ "code": [
+  {
+   "item": "Coverage, general areas",
+   "value": "95% of all areas on each floor",
+   "code": "IFC 2024",
+   "section": "510.4.1",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Coverage, critical areas",
+   "value": "99% of areas designated critical by the fire code official",
+   "code": "IFC 2024",
+   "section": "510.4.1",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Downlink (into building)",
+   "value": "DAQ >= 3.0 (narrowband analog, digital or LTE) or equivalent BER/SINR; no dBm value",
+   "code": "IFC 2024",
+   "section": "510.4.1.1",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Uplink (out of building)",
+   "value": "DAQ >= 3.0 or equivalent BER/SINR; no dBm value",
+   "code": "IFC 2024",
+   "section": "510.4.1.2",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Technical criteria document",
+   "value": "Fire code official keeps frequencies, site locations, site ERP, max propagation delay, applications",
+   "code": "IFC 2024",
+   "section": "510.4.2.2",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Isolation",
+   "value": "Not less than 20 dB greater than system gain under all operating conditions",
+   "code": "IFC 2024",
+   "section": "510.4.2.4 item 4",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Oscillation",
+   "value": "Built-in oscillation detection and control; reduce gain and keep operating; supervisory signal; may shut down if uncorrectable",
+   "code": "IFC 2024",
+   "section": "510.4.2.4 item 5",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Near-far",
+   "value": "Dynamic range designed to minimize strong-signal AGC effects on weak uplinks",
+   "code": "IFC 2024",
+   "section": "510.4.2.8",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Noise",
+   "value": "Booster type and uplink signal and noise levels coordinated with and approved by affected license holders",
+   "code": "IFC 2024",
+   "section": "510.4.2.9",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Acceptance test",
+   "value": "20 grids per floor, >1 failed grid fails; may go to 40 grids with <= 2 non-adjacent failures; two radios keyed at once, one <= 10 ft from an indoor antenna, one at the farthest point",
+   "code": "IFC 2024",
+   "section": "510.5.4",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Downlink (into building)",
+   "value": "Minimum -95 dBm throughout the coverage area and DAQ >= 3.0",
+   "code": "IFC 2021",
+   "section": "510.4.1.1",
+   "sources": [
+    "ifc2021_510"
+   ]
+  },
+  {
+   "item": "Uplink (out of building)",
+   "value": "DAQ >= 3.0 or equivalent SINR; no dBm value",
+   "code": "IFC 2021",
+   "section": "510.4.1.2",
+   "sources": [
+    "ifc2021_510"
+   ]
+  },
+  {
+   "item": "Coverage",
+   "value": "95% all areas, 99% critical areas",
+   "code": "IFC 2021",
+   "section": "510.4.1",
+   "sources": [
+    "ifc2021_510"
+   ]
+  },
+  {
+   "item": "Isolation",
+   "value": "Not less than 20 dB greater than system gain",
+   "code": "IFC 2021",
+   "section": "510.4.2.4 item 4",
+   "sources": [
+    "ifc2021_510"
+   ]
+  },
+  {
+   "item": "Downlink / uplink",
+   "value": "DAQ >= 3.0 or equivalent SINR, no dBm; 95% of areas",
+   "code": "IFC 2018",
+   "section": "510.4.1, 510.4.1.1, 510.4.1.2",
+   "sources": [
+    "ifc2018_510"
+   ]
+  },
+  {
+   "item": "Isolation",
+   "value": "Not less than 20 dB greater than system gain",
+   "code": "IFC 2018",
+   "section": "510.4.2.4",
+   "sources": [
+    "ifc2018_510"
+   ]
+  },
+  {
+   "item": "Signal strength (older code)",
+   "value": "-95 dBm receivable in the building and -95 dBm received by the agency system from inside; 95% of areas",
+   "code": "IFC 2015 / 2012",
+   "section": "510.4.1, 510.4.1.1, 510.4.1.2",
+   "sources": [
+    "rsi_min_signal",
+    "sbc_quick_ref"
+   ]
+  },
+  {
+   "item": "Coverage, critical areas",
+   "value": "99% floor area (fire command centers, pump rooms, exit stairs and passageways, elevators and lobbies, standpipe cabinets, sprinkler sectional valves)",
+   "code": "NFPA 1225-2022",
+   "section": "18.8.3",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Coverage, general areas",
+   "value": "95% floor area",
+   "code": "NFPA 1225-2022",
+   "section": "18.8.4",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Two simultaneous talk paths",
+   "value": "Support two portables transmitting on different channels when the AHJ requires more than one",
+   "code": "NFPA 1225-2022",
+   "section": "18.8.6",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Downlink",
+   "value": "Minimum DAQ 3.0 (narrowband analog, P25 or LTE); annex recommends designing for DAQ 3.4",
+   "code": "NFPA 1225-2022",
+   "section": "18.9.1, A.18.9.1",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Uplink",
+   "value": "Minimum DAQ 3.0",
+   "code": "NFPA 1225-2022",
+   "section": "18.9.2",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Noise floor",
+   "value": "Booster uplink noise shall not raise the noise floor at the closest site or any receiving site; annex: if raised >= 1 dB, attenuate/reduce gain to idle, then add 3 dB more; measure with RBW <= receiver noise bandwidth (10 kHz), 5-minute average",
+   "code": "NFPA 1225-2022",
+   "section": "18.9.3, A.18.9.3",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Isolation",
+   "value": "Minimum of 20 dB above system gain",
+   "code": "NFPA 1225-2022",
+   "section": "18.3.3.2 and 18.10",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Oscillation",
+   "value": "Built-in detection and control to reduce gain and maintain operation; supervisory signal; may shut down if uncorrectable",
+   "code": "NFPA 1225-2022",
+   "section": "18.3.2, 18.3.2.1, 18.3.2.2",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Near-far",
+   "value": "Design to minimize the near-far effect",
+   "code": "NFPA 1225-2022",
+   "section": "18.3.4.1",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "DAQ by measurement",
+   "value": "SINR >= 18 dB and BER <= 2.5%, or values from the license holder and AHJ; 20 grid cells, 20-80 ft cells, sectors <= 128,000 ft2",
+   "code": "NFPA 1225-2022",
+   "section": "A.20.3.10",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Design submittal",
+   "value": "Includes donor link budgets and path profiles, donor/DAS isolation calculations, predictive DAQ or signal maps",
+   "code": "NFPA 1225-2022",
+   "section": "A.18.2.1",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Signal strength (older code)",
+   "value": "-95 dBm inbound throughout; -95 dBm outbound at the donor site; 90% general / 99% critical",
+   "code": "NFPA 72-2013",
+   "section": "24.5.2.3.1, 24.5.2.3.2, 24.5.2.2",
+   "sources": [
+    "rsi_min_signal",
+    "sbc_codes_2022"
+   ]
+  },
+  {
+   "item": "Isolation (older code)",
+   "value": "15 dB above signal booster gain",
+   "code": "NFPA 72-2013",
+   "section": "24.5.2.3.3",
+   "sources": [
+    "sbc_codes_2022",
+    "sbc_quick_ref"
+   ]
+  },
+  {
+   "item": "Isolation (older code)",
+   "value": "20 dB (2016); 20 dB above system gain (2019); DAQ 3.0; 90%/99%",
+   "code": "NFPA 1221-2016 / 2019",
+   "section": "9.6.9, 9.6.8, 9.6.7",
+   "sources": [
+    "sbc_codes_2022",
+    "sbc_quick_ref"
+   ]
+  },
+  {
+   "item": "AHJ example: downlink",
+   "value": "-95 dBm in 95% of grids and DAQ 3.4 in 95% of grids and all critical areas; DL <= -75 dBm near the interior perimeter",
+   "code": "AHJ: Orange County Sheriff (CA), Rev 4.5 2025",
+   "section": "Sec. 9(a), acceptance testing",
+   "sources": [
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "item": "AHJ example: uplink",
+   "value": "Per-channel -95 to -75 dBm at donor site; UL gain <= 65 dB; <= 27 dBm at donor port and <= 37 dBm ERP; design portable 34 dBm; input spread <= 20 dB",
+   "code": "AHJ: Orange County Sheriff (CA)",
+   "section": "Sec. 9(a)-(e)",
+   "sources": [
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "item": "AHJ example: noise and isolation",
+   "value": "Noise <= -43 dBm/10 kHz at donor antenna and <= -150 dBm calculated at the donor site; isolation >= max rated gain + 20 dB, >100 dB desired; donor >= 13 dBd, 30 dB F/B",
+   "code": "AHJ: Orange County Sheriff (CA)",
+   "section": "Items 15, 24; Antenna Isolation 10",
+   "sources": [
+    "ocsd_errcs"
+   ]
+  },
+  {
+   "item": "AHJ example",
+   "value": "-95 dBm and DAQ 3.4 inbound; DAQ 3.4 outbound; SINR >= 20 dB, BER <= 2%; UL gain <= 65 dB; noise <= -150 dBm at donor site, -43 dBm ERP in band, -70 dBm ERP 1 MHz out; isolation >= gain + 20 dB; site ERP 42.14-50 dBm",
+   "code": "AHJ: San Diego Fire-Rescue C-1 (rev. 01/22/2026)",
+   "section": "IV.A-B, signal booster items 6-8, donor antenna item 3, Appendix A",
+   "sources": [
+    "sdfd_c1"
+   ]
+  },
+  {
+   "item": "AHJ example",
+   "value": "DAQ 3.4 digital / 3.0 analog in 90% of each floor; -95 dBm at donor site receiver antenna; booster signal >= 15 dB below exterior macro signal inside exterior walls; in-band noise <= -150 dBm at macro receive antennas",
+   "code": "AHJ: Santa Clara County FD C-2 (rev. 09/01/20)",
+   "section": "Signal strength A-D",
+   "sources": [
+    "sccfd_c2"
+   ]
+  },
+  {
+   "item": "AHJ example",
+   "value": "Grid: -95 dBm DL, DAQ 3.0, BER <= 2.0%, SINR >= 17.7 dB; UL at tower -95 to -80 dBm; noise at tower < -153 dBm; UL gain <= 65 dB; max gain = isolation - 20 dB; per-channel = output - 10log(24); leakage <= -89 dBm @50 ft, <= -95 dBm @100 ft; Class A only, 32 us max delay; initial survey pass at -100 dBm",
+   "code": "AHJ: City/County of Durham NC (Doc. 47330 rev. 10/12/2026)",
+   "section": "Items 3, 6, 10, 11; RF Requirements 9; 800 MHz commissioning",
+   "sources": [
+    "durham_bda"
+   ]
+  }
+ ],
+ "checks": [
+  {
+   "id": "dl_edge_level",
+   "name": "Downlink level at the far edge",
+   "rule": "Compute P_edge per channel at the worst location of each area.",
+   "pass_if": "P_edge >= dl_min_dbm + fade_margin_db (default -95 + 15 = -80 dBm)",
+   "sources": [
+    "ifc2021_510",
+    "sdfd_c1",
+    "durham_bda",
+    "suneast_spacing"
+   ]
+  },
+  {
+   "id": "dl_edge_daq",
+   "name": "Downlink DAQ threshold",
+   "rule": "Faded threshold at the portable: S_static - Cs/N + Cf/N(DAQ).",
+   "pass_if": "P_edge >= faded threshold for daq_design (+ shadow margin z*sigma)",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2024_510",
+    "ntia_07447",
+    "tsb881c_draft"
+   ]
+  },
+  {
+   "id": "ul_site_level",
+   "name": "Uplink level at the site receiver",
+   "rule": "Compute P_site per channel from the farthest portable.",
+   "pass_if": "ul_min_dbm (-95) <= P_site <= ul_max_dbm (-75, or -80 Durham)",
+   "sources": [
+    "rsi_min_signal",
+    "ocsd_errcs",
+    "durham_bda",
+    "sccfd_c2"
+   ]
+  },
+  {
+   "id": "ul_site_daq",
+   "name": "Uplink DAQ at the site",
+   "rule": "Faded threshold at the site receiver from its sensitivity.",
+   "pass_if": "P_site >= S_site - Cs/N + Cf/N(DAQ 3.4) + margin (GTR 8000 C4FM: -107.9 dBm + margin)",
+   "sources": [
+    "gseries_ds",
+    "tsb881c_draft",
+    "ntia_07447"
+   ]
+  },
+  {
+   "id": "isolation",
+   "name": "Donor-to-server isolation",
+   "rule": "Isolation (calculated or measured) against the highest gain setting; some AHJs use the amplifier's maximum rated gain.",
+   "pass_if": "isolation_db >= max(G_dl, G_ul) + 20 (warn below +20, fail below +15)",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2024_510",
+    "ocsd_errcs",
+    "durham_bda",
+    "npstc_ibwg",
+    "sbc_codes_2022"
+   ]
+  },
+  {
+   "id": "ul_noise_erp",
+   "name": "Uplink noise ERP",
+   "rule": "N_ERP in 10 kHz from bda_output_noise and uplink_noise_erp.",
+   "pass_if": "N_ERP <= -43 dBm/10 kHz in band; <= -70 dBm/10 kHz beyond 1 MHz",
+   "sources": [
+    "cfr_90_219",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "id": "ul_noise_at_site",
+   "name": "BDA noise at the donor site",
+   "rule": "N_site from uplink_noise_at_site in 10 kHz.",
+   "pass_if": "N_site <= -150 dBm (OCSD/San Diego/Santa Clara) or <= -153 dBm (Durham), per the AHJ",
+   "sources": [
+    "ocsd_errcs",
+    "sdfd_c1",
+    "sccfd_c2",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "ul_noise_rise",
+   "name": "Noise-floor rise",
+   "rule": "noise_rise against the site floor from site_noise_floor_from_sens.",
+   "pass_if": "dN < 1 dB; then plan 3 dB extra attenuation",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "id": "dl_headroom",
+   "name": "BDA downlink headroom",
+   "rule": "Per-channel output with all N channels active.",
+   "pass_if": "P_in_ch + G_dl <= P_comp_max - 10*log10(N) - backoff",
+   "sources": [
+    "npstc_ibwg",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "bda_input_range",
+   "name": "BDA input range",
+   "rule": "Donor input per band and uplink input from the nearest portable.",
+   "pass_if": "P_in <= bda_max_input_dbm (datasheet) and BDA not in AGC under normal donor conditions",
+   "sources": [
+    "adrf_psr9537u",
+    "comba_v3ng",
+    "fiplex_bd441",
+    "notifier_dn61014",
+    "comba_4port"
+   ]
+  },
+  {
+   "id": "ul_gain_limit",
+   "name": "Uplink gain cap",
+   "rule": "Uplink gain setting.",
+   "pass_if": "G_ul <= 65 dB unless the AHJ approves more",
+   "sources": [
+    "ocsd_errcs",
+    "sdfd_c1",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "ul_power_limits",
+   "name": "Uplink power limits",
+   "rule": "Per-channel uplink at donor port and ERP from the donor antenna.",
+   "pass_if": "P_donor_port <= 27 dBm (OCSD) and ERP_donor <= 37 dBm (5 W, 90.219(d)(3)(i))",
+   "sources": [
+    "ocsd_errcs",
+    "cfr_90_219"
+   ]
+  },
+  {
+   "id": "dl_erp_limit",
+   "name": "Downlink ERP per channel",
+   "rule": "Server antenna ERP per channel.",
+   "pass_if": "ERP_server <= 37 dBm (5 W)",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "id": "ul_near_far",
+   "name": "Uplink input spread",
+   "rule": "Difference between nearest and farthest portable at the BDA uplink input.",
+   "pass_if": "spread <= 20 dB and within the BDA AGC range",
+   "sources": [
+    "ocsd_errcs",
+    "nfpa1225_ch18",
+    "ifc2024_510"
+   ]
+  },
+  {
+   "id": "leakage",
+   "name": "Signal leakage outside the building",
+   "rule": "Predicted DL outside the building.",
+   "pass_if": "<= -89 dBm @50 ft and <= -95 dBm @100 ft (Durham); >= 15 dB below the donor signal at the perimeter (OCSD, Santa Clara); <= -75 dBm at the interior perimeter (OCSD)",
+   "sources": [
+    "durham_bda",
+    "ocsd_errcs",
+    "sccfd_c2"
+   ]
+  },
+  {
+   "id": "bda_nf_limit",
+   "name": "BDA noise figure",
+   "rule": "Datasheet NF.",
+   "pass_if": "NF <= 9 dB",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "id": "booster_class",
+   "name": "Booster class vs AHJ",
+   "rule": "Passband width per filter.",
+   "pass_if": "Class A if every passband <= 75 kHz; meet AHJ class rules (Durham: Class A only)",
+   "sources": [
+    "cfr_90_219",
+    "durham_bda"
+   ]
+  },
+  {
+   "id": "coverage_pct",
+   "name": "Coverage percentage per floor",
+   "rule": "Share of grids or floor area passing dl_edge and ul_site checks.",
+   "pass_if": ">= 95% general and >= 99% critical areas (IFC 2024 / NFPA 1225); some AHJs 90%",
+   "sources": [
+    "ifc2024_510",
+    "nfpa1225_ch18",
+    "sccfd_c2"
+   ]
+  }
+ ],
+ "portables": [
+  {
+   "band": "VHF 136-174 MHz",
+   "radio": "Motorola APX 8000 (P25)",
+   "power_w": 6,
+   "power_dbm": 37.8,
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "band": "UHF R1 380-470 MHz",
+   "radio": "Motorola APX 8000 (P25)",
+   "power_w": 5,
+   "power_dbm": 37.0,
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "band": "UHF R2 450-520 MHz",
+   "radio": "Motorola APX 8000 (P25)",
+   "power_w": 5,
+   "power_dbm": 37.0,
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "band": "700 MHz",
+   "radio": "Motorola APX 8000 (P25)",
+   "power_w": 2.5,
+   "power_dbm": 34.0,
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "band": "800 MHz",
+   "radio": "Motorola APX 8000 (P25)",
+   "power_w": 3,
+   "power_dbm": 34.8,
+   "sources": [
+    "apx8000_na"
+   ]
+  },
+  {
+   "band": "VHF 136-174 MHz",
+   "radio": "L3Harris XL Converge 200P (P25)",
+   "power_w": 6,
+   "power_dbm": 37.8,
+   "sources": [
+    "xl200p"
+   ]
+  },
+  {
+   "band": "UHF 378-522 MHz",
+   "radio": "L3Harris XL Converge 200P (P25)",
+   "power_w": 5,
+   "power_dbm": 37.0,
+   "sources": [
+    "xl200p"
+   ]
+  },
+  {
+   "band": "700/800 MHz",
+   "radio": "L3Harris XL Converge 200P (P25)",
+   "power_w": 3,
+   "power_dbm": 34.8,
+   "sources": [
+    "xl200p"
+   ]
+  },
+  {
+   "band": "VHF 136-174 MHz",
+   "radio": "Motorola MOTOTRBO R7 (DMR)",
+   "power_w": 5,
+   "power_dbm": 37.0,
+   "sources": [
+    "mototrbo_r7"
+   ]
+  },
+  {
+   "band": "UHF 400-527 MHz",
+   "radio": "Motorola MOTOTRBO R7 (DMR)",
+   "power_w": 4,
+   "power_dbm": 36.0,
+   "sources": [
+    "mototrbo_r7"
+   ]
+  },
+  {
+   "band": "800/900 MHz",
+   "radio": "Motorola MOTOTRBO R7 (DMR)",
+   "power_w": 2.5,
+   "power_dbm": 34.0,
+   "sources": [
+    "mototrbo_r7"
+   ]
+  }
+ ],
+ "worked_example": {
+  "title": "Comba VHF simplex BDA link budget (4-port BDA, donor about 15 miles away), Comba design note rev. 4-7-2026",
+  "steps": [
+   {
+    "stage": "DL: tower ERP per channel",
+    "value": "+53 dBm",
+    "note": "ERP, so antenna gains below are in dBd"
+   },
+   {
+    "stage": "DL: VHF free-space path loss, about 15 miles",
+    "value": "104 dB",
+    "note": "Consistent with P.525 at about 155 MHz and 24 km (103.9 dB) - frequency not stated by Comba"
+   },
+   {
+    "stage": "DL: donor antenna gain",
+    "value": "8 dBd",
+    "note": ""
+   },
+   {
+    "stage": "DL: donor coax loss",
+    "value": "2 dB",
+    "note": ""
+   },
+   {
+    "stage": "DL: downlink attenuator",
+    "value": "15 dB",
+    "note": "Added for donor DL-UL port isolation in a simplex BDA"
+   },
+   {
+    "stage": "DL: signal at BDA input",
+    "value": "-60 dBm",
+    "note": "53 - 104 + 8 - 2 - 15 = -60"
+   },
+   {
+    "stage": "DL: BDA DL gain",
+    "value": "75 dB",
+    "note": ""
+   },
+   {
+    "stage": "DL: BDA DL output",
+    "value": "+15 dBm",
+    "note": "-60 + 75"
+   },
+   {
+    "stage": "DL: DAS loss to antenna",
+    "value": "35 dB",
+    "note": ""
+   },
+   {
+    "stage": "DL: signal at DAS antenna",
+    "value": "-20 dBm",
+    "note": "15 - 35"
+   },
+   {
+    "stage": "DL: portable at 5 ft (free space)",
+    "value": "-40 dBm",
+    "note": ""
+   },
+   {
+    "stage": "DL: portable at 60 ft (medium dense)",
+    "value": "-80 dBm",
+    "note": "60 dB indoor loss; with P.1238 L = 20log f - 28 + N log d at about 155 MHz this implies N of about 35 (derived, not stated by Comba)"
+   },
+   {
+    "stage": "UL: portable radiated power",
+    "value": "+35 dBm",
+    "note": ""
+   },
+   {
+    "stage": "UL: propagation loss portable to UL antenna",
+    "value": "20-60 dB",
+    "note": "near to far"
+   },
+   {
+    "stage": "UL: DAS loss UL antenna to BDA",
+    "value": "40 dB",
+    "note": ""
+   },
+   {
+    "stage": "UL: signal at BDA UL input",
+    "value": "-25 dBm near / -65 dBm far",
+    "note": "35 - 20 - 40 = -25; 35 - 60 - 40 = -65 (40 dB spread)"
+   },
+   {
+    "stage": "UL: BDA UL gain",
+    "value": "73 dB",
+    "note": "Above the 65 dB cap used by OCSD, San Diego and Durham"
+   },
+   {
+    "stage": "UL: UL target output",
+    "value": "+8 dBm",
+    "note": "-65 + 73"
+   },
+   {
+    "stage": "UL: UL attenuator",
+    "value": "5 dB",
+    "note": ""
+   },
+   {
+    "stage": "UL: donor coax loss",
+    "value": "2 dB",
+    "note": ""
+   },
+   {
+    "stage": "UL: donor antenna gain",
+    "value": "8 dBd",
+    "note": "ERP from donor = 8 - 5 - 2 + 8 = +9 dBm"
+   },
+   {
+    "stage": "UL: free-space path loss",
+    "value": "104 dB",
+    "note": ""
+   },
+   {
+    "stage": "UL: received at tower",
+    "value": "-95 dBm",
+    "note": "9 - 104 = -95; meets a -95 dBm uplink minimum with zero margin"
+   },
+   {
+    "stage": "Isolation targets (simplex)",
+    "value": "Donor DL-UL port > 65 dB; DAS DL-UL > 90 dB; DL path = DL gain + 20 dB; UL path = UL gain + 20 dB",
+    "note": "Comba Section 3"
+   },
+   {
+    "stage": "Noise: UL leakage into DL",
+    "value": "UL +8 dBm with 78 dB port isolation = -70 dBm (at the -70 dBm DL squelch); PA noise -60 dBm/10 kHz becomes < -134 dBm/10 kHz; BDA NF 5 dB, channel noise at output -51 dBm/10 kHz, leakage -128 dBm/10 kHz",
+    "note": "Comba Section 3.5"
+   }
+  ],
+  "sources": [
+   "comba_4port",
+   "itu_p525_5",
+   "itu_p1238_13"
+  ]
+ }
+}

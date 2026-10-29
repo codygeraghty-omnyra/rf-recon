@@ -170,7 +170,9 @@ S.views.map = (v, rows) => {
       <label class="inl" title="Standard, ATAK style (symbols, imagery, MGRS) or a map you imported">Map <select id="mapStyle"></select></label>
       <label class="inl">Heatmap <select id="heatKind">
         <option value="off">Off</option><option value="terrain">Predicted with terrain (Hata + hills, strongest 60)</option><option value="predicted">Predicted from licenses (free-space)</option>
-        <option value="measured">Measured (my captures / WiGLE)</option><option value="density">Density of everything shown</option></select></label>
+        <option value="measured">Measured (my captures / WiGLE)</option><option value="carrier">Carrier coverage (FCC Broadband Map)</option><option value="density">Density of everything shown</option></select></label>
+      <span class="inl" id="heatCarrierBox" style="${S.heat.kind==="carrier"?"":"display:none"}"><select id="heatCarrier" title="Which carrier and technology"><option value="">Loading carriers…</option></select>
+        <select id="heatEnv" title="Where the carrier says the signal holds"><option value="">Outdoor or in a vehicle</option><option value="0">Outdoor, standing still</option><option value="1">In a moving vehicle</option></select></span>
       <details class="inl" id="heatFiles" style="position:relative;${S.heat.kind==="measured"?"":"display:none"}"><summary title="Which survey files the measured heatmap uses">${heatFilesLabel()}</summary>
         <div class="panel" style="position:absolute;z-index:1000;min-width:260px;max-height:300px;overflow:auto;margin-top:4px;padding:8px">${heatFileList().map(([k,l,n])=>`<label style="display:block;white-space:nowrap"><input type="checkbox" data-hf="${esc(k)}" ${S.heat.files?.has(k)?"checked":""}> ${esc(l)} <span class="hint">${n}</span></label>`).join("")||'<span class="hint">No survey points with levels in this area yet.</span>'}
           ${S.heat.files?.size?'<button id="heatFilesAll" style="margin-top:6px">Use every file</button>':""}</div></details>
@@ -187,7 +189,12 @@ S.views.map = (v, rows) => {
     <div id="emitPanel"></div>
     <div id="mapTable" style="margin-top:10px"></div>`;
   $("#heatKind").value=S.heat.kind;
-  $("#heatKind").onchange=e=>{ S.heat.kind=e.target.value; $("#heatFiles").style.display=S.heat.kind==="measured"?"":"none"; loadHeat(); };
+  $("#heatKind").onchange=async e=>{ S.heat.kind=e.target.value; $("#heatFiles").style.display=S.heat.kind==="measured"?"":"none";
+    $("#heatCarrierBox").style.display=S.heat.kind==="carrier"?"":"none"; if(S.heat.kind==="carrier") await heatCarrierFill(); loadHeat(); };
+  $("#heatEnv").value=S.heat.env??"";
+  $("#heatCarrier").onchange=e=>{ S.heat.carrier=e.target.value; loadHeat(); };
+  $("#heatEnv").onchange=e=>{ S.heat.env=e.target.value; loadHeat(); };
+  if(S.heat.kind==="carrier") heatCarrierFill();
   v.querySelectorAll("[data-hf]").forEach(c=>c.onchange=()=>{ S.heat.files=S.heat.files||new Set(); c.checked?S.heat.files.add(c.dataset.hf):S.heat.files.delete(c.dataset.hf);
     $("#heatFiles summary").textContent=heatFilesLabel(); loadHeat(); });
   if($("#heatFilesAll")) $("#heatFilesAll").onclick=()=>{ S.heat.files=new Set(); render(); loadHeat(); };
@@ -395,12 +402,26 @@ function heatFileList(){
 }
 const heatFilesLabel = () => S.heat.files?.size ? `Files: ${S.heat.files.size} chosen` : "Files: all";
 const heatArea = () => S.center || (S.mode==="county" && $("#state").value && $("#county").value);  // a county heatmap covers the county's entries
+// carrier coverage (bdc.py): the carriers with coverage around the pin (or in the map's view), as "provider:tech"
+async function heatCarrierFill(){
+  const sel=$("#heatCarrier"); if(!sel) return;
+  let s,n,w,e;
+  if(S.center){ const r=(S.radius||5)*1.609/111, k=Math.cos(S.center[0]*Math.PI/180); [s,n,w,e]=[S.center[0]-r,S.center[0]+r,S.center[1]-r/k,S.center[1]+r/k]; }
+  else if(S.map){ const b=S.map.getBounds(); [s,n,w,e]=[b.getSouth(),b.getNorth(),b.getWest(),b.getEast()]; }
+  else return;
+  let cs=[]; try{ cs=(await api(`/api/bdc/carriers?s=${s}&n=${n}&w=${w}&e=${e}`)).carriers; }catch(err){}
+  sel.innerHTML=cs.length?cs.map(c=>`<option value="${c.provider}:${c.tech}">${esc(c.brand)} ${esc(c.tech_name)}</option>`).join("")
+    :'<option value="">No carrier coverage loaded here (Data &amp; updates)</option>';
+  if(!cs.some(c=>`${c.provider}:${c.tech}`===S.heat.carrier)) S.heat.carrier=cs.length?`${cs[0].provider}:${cs[0].tech}`:"";
+  sel.value=S.heat.carrier||"";
+}
 function heatParams(kind){
   const s=S.mission?.settings||{};
   return {kind, size:s.heat_size||200, metric:s.heat_metric||"mean", combine:s.heat_combine||"max", alpha:s.heat_alpha||190,
     types:[...S.chips.type].join("|"), bands:[...S.chips.band].join("|"), cats:[...S.chips.cat].join("|"),
     layers:[...S.layerOn].join(","), name:(S.mission?.name||"rf")+"_"+kind,
-    ...(kind==="measured"?{files:[...(S.heat.files||[])].join("|"), ident:S.heat.ident||"", freq:S.heat.freq??""}:{})};
+    ...(kind==="measured"?{files:[...(S.heat.files||[])].join("|"), ident:S.heat.ident||"", freq:S.heat.freq??""}:{}),
+    ...(kind==="carrier"?{provider:(S.heat.carrier||":").split(":")[0], tech:(S.heat.carrier||":").split(":")[1], ...(S.heat.env!==undefined&&S.heat.env!==""?{env:S.heat.env}:{})}:{})};
 }
 async function loadHeat(){
   if(S.heatLayer && S.map){ S.map.removeLayer(S.heatLayer); } S.heatLayer=null; S.heatImg=null;
