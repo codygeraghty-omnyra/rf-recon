@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "d97d82f90f";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "3f4a364652";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -802,7 +802,7 @@ addEventListener("popstate", () => { const h = readHash(); if (h.tab && h.tab !=
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; if (S.tab === "packs") render(); });
 
 async function start() {
-  DashLook.mount($("#lookSlot"), {onChange: () => drawMap(false)});
+  DashLook.mount($("#lookSlot"), {onChange: () => drawMap(false), nav: false});  // the kit's display sheet; the phone has its own way back
   const [base, filters, view, active] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack")]);
   if (base) S.base = base;
   if (filters) { S.layerOn = new Set(filters.layers); S.fmin = filters.fmin; S.fmax = filters.fmax; S.text = filters.text || "";

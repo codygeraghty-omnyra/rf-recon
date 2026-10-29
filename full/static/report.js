@@ -3,8 +3,9 @@
    and survey / crowd signals that no FCC licence or allocation explains. */
 
 const NON_FCC = ["captures", "wigle", "opencellid", "repeaterbook", "custom"];
-// Coverage edge on the band map: show only where the predicted level is at least this (free-space, best case,
-// so in a dense area everything inside a few miles clears -100; stronger levels show the real differences)
+// Coverage edge on the band map: show only where the predicted level is at least this (the terrain heatmap: hills for
+// the strongest transmitters, smooth earth for the rest; in a dense area most of a few miles still clears -100, so
+// stronger levels show the real differences)
 const REPORT_FLOORS = [-100, -90, -80, -70, -60, -50, -40, -30, -20];
 const AUTH_COLOR = {"Unlisted":"#cf222e", "FCC licensed":"#0b6e4f", "Unlicensed (Part 15)":"#8250df",
   "Personal radio (Part 95)":"#bf8700", "Amateur (individual licence)":"#1f6feb", "Cellular (market licence)":"#bf3989",

@@ -167,6 +167,7 @@ details + details { border-top: 1px solid var(--line); }
   #sheet { left: calc(50vw - 300px); right: calc(50vw - 300px); }
   #nav { left: calc(50vw - 260px); right: calc(50vw - 260px); }
 }
+@media (pointer: coarse) { .dl-look .dl-keys { display: none; } }  /* the display sheet's keyboard shortcuts: no keyboard on a phone (outranks look.js's own rule, injected later) */
 </style>
 </head>
 <body data-tab="map">
