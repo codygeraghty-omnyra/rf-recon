@@ -312,7 +312,7 @@ S.views.data = async (v) => {
     await post("/api/fieldpack",{lat:p[0],lon:p[1],radius:+$("#radius").value||5,name:$("#fpName").value}); fpPaint(); };
   fpPaint();
   // this copy's version and updates (kitupdate.py): a kit copy installs a newer kit zip and restarts
-  api("/api/kit").then(k=>{
+  api("/api/kit").catch(()=>new Promise(ok=>setTimeout(ok,2000)).then(()=>api("/api/kit"))).then(k=>{  // one retry: just after a restart
     if(!k.kit){ $("#kitBody").innerHTML='<p class="hint" style="margin:0">This copy runs from the RF Recon folder in Google Drive and updates with it.</p>'; return; }
     const c=k.current, L=k.latest;
     $("#kitBody").innerHTML=`<p style="margin:0 0 8px">Version <span class="mono">${esc(c.version)}</span>, built ${esc(c.built)}. ${k.update?`<b>A newer kit is out: <span class="mono">${esc(L.version)}</span>, built ${esc(L.built)}.</b>`:L?"This is the newest kit.":'<span class="hint">Couldn\'t check for a newer kit (offline?).</span>'}</p>
@@ -324,7 +324,7 @@ S.views.data = async (v) => {
       try{ const r=await api("/api/kit/update",{method:"POST", body:await f.arrayBuffer()});
         $("#kitMsg").textContent=`Updated ${r.from} → ${r.to} (${r.files} files). RF Recon is restarting…`;
         await new Promise(ok=>setTimeout(ok,3000));
-        for(let i=0;i<60;i++){ try{ await api("/api/meta"); location.reload(); return; }catch(err){} await new Promise(ok=>setTimeout(ok,1000)); }
+        for(let i=0;i<60;i++){ try{ if((await api("/api/kit")).current?.version===r.to){ location.reload(); return; } }catch(err){} await new Promise(ok=>setTimeout(ok,1000)); }  // the old server can still answer while it shuts down
         $("#kitMsg").textContent="It didn't come back by itself: double-click Start RF Recon."; }
       catch(err){ $("#kitMsg").textContent=err.message; } };
   }).catch(()=>{ $("#kitBody").innerHTML='<p class="hint" style="margin:0">Couldn\'t read this copy\'s version.</p>'; });
