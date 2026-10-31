@@ -40,7 +40,7 @@ SOURCES = {
     "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs your RepeaterBook token"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,600 call centres at town level; the FCC last updated its rows in 2017"),
-    "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address (FCC open data, last updated March 2021)"),
+    "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the RF Recon site (FCC open data of March 2021 if the site can't be reached)"),
     "artemis": ("Artemis signal database (waterfalls and audio)", "reference", 720, "A waterfall picture and an audio clip for each Signal ID Wiki signal, shown beside its matches (Ares Valley; about 300 MB; checked monthly, downloaded only when there's a new release)"),
     "bdc": ("FCC carrier coverage (Broadband Map)", "fcc", 720, "Each carrier's modelled 3G / 4G / 5G coverage and signal, for the carrier-coverage states; new release twice a year"),
     "ttn": ("The Things Network LoRaWAN gateways", "crowd", 168, "Gateways near the area (no key)"),
@@ -424,7 +424,8 @@ class Updater:
                     src = fccid.grantee_source(con)
                 finally:
                     con.close()
-                msg = (f"{n:,} grantee codes: the FCC's own list, imported {src['at']} (newer than open data's)"
+                msg = (f"{n:,} grantee codes: the FCC's own list of {src['at']}"
+                       + (" (from the RF Recon site)" if src["file"] == "the RF Recon site" else ", imported here")
                        if src["source"] == "fcc-download" else f"{n:,} grantee codes (FCC open data, last updated March 2021)")
                 self._mark(ids, state="ok", message=msg, last_checked=now(), last_updated=now(), rows=n)
             elif job == "bdc":  # carrier coverage hexagons for the carrier-coverage states (bdc.py)

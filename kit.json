@@ -1,16 +1,16 @@
 {
- "version": "d817a1b",
- "built": "2026-10-29 07:46",
+ "version": "0cb0889",
+ "built": "2026-10-31 13:49",
  "python": "3.12.10",
  "get": "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB",
  "notes": [
-  "DAS on the phone",
-  "DAS Data & links",
-  "State packs on the GitHub site",
-  "Artemis signal database",
-  "A mission over time",
-  "Kit update",
-  "Link budget",
-  "Web publish keeps and commits kit.json, so installed copies can see a newer kit"
+  "Maker list",
+  "FCC ID",
+  "Web version",
+  "Web version",
+  "Web version",
+  "Web version the same as the PC app",
+  "Phones",
+  "Phone app"
  ]
 }

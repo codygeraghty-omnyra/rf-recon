@@ -305,12 +305,13 @@ S.views.data = async (v) => {
       $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th><th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td><td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records.</p>`:'<p class="hint">No grants match.</p>'; }
     catch(e){ $("#fiMsg").textContent=e.message; } };
   $("#fiGo").onclick=fiRun; $("#fiQ").onkeydown=e=>{ if(e.key==="Enter") fiRun(); };
-  // the maker list: FCC open data (March 2021) until the FCC's own download, which answers a person's browser only, is imported
+  // the maker list: the FCC's own (one person imports its download; the RF Recon site hands it to every other copy), or open data (2021)
   const fiSrc=g=>{ if(!$("#fiSrc")?.isConnected) return; const page=`<a href="${esc(g.page)}" target="_blank" rel="noopener">Grantee Search ↗</a>`;
-    $("#fiSrc").innerHTML=g.source==="site"?`Maker names: the grantee codes on the RF Recon site. For the FCC's current list here: open its ${page}, choose Download all grantees, then import that file.`
-      :g.source==="fcc-download"?`Maker names: ${g.codes.toLocaleString()} grantee codes from the FCC's own list, imported ${esc(g.at)}${g.newest?` (newest ${esc(g.newest)})`:""}. To refresh it: the FCC's ${page}, Download all grantees, then import the file.`
-      :!g.codes?`Maker names: no grantee list here yet. Get the FCC's current one: open its ${page}, choose Download all grantees, then import that file here (or run FCC equipment grantee codes in Data sources for its 2021 open data).`
-      :`Maker names: ${g.codes.toLocaleString()} grantee codes from FCC open data, which the FCC last updated in March 2021. For its current list: open the FCC's ${page}, choose Download all grantees, then import that file here.`; };
+    const own=`Only the person who keeps the RF Recon site imports the FCC's download (its ${page}, Download all grantees).`;
+    $("#fiSrc").innerHTML=g.source==="site"?`Maker names: the FCC's own grantee list, from the RF Recon site. Nothing to do here.`
+      :g.source==="fcc-download"&&g.file==="the RF Recon site"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list of ${esc(g.at)}, from the RF Recon site. It stays current through FCC equipment grantee codes in Data sources.`
+      :g.source==="fcc-download"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list, imported ${esc(g.at)}${g.newest?` (newest ${esc(g.newest)})`:""}. Refresh the RF Recon site's packs to pass it on. ${own}`
+      :`Maker names: ${(g.codes||0).toLocaleString()} grantee codes${g.codes?" from FCC open data, which the FCC last updated in March 2021":""}. For its current list, run FCC equipment grantee codes in Data sources: it comes from the RF Recon site. ${own}`; };
   api("/api/fccid/grantees").then(fiSrc).catch(()=>{ if($("#fiSrc")) $("#fiSrc").textContent=""; });
   $("#fiImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#fiSrc").textContent=`Reading ${f.name}…`;
     try{ const g=await api(`/api/fccid/grantees?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()}); fiSrc(g);

@@ -8,16 +8,20 @@ the same public records).
 The FCC publishes its grants one device at a time only, but it publishes every grantee code in bulk (FCC open data,
 last updated March 2021): RF Recon keeps that list (fcc_grantee), so the maker behind any FCC ID is known offline and
 makers turn up in Search. No key: opendata.fcc.gov serves it without one. The FCC's own current list is a download on
-its Grantee Search page, which answers a person's browser only: import_grantee_file reads that file, and from then on
-the open-data job leaves the newer list alone (fcc_grantee_src says which list is kept).
+its Grantee Search page, which answers a person's browser only: import_grantee_file reads that file (one person does it,
+on the PC the site's packs are made from), the site's grantee pack carries it, and every other copy's update job takes it
+from there (import_site_grantees) instead of open data. fcc_grantee_src says which list is kept.
 """
 import csv
 import datetime
+import gzip
 import html.parser
 import io
 import json
+import os
 import re
 import sqlite3
+import tempfile
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -50,20 +54,66 @@ def grantee_source(con):
             "codes": codes, "newest": newest, "page": GRANTEE_PAGE}
 
 
-def _keep_grantees(con, rows, source, file=None):
-    """Replace the kept list with rows of (code, name, address, city, state, country, zip, received)."""
+def _keep_grantees(con, rows, source, file=None, at=None, keep_old=False):
+    """Replace the kept list with rows of (code, name, address, city, state, country, zip, received). keep_old keeps the
+    codes the new list lacks (the FCC's own list leaves out some old ones, which older devices still carry)."""
     con.executescript(GRANTEE_SCHEMA)
+    if keep_old:
+        have = {r[0] for r in rows}
+        rows = list(rows) + [r for r in con.execute("SELECT * FROM fcc_grantee") if r[0] not in have]
     con.execute("DELETE FROM fcc_grantee")
     con.executemany("INSERT OR REPLACE INTO fcc_grantee VALUES(?,?,?,?,?,?,?,?)", rows)
     n = con.execute("SELECT COUNT(*) FROM fcc_grantee").fetchone()[0]
-    con.execute("INSERT OR REPLACE INTO fcc_grantee_src VALUES(1, ?, ?, ?, ?)", (source, file, datetime.date.today().isoformat(), n))
+    con.execute("INSERT OR REPLACE INTO fcc_grantee_src VALUES(1, ?, ?, ?, ?)", (source, file, at or datetime.date.today().isoformat(), n))
     con.commit()
     return n
 
 
+SITE_GRANTEE = (os.environ.get("RF_RECON_SITE") or "https://codygeraghty-omnyra.github.io/rf-recon/") + "packs/fcc_grantee.rfpack"
+
+
+def import_site_grantees(con, log=None):
+    """The FCC's own list as the RF Recon site carries it (its grantee pack, made from the PC that imported the FCC's
+    download), so every other copy gets it without the download. Returns the codes kept, or None when the site's list
+    isn't the FCC's own or isn't newer than this copy's."""
+    req = urllib.request.Request(SITE_GRANTEE, headers={"User-Agent": UA["User-Agent"]})
+    with urllib.request.urlopen(req, timeout=300) as r:
+        raw = gzip.decompress(r.read(80_000_000))
+    fd, tmp = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    try:
+        with open(tmp, "wb") as fh:
+            fh.write(raw)
+        site = sqlite3.connect(tmp)
+        try:
+            theirs, here = grantee_source(site), grantee_source(con)
+            if theirs["source"] != "fcc-download" or not theirs["at"]:
+                return None
+            if here["source"] == "fcc-download" and (here["at"] or "") >= theirs["at"]:
+                return None
+            rows = site.execute("SELECT code, name, address, city, state, country, zip, received FROM fcc_grantee").fetchall()
+        finally:
+            site.close()
+    finally:
+        os.remove(tmp)
+    if len(rows) < GRANTEE_MIN:
+        return None
+    if log:
+        log(f"{len(rows):,} grantee codes from the RF Recon site")
+    return _keep_grantees(con, rows, "fcc-download", "the RF Recon site", theirs["at"], keep_old=True)
+
+
 def import_grantees(con, log=None, page=10000):
-    """Every FCC grantee code with its company, in pages (a slow link still finishes). Replaces the list. Returns codes.
-    Leaves a list imported from the FCC's own download alone: that one is newer than open data's (March 2021)."""
+    """Every FCC grantee code with its company. First the FCC's own list from the RF Recon site when it's newer than this
+    copy's; otherwise FCC open data (last updated March 2021), in pages (a slow link still finishes), which replaces the
+    list unless the FCC's own list is already here. Returns codes."""
+    try:
+        n = import_site_grantees(con, log)
+        if n is not None:
+            return n
+    except Exception as e:  # offline, or the site has no grantee pack: the list kept here or open data
+        if log:
+            log(f"RF Recon site: {e}")
     src = grantee_source(con)
     if src["source"] == "fcc-download":
         if log:
@@ -90,7 +140,7 @@ def import_grantees(con, log=None, page=10000):
 
 
 def _clean(v):
-    v = str(v).strip() if v is not None else ""
+    v = " ".join(str(v).split()) if v is not None else ""  # tabs and runs of spaces as one space
     return None if not v or v.upper() in ("N/A", "NA", "NIL", "NONE", "NULL", "-", ".") else v
 
 
@@ -99,7 +149,7 @@ GRANTEE_ALIASES = {
     "code": ["granteecode", "code"],
     "name": ["granteename", "name", "companyname", "company", "applicantname", "applicant"],
     "address": ["mailingaddress", "address", "address1", "addressline1", "street", "streetaddress"],
-    "address2": ["address2", "addressline2", "pobox"],
+    "address2": ["address2", "addressline2"],  # not the FCC's po_box: it often repeats the zip
     "city": ["city"],
     "state": ["state", "stateprovince", "province"],
     "country": ["country"],
@@ -167,7 +217,7 @@ def _grantee_table(name, data):
             p = _Cells()
             p.feed(s)
             return p.rows
-        root = ET.fromstring(s.encode("utf-8"))
+        root = ET.fromstring(data)  # the bytes, so the file's own encoding line is honoured (the FCC's says ISO-8859-1)
         best = max(root.iter(), key=lambda e: len(e))  # the element holding the most records
         recs = [{c.tag.split("}")[-1]: (c.text or "").strip() for c in r} or dict(r.attrib) for r in best]
         head = []
@@ -226,7 +276,7 @@ def import_grantee_file(con, name, data):
         raise ValueError(f"{name} has {len(rows):,} grantee codes; the FCC's full list has over 50,000. Nothing was changed.")
     con.executescript(GRANTEE_SCHEMA)
     old = {r[0] for r in con.execute("SELECT code FROM fcc_grantee")}
-    _keep_grantees(con, rows, "fcc-download", name)
+    _keep_grantees(con, rows, "fcc-download", name, keep_old=True)
     return dict(grantee_source(con), before=len(old), new=len(seen - old))
 
 
