@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "3f4a364652";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "ea974c1c51";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -624,12 +624,12 @@ async function viewPacks(v) {
   const p = S.pack, other = S.packs.filter(x => x.id !== p?.id);
   const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
   v.innerHTML = head("Data packs", p ? `Using <b>${esc(p.name)}</b>. Everything works without signal once a pack is loaded.` : "Load the FCC data for an area to start.")
-    + (!matchMedia("(pointer: coarse)").matches ? `<div class="card glass" style="--i:0"><h2>On a computer?</h2><p style="margin:0">This is the phone version.
+    + (!matchMedia("(pointer: coarse)").matches ? `<div class="card glass" style="--i:0"><h2>On a computer?</h2><p style="margin:0">This is RF Recon lite (beta), the phone version.
       <a href="full/"><b>Open the full web version</b></a>: every RF Recon tab in this browser, from the same packs.
       On the PC where RF Recon is installed: <a href="http://localhost:8765/">RF Recon (beta) on this PC</a>.</p></div>` : "")
     + (!standalone() ?`<div class="card glass" style="--i:0"><h2>Put it on your home screen</h2><p style="margin:0 0 8px">${isIOS()
-      ? "In Safari, tap Share, then <b>Add to Home Screen</b>. Open RF Recon from that icon: it keeps your packs and works offline."
-      : "Tap <b>Install</b> (or the browser menu, then <b>Add to Home screen</b>). Open RF Recon from that icon: it keeps your packs and works offline."}</p>
+      ? "In Safari, tap Share, then <b>Add to Home Screen</b>. Open RF Recon lite from that icon: it keeps your packs and works offline."
+      : "Tap <b>Install</b> (or the browser menu, then <b>Add to Home screen</b>). Open RF Recon lite from that icon: it keeps your packs and works offline."}</p>
       ${installEvt ? '<button class="btn primary" data-act="install">Install</button>' : ""}</div>` : "")
     + (p ? `<div class="card glass" style="--i:1"><h2>In use</h2><div class="t" style="font-size:18px;font-weight:700">${esc(p.name)}</div>
       <dl class="kv">${kvs([["Area", area(p.area)], ["FCC data", p.fcc_built_at], ["Pack made", p.made_at], ["Licences", int(p.counts?.licences)], ["Towers", int(p.counts?.towers)],
@@ -823,14 +823,14 @@ async function start() {
   if (S.db) { if (S.center || S.mode === "search") run(true); else afterPackOpened(true); }
   else summary();
 }
-start().catch(e => { busy(); toast(`RF Recon couldn't start: ${e.message}`); console.error(e); });
+start().catch(e => { busy(); toast(`RF Recon lite couldn't start: ${e.message}`); console.error(e); });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("sw.js").then(reg => {
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;
       nw?.addEventListener("statechange", () => {
-        if (nw.state === "activated" && navigator.serviceWorker.controller) toast("RF Recon was updated. Reload to use the new version.", () => location.reload(), "Reload");
+        if (nw.state === "activated" && navigator.serviceWorker.controller) toast("RF Recon lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
       });
     });
   }).catch(() => {});

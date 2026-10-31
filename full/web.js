@@ -62,7 +62,7 @@ S.views.data = async v => {
       Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, heatmaps and exports, plus any transmitter's coverage (hills counted
       when you're online) and what it's networked with. Missions, captures, crowd data (WiGLE, OpenCelliD, RepeaterBook), cell sites,
       DAS jobs, talk groups, the Signal ID Wiki catalog and data updates stay in RF Recon on the PC. A pack and everything you do here
-      stay in this browser; nothing is sent anywhere. On a phone, use <a href="../">the phone version</a>.</p></div>`;
+      stay in this browser; nothing is sent anywhere. It works on a phone too; for one state kept on the phone with no signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`;
   const reload = () => { location.hash = "tab=map"; location.reload(); };
   $("#pkFile").onchange = async e => {
     const f = e.target.files[0]; if (!f) return;

@@ -1,6 +1,6 @@
 {
-  "name": "RF Recon (beta)",
-  "short_name": "RF Recon",
+  "name": "RF Recon lite (beta)",
+  "short_name": "RF Recon lite",
   "description": "FCC licences, towers, broadcast, NOAA and FAA for one area, offline.",
   "id": "./",
   "start_url": "./",

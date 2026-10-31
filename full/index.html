@@ -217,7 +217,7 @@ mark{background:color-mix(in srgb,var(--accent) 38%,transparent);color:inherit;b
   background:linear-gradient(color-mix(in srgb,var(--bg) 78%,transparent),color-mix(in srgb,var(--bg) 78%,transparent));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .tabbar .tabs{position:static;margin:0 auto}
 .tabs{top:80px;gap:2px;padding:4px;margin:6px auto 14px;width:max-content;max-width:100%;border:1px solid var(--g-border);border-radius:999px;background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
-.tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500}
+.tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500;flex:none}  /* a bar too narrow for every tab scrolls; labels never squeeze into each other */
 .tabs button.on{border:0;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 1px 0 var(--g-hi);font-weight:600}
 /* depth (Cody, 10/28: "add some depth and make the edges look nicer"): panels get the kit's beveled edge, buttons sit
    slightly proud and press in, fields and segment tracks sit recessed. Tokens from theme/glass.css. */
@@ -266,6 +266,43 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
 /* street map tiles (/tiles/osm/… and the plain /tiles/{z}/… layer) go dark on the dark skins;
    satellite, topo, county lines and radar keep their colours */
 :root:not([data-skin="day"]) :is(.leaflet-tile[src*="/tiles/osm/"], .leaflet-tile[src^="/tiles/0"], .leaflet-tile[src^="/tiles/1"], .leaflet-tile[src^="/tiles/2"], .leaflet-tile[src^="/tiles/3"], .leaflet-tile[src^="/tiles/4"], .leaflet-tile[src^="/tiles/5"], .leaflet-tile[src^="/tiles/6"], .leaflet-tile[src^="/tiles/7"], .leaflet-tile[src^="/tiles/8"], .leaflet-tile[src^="/tiles/9"]){filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.86) saturate(.55)}
+/* phones (Cody, 10/31: "make the web version work/scale to mobile"): one column; the header scrolls away so the tab
+   bar can stick to the top; tabs and segment rows scroll sideways instead of squeezing; menus and fields stay on the
+   screen. The phone app (RF Recon lite) is a separate page and isn't touched by this. */
+select{max-width:100%}  /* a menu with a long option (Parts' cables) never runs off the screen, */
+.row>label{min-width:0}  /* nor the label around it */
+/* a phone upright, or on its side (short): the header scrolls away and the tab bar sticks to the top */
+@media (max-width:600px), (max-height:500px){
+  html{scroll-padding-top:76px}
+  header{position:static}
+  .tabbar{top:0}
+  .tabs{scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+}
+@media (max-width:600px){
+  header{margin:8px 8px 0;padding:8px 10px;gap:8px}
+  header h1{font-size:16px;margin-right:0}
+  header h1::before{width:32px;height:32px;border-radius:10px;background-size:18px}
+  #meta{order:9;flex:1 1 100%;margin-left:0!important;font-size:11.5px}
+  #lookSlot{margin-left:auto}
+  main{padding:10px 8px 60px}
+  .panel{padding:12px;margin-bottom:10px}
+  .tabbar{margin:0 -8px 8px;padding:6px 8px}
+  .tabs{width:100%;margin:0;justify-content:flex-start;overflow-x:auto}
+  .seg::-webkit-scrollbar{display:none}
+  .tabs button{padding:8px 13px}
+  .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap!important}  /* Search's scopes wrap inline */
+  .seg button{flex:none;white-space:nowrap}
+  label{min-width:0;max-width:100%}
+  select{max-width:100%;min-width:0}
+  .grid2{grid-template-columns:minmax(0,1fr)!important}  /* mission, mission tools and DAS set two columns inline */
+  .maptools label.inl{flex-wrap:wrap}
+  #map{height:60vh;min-height:300px}
+  .side{max-height:55vh}
+  .kvg{grid-template-columns:minmax(0,110px) minmax(0,1fr)}
+  dialog{width:calc(100% - 12px)}
+  .dlg-b{max-height:82vh;padding:10px 12px}
+}
 @media print{#backdrop{display:none}html{background:#fff}}
 /* signed in through the remote link: view and search only, so the parts that change things or stay on the PC go */
 body.remote :is(nav [data-t="data"], #takPush){display:none!important}

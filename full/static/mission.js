@@ -239,7 +239,7 @@ S.views.data = async (v) => {
   </div>
   <div class="panel"><h3>This copy of RF Recon</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
   <div class="panel"><h3>Phone app: field packs</h3>
-    <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for the RF Recon phone app, which works with no signal.
+    <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for RF Recon lite (beta), the phone app, which works with no signal.
       Packs are saved in <span class="mono" id="fpDir"></span>, so anyone the Drive folder is shared with can load them. Phone app: <a id="fpUrl" target="_blank" rel="noopener"></a></p>
     <div class="row"><label class="grow">States<input id="fpStates" placeholder="VA,MD,DC" value="${esc(settings.states||"")}"></label>
       <label class="grow">Name (optional)<input id="fpName" placeholder="e.g. Northern Virginia"></label></div>

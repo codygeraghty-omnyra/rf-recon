@@ -120,14 +120,16 @@ function foldNote(){
   const n=S.chips.type.size+S.chips.cat.size+S.chips.band.size+S.chips.cls.size;
   $("#foldNote").textContent=$("#filters").classList.contains("folded")&&n?`· ${n} filter${n===1?"":"s"} on`:"";
 }
-function setFold(folded){
+function setFold(folded, keep=true){
   $("#filters").classList.toggle("folded",folded);
   const b=$("#filterFold"); b.querySelector(".lbl").textContent=folded?"Show filters":"Collapse"; b.setAttribute("aria-expanded",String(!folded));
   b.title=folded?"Show the layer and signal filters":"Fold the filters away so the map gets the room";
-  foldNote(); try{ localStorage.setItem("rfr.filtersFolded",folded?"1":""); }catch(e){}
+  foldNote(); if(keep) try{ localStorage.setItem("rfr.filtersFolded",folded?"1":""); }catch(e){}
 }
 $("#filterFold").onclick=()=>setFold(!$("#filters").classList.contains("folded"));
-try{ if(localStorage.getItem("rfr.filtersFolded")==="1") setFold(true); }catch(e){}
+// on a phone the chips run several screens long, so they start folded until someone opens them there
+try{ const f=localStorage.getItem("rfr.filtersFolded");
+  if(f==="1") setFold(true); else if(f===null && matchMedia("(max-width:600px)").matches) setFold(true,false); }catch(e){}
 document.addEventListener("click", e => {
   const lc=e.target.closest(".chip[data-layer]");
   if(lc){ const k=lc.dataset.layer; S.layerOn.has(k)?S.layerOn.delete(k):S.layerOn.add(k); S.shown=600; render(); return; }
@@ -144,6 +146,9 @@ function render(){
   const fq=new Set(rows.filter(r=>r.freq_mhz).map(r=>fmtF(r.freq_mhz)));
   $("#resultCount").textContent=`${rows.length.toLocaleString()} items · ${fq.size.toLocaleString()} frequencies${S.center?` · within ${S.radius} mi`:""}`;
   $$("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===S.tab));
+  const tb=$("#tabs"), on=$("#tabs button.on");  // on a phone the tab bar scrolls sideways: keep the open tab on screen
+  if(on && tb.scrollWidth>tb.clientWidth){ const l=on.offsetLeft-tb.offsetLeft, r=l+on.offsetWidth;
+    if(l<tb.scrollLeft || r>tb.scrollLeft+tb.clientWidth) tb.scrollLeft=l-(tb.clientWidth-on.offsetWidth)/2; }
   const v=$("#view");
   if(S.tab!=="map" && S.map){ S.map.remove(); S.map=null; }
   if(S.tab!=="dashboard" && S.dashMap){ S.dashMap.remove(); S.dashMap=null; }
