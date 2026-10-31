@@ -140,6 +140,7 @@ function toggleChip(key, v){ const set=S.chips[key]; set.has(v)?set.delete(v):se
 
 /* ---------- render dispatch ---------- */
 function setTab(t){ S.tab=t; render(); }
+function getFile(url){ location.href=url; }  // a file the server makes (the web version fetches it through the page instead)
 function render(){
   renderFacets();
   const rows=filtered();
@@ -206,7 +207,7 @@ S.views.map = (v, rows) => {
   if($("#heatSigClear")) $("#heatSigClear").onclick=e=>{ e.preventDefault(); S.heat.ident=S.heat.freq=S.heat.signal=""; render(); loadHeat(); };
   $("#heatOp").oninput=e=>{ S.heat.opacity=+e.target.value; if(S.heatLayer) S.heatLayer.setOpacity(S.heat.opacity); };
   $("#heatExport").onclick=()=>{ if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
-    location.href="/api/heatmap.zip?"+params(heatParams(k)); };
+    getFile("/api/heatmap.zip?"+params(heatParams(k))); };
   v.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
   drawMap(rows);
   const items=groupItems(rows);
@@ -556,8 +557,8 @@ $("#state").onchange=async()=>{ const cs=await api("/api/counties?state="+$("#st
   $("#county").innerHTML='<option value="">— whole state —</option>'+cs.map(c=>`<option value="${esc(c.county)}">${esc(c.county)} (${c.n.toLocaleString()})</option>`).join(""); };
 $("#clearChips").onclick=()=>{ for(const k in S.chips) S.chips[k].clear(); S.filterExpr=""; render(); };
 const exportParams=()=>params({layers:[...S.layerOn].join(",")});
-$("#csvBtn").onclick=()=>location.href="/api/export.csv?"+exportParams();
-$("#kmlBtn").onclick=()=>location.href="/api/export.kml?"+exportParams();
+$("#csvBtn").onclick=()=>getFile("/api/export.csv?"+exportParams());
+$("#kmlBtn").onclick=()=>getFile("/api/export.kml?"+exportParams());
 $("#printBtn").onclick=()=>{ setTab("profile"); setTimeout(()=>window.print(),80); };
 $("#themeBtn").onclick=()=>{ const d=document.documentElement, dark=matchMedia("(prefers-color-scheme: dark)").matches;
   const cur=d.dataset.theme||(dark?"dark":"light"); d.dataset.theme=cur==="dark"?"light":"dark"; try{localStorage.setItem("theme",d.dataset.theme);}catch(e){} render(); };

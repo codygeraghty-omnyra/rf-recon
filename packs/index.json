@@ -4,7 +4,7 @@
 "st": "AK",
 "name": "Alaska (AK)",
 "file": "AK.rfpack",
-"mb": 2.4,
+"mb": 2.7,
 "bbox": [
 52.88958,
 71.34219,
@@ -19,15 +19,17 @@
 -130.79219
 ]
 ],
-"made_at": "2026-10-29 06:45",
+"made_at": "2026-10-31 04:13",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 51580
+"licences": 51580,
+"history": "history/AK.rfpack",
+"history_mb": 1.1
 },
 {
 "st": "AL",
 "name": "Alabama (AL)",
 "file": "AL.rfpack",
-"mb": 4.1,
+"mb": 4.6,
 "bbox": [
 30.20408,
 35.02258,
@@ -42,15 +44,17 @@
 -84.97047
 ]
 ],
-"made_at": "2026-10-29 06:46",
+"made_at": "2026-10-31 04:13",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 79210
+"licences": 79210,
+"history": "history/AL.rfpack",
+"history_mb": 3.5
 },
 {
 "st": "AR",
 "name": "Arkansas (AR)",
 "file": "AR.rfpack",
-"mb": 2.6,
+"mb": 2.9,
 "bbox": [
 32.99231,
 36.54711,
@@ -65,9 +69,11 @@
 -89.66481
 ]
 ],
-"made_at": "2026-10-29 06:46",
+"made_at": "2026-10-31 04:13",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 43356
+"licences": 43356,
+"history": "history/AR.rfpack",
+"history_mb": 2.2
 },
 {
 "st": "AS",
@@ -88,15 +94,17 @@
 -145.66444
 ]
 ],
-"made_at": "2026-10-29 06:46",
+"made_at": "2026-10-31 04:13",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 234
+"licences": 234,
+"history": "history/AS.rfpack",
+"history_mb": 0.0
 },
 {
 "st": "AZ",
 "name": "Arizona (AZ)",
 "file": "AZ.rfpack",
-"mb": 5.8,
+"mb": 6.7,
 "bbox": [
 31.29094,
 37.00972,
@@ -111,15 +119,17 @@
 -109.02956
 ]
 ],
-"made_at": "2026-10-29 06:46",
+"made_at": "2026-10-31 04:13",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 121541
+"licences": 121541,
+"history": "history/AZ.rfpack",
+"history_mb": 4.2
 },
 {
 "st": "CA",
 "name": "California (CA)",
 "file": "CA.rfpack",
-"mb": 23.1,
+"mb": 26.4,
 "bbox": [
 32.54472,
 41.83822,
@@ -134,15 +144,17 @@
 -114.47417
 ]
 ],
-"made_at": "2026-10-29 06:46",
+"made_at": "2026-10-31 04:14",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 508200
+"licences": 508200,
+"history": "history/CA.rfpack",
+"history_mb": 21.7
 },
 {
 "st": "CO",
 "name": "Colorado (CO)",
 "file": "CO.rfpack",
-"mb": 6.2,
+"mb": 7.2,
 "bbox": [
 36.99331,
 41.03839,
@@ -157,15 +169,17 @@
 -102.02056
 ]
 ],
-"made_at": "2026-10-29 06:46",
+"made_at": "2026-10-31 04:15",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 134246
+"licences": 134246,
+"history": "history/CO.rfpack",
+"history_mb": 3.9
 },
 {
 "st": "CT",
 "name": "Connecticut (CT)",
 "file": "CT.rfpack",
-"mb": 1.5,
+"mb": 1.6,
 "bbox": [
 40.96114,
 42.07525,
@@ -180,9 +194,11 @@
 -71.77342
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:15",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 26803
+"licences": 26803,
+"history": "history/CT.rfpack",
+"history_mb": 1.2
 },
 {
 "st": "DC",
@@ -203,9 +219,11 @@
 -76.88228
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:15",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 4399
+"licences": 4399,
+"history": "history/DC.rfpack",
+"history_mb": 0.4
 },
 {
 "st": "DE",
@@ -226,15 +244,17 @@
 -75.01092
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:15",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 6335
+"licences": 6335,
+"history": "history/DE.rfpack",
+"history_mb": 0.5
 },
 {
 "st": "FL",
 "name": "Florida (FL)",
 "file": "FL.rfpack",
-"mb": 8.7,
+"mb": 9.4,
 "bbox": [
 24.51725,
 31.01983,
@@ -249,15 +269,17 @@
 -79.98833
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:16",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 160286
+"licences": 160286,
+"history": "history/FL.rfpack",
+"history_mb": 9.8
 },
 {
 "st": "GA",
 "name": "Georgia (GA)",
 "file": "GA.rfpack",
-"mb": 5.6,
+"mb": 6.1,
 "bbox": [
 30.62561,
 35.02147,
@@ -272,15 +294,17 @@
 -81.00122
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:16",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 111688
+"licences": 111688,
+"history": "history/GA.rfpack",
+"history_mb": 6.3
 },
 {
 "st": "GU",
 "name": "Guam (GU)",
 "file": "GU.rfpack",
-"mb": 0.1,
+"mb": 0.2,
 "bbox": [
 13.19867,
 13.69314,
@@ -295,15 +319,17 @@
 144.991
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:17",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 2767
+"licences": 2767,
+"history": "history/GU.rfpack",
+"history_mb": 0.1
 },
 {
 "st": "HI",
 "name": "Hawaii (HI)",
 "file": "HI.rfpack",
-"mb": 0.9,
+"mb": 1.0,
 "bbox": [
 18.95261,
 22.27192,
@@ -318,15 +344,17 @@
 -154.83667
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:17",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 16425
+"licences": 16425,
+"history": "history/HI.rfpack",
+"history_mb": 1.2
 },
 {
 "st": "IA",
 "name": "Iowa (IA)",
 "file": "IA.rfpack",
-"mb": 4.1,
+"mb": 4.5,
 "bbox": [
 40.35236,
 43.51853,
@@ -341,15 +369,17 @@
 -90.13528
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:17",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 71899
+"licences": 71899,
+"history": "history/IA.rfpack",
+"history_mb": 3.2
 },
 {
 "st": "ID",
 "name": "Idaho (ID)",
 "file": "ID.rfpack",
-"mb": 3.1,
+"mb": 3.6,
 "bbox": [
 41.97714,
 48.82278,
@@ -364,15 +394,17 @@
 -111.0605
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:17",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 67308
+"licences": 67308,
+"history": "history/ID.rfpack",
+"history_mb": 1.7
 },
 {
 "st": "IL",
 "name": "Illinois (IL)",
 "file": "IL.rfpack",
-"mb": 8.2,
+"mb": 9.1,
 "bbox": [
 37.07978,
 42.5425,
@@ -387,15 +419,17 @@
 -87.49017
 ]
 ],
-"made_at": "2026-10-29 06:47",
+"made_at": "2026-10-31 04:17",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 152459
+"licences": 152459,
+"history": "history/IL.rfpack",
+"history_mb": 7.7
 },
 {
 "st": "IN",
 "name": "Indiana (IN)",
 "file": "IN.rfpack",
-"mb": 4.9,
+"mb": 5.4,
 "bbox": [
 37.85839,
 41.80503,
@@ -410,15 +444,17 @@
 -84.77614
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:18",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 88443
+"licences": 88443,
+"history": "history/IN.rfpack",
+"history_mb": 4.7
 },
 {
 "st": "KS",
 "name": "Kansas (KS)",
 "file": "KS.rfpack",
-"mb": 3.6,
+"mb": 4.1,
 "bbox": [
 36.96025,
 40.02747,
@@ -433,15 +469,17 @@
 -94.54911
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:18",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 67343
+"licences": 67343,
+"history": "history/KS.rfpack",
+"history_mb": 3.1
 },
 {
 "st": "KY",
 "name": "Kentucky (KY)",
 "file": "KY.rfpack",
-"mb": 3.6,
+"mb": 3.9,
 "bbox": [
 36.48333,
 39.14333,
@@ -456,15 +494,17 @@
 -82.20758
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:18",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 59896
+"licences": 59896,
+"history": "history/KY.rfpack",
+"history_mb": 3.2
 },
 {
 "st": "LA",
 "name": "Louisiana (LA)",
 "file": "LA.rfpack",
-"mb": 3.0,
+"mb": 3.2,
 "bbox": [
 29.0705,
 33.04739,
@@ -479,15 +519,17 @@
 -89.21033
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:19",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 49261
+"licences": 49261,
+"history": "history/LA.rfpack",
+"history_mb": 3.3
 },
 {
 "st": "MA",
 "name": "Massachusetts (MA)",
 "file": "MA.rfpack",
-"mb": 2.7,
+"mb": 2.9,
 "bbox": [
 41.16006,
 42.915,
@@ -502,15 +544,17 @@
 -69.93778
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:19",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 44826
+"licences": 44826,
+"history": "history/MA.rfpack",
+"history_mb": 2.7
 },
 {
 "st": "MD",
 "name": "Maryland (MD)",
 "file": "MD.rfpack",
-"mb": 2.4,
+"mb": 2.6,
 "bbox": [
 37.93817,
 39.76736,
@@ -525,15 +569,17 @@
 -75.00708
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:19",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 44029
+"licences": 44029,
+"history": "history/MD.rfpack",
+"history_mb": 2.6
 },
 {
 "st": "ME",
 "name": "Maine (ME)",
 "file": "ME.rfpack",
-"mb": 1.4,
+"mb": 1.5,
 "bbox": [
 43.03683,
 47.37975,
@@ -548,15 +594,17 @@
 -66.99469
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:19",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 20314
+"licences": 20314,
+"history": "history/ME.rfpack",
+"history_mb": 0.9
 },
 {
 "st": "MI",
 "name": "Michigan (MI)",
 "file": "MI.rfpack",
-"mb": 5.0,
+"mb": 5.5,
 "bbox": [
 41.68778,
 47.28908,
@@ -571,15 +619,17 @@
 -82.41381
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:19",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 89629
+"licences": 89629,
+"history": "history/MI.rfpack",
+"history_mb": 6.0
 },
 {
 "st": "MN",
 "name": "Minnesota (MN)",
 "file": "MN.rfpack",
-"mb": 4.1,
+"mb": 4.4,
 "bbox": [
 43.45906,
 48.99856,
@@ -594,15 +644,17 @@
 -90.27925
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:20",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 67628
+"licences": 67628,
+"history": "history/MN.rfpack",
+"history_mb": 4.1
 },
 {
 "st": "MO",
 "name": "Missouri (MO)",
 "file": "MO.rfpack",
-"mb": 4.8,
+"mb": 5.3,
 "bbox": [
 36.13503,
 40.56667,
@@ -617,9 +669,11 @@
 -89.30425
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:20",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 82377
+"licences": 82377,
+"history": "history/MO.rfpack",
+"history_mb": 4.6
 },
 {
 "st": "MP",
@@ -640,15 +694,17 @@
 145.8575
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:20",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 485
+"licences": 485,
+"history": "history/MP.rfpack",
+"history_mb": 0.0
 },
 {
 "st": "MS",
 "name": "Mississippi (MS)",
 "file": "MS.rfpack",
-"mb": 2.0,
+"mb": 2.3,
 "bbox": [
 30.189,
 35.043,
@@ -663,15 +719,17 @@
 -88.14111
 ]
 ],
-"made_at": "2026-10-29 06:48",
+"made_at": "2026-10-31 04:20",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 30154
+"licences": 30154,
+"history": "history/MS.rfpack",
+"history_mb": 2.0
 },
 {
 "st": "MT",
 "name": "Montana (MT)",
 "file": "MT.rfpack",
-"mb": 2.4,
+"mb": 2.8,
 "bbox": [
 44.61214,
 48.99919,
@@ -686,15 +744,17 @@
 -104.02664
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:21",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 41827
+"licences": 41827,
+"history": "history/MT.rfpack",
+"history_mb": 1.4
 },
 {
 "st": "NC",
 "name": "North Carolina (NC)",
 "file": "NC.rfpack",
-"mb": 4.6,
+"mb": 5.0,
 "bbox": [
 33.86044,
 36.58881,
@@ -709,15 +769,17 @@
 -75.59956
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:21",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 76921
+"licences": 76921,
+"history": "history/NC.rfpack",
+"history_mb": 4.6
 },
 {
 "st": "ND",
 "name": "North Dakota (ND)",
 "file": "ND.rfpack",
-"mb": 1.5,
+"mb": 1.6,
 "bbox": [
 45.88858,
 49.03147,
@@ -732,15 +794,17 @@
 -96.55619
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:21",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 19948
+"licences": 19948,
+"history": "history/ND.rfpack",
+"history_mb": 1.2
 },
 {
 "st": "NE",
 "name": "Nebraska (NE)",
 "file": "NE.rfpack",
-"mb": 4.0,
+"mb": 4.5,
 "bbox": [
 39.95453,
 43.01342,
@@ -755,15 +819,17 @@
 -95.53592
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:21",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 87142
+"licences": 87142,
+"history": "history/NE.rfpack",
+"history_mb": 2.2
 },
 {
 "st": "NH",
 "name": "New Hampshire (NH)",
 "file": "NH.rfpack",
-"mb": 1.0,
+"mb": 1.1,
 "bbox": [
 42.65258,
 45.10644,
@@ -778,15 +844,17 @@
 -70.67292
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:21",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 14239
+"licences": 14239,
+"history": "history/NH.rfpack",
+"history_mb": 0.8
 },
 {
 "st": "NJ",
 "name": "New Jersey (NJ)",
 "file": "NJ.rfpack",
-"mb": 2.9,
+"mb": 3.2,
 "bbox": [
 38.91844,
 41.32972,
@@ -801,15 +869,17 @@
 -73.8725
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:21",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 51451
+"licences": 51451,
+"history": "history/NJ.rfpack",
+"history_mb": 3.2
 },
 {
 "st": "NM",
 "name": "New Mexico (NM)",
 "file": "NM.rfpack",
-"mb": 3.1,
+"mb": 3.6,
 "bbox": [
 31.76783,
 37.036,
@@ -824,15 +894,17 @@
 -103.01511
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:22",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 57795
+"licences": 57795,
+"history": "history/NM.rfpack",
+"history_mb": 1.8
 },
 {
 "st": "NV",
 "name": "Nevada (NV)",
 "file": "NV.rfpack",
-"mb": 3.2,
+"mb": 3.6,
 "bbox": [
 35.08103,
 42.04283,
@@ -847,15 +919,17 @@
 -114.01494
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:22",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 65604
+"licences": 65604,
+"history": "history/NV.rfpack",
+"history_mb": 1.9
 },
 {
 "st": "NY",
 "name": "New York (NY)",
 "file": "NY.rfpack",
-"mb": 7.7,
+"mb": 8.3,
 "bbox": [
 40.47831,
 45.00558,
@@ -870,15 +944,17 @@
 -72.0855
 ]
 ],
-"made_at": "2026-10-29 06:49",
+"made_at": "2026-10-31 04:22",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 146003
+"licences": 146003,
+"history": "history/NY.rfpack",
+"history_mb": 7.3
 },
 {
 "st": "OH",
 "name": "Ohio (OH)",
 "file": "OH.rfpack",
-"mb": 7.2,
+"mb": 7.8,
 "bbox": [
 38.452,
 42.00339,
@@ -893,15 +969,17 @@
 -80.49322
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:23",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 138383
+"licences": 138383,
+"history": "history/OH.rfpack",
+"history_mb": 6.9
 },
 {
 "st": "OK",
 "name": "Oklahoma (OK)",
 "file": "OK.rfpack",
-"mb": 4.2,
+"mb": 4.8,
 "bbox": [
 33.75092,
 37.02394,
@@ -916,15 +994,17 @@
 -94.46272
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:23",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 77622
+"licences": 77622,
+"history": "history/OK.rfpack",
+"history_mb": 2.9
 },
 {
 "st": "OR",
 "name": "Oregon (OR)",
 "file": "OR.rfpack",
-"mb": 3.9,
+"mb": 4.6,
 "bbox": [
 41.97542,
 46.23219,
@@ -939,15 +1019,17 @@
 -116.91539
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:24",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 70179
+"licences": 70179,
+"history": "history/OR.rfpack",
+"history_mb": 2.6
 },
 {
 "st": "PA",
 "name": "Pennsylvania (PA)",
 "file": "PA.rfpack",
-"mb": 7.4,
+"mb": 8.1,
 "bbox": [
 39.68303,
 42.18928,
@@ -962,15 +1044,17 @@
 -74.73642
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:24",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 137886
+"licences": 137886,
+"history": "history/PA.rfpack",
+"history_mb": 7.1
 },
 {
 "st": "PR",
 "name": "Puerto Rico (PR)",
 "file": "PR.rfpack",
-"mb": 1.3,
+"mb": 1.6,
 "bbox": [
 17.90564,
 18.55117,
@@ -985,9 +1069,11 @@
 -65.24944
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:25",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 27376
+"licences": 27376,
+"history": "history/PR.rfpack",
+"history_mb": 1.7
 },
 {
 "st": "RI",
@@ -1008,15 +1094,17 @@
 -71.00936
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:25",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 5446
+"licences": 5446,
+"history": "history/RI.rfpack",
+"history_mb": 0.4
 },
 {
 "st": "SC",
 "name": "South Carolina (SC)",
 "file": "SC.rfpack",
-"mb": 2.6,
+"mb": 2.8,
 "bbox": [
 32.10631,
 35.21972,
@@ -1031,15 +1119,17 @@
 -78.59756
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:25",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 42107
+"licences": 42107,
+"history": "history/SC.rfpack",
+"history_mb": 2.8
 },
 {
 "st": "SD",
 "name": "South Dakota (SD)",
 "file": "SD.rfpack",
-"mb": 1.3,
+"mb": 1.4,
 "bbox": [
 42.48011,
 45.98569,
@@ -1054,15 +1144,17 @@
 -96.41778
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:25",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 17038
+"licences": 17038,
+"history": "history/SD.rfpack",
+"history_mb": 1.2
 },
 {
 "st": "TN",
 "name": "Tennessee (TN)",
 "file": "TN.rfpack",
-"mb": 3.8,
+"mb": 4.1,
 "bbox": [
 34.94203,
 36.67419,
@@ -1077,15 +1169,17 @@
 -81.79256
 ]
 ],
-"made_at": "2026-10-29 06:50",
+"made_at": "2026-10-31 04:26",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 62589
+"licences": 62589,
+"history": "history/TN.rfpack",
+"history_mb": 3.1
 },
 {
 "st": "TX",
 "name": "Texas (TX)",
 "file": "TX.rfpack",
-"mb": 20.1,
+"mb": 23.0,
 "bbox": [
 25.93856,
 36.26158,
@@ -1100,15 +1194,17 @@
 -93.73183
 ]
 ],
-"made_at": "2026-10-29 06:51",
+"made_at": "2026-10-31 04:27",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 407679
+"licences": 407679,
+"history": "history/TX.rfpack",
+"history_mb": 16.4
 },
 {
 "st": "UT",
 "name": "Utah (UT)",
 "file": "UT.rfpack",
-"mb": 3.4,
+"mb": 3.9,
 "bbox": [
 36.95025,
 42.01661,
@@ -1123,15 +1219,17 @@
 -109.09433
 ]
 ],
-"made_at": "2026-10-29 06:51",
+"made_at": "2026-10-31 04:28",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 72221
+"licences": 72221,
+"history": "history/UT.rfpack",
+"history_mb": 2.5
 },
 {
 "st": "VA",
 "name": "Virginia (VA)",
 "file": "VA.rfpack",
-"mb": 4.9,
+"mb": 5.3,
 "bbox": [
 36.49819,
 39.36261,
@@ -1146,9 +1244,11 @@
 -75.42178
 ]
 ],
-"made_at": "2026-10-29 06:51",
+"made_at": "2026-10-31 04:28",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 91679
+"licences": 91679,
+"history": "history/VA.rfpack",
+"history_mb": 4.2
 },
 {
 "st": "VI",
@@ -1169,15 +1269,17 @@
 -64.57478
 ]
 ],
-"made_at": "2026-10-29 06:51",
+"made_at": "2026-10-31 04:28",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 5626
+"licences": 5626,
+"history": "history/VI.rfpack",
+"history_mb": 0.2
 },
 {
 "st": "VT",
 "name": "Vermont (VT)",
 "file": "VT.rfpack",
-"mb": 0.6,
+"mb": 0.7,
 "bbox": [
 42.70564,
 45.04639,
@@ -1192,15 +1294,17 @@
 -71.67936
 ]
 ],
-"made_at": "2026-10-29 06:51",
+"made_at": "2026-10-31 04:28",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 10284
+"licences": 10284,
+"history": "history/VT.rfpack",
+"history_mb": 0.5
 },
 {
 "st": "WA",
 "name": "Washington (WA)",
 "file": "WA.rfpack",
-"mb": 5.6,
+"mb": 6.4,
 "bbox": [
 45.53075,
 49.04417,
@@ -1215,15 +1319,17 @@
 -116.99608
 ]
 ],
-"made_at": "2026-10-29 06:51",
+"made_at": "2026-10-31 04:29",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 105404
+"licences": 105404,
+"history": "history/WA.rfpack",
+"history_mb": 4.2
 },
 {
 "st": "WI",
 "name": "Wisconsin (WI)",
 "file": "WI.rfpack",
-"mb": 5.1,
+"mb": 5.7,
 "bbox": [
 42.45419,
 46.78856,
@@ -1238,15 +1344,17 @@
 -87.00161
 ]
 ],
-"made_at": "2026-10-29 06:55",
+"made_at": "2026-10-31 04:29",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 90842
+"licences": 90842,
+"history": "history/WI.rfpack",
+"history_mb": 3.9
 },
 {
 "st": "WV",
 "name": "West Virginia (WV)",
 "file": "WV.rfpack",
-"mb": 2.2,
+"mb": 2.5,
 "bbox": [
 37.20833,
 40.63533,
@@ -1261,15 +1369,17 @@
 -77.72131
 ]
 ],
-"made_at": "2026-10-29 06:55",
+"made_at": "2026-10-31 04:29",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 40430
+"licences": 40430,
+"history": "history/WV.rfpack",
+"history_mb": 1.5
 },
 {
 "st": "WY",
 "name": "Wyoming (WY)",
 "file": "WY.rfpack",
-"mb": 2.6,
+"mb": 3.0,
 "bbox": [
 40.96961,
 45.02844,
@@ -1284,9 +1394,12 @@
 -104.02389
 ]
 ],
-"made_at": "2026-10-29 06:55",
+"made_at": "2026-10-31 04:29",
 "fcc_built_at": "2026-10-28 18:26",
-"licences": 54572
+"licences": 54572,
+"history": "history/WY.rfpack",
+"history_mb": 1.0
 }
-]
+],
+"grantee": "fcc_grantee.rfpack"
 }

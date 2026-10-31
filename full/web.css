@@ -1,3 +1,5 @@
-/* RF Recon (beta), full web version: PC-only controls hidden (missions, connection and data updates, the KMZ +
-   GeoTIFF heatmap bundle the PC server builds). */
-#missionChip, #netChip, #heatExport { display: none !important; }
+/* RF Recon (beta), full web version: PC-only controls hidden (the connection and data-updates chip, and Push to ATAK,
+   which needs the PC on the same network as the phones; the ATAK download does the same from here). */
+#netChip, #takPush { display: none !important; }
+/* the pack's line is longer than the PC's: it gives way to the buttons instead of pushing them onto a second row */
+@media (min-width: 601px) { #meta { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; } }

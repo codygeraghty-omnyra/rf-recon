@@ -103,6 +103,35 @@ async function removePack(id) {
   if (PACK?.id === id) { await idb.del("kv", "activePack"); DB?.close(); DB = META = PACK = null; }
 }
 
+/* the FCC history layer (expired, cancelled, terminated, removed): each state's history file from the site
+   (packs/history/, fieldpack.build_history), fetched the first time the layer is on and kept in this browser */
+let HRAW = null, HDBS = null;
+const packStates = () => { const a = META?.area; return [...new Set((a?.areas || [a]).flatMap(x => x?.states || []))]; };
+async function historyFiles() {
+  if (HRAW) return HRAW;
+  const out = [];
+  for (const st of packStates()) {
+    const key = `history:${st}:${META?.fcc_built_at || ""}`;
+    let buf = await idb.get("packdata", key);
+    if (!buf) {
+      const s = (await sitePacks()).find(x => x.st === st && x.history);
+      if (!s) continue;
+      const st_ = document.getElementById("status");
+      if (st_) st_.textContent = `Loading the FCC history for ${s.name} (${s.history_mb} MB) from the RF Recon site…`;
+      const r = await realFetch(`../packs/${s.history}`);
+      if (!r.ok) continue;
+      buf = await r.arrayBuffer();
+      await idb.put("packdata", buf, key);
+    }
+    out.push(await unpack(buf));
+  }
+  return HRAW = out;
+}
+async function historyDbs() {
+  if (!HDBS) { const SQL = await sqlReady(); HDBS = (await historyFiles()).map(b => new SQL.Database(b)); }
+  return HDBS;
+}
+
 /* ---------- geo (geo.py) ---------- */
 function distKm(a1, o1, a2, o2) {
   const p1 = rad(a1), p2 = rad(a2), dp = p2 - p1, dl = rad(o2 - o1);
@@ -123,10 +152,11 @@ const fsplRx = (erp, d, f) => !erp || !f || d == null ? null
   : 10 * Math.log10(erp * 1000) + 2.15 - (20 * Math.log10(Math.max(d, 0.05)) + 20 * Math.log10(f) + 32.44);
 
 /* ---------- queries (app.py) ---------- */
-function q(sql, args = []) {
-  const st = DB.prepare(sql);
+function qd(db, sql, args = []) {
+  const st = db.prepare(sql);
   try { st.bind(args); const out = []; while (st.step()) out.push(st.getAsObject()); return out; } finally { st.free(); }
 }
+const q = (sql, args = []) => qd(DB, sql, args);
 const fnum = (p, k, d = null) => { const v = p.get(k); if (v == null || v === "") return d; const n = parseFloat(v); return isNaN(n) ? d : n; };
 const fstr = (p, k) => (p.get(k) || "").trim();
 const hasTable = name => q("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", [name]).length > 0;
@@ -141,11 +171,12 @@ function areaFilter(p) {
   if (fstr(p, "scope") === "nationwide") return {point: null, radius: null, sql: "1", args: [], nationwide: true};
   return null;
 }
-function ulsFilters(p) {
+function ulsFilters(p, hist = false) {  // hist: only what removed entries keep (service, mode), as app.py
   const where = [], args = [];
   const svc = fstr(p, "svc").split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
   if (svc.length) { where.push(`service IN (${svc.map(() => "?").join(",")})`); args.push(...svc); }
   if (fstr(p, "tech")) { where.push("mode LIKE ?"); args.push(`%${fstr(p, "tech")}%`); }
+  if (hist) return [where, args];
   if (fstr(p, "emission")) { where.push("emissions LIKE ?"); args.push(`%${fstr(p, "emission").toUpperCase()}%`); }
   const ymd = col => `(substr(${col},7,4)||substr(${col},1,2)||substr(${col},4,2))`;  // MM/DD/YYYY -> YYYYMMDD
   for (const [key, col, op] of [["granted_from", "grant_date", ">="], ["granted_to", "grant_date", "<="], ["expires_from", "expired_date", ">="], ["expires_to", "expired_date", "<="]]) {
@@ -165,7 +196,7 @@ function decorate(f, area) {
   } else if (area.point) return false;
   return true;
 }
-function queryArea(p) {
+function queryArea(p, hist = []) {
   if (!DB) return {error: "Load a data pack first: Packs tab, then Load a pack."};
   const area = areaFilter(p);
   if (!area) return {error: "Drop a pin or pick a state/county."};
@@ -177,7 +208,7 @@ function queryArea(p) {
   const out = [];
   let truncated = false;
   const freq = (where, args) => { if (fmin != null) { where.push("freq_mhz >= ?"); args.push(fmin); } if (fmax != null) { where.push("freq_mhz <= ?"); args.push(fmax); } };
-  if (layers.has("uls")) {  // packs hold current licences only, so the history layer has nothing to add
+  if (layers.has("uls")) {  // packs hold current licences; the history layer reads the history files (hist)
     const where = [area.sql, "status = 'A'"], args = [...area.args];
     freq(where, args);
     if (hideMobile) where.push("is_mobile = 0");
@@ -187,6 +218,27 @@ function queryArea(p) {
     truncated = rows.length > MAX_ROWS;
     for (const f of rows.slice(0, MAX_ROWS)) {
       Object.assign(f, {layer: "uls", fid: `uls:${f.id}`, label: f.licensee, sig_type: f.sig_type || "Unknown"});
+      if (decorate(f, area)) out.push(f);
+    }
+  }
+  if (layers.has("uls_hist")) for (const h of hist) {  // licences that aren't active, then entries gone since an earlier import
+    const where = [area.sql], args = [...area.args];
+    freq(where, args);
+    if (hideMobile) where.push("is_mobile = 0");
+    if (text) { where.push("(licensee LIKE ? OR call_sign LIKE ? OR city LIKE ? OR address LIKE ?)"); args.push(...Array(4).fill(`%${text}%`)); }
+    where.push(...advWhere); args.push(...advArgs);
+    for (const f of qd(h, `SELECT * FROM tx_old WHERE ${where.join(" AND ")} LIMIT ${MAX_ROWS + 1}`, args)) {
+      Object.assign(f, {layer: "uls_hist", fid: `uls:${f.id}`, label: f.licensee, sig_type: f.sig_type || "Unknown",
+        category: "History: " + ({E: "Expired", C: "Cancelled", T: "Terminated"}[f.status] || f.status || "Inactive")});
+      if (decorate(f, area)) out.push(f);
+    }
+    const hw = [area.sql], ha = [...area.args];
+    freq(hw, ha);
+    if (text) { hw.push("(licensee LIKE ? OR call_sign LIKE ?)"); ha.push(`%${text}%`, `%${text}%`); }
+    const [w2, a2] = ulsFilters(p, true);
+    for (const f of qd(h, `SELECT * FROM tx_history WHERE ${[...hw, ...w2].join(" AND ")} LIMIT 5000`, [...ha, ...a2])) {
+      Object.assign(f, {layer: "uls_hist", fid: "hist:" + f.hkey, label: f.licensee, category: "History: Removed", status: "REMOVED",
+        sig_type: f.sig_type || "Unknown"});
       if (decorate(f, area)) out.push(f);
     }
   }
@@ -241,8 +293,28 @@ function queryArea(p) {
       if (decorate(f, area)) out.push(f);
     }
   }
+  if (layers.has("psap") && area.point && hasTable("psap")) {  // 911 call centres, placed at their town's centre
+    for (const f of q(`SELECT * FROM psap WHERE ${area.sql} LIMIT 2000`, area.args)) {
+      Object.assign(f, {layer: "psap", fid: `psap:${f.psap_id}`, label: f.name, category: "911 call centre (PSAP)", sig_type: null, freq_mhz: null,
+        details: JSON.stringify({"PSAP ID": f.psap_id, "City": f.city, "County": f.county, "State": f.state,
+          "Position": `approximate: ${f.located} (the registry has no addresses)`,
+          "Registry": `FCC 911 Master PSAP Registry, rows last updated ${META?.psap_source_date || ""}`})});
+      if (decorate(f, area)) out.push(f);
+    }
+  }
   if (area.point) out.sort((a, b) => (a.dist_mi ?? 1e9) - (b.dist_mi ?? 1e9) || (a.freq_mhz || 0) - (b.freq_mhz || 0));
   return {rows: out, truncated, center: area.point, radius: area.radius};
+}
+
+function mwlinks(p) {  // microwave backhaul links with an end in the map's box (app.py /api/mwlinks)
+  const [s, n, w, e] = ["s", "n", "w", "e"].map(k => fnum(p, k));
+  if ([s, n, w, e].includes(null)) throw new Error("Give the map's box: s, n, w, e.");
+  if (!hasTable("mw_link")) return {links: [], loaded: false};
+  const lim = Math.min(fnum(p, "limit", 3000), 6000), seen = new Set(), links = [];
+  for (const side of ["tx", "rx"])
+    for (const r of q(`SELECT rowid, * FROM mw_link WHERE ${side}_lat BETWEEN ? AND ? AND ${side}_lon BETWEEN ? AND ? LIMIT ?`, [s, n, w, e, lim]))
+      if (!seen.has(r.rowid)) { seen.add(r.rowid); links.push(r); }
+  return {links: links.slice(0, lim), loaded: links.length > 0 || q("SELECT 1 FROM mw_link LIMIT 1").length > 0, truncated: links.length > lim};
 }
 
 /* ---------- heatmaps (app.py heatmap, geo.py grid_* and colorize) ---------- */
@@ -761,15 +833,14 @@ async function route(path, p, method, body) {
   if (path === "/area") {
     const lat = fnum(p, "lat"), lon = fnum(p, "lon");
     if (lat != null && lon != null && !packHas(PACK, lat, lon)) { const msg = await packForPin(lat, lon); if (msg) throw new Error(msg); }
-    const r = queryArea(p); if (r.error) throw new Error(r.error); return r;
+    const hist = (fstr(p, "layers") || "").split(",").includes("uls_hist") ? await historyDbs() : [];
+    const r = queryArea(p, hist); if (r.error) throw new Error(r.error); return r;
   }
   if (path === "/heatmap") return heatmap(p);
   if (path === "/coverage") return coverage(p);
   if (path === "/network") return network(p);
-  if (path === "/cells") return {sites: [], cells: 0, towers_nearby: 0, sources: {}};  // crowd and survey data stay on the PC
   if (path.startsWith("/basemaps")) return basemaps(path, p, method, body);
-  if (path === "/mwlinks") return {links: [], loaded: false};  // backhaul links aren't in packs
-  if (path === "/fccid") throw new Error("FCC ID look-ups run from RF Recon on the PC.");
+  if (path === "/mwlinks") return mwlinks(p);
   if (path === "/find") return findPack(p);
   if (/^\/research\/(pim|parts|plans|budget)$/.test(path)) {  // the PIM and Parts tabs' research ships with the page
     const r = await realFetch(`static/research/${{pim: "pim", parts: "rf_parts", plans: "plans_materials", budget: "link_budget"}[path.split("/")[2]]}.json`);
@@ -779,16 +850,74 @@ async function route(path, p, method, body) {
   if (path === "/bdc/at") return {carriers: [], loaded: false};
   if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
-  if (path === "/report/signals") return {counts: {}, rows: [], layers: []};
   if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)
   if (path === "/sigwiki/range") return {signals: []};
-  if (path === "/missions" && method === "GET") return [];
   if (path === "/update/status" || path === "/net/hint") return STUB_STATUS();
   if (path === "/settings" && method === "GET") return {creds: {}, states: ""};
-  if (path === "/layers") return {layers: [], fetches: []};
-  if (path === "/overlay" || path === "/observation") throw new Error("Labels and observations are kept in RF Recon on the PC. The web version reads packs only.");
   const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;
 }
+/* ---------- your own work: the PC app's own server, run in this browser (pyworker.js, webhost.py) ---------- */
+// what only the PC's code answers: missions, captures, the field log, labels, DAS, talk groups, your layers, cell
+// sites, FCC ID look-ups, the unlisted-signal check and the PC's downloads
+const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|talkgroups|cells|fccid|report\/signals|layers|export\.|heatmap\.zip|coverage\.kmz)/;
+// once something is saved in this browser the PC's code answers the map as well, so captures, labels and layers show
+const PY_WITH_WORK = /^\/(area|heatmap|network|find|mwlinks)$/;
+// asked for at start-up: until something is saved, the empty answer, so a visit that keeps nothing never loads the engine
+const PY_EMPTY = {"/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []}};
+const WORK = "rfr.work";
+const hasWork = () => { try { return localStorage.getItem(WORK) === "1"; } catch (e) { return false; } };
+let PYW = null, pySeq = 0, pyStart = null, pyHist = false, pyGrantee = false;
+const pyWait = new Map();
+const pySend = (msg, transfer = []) => new Promise((ok, no) => { const id = ++pySeq; pyWait.set(id, {ok, no}); PYW.postMessage({...msg, id}, transfer); });
+function pyBoot() {
+  if (pyStart) return pyStart;
+  PYW = new Worker("pyworker.js");
+  PYW.onmessage = ({data: m}) => { const w = pyWait.get(m.id); if (!w) return; pyWait.delete(m.id);
+    m.ok ? w.ok(m) : w.no(Object.assign(new Error(m.error), {status: 500})); };
+  PYW.onerror = e => { for (const w of pyWait.values()) w.no(new Error("RF Recon's engine didn't start: " + (e.message || "check the connection")));
+    pyWait.clear(); };
+  pyStart = (async () => {
+    const st = document.getElementById("status"), was = st?.textContent || "", note = "Starting RF Recon's own engine in this browser";
+    if (st) st.textContent = `${note} (the first time it downloads about 15 MB)…`;
+    try {
+      const pack = PACK ? (await unpack(await idb.get("packdata", PACK.id))).slice().buffer : null;
+      await pySend({kind: "start", pack}, pack ? [pack] : []);
+    } finally { if (st && st.textContent.startsWith(note)) st.textContent = was; }
+  })();
+  pyStart.catch(() => { pyStart = null; PYW?.terminate(); PYW = null; });
+  return pyStart;
+}
+async function bodyBytes(b) {
+  if (b == null) return null;
+  if (b instanceof Blob) return b.arrayBuffer();
+  if (b instanceof ArrayBuffer) return b.slice(0);
+  if (ArrayBuffer.isView(b)) return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+  return new TextEncoder().encode(String(b)).buffer;
+}
+async function pyRoute(path, search, method, opts) {
+  await pyBoot();
+  if (!pyHist && /^\/(area|heatmap|export\.)/.test(path) && (new URLSearchParams(search).get("layers") || "").split(",").includes("uls_hist")) {
+    const files = (await historyFiles()).map(b => b.slice().buffer);
+    await pySend({kind: "history", files}, files);
+    pyHist = true;
+  }
+  if (!pyGrantee && path === "/fccid") {  // the FCC's equipment-maker codes, one file on the site (fieldpack.build_grantee)
+    let buf = await idb.get("packdata", "grantee");
+    if (!buf) {
+      const name = (await (await realFetch("../packs/index.json", {cache: "no-cache"})).json()).grantee;
+      const r = name ? await realFetch(`../packs/${name}`) : null;
+      if (r?.ok) { buf = await r.arrayBuffer(); await idb.put("packdata", buf, "grantee"); }
+    }
+    if (buf) { const file = (await unpack(buf)).slice().buffer; await pySend({kind: "grantee", file}, [file]); }
+    pyGrantee = true;
+  }
+  const body = await bodyBytes(opts?.body);
+  const ctype = new Headers(opts?.headers || {}).get("Content-Type") || (opts?.body instanceof Blob ? opts.body.type : "");
+  const r = await pySend({kind: "req", method, path: "/api" + path, query: search, body, ctype}, body ? [body] : []);
+  if (method !== "GET" && r.status < 400) try { localStorage.setItem(WORK, "1"); } catch (e) {}
+  return new Response(r.body, {status: r.status, headers: r.headers});
+}
+
 const realFetch = window.fetch.bind(window);
 window.fetch = async (input, opts) => {
   let u;
@@ -796,7 +925,12 @@ window.fetch = async (input, opts) => {
   if (u.origin !== location.origin || !u.pathname.startsWith("/api/")) return realFetch(input, opts);
   await ready;
   const reply = (status, obj) => new Response(JSON.stringify(obj), {status, headers: {"Content-Type": "application/json"}});
-  try { return reply(200, await route(u.pathname.slice(4), u.searchParams, (opts?.method || "GET").toUpperCase(), opts?.body)); }
+  const path = u.pathname.slice(4), method = (opts?.method || "GET").toUpperCase();
+  try {
+    if (method === "GET" && path in PY_EMPTY && !pyStart && !hasWork()) return reply(200, PY_EMPTY[path]);
+    if (PY_ROUTES.test(path) || (PY_WITH_WORK.test(path) && hasWork())) return await pyRoute(path, u.search.slice(1), method, opts);
+    return reply(200, await route(path, u.searchParams, method, opts?.body));
+  }
   catch (e) { return reply(e.status || 400, {error: e.message || String(e)}); }
 };
 
@@ -820,6 +954,6 @@ L.tileLayer = (url, opts) => {
 };
 
 window.RFPack = {ready, info: () => PACK, meta: () => META, list: () => idb.all("packs"), import: importPack, remove: removePack,
-  sitePacks, loadSite: loadSitePack,
+  sitePacks, loadSite: loadSitePack, hasWork,
   use: async id => { await idb.put("kv", id, "activePack"); }, exportFile};
 })();

@@ -184,7 +184,7 @@ S.views.mission = async (v) => {
     catch(e){ $("#fl_res").textContent="Error: "+e.message; } };
   $("#ml_add").onclick=async()=>{ if(!$("#ml_note").value) return; await post(`/api/missions/${m.id}/note`,{text:$("#ml_note").value}); await loadMission(m.id); render(); };
   const mp=()=>{ const p=new URLSearchParams({lat:m.lat,lon:m.lon,radius:m.radius_mi||5,mission:m.id,layers:"captures,uls,towers"}); return p; };
-  $("#mx_kml").onclick=()=>location.href="/api/export.kml?"+mp(); $("#mx_csv").onclick=()=>location.href="/api/export.csv?"+mp();
+  $("#mx_kml").onclick=()=>getFile("/api/export.kml?"+mp()); $("#mx_csv").onclick=()=>getFile("/api/export.csv?"+mp());
 };
 function watchRow(w){ return `<div class="row" style="margin-top:4px"><input data-w="freq" type="number" step="any" placeholder="MHz" value="${w.freq??""}" style="width:120px">
   <input data-w="tol" type="number" step="any" placeholder="± kHz" value="${w.tol_khz??12.5}" style="width:80px"><input data-w="label" placeholder="label" value="${esc(w.label||"")}" class="grow"><button data-rmw="1">✕</button></div>`; }

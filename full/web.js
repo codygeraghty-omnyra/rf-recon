@@ -4,22 +4,42 @@
    browser. Missions, captures, crowd data and data updates stay in RF Recon on the PC. */
 (() => {
 window.welcome = null;  // the PC's first run downloads FCC files; here the first run is loading a pack (Packs tab)
-for (const k of ["uls_hist", "captures", "wigle", "opencellid", "repeaterbook", "custom", "ttn", "satnogs", "wspr", "pskreporter", "psap"]) {  // PC-only sources: never in a pack
+for (const k of ["wigle", "opencellid", "repeaterbook", "ttn", "satnogs", "wspr", "pskreporter"]) {  // crowd sources: they need your keys, kept on the PC
   delete LAYERS[k]; S.layerOn.delete(k);
 }
 const chip = document.createElement("button");
 chip.className = "hbtn"; chip.id = "packChip"; chip.title = "Data pack"; chip.textContent = "▣ Pack";
 $("#missionChip").after(chip);
 chip.onclick = () => setTab("data");
-$('#tabs [data-t="mission"]').style.display = "none";
-const dasTab = $('#tabs [data-t="das"]');  // DAS jobs, contacts and job files live on the PC's server
-if (dasTab) dasTab.style.display = "none";
-const cellTab = $('#tabs [data-t="cells"]');  // cell sites come from crowd data and captures, which packs never carry
-if (cellTab) cellTab.style.display = "none";
 $('#tabs [data-t="data"]').textContent = "Packs";
 const run = fn => { try { fn(); } catch (e) { $("#status").textContent = e.message; } };
-$("#csvBtn").onclick = () => run(() => RFPack.exportFile("csv", exportParams()));
-$("#kmlBtn").onclick = () => run(() => RFPack.exportFile("kml", exportParams()));
+// with work saved in this browser the PC's own export (captures and labels included); before that, the pack's rows
+$("#csvBtn").onclick = () => RFPack.hasWork() ? getFile("/api/export.csv?" + exportParams()) : run(() => RFPack.exportFile("csv", exportParams()));
+$("#kmlBtn").onclick = () => RFPack.hasWork() ? getFile("/api/export.kml?" + exportParams()) : run(() => RFPack.exportFile("kml", exportParams()));
+
+// files the PC's code makes (exports, heatmap bundles, DAS job files): fetched through the page and saved or opened here,
+// since a plain link to /api/ leaves the site
+const fileName = (r, url) => (/filename="([^"]+)"/.exec(r.headers.get("Content-Disposition") || "") || [])[1] || url.split("?")[0].split("/").pop();
+window.getFile = async url => {
+  $("#status").textContent = "Making the file…";
+  const r = await fetch(url);
+  if (!r.ok) { $("#status").textContent = (await r.json().catch(() => ({}))).error || `Couldn't make that file (${r.status}).`; return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(await r.blob()); a.download = fileName(r, url);
+  document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 60000);
+  $("#status").textContent = `Saved ${a.download}.`;
+};
+document.addEventListener("click", async e => {
+  const a = e.target.closest?.('a[href^="/api/"]');
+  if (!a) return;
+  e.preventDefault();
+  const w = a.target === "_blank" ? window.open("", "_blank") : null;  // opened now, while the click still counts
+  const r = await fetch(a.getAttribute("href"));
+  if (!r.ok) { w?.close(); $("#status").textContent = (await r.json().catch(() => ({}))).error || `Couldn't open that file (${r.status}).`; return; }
+  const href = URL.createObjectURL(await r.blob());
+  if (w) w.location = href; else { const d = document.createElement("a"); d.href = href; d.download = fileName(r, a.href); document.body.append(d); d.click(); d.remove(); }
+}, true);
 
 // replaces mission.js's start-up (missions, connection checks): runs once the page has its data
 window.missionBoot = async () => {
@@ -30,10 +50,10 @@ window.missionBoot = async () => {
   if (nw) { nw.textContent = "Whole pack"; nw.title = "Search licences anywhere in the pack by call sign, licensee, service or frequency"; }
   if (p) $("#meta").textContent = `Pack ${p.name} · ${$("#meta").textContent}`;
   else { $("#meta").textContent = "No data pack loaded yet: open Packs."; setTimeout(() => setTab("data"), 0); }
+  try { const r = await api("/api/missions"); if (r.active) { await loadMission(r.active, true); if (parseLoc($("#loc").value)) runSearch(); } } catch (e) {}
 };
 
 const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
-S.views.mission = v => { v.innerHTML = '<p class="status">Missions and captures are kept in RF Recon on the PC.</p>'; };
 S.views.data = async v => {
   const packs = await RFPack.list(), p = RFPack.info(), other = packs.filter(x => x.id !== p?.id);
   v.innerHTML = `
@@ -58,11 +78,12 @@ S.views.data = async v => {
         <span><button data-use="${esc(o.id)}">Use</button> <button data-rm="${esc(o.id)}">Remove</button></span></div>`).join("")}` : ""}</div>
   </div>
   <div class="panel"><h3>About the web version</h3>
-    <p class="hint" style="margin-top:0">This is RF Recon in your browser, working from one area's pack: search, every map layer, the Area report,
-      Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, heatmaps and exports, plus any transmitter's coverage (hills counted
-      when you're online) and what it's networked with. Missions, captures, crowd data (WiGLE, OpenCelliD, RepeaterBook), cell sites,
-      DAS jobs, talk groups, the Signal ID Wiki catalog and data updates stay in RF Recon on the PC. A pack and everything you do here
-      stay in this browser; nothing is sent anywhere. It works on a phone too; for one state kept on the phone with no signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`;
+    <p class="hint" style="margin-top:0">This is RF Recon in your browser, working from one area's pack: every tab the PC app has,
+      run by the PC app's own code, from search and the map's layers to missions, captures, the field log, labels, DAS jobs, talk groups
+      and your own layers. The first time you keep something here, RF Recon's engine loads in this browser (about 15 MB, once).
+      Crowd data (WiGLE, OpenCelliD, RepeaterBook) and live ships need your keys, the Signal ID Wiki and Artemis can't be passed on,
+      Push to ATAK needs the PC on your network, and data updates come as new packs here: those stay in RF Recon on the PC. A pack
+      and everything you do here stay in this browser; nothing is sent anywhere. It works on a phone too; for one state kept on the phone with no signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`;
   const reload = () => { location.hash = "tab=map"; location.reload(); };
   $("#pkFile").onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
