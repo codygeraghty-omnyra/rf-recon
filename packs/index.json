@@ -1402,9 +1402,14 @@
 }
 ],
 "grantee": "fcc_grantee.rfpack",
+"sigwiki": {
+"file": "sigwiki.json",
+"credit": "Signal Identification Wiki (sigidwiki.com): facts only, each linked to its page",
+"made_at": "2026-10-31 11:37"
+},
 "satnogs": {
 "file": "satnogs.json",
 "credit": "SatNOGS Network, CC BY-SA 4.0",
-"made_at": "2026-10-31 07:11"
+"made_at": "2026-10-31 11:34"
 }
 }

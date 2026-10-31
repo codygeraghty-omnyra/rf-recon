@@ -84,7 +84,7 @@ async function pcPanels(v) {
   say(".panel p.hint", "Free accounts of your own, kept only in this PC's database.", "Free accounts of your own, kept only in this browser (never sent anywhere but to the service they're for).");
   say(".panel h3", "Crowd / imported layers on this computer", "Crowd / imported layers in this browser");
   say(".panel p.hint", "Map tiles are cached as you view them, so areas you looked at before a trip keep working offline.", "SatNOGS stations come from a copy on the RF Recon site (SatNOGS Network, CC BY-SA 4.0), refreshed with the packs.");
-  say("#fiMsg", "On the PC.", "Here the maker shows from the FCC's grantee list; the grants themselves come from the FCC, which answers RF Recon on the PC only.");
+  say("#fiMsg", "On the PC.", "The maker shows from the FCC's grantee list, and the grants open in your browser.");
 }
 async function packPanels(v) {
   const packs = await RFPack.list(), p = RFPack.info(), other = packs.filter(x => x.id !== p?.id), upd = await RFPack.packUpdate().catch(() => null);

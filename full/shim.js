@@ -855,11 +855,67 @@ async function route(path, p, method, body) {
   if (path === "/bdc/at") return {carriers: [], loaded: false};
   if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
-  if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)
-  if (path === "/sigwiki/range") return {signals: []};
+  if (path === "/sigwiki/match") return {candidates: await sigwikiMatch(fnum(p, "freq"), fnum(p, "bw"), fstr(p, "type"), fnum(p, "limit", 5))};
+  if (path === "/sigwiki/range") return {signals: await sigwikiRange(fnum(p, "lo", 0), fnum(p, "hi", 1e6))};
   if (path === "/update/status" || path === "/net/hint") return STUB_STATUS();
   if (path === "/fieldpacks") return {packs: [], folder: "", phone_url: "../", job: {running: false, log: []}};  // packs are made on the PC
   const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;
+}
+
+/* ---------- the Signal Identification Wiki's catalog (sigwiki.py's match and in_range) ---------- */
+// the facts its matching uses, from the copy beside the packs (state_packs.py: no prose, pictures or audio), loaded once
+let SIGWIKI = null;
+const sigwikiRows = () => SIGWIKI || (SIGWIKI = (async () => {
+  const idx = await (await realFetch("../packs/index.json", {cache: "no-cache"})).json();
+  const r = idx.sigwiki ? await realFetch(`../packs/${idx.sigwiki.file}`) : null;
+  return r?.ok ? r.json() : [];
+})().catch(() => { SIGWIKI = null; return []; }));
+const SW_LOCAL = /worldwide|united states|usa|\bus\b|north america|americas|global|international/i;
+const SW_WORDS = {"P25 Phase 1": ["p25", "project 25"], "P25 Phase 2": ["p25", "project 25"], "DMR": ["dmr", "mototrbo"],
+  "NXDN": ["nxdn"], "dPMR": ["dpmr"], "TETRA": ["tetra"], "ADS-B / Mode S": ["ads-b", "mode s"], "UAT": ["uat"], "AIS": ["ais"],
+  "LTE": ["lte"], "5G NR": ["5g", "new radio"], "GSM": ["gsm"], "WCDMA/UMTS": ["umts", "wcdma"], "CDMA": ["cdma"],
+  "Wi-Fi": ["wi-fi", "wifi", "802.11"], "Bluetooth": ["bluetooth"], "Bluetooth LE": ["bluetooth"],
+  "Paging (POCSAG/FLEX)": ["pocsag", "flex", "pager"], "ISM 902-928 (LoRa/FHSS/meters)": ["lora", "ism"], "Amateur": ["amateur", "ham"]};
+const swG = x => {  // Python's f"{x:g}": six significant figures, no trailing zeros, an exact half rounded to even
+  if (x == null || !isFinite(x) || x === 0) return String(x);
+  const digits = Math.abs(x).toExponential(19).split("e")[0].replace(".", "");
+  if (/^\d{5}[02468]50*$/.test(digits)) x = Math.sign(x) * (Math.abs(x) - Math.abs(x) * 1e-15);  // a tie: Python keeps the even digit
+  const e = Math.floor(Math.log10(Math.abs(+x.toPrecision(6))));
+  if (e < -4 || e >= 6) {
+    const [m, p] = x.toExponential(5).split("e");
+    return `${String(+m)}e${p[0] === "-" ? "-" : "+"}${p.replace(/^[-+]/, "").padStart(2, "0")}`;
+  }
+  return String(+x.toPrecision(6));
+};
+async function sigwikiMatch(f, bw, type, limit) {
+  if (!f) return [];
+  const words = SW_WORDS[type] || [], out = [];
+  for (const e of await sigwikiRows()) {
+    if (!(e.fmin <= f + 0.05 && e.fmax >= f - 0.05)) continue;
+    let best = null;
+    for (const [lo, hi] of e.ranges || []) {
+      const tol = lo === hi ? Math.max((e.bw_max || 12.5) / 2000, 0.0005) : 0;
+      if (lo - tol <= f && f <= hi + tol) best = best == null ? hi - lo : Math.min(best, hi - lo);
+    }
+    if (best == null) continue;
+    let score = 1 / (1 + Math.log10(1 + best));
+    const why = [`covers ${swG(f)} MHz` + (best ? ` (${swG(best)} MHz-wide range)` : " (exact)")];
+    if (bw && e.bw_min) {
+      if (e.bw_min * 0.7 <= bw && bw <= (e.bw_max || e.bw_min) * 1.3) { score += 1; why.push(`bandwidth fits (${swG(e.bw_min)}-${swG(e.bw_max)} kHz)`); }
+      else score -= 0.5;
+    }
+    const hay = `${e.title} ${e.name} ${e.modulation} ${e.categories}`.toLowerCase();
+    if (words.length && words.some(w => hay.includes(w))) { score += 2; why.push(`matches ${type}`); }
+    if (e.location && SW_LOCAL.test(e.location)) score += 0.5;
+    else if (e.location) { score -= 0.5; why.push(`usually heard in ${e.location.slice(0, 60)}`); }
+    out.push({name: e.name, title: e.title, url: e.url, score: Math.round(score * 100) / 100, why, mode: e.mode, modulation: e.modulation,
+      location: e.location, bw: [e.bw_min, e.bw_max], description: ""});
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, limit || 5);
+}
+async function sigwikiRange(lo, hi, limit = 400) {
+  return (await sigwikiRows()).filter(e => e.fmin <= hi && e.fmax >= lo).sort((a, b) => (a.fmax - a.fmin) - (b.fmax - b.fmin)).slice(0, limit)
+    .map(e => ({name: e.name, title: e.title, url: e.url, ranges: (e.ranges || []).filter(r => r[1] >= lo && r[0] <= hi), mode: e.mode, modulation: e.modulation}));
 }
 /* ---------- your own work: the PC app's own server, run in this browser (pyworker.js, webhost.py) ---------- */
 // what only the PC's code answers: missions, captures, the field log, labels, DAS, talk groups, your layers, cell

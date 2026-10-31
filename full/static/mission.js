@@ -295,7 +295,10 @@ S.views.data = async (v) => {
   const fiRun=async()=>{ const q=$("#fiQ").value.trim(); if(!q) return; $("#fiMsg").textContent="Asking the FCC…"; $("#fiOut").innerHTML="";
     try{ const r=await api(`/api/fccid?q=${encodeURIComponent(q)}`), m=r.maker;
       const maker=m?`<b>${esc(m.name||m.code)}</b>${[m.city,m.state,m.country].filter(Boolean).length?`, ${esc([m.city,m.state,m.country].filter(Boolean).join(", "))}`:""} (grantee code ${esc(m.code)}). `:"";
-      $("#fiMsg").innerHTML=r.offline?`${maker}The FCC didn't answer, so this is from the grantee list kept on this PC; the grants need a connection.`
+      // the FCC's grant list refuses anything but a person's own browser (10/31: the PC's request and the web version's both
+      // get 403), so when it won't answer, the grants open there: the FCC's own list, or fccid.io's readable copy of it
+      const id=encodeURIComponent(r.query||q);
+      $("#fiMsg").innerHTML=r.offline?`${maker}The FCC won't send its grant list to RF Recon, so this is from the grantee list kept here. The grants open in your browser: <a href="https://apps.fcc.gov/OETLabServices/getFCCIDList?fccId=${id}" target="_blank" rel="noopener">the FCC's list ↗</a> or <a href="https://fccid.io/${id}" target="_blank" rel="noopener">fccid.io ↗</a> (a third-party viewer of the FCC's records).`
         :`${maker}${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Frequencies, power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
       $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th><th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td><td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records.</p>`:'<p class="hint">No grants match.</p>'; }
     catch(e){ $("#fiMsg").textContent=e.message; } };

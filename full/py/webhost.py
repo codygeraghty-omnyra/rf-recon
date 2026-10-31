@@ -177,8 +177,37 @@ def attach_history(paths):
     HISTORY[:] = paths
 
 
+_SIGWIKI = []
+
+
+def _sigwiki():
+    """Once a start: the Signal ID Wiki catalog's copy beside the packs (state_packs.py: facts only) into the crowd database,
+    where the PC's code matches signals against it (the unlisted check, the field log)."""
+    if _SIGWIKI or "pyodide" not in sys.modules:
+        return
+    _SIGWIKI.append(True)
+    try:
+        import sigwiki
+        with _urlopen(_site("../packs/sigwiki.json"), timeout=60) as r:
+            rows = json.loads(r.read())
+        con = app.cdb()
+        try:
+            con.executescript(sigwiki.SCHEMA)
+            con.execute("DELETE FROM sigwiki")
+            con.executemany("INSERT OR REPLACE INTO sigwiki(name, title, url, ranges, fmin, fmax, bw_min, bw_max, mode, modulation, "
+                            "location, categories) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                            [(e["name"], e["title"], e["url"], json.dumps(e["ranges"]), e["fmin"], e["fmax"], e["bw_min"], e["bw_max"],
+                              e["mode"], e["modulation"], e["location"], e["categories"]) for e in rows])
+            con.commit()
+        finally:
+            con.close()
+    except Exception:  # offline, or no copy on the site yet: matches come back empty, as on a PC without the catalog
+        pass
+
+
 def call(method, path, query, body, ctype):
     """One request through the PC's handler, without a socket: returns (status, headers, body)."""
+    _sigwiki()
     h = app.H.__new__(app.H)
     h.command, h.request_version = method, "HTTP/1.1"
     h.path = path + ("?" + query if query else "")
