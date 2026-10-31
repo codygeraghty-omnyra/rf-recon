@@ -317,6 +317,10 @@ def build_grantee(src_path, out_path):
         dst.executescript("PRAGMA journal_mode=OFF; CREATE TABLE fcc_grantee(code TEXT PRIMARY KEY, name TEXT, address TEXT,"
                           " city TEXT, state TEXT, country TEXT, zip TEXT, received TEXT);")
         n = copy_rows(src, dst, "fcc_grantee", GRANTEE_COLS, "1", [], lambda r: True) if has_table(src, "fcc_grantee") else 0
+        if has_table(src, "fcc_grantee_src"):  # which list it is (fccid.grantee_source): open data, or the FCC's own download
+            dst.execute("CREATE TABLE fcc_grantee_src(id INTEGER PRIMARY KEY CHECK (id = 1), source TEXT, file TEXT, at TEXT, codes INTEGER)")
+            dst.executemany("INSERT INTO fcc_grantee_src VALUES(?,?,?,?,?)",
+                            [tuple(r) for r in src.execute("SELECT id, source, file, at, codes FROM fcc_grantee_src")])
         dst.commit()
         dst.execute("VACUUM")
     finally:

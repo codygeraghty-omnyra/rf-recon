@@ -925,7 +925,7 @@ const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|da
 const PY_WITH_WORK = /^\/(area|heatmap|network|find|mwlinks)$/;
 // asked for at start-up: until something is saved, the empty answer, so a visit that keeps nothing never loads the engine
 const PY_EMPTY = {"/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []},
-  "/settings": {creds: {}, states: ""}};
+  "/settings": {creds: {}, states: ""}, "/fccid/grantees": {source: "site", page: "https://apps.fcc.gov/oetcf/eas/reports/GranteeSearch.cfm"}};
 const WORK = "rfr.work";
 const hasWork = () => { try { return localStorage.getItem(WORK) === "1"; } catch (e) { return false; } };
 let PYW = null, pySeq = 0, pyStart = null, pyHist = false, pyGrantee = false;

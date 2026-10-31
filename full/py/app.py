@@ -470,7 +470,7 @@ def start_fieldpack(d):
 
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
                 "/api/cells", "/api/cells/import", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
-                "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/find"}
+                "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/find"}
 
 
 def coverage_args(qs):
@@ -1225,6 +1225,14 @@ class H(BaseHTTPRequestHandler):
                 con = db()
                 try:
                     return self.send(200, fccid.lookup(fstr(qs, "q"), con=con))
+                finally:
+                    con.close()
+            if p == "/api/fccid/grantees":  # the kept maker list; POST: the FCC's own download in its place (fccid.py)
+                con = db()
+                try:
+                    if method == "POST":
+                        return self.send(200, fccid.import_grantee_file(con, fstr(qs, "name"), self.raw_body()))
+                    return self.send(200, fccid.grantee_source(con))
                 finally:
                     con.close()
             if p == "/api/ais":  # live ships in the box (ais.py); the stream runs only while a map keeps asking

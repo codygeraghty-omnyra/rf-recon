@@ -260,7 +260,9 @@ S.views.data = async (v) => {
       <button class="primary" id="tkSave">Save</button><span class="hint" id="tkMsg"></span></div></div>
   <div class="panel"><h3>Look up an FCC ID</h3>
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><input id="fiQ" placeholder="BCG-E2430, or a grantee code like BCG" style="width:280px"><button class="primary" id="fiGo">Look up</button><span class="hint" id="fiMsg">The FCC's equipment authorization records: who holds the grant, when, and for what. On the PC.</span></div>
-    <div id="fiOut" style="margin-top:8px"></div></div>
+    <div id="fiOut" style="margin-top:8px"></div>
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="hint" id="fiSrc">Maker names: …</span>
+      <label class="inl">Import the FCC's list <input type="file" id="fiImp" accept=".csv,.txt,.tsv,.xlsx,.xls,.xml,.json,.zip,.htm,.html"></label></div></div>
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
   <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
@@ -303,6 +305,17 @@ S.views.data = async (v) => {
       $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th><th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td><td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records.</p>`:'<p class="hint">No grants match.</p>'; }
     catch(e){ $("#fiMsg").textContent=e.message; } };
   $("#fiGo").onclick=fiRun; $("#fiQ").onkeydown=e=>{ if(e.key==="Enter") fiRun(); };
+  // the maker list: FCC open data (March 2021) until the FCC's own download, which answers a person's browser only, is imported
+  const fiSrc=g=>{ if(!$("#fiSrc")?.isConnected) return; const page=`<a href="${esc(g.page)}" target="_blank" rel="noopener">Grantee Search ↗</a>`;
+    $("#fiSrc").innerHTML=g.source==="site"?`Maker names: the grantee codes on the RF Recon site. For the FCC's current list here: open its ${page}, choose Download all grantees, then import that file.`
+      :g.source==="fcc-download"?`Maker names: ${g.codes.toLocaleString()} grantee codes from the FCC's own list, imported ${esc(g.at)}${g.newest?` (newest ${esc(g.newest)})`:""}. To refresh it: the FCC's ${page}, Download all grantees, then import the file.`
+      :!g.codes?`Maker names: no grantee list here yet. Get the FCC's current one: open its ${page}, choose Download all grantees, then import that file here (or run FCC equipment grantee codes in Data sources for its 2021 open data).`
+      :`Maker names: ${g.codes.toLocaleString()} grantee codes from FCC open data, which the FCC last updated in March 2021. For its current list: open the FCC's ${page}, choose Download all grantees, then import that file here.`; };
+  api("/api/fccid/grantees").then(fiSrc).catch(()=>{ if($("#fiSrc")) $("#fiSrc").textContent=""; });
+  $("#fiImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#fiSrc").textContent=`Reading ${f.name}…`;
+    try{ const g=await api(`/api/fccid/grantees?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()}); fiSrc(g);
+      $("#fiSrc").insertAdjacentText("beforeend", ` ${g.new.toLocaleString()} codes weren't in the old list.`); }
+    catch(err){ $("#fiSrc").textContent=err.message; } finally{ e.target.value=""; } };
   if(S.pendingFccid){ $("#fiQ").value=S.pendingFccid; S.pendingFccid=null; $("#fiQ").scrollIntoView({block:"center"}); fiRun(); }  // from Search: a maker's FCC IDs
   api("/api/tak/settings").then(t=>{ $("#tkMc").checked=t.multicast!==false; $("#tkGroup").value=t.group||""; $("#tkGroup").placeholder=t.default_group; $("#tkServer").value=t.server||""; }).catch(()=>{});
   $("#tkSave").onclick=async()=>{ try{ await post("/api/tak/settings",{multicast:$("#tkMc").checked, group:$("#tkGroup").value, server:$("#tkServer").value}); $("#tkMsg").textContent="Saved."; }

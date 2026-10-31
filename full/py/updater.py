@@ -421,10 +421,12 @@ class Updater:
                 con = sqlite3.connect(self.db, timeout=60)
                 try:
                     n = fccid.import_grantees(con, log=lambda m: self._mark(ids, message=m))
+                    src = fccid.grantee_source(con)
                 finally:
                     con.close()
-                self._mark(ids, state="ok", message=f"{n:,} grantee codes (FCC open data, last updated March 2021)",
-                           last_checked=now(), last_updated=now(), rows=n)
+                msg = (f"{n:,} grantee codes: the FCC's own list, imported {src['at']} (newer than open data's)"
+                       if src["source"] == "fcc-download" else f"{n:,} grantee codes (FCC open data, last updated March 2021)")
+                self._mark(ids, state="ok", message=msg, last_checked=now(), last_updated=now(), rows=n)
             elif job == "bdc":  # carrier coverage hexagons for the carrier-coverage states (bdc.py)
                 import bdc
                 states = [s for s in re.split(r"[,\s]+", self.get("bdc.states", "") or "") if s]
