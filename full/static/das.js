@@ -349,7 +349,8 @@ async function dasPresurvey(el, j, save){
     <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi. ${esc(verdict)}</p>
     <div class="grid2" style="margin-top:0">
       <div class="panel"><h3>Bands a booster must pass <span class="hint">· chosen systems, downlink and uplink</span></h3>${bands.size?`<table><thead><tr><th>Band</th><th>From MHz</th><th>To MHz</th><th class="n">Channels</th></tr></thead><tbody>${[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([b,x])=>`<tr><td>${esc(b)}</td><td class="mono">${fmtF(x.lo)}</td><td class="mono">${fmtF(x.hi)}</td><td class="n">${x.n}</td></tr>`).join("")}</tbody></table>
-        <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) needs FirstNet / AT&amp;T authorization and isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI).</p>`:'<p class="hint">Tick systems below.</p>'}</div>
+        <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) needs FirstNet / AT&amp;T authorization and isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI).</p>
+        <div id="psBoost"></div>`:'<p class="hint">Tick systems below.</p>'}</div>
       <div class="panel" style="padding:0;overflow:hidden"><div id="psMap" style="height:300px"></div></div></div>
     <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· strongest first · levels are free-space estimates from licensed power: best case, no terrain</span></h3>
       <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Best site</th><th class="n">Outside dBm</th><th class="n">Inside dBm</th><th class="n">Margin dB</th><th>Terrain to the roof</th></tr></thead><tbody>
@@ -386,6 +387,16 @@ async function dasPresurvey(el, j, save){
   for(const [id,k] of [["#psR","radius"],["#psL","loss"],["#psT","threshold"]]) $(id).onchange=e=>{ P[k]=+e.target.value; store({}); };
   $("#psLp").onchange=e=>{ if(e.target.value!==""){ P.loss=+e.target.value; store({}); } };
   $("#psPlan").onclick=()=>dasDl(`${fileSafe(j.name)} channel plan.csv`, csvOf(plan), "text/csv");
+  // boosters whose FCC grants take in every chosen channel, down and up (the DAS makers' grants kept by fccid.py)
+  const byBand=[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([name,x])=>`band=${encodeURIComponent(name+"|"+[...x.set].join(","))}`);
+  if(byBand.length) api(`/api/fccid/boosters?${byBand.join("&")}`).then(b=>{ const box=$("#psBoost"), kept=b.kept||{}; if(!box?.isConnected||!kept.devices) return;
+    const bandTxt=bs=>bs.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(bs.length>8?` +${bs.length-8}`:"");
+    const dev=x=>`<a href="${esc(x.view)}" target="_blank" rel="noopener" class="mono" title="${esc(bandTxt(x.bands))} MHz · granted ${esc(x.granted)}">${esc(x.fcc_id)}</a> <span class="hint">${esc(x.maker)}</span>`;
+    box.innerHTML=`<h3 style="margin:12px 0 4px">Boosters granted for these channels <span class="hint">· from ${kept.devices.toLocaleString()} devices of ${kept.makers.length} DAS and booster makers, newest grant first</span></h3>
+      ${b.count?`<p style="margin:4px 0">${b.count} granted for every band here, the newest: ${b.devices.slice(0,6).map(dev).join(", ")}</p>`
+        :`<p class="hint" style="margin:4px 0">None is granted for all ${b.by_band.length} bands: a multi-band system takes one unit (or module) per band, or per band group.</p>`}
+      <div class="tw"><table><thead><tr><th>Band</th><th class="n">Granted for all its channels</th><th>Newest</th></tr></thead><tbody>${b.by_band.map(x=>`<tr><td>${esc(x.band)}</td><td class="n">${x.count}</td><td>${x.devices.slice(0,3).map(dev).join("<br>")||'<span class="hint">none kept</span>'}</td></tr>`).join("")}</tbody></table></div>
+      <p class="hint">From the FCC's grant search (${esc(kept.at||"")}, ${esc(kept.makers.join(", "))}). A grant shows the bands a device is certified for, not that it suits this building: class, power and the Part 90 signal-booster label are on each device's FCC grant (its FCC ID opens it; point at it for its bands).</p>`; }).catch(()=>{});
   const sysRows=()=>r.systems.map(s=>({included:inc.has(s.call_sign)?"yes":"", agency:s.licensee, call_sign:s.call_sign, service:s.service_name, category:s.category, trunked:s.trunked?"yes":"no",
     technology:s.tech.join(" / "), downlink_mhz:s.down.map(c=>c.freq).join(" "), uplink_mhz:s.up.join(" "), best_site_mi:s.sites[0]?.dist_mi, bearing_deg:s.sites[0]?.bearing,
     outdoor_dbm:s.best_out, indoor_dbm:s.best_in, margin_db:s.margin_db}));

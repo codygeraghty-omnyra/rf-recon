@@ -262,7 +262,9 @@ S.views.data = async (v) => {
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><input id="fiQ" placeholder="BCG-E2430, or a grantee code like BCG" style="width:280px"><button class="primary" id="fiGo">Look up</button><span class="hint" id="fiMsg">The FCC's equipment authorization records: who holds the grant, when, and for what. On the PC.</span></div>
     <div id="fiOut" style="margin-top:8px"></div>
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="hint" id="fiSrc">Maker names: …</span>
-      <label class="inl">Import the FCC's list <input type="file" id="fiImp" accept=".csv,.txt,.tsv,.xlsx,.xls,.xml,.json,.zip,.htm,.html"></label></div></div>
+      <label class="inl">Import the FCC's list <input type="file" id="fiImp" accept=".csv,.txt,.tsv,.xlsx,.xls,.xml,.json,.zip,.htm,.html"></label></div>
+    <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px"><span class="hint" id="fiGr"></span>
+      <label class="inl">Import FCC grant searches <input type="file" id="fiGrImp" multiple accept=".xml,.xls,.xlsx,.htm,.html,.csv"></label></div></div>
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
   <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
@@ -300,9 +302,13 @@ S.views.data = async (v) => {
       // the FCC's grant list refuses anything but a person's own browser (10/31: the PC's request and the web version's both
       // get 403), so when it won't answer, the grants open there: the FCC's own list, or fccid.io's readable copy of it
       const id=encodeURIComponent(r.query||q);
-      $("#fiMsg").innerHTML=r.offline?`${maker}The FCC won't send its grant list to RF Recon, so this is from the grantee list kept here. The grants open in your browser: <a href="https://apps.fcc.gov/OETLabServices/getFCCIDList?fccId=${id}" target="_blank" rel="noopener">the FCC's list ↗</a> or <a href="https://fccid.io/${id}" target="_blank" rel="noopener">fccid.io ↗</a> (a third-party viewer of the FCC's records).`
-        :`${maker}${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Frequencies, power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
-      $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th><th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td><td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records.</p>`:'<p class="hint">No grants match.</p>'; }
+      const fccList=`<a href="https://apps.fcc.gov/OETLabServices/getFCCIDList?fccId=${id}" target="_blank" rel="noopener">the FCC's list ↗</a>`;
+      $("#fiMsg").innerHTML=r.offline&&r.kept?`${maker}The FCC won't send its grant list to RF Recon, so these are the grants kept here (the FCC's grant search, for DAS and booster makers), with the bands each is granted for. Power and class: each grant's view, or ${fccList}.`
+        :r.offline?`${maker}The FCC won't send its grant list to RF Recon, so this is from the grantee list kept here. The grants open in your browser: ${fccList} or <a href="https://fccid.io/${id}" target="_blank" rel="noopener">fccid.io ↗</a> (a third-party viewer of the FCC's records).`
+        :`${maker}${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
+      const bands=b=>(b||[]).length?b.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(b.length>8?` +${b.length-8}`:""):"";
+      const anyBands=r.results.some(x=>(x.bands||[]).length);
+      $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th>${anyBands?"<th>Bands (MHz)</th>":""}<th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td>${anyBands?`<td class="mono">${esc(bands(x.bands))}</td>`:""}<td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records${anyBands?"; bands come from the FCC's grant search, kept here for DAS and booster makers":""}.</p>`:'<p class="hint">No grants match.</p>'; }
     catch(e){ $("#fiMsg").textContent=e.message; } };
   $("#fiGo").onclick=fiRun; $("#fiQ").onkeydown=e=>{ if(e.key==="Enter") fiRun(); };
   // the maker list: the FCC's own (one person imports its download; the RF Recon site hands it to every other copy), or open data (2021)
@@ -311,8 +317,17 @@ S.views.data = async (v) => {
     $("#fiSrc").innerHTML=g.source==="site"?`Maker names: the FCC's own grantee list, from the RF Recon site. Nothing to do here.`
       :g.source==="fcc-download"&&g.file==="the RF Recon site"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list of ${esc(g.at)}, from the RF Recon site. It stays current through FCC equipment grantee codes in Data sources.`
       :g.source==="fcc-download"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list, imported ${esc(g.at)}${g.newest?` (newest ${esc(g.newest)})`:""}. Refresh the RF Recon site's packs to pass it on. ${own}`
-      :`Maker names: ${(g.codes||0).toLocaleString()} grantee codes${g.codes?" from FCC open data, which the FCC last updated in March 2021":""}. For its current list, run FCC equipment grantee codes in Data sources: it comes from the RF Recon site. ${own}`; };
+      :`Maker names: ${(g.codes||0).toLocaleString()} grantee codes${g.codes?" from FCC open data, which the FCC last updated in March 2021":""}. For its current list, run FCC equipment grantee codes in Data sources: it comes from the RF Recon site. ${own}`;
+    // the DAS and booster makers' grants with their bands (fccid.import_grant_file): one FCC grant search per maker code
+    const gr=g.grants||{}, form=`<a href="https://apps.fcc.gov/oetcf/eas/reports/GenericSearch.cfm" target="_blank" rel="noopener">Authorization Search ↗</a>`;
+    $("#fiGr").innerHTML=gr.devices?`Grants with their bands: ${gr.devices.toLocaleString()} devices from ${gr.makers.length} DAS and booster makers (${esc(gr.makers.join(", "))}), the FCC's grant search of ${esc(gr.at||"")}. The DAS pre-survey lists the boosters that cover a building's channels.`
+      :g.source==="site"?"":`No DAS or booster grants kept yet: the FCC's ${form}, one maker's grantee code at a time, Formatting Options XML, then import the files here.`; };
   api("/api/fccid/grantees").then(fiSrc).catch(()=>{ if($("#fiSrc")) $("#fiSrc").textContent=""; });
+  $("#fiGrImp").onchange=async e=>{ const files=[...e.target.files]; if(!files.length) return; let done=0;
+    try{ for(const f of files){ $("#fiGr").textContent=`Reading ${f.name} (${done+1} of ${files.length})…`;
+        await api(`/api/fccid/grants?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()}); done++; }
+      fiSrc(await api("/api/fccid/grantees")); }
+    catch(err){ $("#fiGr").textContent=`${done} of ${files.length} imported. ${err.message}`; } finally{ e.target.value=""; } };
   $("#fiImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#fiSrc").textContent=`Reading ${f.name}…`;
     try{ const g=await api(`/api/fccid/grantees?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()}); fiSrc(g);
       $("#fiSrc").insertAdjacentText("beforeend", ` ${g.new.toLocaleString()} codes weren't in the old list.`); }

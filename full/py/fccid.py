@@ -51,7 +51,133 @@ def grantee_source(con):
     except sqlite3.Error:
         codes, newest = 0, None
     return {"source": r[0] if r else ("open-data" if codes else None), "file": r[1] if r else None, "at": r[2] if r else None,
-            "codes": codes, "newest": newest, "page": GRANTEE_PAGE}
+            "codes": codes, "newest": newest, "page": GRANTEE_PAGE, "grants": grants_source(con)}
+
+
+# ---------------------------------------------------------------- grants of the DAS and signal-booster makers
+# Each grant line with its frequency range, from the FCC's Authorization Search in a browser (Formatting Options: XML),
+# one search per maker code (Cody 10/31: "yes build it"). Power and rule parts are only on each grant's own FCC page.
+DAS_MAKERS = {"S2O": "ADRF", "N52": "ADRF", "P3T": "Fiplex", "SQX": "JDTECK", "PX8": "Comba", "2A8OW": "Comba", "W6U": "SOLiD",
+              "TOU": "CommScope", "BCR": "Andrew (CommScope)", "2AVDJ": "Corning", "EZZ": "Bird", "NEO": "Axell Wireless",
+              "NVR": "Westell", "CH8": "Westell", "WBK": "BTI Wireless", "UPO": "Zinwave", "HCO": "Dali Wireless", "YET": "Nextivity",
+              "RSN": "SureCall", "PWO": "weBoost (Wilson)"}
+GRANT_SCHEMA = """CREATE TABLE IF NOT EXISTS fcc_grant(fcc_id TEXT, code TEXT, applicant TEXT, purpose TEXT, granted TEXT, lo REAL, hi REAL);
+CREATE INDEX IF NOT EXISTS fcc_grant_id ON fcc_grant(fcc_id);
+CREATE INDEX IF NOT EXISTS fcc_grant_code ON fcc_grant(code);
+CREATE TABLE IF NOT EXISTS fcc_grant_src(code TEXT PRIMARY KEY, lines INTEGER, devices INTEGER, at TEXT);"""
+GRANT_ALIASES = {"fcc_id": ["fccid"], "applicant": ["applicantname", "grantee", "granteename"], "purpose": ["applicationpurpose", "purpose"],
+                 "granted": ["grantdate", "finalactiondate", "dategranted"], "lo": ["lowerfreqmhz", "lowerfrequencyinmhz", "lowerfrequency"],
+                 "hi": ["upperfreqmhz", "upperfrequencyinmhz", "upperfrequency"]}
+
+
+def code_of(fcc_id):
+    """The grantee code an FCC ID starts with: 5 characters when it starts with 2-9, else 3 (KDB 204515)."""
+    s = (fcc_id or "").strip().upper()
+    return s[:5] if s[:1] in "23456789" else s[:3]
+
+
+def grants_source(con):
+    """The kept grants (read only): lines, devices, the makers they cover and when they were imported."""
+    try:
+        lines, devices = con.execute("SELECT COUNT(*), COUNT(DISTINCT fcc_id) FROM fcc_grant").fetchone()
+        src = con.execute("SELECT code, at FROM fcc_grant_src").fetchall()
+    except sqlite3.Error:
+        return {"lines": 0, "devices": 0, "makers": [], "at": None}
+    return {"lines": lines, "devices": devices, "makers": sorted({DAS_MAKERS.get(c, c) for c, _ in src}),
+            "at": max((a for _, a in src if a), default=None)}
+
+
+def import_grant_file(con, name, data):
+    """An FCC Authorization Search export (XML, or the Excel / web-page forms) in place of the kept lines of the maker
+    codes it holds. Returns grants_source."""
+    if not data:
+        raise ValueError("Pick the file the FCC's Authorization Search saved.")
+    table = _grantee_table(name or "the file", data)
+    hi = next((i for i, r in enumerate(table[:60]) if "fccid" in [_norm(c) for c in r]), None)
+    if hi is None:
+        raise ValueError(f"{name} has no FCC ID column, so it isn't an FCC grant search. Nothing was changed.")
+    head = [_norm(c) for c in table[hi]]
+    col = {f: next((head.index(n) for n in names if n in head), None) for f, names in GRANT_ALIASES.items()}
+    cell = lambda r, f: r[col[f]] if col[f] is not None and col[f] < len(r) else None
+
+    def mhz(v):
+        try:
+            return float(str(v).replace(",", "")) if _clean(v) else None
+        except ValueError:
+            return None
+    rows = []
+    for r in table[hi + 1:]:
+        fid = re.sub(r"\s+", "", str(cell(r, "fcc_id") or "")).upper()
+        if len(fid) < 4 or not _CODE.match(code_of(fid)):
+            continue
+        rows.append((fid, code_of(fid), _clean(cell(r, "applicant")), _clean(cell(r, "purpose")), _date(cell(r, "granted")),
+                     mhz(cell(r, "lo")), mhz(cell(r, "hi"))))
+    if not rows:
+        raise ValueError(f"{name} has no grants in it. Nothing was changed.")
+    codes = sorted({r[1] for r in rows})
+    con.executescript(GRANT_SCHEMA)
+    con.execute(f"DELETE FROM fcc_grant WHERE code IN ({','.join('?' * len(codes))})", codes)
+    con.executemany("INSERT INTO fcc_grant VALUES(?,?,?,?,?,?,?)", rows)
+    today = datetime.date.today().isoformat()
+    for c in codes:
+        n, d = con.execute("SELECT COUNT(*), COUNT(DISTINCT fcc_id) FROM fcc_grant WHERE code=?", (c,)).fetchone()
+        con.execute("INSERT OR REPLACE INTO fcc_grant_src VALUES(?,?,?,?)", (c, n, d, today))
+    con.commit()
+    return dict(grants_source(con), imported={"file": name, "codes": codes, "lines": len(rows)})
+
+
+def _bands(pairs):
+    return [list(p) for p in sorted({(lo, hi) for lo, hi in pairs if lo is not None and hi is not None})]
+
+
+def kept_grants(con, q):
+    """The kept grants for an FCC ID, or every one of a grantee code: [{fcc_id, grantee, grant_date, purpose, bands}]."""
+    if con is None:
+        return []
+    try:
+        if re.fullmatch(r"[A-Z0-9]{3}|[2-9][A-Z0-9]{4}", q):
+            rows = con.execute("SELECT fcc_id, applicant, purpose, granted, lo, hi FROM fcc_grant WHERE code=?", (q,)).fetchall()
+        else:
+            rows = con.execute("SELECT fcc_id, applicant, purpose, granted, lo, hi FROM fcc_grant WHERE replace(fcc_id, '-', '') = ?",
+                               (q.replace("-", ""),)).fetchall()
+    except sqlite3.Error:
+        return []
+    by = {}
+    for fid, app, purpose, granted, lo, hi in rows:
+        g = by.setdefault((fid, granted, purpose), {"fcc_id": fid, "grantee": app or "", "grant_date": granted or "", "purpose": purpose or "",
+                                                    "address": "", "view": f"https://fccid.io/{urllib.parse.quote(fid)}", "lines": []})
+        g["lines"].append((lo, hi))
+    out = [dict(g, bands=_bands(g.pop("lines"))) for g in by.values()]
+    out.sort(key=lambda x: x["grant_date"], reverse=True)
+    return out
+
+
+def boosters_for(con, freqs, limit=40, bands=None):
+    """Devices on the kept grants whose frequency lines take in every one of these frequencies (MHz), newest grant first;
+    with bands ({name: [MHz, ...]}), also each band's devices on their own (a building often needs several bands that
+    no single device is granted for)."""
+    bands = {k: sorted({round(float(f), 5) for f in v if f not in (None, "")}) for k, v in (bands or {}).items()}
+    fs = sorted({round(float(f), 5) for f in freqs if f not in (None, "")} | {f for v in bands.values() for f in v})
+    try:
+        rows = con.execute("SELECT fcc_id, code, applicant, granted, lo, hi FROM fcc_grant WHERE lo IS NOT NULL AND hi IS NOT NULL").fetchall()
+    except sqlite3.Error:
+        rows = []
+    by = {}
+    for fid, code, app, granted, lo, hi in rows:
+        d = by.setdefault(fid, {"fcc_id": fid, "code": code, "maker": DAS_MAKERS.get(code) or app or code, "granted": "", "lines": set()})
+        d["granted"] = max(d["granted"], granted or "")
+        d["lines"].add((lo, hi))
+    covers = lambda d, want: bool(want) and all(any(lo - 1e-6 <= f <= hi + 1e-6 for lo, hi in d["lines"]) for f in want)
+    newest = lambda want: sorted((d for d in by.values() if covers(d, want)), key=lambda d: d["granted"], reverse=True)
+    shown = lambda d: {"fcc_id": d["fcc_id"], "maker": d["maker"], "granted": d["granted"], "bands": _bands(d["lines"]),
+                       "view": f"https://fccid.io/{urllib.parse.quote(d['fcc_id'])}"}
+    hits = newest(fs)
+    per = []
+    for name, want in bands.items():
+        h = newest(want)
+        per.append({"band": name, "count": len(h), "devices": [shown(d) for d in h[:8]]})
+    return {"devices": [shown(d) for d in hits[:limit]], "count": len(hits), "freqs": len(fs), "by_band": per,
+            "kept": grants_source(con)}
 
 
 def _keep_grantees(con, rows, source, file=None, at=None, keep_old=False):
@@ -86,6 +212,7 @@ def import_site_grantees(con, log=None):
             fh.write(raw)
         site = sqlite3.connect(tmp)
         try:
+            _take_site_grants(con, site, log)
             theirs, here = grantee_source(site), grantee_source(con)
             if theirs["source"] != "fcc-download" or not theirs["at"]:
                 return None
@@ -101,6 +228,21 @@ def import_site_grantees(con, log=None):
     if log:
         log(f"{len(rows):,} grantee codes from the RF Recon site")
     return _keep_grantees(con, rows, "fcc-download", "the RF Recon site", theirs["at"], keep_old=True)
+
+
+def _take_site_grants(con, site, log=None):
+    """The DAS and booster makers' grants from the site's grantee pack, when they're newer than this copy's."""
+    theirs, here = grants_source(site), grants_source(con)
+    if not theirs["lines"] or (here["at"] and here["at"] >= (theirs["at"] or "")):
+        return
+    con.executescript(GRANT_SCHEMA)
+    con.execute("DELETE FROM fcc_grant")
+    con.execute("DELETE FROM fcc_grant_src")
+    con.executemany("INSERT INTO fcc_grant VALUES(?,?,?,?,?,?,?)", site.execute("SELECT fcc_id, code, applicant, purpose, granted, lo, hi FROM fcc_grant"))
+    con.executemany("INSERT INTO fcc_grant_src VALUES(?,?,?,?)", site.execute("SELECT code, lines, devices, at FROM fcc_grant_src"))
+    con.commit()
+    if log:
+        log(f"{theirs['devices']:,} DAS and booster grants from the RF Recon site")
 
 
 def import_grantees(con, log=None, page=10000):
@@ -218,7 +360,9 @@ def _grantee_table(name, data):
             p.feed(s)
             return p.rows
         root = ET.fromstring(data)  # the bytes, so the file's own encoding line is honoured (the FCC's says ISO-8859-1)
-        best = max(root.iter(), key=lambda e: len(e))  # the element holding the most records
+        # the element holding the most records: children that have fields of their own (not the most children, which a
+        # short file's one record would win with its fields)
+        best = max(root.iter(), key=lambda e: sum(1 for c in e if len(c)))
         recs = [{c.tag.split("}")[-1]: (c.text or "").strip() for c in r} or dict(r.attrib) for r in best]
         head = []
         for r in recs:
@@ -299,12 +443,14 @@ def lookup(q, limit=300, con=None):
     if not re.match(r"^[A-Z0-9]{3,5}(-?[A-Z0-9-]{0,40})?$", q):
         raise ValueError("Enter a grantee code (3 or 5 characters, e.g. BCG) or an FCC ID (e.g. BCG-E2430).")
     maker = grantee(con, q) if con is not None else None
+    kept = kept_grants(con, q)  # a DAS or booster maker's grants, with each one's frequency ranges
     try:
         with urllib.request.urlopen(urllib.request.Request(URL.format(urllib.parse.quote(q)), headers=UA), timeout=40) as r:
             data = r.read(20_000_000)
     except OSError as e:
-        if maker:  # offline: the kept grantee list still says who makes it
-            return {"query": q, "count": 0, "results": [], "search_form": SEARCH_FORM, "maker": maker, "offline": True}
+        if maker or kept:  # offline: the kept lists still say who makes it, and for those makers what it's granted for
+            return {"query": q, "count": len(kept), "results": kept[:limit], "search_form": SEARCH_FORM, "maker": maker, "offline": True,
+                    "kept": bool(kept)}
         raise ValueError(f"The FCC didn't answer the look-up ({e}); try again in a minute.")
     if b"<!DOCTYPE" in data[:2000].upper():
         raise ValueError("The FCC's answer had a DOCTYPE; refused.")
@@ -316,5 +462,10 @@ def lookup(q, limit=300, con=None):
         out.append({"fcc_id": fid, "grantee": g("grantee"), "grant_date": f"{yy}-{mm}-{dd}" if yy else g("grantDate"),
                     "purpose": g("applicationPurpose"), "address": ", ".join(x for x in (g("address"), g("city"), g("state"), g("zipCode"), g("country")) if x),
                     "view": f"https://fccid.io/{urllib.parse.quote(fid)}" if fid else None})
+    bands = {}  # the FCC's list has no frequencies: the kept grants add them
+    for k in kept:
+        bands.setdefault(k["fcc_id"].replace("-", ""), []).extend(map(tuple, k["bands"]))
+    for o in out:
+        o["bands"] = _bands(bands.get(o["fcc_id"].replace("-", ""), []))
     out.sort(key=lambda x: x["grant_date"], reverse=True)
     return {"query": q, "count": len(out), "results": out[:limit], "search_form": SEARCH_FORM, "maker": maker}

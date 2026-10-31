@@ -1,16 +1,16 @@
 {
- "version": "0cb0889",
- "built": "2026-10-31 13:49",
+ "version": "42d468c",
+ "built": "2026-10-31 15:23",
  "python": "3.12.10",
  "get": "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB",
  "notes": [
+  "DAS and booster makers' FCC grants with their bands. The FCC's Authorization Search",
+  "Backups of your own work go to My Drive's private 'RF Recon backups'",
+  "Web version hides Import the FCC's list (the maker list comes from the site by itself",
+  "Web version",
   "Maker list",
   "FCC ID",
   "Web version",
-  "Web version",
-  "Web version",
-  "Web version the same as the PC app",
-  "Phones",
-  "Phone app"
+  "Web version"
  ]
 }

@@ -963,7 +963,7 @@ async function pyRoute(path, search, method, opts) {
     await pySend({kind: "history", files}, files);
     pyHist = true;
   }
-  if (!pyGrantee && path === "/fccid") {  // the FCC's equipment-maker codes, one file on the site (fieldpack.build_grantee)
+  if (!pyGrantee && path.startsWith("/fccid")) {  // the FCC's maker codes and the DAS makers' grants, one file on the site (fieldpack.build_grantee)
     // kept in this browser, and fetched again when the site's is newer (index grantee_made; the query gets past the
     // site's 10-minute cache): until 10/31 a kept copy was never refreshed, so a browser stayed on the 2021 list
     let buf = await idb.get("packdata", "grantee");

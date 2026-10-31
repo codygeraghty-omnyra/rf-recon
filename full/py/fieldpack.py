@@ -321,6 +321,14 @@ def build_grantee(src_path, out_path):
             dst.execute("CREATE TABLE fcc_grantee_src(id INTEGER PRIMARY KEY CHECK (id = 1), source TEXT, file TEXT, at TEXT, codes INTEGER)")
             dst.executemany("INSERT INTO fcc_grantee_src VALUES(?,?,?,?,?)",
                             [tuple(r) for r in src.execute("SELECT id, source, file, at, codes FROM fcc_grantee_src")])
+        if has_table(src, "fcc_grant"):  # the DAS and booster makers' grants with their frequency ranges (fccid.import_grant_file)
+            import fccid
+            dst.executescript(fccid.GRANT_SCHEMA)
+            dst.executemany("INSERT INTO fcc_grant VALUES(?,?,?,?,?,?,?)", [tuple(r) for r in src.execute(
+                "SELECT fcc_id, code, applicant, purpose, granted, lo, hi FROM fcc_grant")])
+            if has_table(src, "fcc_grant_src"):
+                dst.executemany("INSERT INTO fcc_grant_src VALUES(?,?,?,?)", [tuple(r) for r in src.execute(
+                    "SELECT code, lines, devices, at FROM fcc_grant_src")])
         dst.commit()
         dst.execute("VACUUM")
     finally:

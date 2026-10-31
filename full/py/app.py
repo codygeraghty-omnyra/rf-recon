@@ -470,7 +470,8 @@ def start_fieldpack(d):
 
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
                 "/api/cells", "/api/cells/import", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
-                "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/find"}
+                "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
+                "/api/fccid/boosters", "/api/find"}
 
 
 def coverage_args(qs):
@@ -488,7 +489,7 @@ def coverage_args(qs):
 
 # ---------------------------------------------------------------- backup of your own work
 
-BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at the Drive folder's backups/
+BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at "RF Recon backups (private)" in Drive
 USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting") + das.TABLES + network.TABLES
 
 
@@ -1233,6 +1234,22 @@ class H(BaseHTTPRequestHandler):
                     if method == "POST":
                         return self.send(200, fccid.import_grantee_file(con, fstr(qs, "name"), self.raw_body()))
                     return self.send(200, fccid.grantee_source(con))
+                finally:
+                    con.close()
+            if p == "/api/fccid/grants" and method == "POST":  # an FCC grant search export (XML): its makers' grants and bands
+                con = db()
+                try:
+                    return self.send(200, fccid.import_grant_file(con, fstr(qs, "name"), self.raw_body()))
+                finally:
+                    con.close()
+            if p == "/api/fccid/boosters":  # devices whose grants take in all these frequencies (f=851.0125,806.0125,...);
+                con = db()                    # band=800 MHz|806.0125,851.0125 (repeated) for each band on its own too
+                try:
+                    bands = {}
+                    for b in qs.get("band", []):
+                        name, _, fl = b.partition("|")
+                        bands[name.strip() or f"band {len(bands) + 1}"] = [x for x in fl.split(",") if x.strip()]
+                    return self.send(200, fccid.boosters_for(con, [x for x in (fstr(qs, "f") or "").split(",") if x.strip()], bands=bands))
                 finally:
                     con.close()
             if p == "/api/ais":  # live ships in the box (ais.py); the stream runs only while a map keeps asking
