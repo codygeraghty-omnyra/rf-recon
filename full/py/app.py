@@ -1239,7 +1239,8 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/fccid/grants" and method == "POST":  # an FCC grant search export (XML): its makers' grants and bands
                 con = db()
                 try:
-                    return self.send(200, fccid.import_grant_file(con, fstr(qs, "name"), self.raw_body()))
+                    return self.send(200, fccid.import_grant_file(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "eq_class") or None,
+                                                                  fstr(qs, "watts") or None))
                 finally:
                     con.close()
             if p == "/api/fccid/boosters":  # devices whose grants take in all these frequencies (f=851.0125,806.0125,...);
@@ -1249,7 +1250,9 @@ class H(BaseHTTPRequestHandler):
                     for b in qs.get("band", []):
                         name, _, fl = b.partition("|")
                         bands[name.strip() or f"band {len(bands) + 1}"] = [x for x in fl.split(",") if x.strip()]
-                    return self.send(200, fccid.boosters_for(con, [x for x in (fstr(qs, "f") or "").split(",") if x.strip()], bands=bands))
+                    return self.send(200, fccid.boosters_for(con, [x for x in (fstr(qs, "f") or "").split(",") if x.strip()], bands=bands,
+                                                             classes=[c for c in fstr(qs, "cls").split(",") if c] or None,
+                                                             min_watts=fnum(qs, "watts")))
                 finally:
                     con.close()
             if p == "/api/ais":  # live ships in the box (ais.py); the stream runs only while a map keeps asking

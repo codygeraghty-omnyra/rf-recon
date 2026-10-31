@@ -326,9 +326,10 @@ def build_grantee(src_path, out_path):
             dst.executescript(fccid.GRANT_SCHEMA)
             dst.executemany("INSERT INTO fcc_grant VALUES(?,?,?,?,?,?,?)", [tuple(r) for r in src.execute(
                 "SELECT fcc_id, code, applicant, purpose, granted, lo, hi FROM fcc_grant")])
-            if has_table(src, "fcc_grant_src"):
-                dst.executemany("INSERT INTO fcc_grant_src VALUES(?,?,?,?)", [tuple(r) for r in src.execute(
-                    "SELECT code, lines, devices, at FROM fcc_grant_src")])
+            for t, cols in (("fcc_grant_src", "code, lines, devices, at"), ("fcc_grant_eq", "fcc_id, eq_class"), ("fcc_grant_watts", "fcc_id, eq_class, lo, hi")):
+                if has_table(src, t):
+                    dst.executemany(f"INSERT INTO {t} VALUES({','.join('?' * len(cols.split(', ')))})",
+                                    [tuple(r) for r in src.execute(f"SELECT {cols} FROM {t}")])
         dst.commit()
         dst.execute("VACUUM")
     finally:

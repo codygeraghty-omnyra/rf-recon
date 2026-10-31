@@ -4,6 +4,8 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtF = f => f == null || f === "" ? "" : Number(f).toFixed(5).replace(/0{1,2}$/, "");
+// a booster's power from the FCC's grant search (fccid.py POWER_RANGES): the range its strongest band falls in
+const wattsTxt = x => !x?.watts ? "" : x.watts[1] >= 10000 ? `over ${x.watts[0]} W` : `${x.watts[0]}–${x.watts[1]} W`;
 const num = (v, d=0) => v == null || v === "" || isNaN(v) ? "" : Number(v).toFixed(d);
 const api = async (path, opts) => { const r = await fetch(path, opts);
   if(r.status===401 && document.body.classList.contains("remote")){ location.href="/remote/login"; throw new Error("Signed out."); }  // the remote link's session ended

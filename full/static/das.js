@@ -387,16 +387,26 @@ async function dasPresurvey(el, j, save){
   for(const [id,k] of [["#psR","radius"],["#psL","loss"],["#psT","threshold"]]) $(id).onchange=e=>{ P[k]=+e.target.value; store({}); };
   $("#psLp").onchange=e=>{ if(e.target.value!==""){ P.loss=+e.target.value; store({}); } };
   $("#psPlan").onclick=()=>dasDl(`${fileSafe(j.name)} channel plan.csv`, csvOf(plan), "text/csv");
-  // boosters whose FCC grants take in every chosen channel, down and up (the DAS makers' grants kept by fccid.py)
+  // boosters whose FCC grants take in every chosen channel, down and up (fccid.boosters_for), by booster class and power
   const byBand=[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([name,x])=>`band=${encodeURIComponent(name+"|"+[...x.set].join(","))}`);
-  if(byBand.length) api(`/api/fccid/boosters?${byBand.join("&")}`).then(b=>{ const box=$("#psBoost"), kept=b.kept||{}; if(!box?.isConnected||!kept.devices) return;
-    const bandTxt=bs=>bs.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(bs.length>8?` +${bs.length-8}`:"");
-    const dev=x=>`<a href="${esc(x.view)}" target="_blank" rel="noopener" class="mono" title="${esc(bandTxt(x.bands))} MHz · granted ${esc(x.granted)}">${esc(x.fcc_id)}</a> <span class="hint">${esc(x.maker)}</span>`;
-    box.innerHTML=`<h3 style="margin:12px 0 4px">Boosters granted for these channels <span class="hint">· from ${kept.devices.toLocaleString()} devices of ${kept.makers.length} DAS and booster makers, newest grant first</span></h3>
-      ${b.count?`<p style="margin:4px 0">${b.count} granted for every band here, the newest: ${b.devices.slice(0,6).map(dev).join(", ")}</p>`
-        :`<p class="hint" style="margin:4px 0">None is granted for all ${b.by_band.length} bands: a multi-band system takes one unit (or module) per band, or per band group.</p>`}
-      <div class="tw"><table><thead><tr><th>Band</th><th class="n">Granted for all its channels</th><th>Newest</th></tr></thead><tbody>${b.by_band.map(x=>`<tr><td>${esc(x.band)}</td><td class="n">${x.count}</td><td>${x.devices.slice(0,3).map(dev).join("<br>")||'<span class="hint">none kept</span>'}</td></tr>`).join("")}</tbody></table></div>
-      <p class="hint">From the FCC's grant search (${esc(kept.at||"")}, ${esc(kept.makers.join(", "))}). A grant shows the bands a device is certified for, not that it suits this building: class, power and the Part 90 signal-booster label are on each device's FCC grant (its FCC ID opens it; point at it for its bands).</p>`; }).catch(()=>{});
+  const pref=(k,d)=>{ try{ return localStorage.getItem(k)??d; }catch(e){ return d; } }, keepPref=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
+  const CLS={"B9A,B9B":"Part 90 boosters (Class A or B)", "B9A":"Part 90 Class A (channelized)", "B9B":"Part 90 Class B (wideband)", "B2I,B2P,B2W":"Part 20 (cellular) boosters", "":"any device kept"};
+  const short=cs=>[...new Set((cs||[]).map(c=>({B9A:"Class A", B9B:"Class B", B2I:"Part 20", B2P:"Part 20", B2W:"Part 20", BOS:"other booster"})[c]).filter(Boolean))].join(" / ");
+  const boost=()=>{ const cls=pref("rfr.boostCls","B9A,B9B"), w=pref("rfr.boostW","");
+    api(`/api/fccid/boosters?${byBand.join("&")}&cls=${encodeURIComponent(cls)}&watts=${encodeURIComponent(w)}`).then(b=>{ const box=$("#psBoost"), kept=b.kept||{}; if(!box?.isConnected||!kept.devices) return;
+      const bandTxt=bs=>bs.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(bs.length>8?` +${bs.length-8}`:"");
+      const dev=x=>`<a href="${esc(x.view)}" target="_blank" rel="noopener" class="mono" title="${esc(bandTxt(x.bands))} MHz · granted ${esc(x.granted)}">${esc(x.fcc_id)}</a> <span class="hint">${esc([x.maker, short(x.classes), wattsTxt(x)].filter(Boolean).join(" · "))}</span>`;
+      box.innerHTML=`<h3 style="margin:12px 0 4px">Boosters granted for these channels <span class="hint">· newest grant first</span></h3>
+        <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap;margin:2px 0 6px"><select id="pbCls">${Object.entries(CLS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join("")}</select>
+          <label class="inl">strongest band at least <select id="pbW"><option value="">any power</option>${[0.5,1,2,5,10].map(v=>`<option value="${v}">${v} W</option>`).join("")}</select></label></div>
+        ${b.count?`<p style="margin:4px 0">${b.count} granted for every band here, the newest: ${b.devices.slice(0,6).map(dev).join(", ")}</p>`
+          :`<p class="hint" style="margin:4px 0">None is granted for all ${b.by_band.length} bands: a multi-band system takes one unit (or module) per band, or per band group.</p>`}
+        <div class="tw"><table><thead><tr><th>Band</th><th class="n">Granted for all its channels</th><th>Newest</th></tr></thead><tbody>${b.by_band.map(x=>`<tr><td>${esc(x.band)}</td><td class="n">${x.count}</td><td>${x.devices.slice(0,3).map(dev).join("<br>")||'<span class="hint">none</span>'}</td></tr>`).join("")}</tbody></table></div>
+        <p class="hint">From the FCC's grant search (${esc(kept.at||"")}): ${kept.devices.toLocaleString()} devices of ${(kept.makers||0).toLocaleString()} makers, every signal booster by class, and power ranges for Part 90 boosters (the range of each one's strongest band). A grant shows what a device is certified for, not that it suits this building: exact watts per band are on each device's FCC grant (its FCC ID opens it; point at it for its bands).</p>`;
+      $("#pbCls").value=cls; $("#pbW").value=w;
+      $("#pbCls").onchange=e=>{ keepPref("rfr.boostCls", e.target.value); boost(); };
+      $("#pbW").onchange=e=>{ keepPref("rfr.boostW", e.target.value); boost(); }; }).catch(()=>{}); };
+  if(byBand.length) boost();
   const sysRows=()=>r.systems.map(s=>({included:inc.has(s.call_sign)?"yes":"", agency:s.licensee, call_sign:s.call_sign, service:s.service_name, category:s.category, trunked:s.trunked?"yes":"no",
     technology:s.tech.join(" / "), downlink_mhz:s.down.map(c=>c.freq).join(" "), uplink_mhz:s.up.join(" "), best_site_mi:s.sites[0]?.dist_mi, bearing_deg:s.sites[0]?.bearing,
     outdoor_dbm:s.best_out, indoor_dbm:s.best_in, margin_db:s.margin_db}));

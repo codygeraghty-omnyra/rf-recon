@@ -64,7 +64,16 @@ DAS_MAKERS = {"S2O": "ADRF", "N52": "ADRF", "P3T": "Fiplex", "SQX": "JDTECK", "P
 GRANT_SCHEMA = """CREATE TABLE IF NOT EXISTS fcc_grant(fcc_id TEXT, code TEXT, applicant TEXT, purpose TEXT, granted TEXT, lo REAL, hi REAL);
 CREATE INDEX IF NOT EXISTS fcc_grant_id ON fcc_grant(fcc_id);
 CREATE INDEX IF NOT EXISTS fcc_grant_code ON fcc_grant(code);
-CREATE TABLE IF NOT EXISTS fcc_grant_src(code TEXT PRIMARY KEY, lines INTEGER, devices INTEGER, at TEXT);"""
+CREATE TABLE IF NOT EXISTS fcc_grant_src(code TEXT PRIMARY KEY, lines INTEGER, devices INTEGER, at TEXT);
+CREATE TABLE IF NOT EXISTS fcc_grant_eq(fcc_id TEXT, eq_class TEXT, PRIMARY KEY (fcc_id, eq_class));  -- a device can hold several classes
+CREATE TABLE IF NOT EXISTS fcc_grant_watts(fcc_id TEXT, eq_class TEXT, lo REAL, hi REAL, PRIMARY KEY (fcc_id, eq_class, lo, hi));"""
+# the signal-booster equipment classes (the search form's Equipment Class codes): each export of one class names its devices'
+# class, and Part 90 boosters searched by Power Output in Watts ranges get a power range (the filter keeps a device when any
+# of its bands is in the range, so a device has the ranges of its weakest and strongest bands, not a figure per band)
+BOOSTER_CLASSES = {"B9A": ("226", "Part 90 Class A booster"), "B9B": ("227", "Part 90 Class B booster"),
+                   "B2I": ("225", "Part 20 industrial booster"), "B2P": ("224", "Part 20 provider-specific booster"),
+                   "B2W": ("223", "Part 20 wideband consumer booster"), "BOS": ("229", "other signal booster")}
+POWER_RANGES = [(0, 0.5), (0.5, 1), (1, 2), (2, 5), (5, 10), (10, 10000)]
 GRANT_ALIASES = {"fcc_id": ["fccid"], "applicant": ["applicantname", "grantee", "granteename"], "purpose": ["applicationpurpose", "purpose"],
                  "granted": ["grantdate", "finalactiondate", "dategranted"], "lo": ["lowerfreqmhz", "lowerfrequencyinmhz", "lowerfrequency"],
                  "hi": ["upperfreqmhz", "upperfrequencyinmhz", "upperfrequency"]}
@@ -77,19 +86,37 @@ def code_of(fcc_id):
 
 
 def grants_source(con):
-    """The kept grants (read only): lines, devices, the makers they cover and when they were imported."""
+    """The kept grants (read only): lines, devices, how many makers (and the DAS ones by name), the booster classes and
+    power ranges known, and when they were imported."""
     try:
         lines, devices = con.execute("SELECT COUNT(*), COUNT(DISTINCT fcc_id) FROM fcc_grant").fetchone()
         src = con.execute("SELECT code, at FROM fcc_grant_src").fetchall()
     except sqlite3.Error:
-        return {"lines": 0, "devices": 0, "makers": [], "at": None}
-    return {"lines": lines, "devices": devices, "makers": sorted({DAS_MAKERS.get(c, c) for c, _ in src}),
-            "at": max((a for _, a in src if a), default=None)}
+        return {"lines": 0, "devices": 0, "makers": 0, "named": [], "classes": {}, "powered": 0, "at": None}
+    try:
+        classes = dict(con.execute("SELECT eq_class, COUNT(*) FROM fcc_grant_eq GROUP BY eq_class").fetchall())
+        powered = con.execute("SELECT COUNT(DISTINCT fcc_id) FROM fcc_grant_watts").fetchone()[0]
+    except sqlite3.Error:
+        classes, powered = {}, 0
+    return {"lines": lines, "devices": devices, "makers": len({c for c, _ in src}), "named": sorted({DAS_MAKERS[c] for c, _ in src if c in DAS_MAKERS}),
+            "classes": classes, "powered": powered, "at": max((a for _, a in src if a), default=None)}
 
 
-def import_grant_file(con, name, data):
-    """An FCC Authorization Search export (XML, or the Excel / web-page forms) in place of the kept lines of the maker
-    codes it holds. Returns grants_source."""
+def import_grant_file(con, name, data, eq_class=None, watts=None):
+    """An FCC Authorization Search export (XML, or the Excel / web-page forms) in place of the kept lines of the devices it
+    holds. A search by Equipment Class says so with eq_class ("B9A"), and one by Power Output with watts ("2-5") plus the
+    eq_class it was run for (that class's range only is replaced): the file itself doesn't name either. Returns
+    grants_source."""
+    if eq_class and eq_class not in BOOSTER_CLASSES:
+        raise ValueError(f"Unknown booster class {eq_class}: one of {', '.join(BOOSTER_CLASSES)}.")
+    power = None
+    if watts:
+        try:
+            power = tuple(float(x) for x in str(watts).split("-", 1))
+        except ValueError:
+            power = None
+        if power not in POWER_RANGES:
+            raise ValueError(f"Unknown power range {watts}: one of {', '.join(f'{lo:g}-{hi:g}' for lo, hi in POWER_RANGES)}.")
     if not data:
         raise ValueError("Pick the file the FCC's Authorization Search saved.")
     table = _grantee_table(name or "the file", data)
@@ -115,15 +142,51 @@ def import_grant_file(con, name, data):
     if not rows:
         raise ValueError(f"{name} has no grants in it. Nothing was changed.")
     codes = sorted({r[1] for r in rows})
+    ids = sorted({r[0] for r in rows})
+    # each line once: a search again adds no doubles, and searches add up, as one FCC ID can hold bands of several
+    # classes (Part 90 public safety and Part 20 cellular) and a class search returns only its own (10/31: replacing a
+    # device's lines with each file's lost the other class's bands)
+    key = "fcc_id, IFNULL(granted, ''), IFNULL(purpose, ''), IFNULL(lo, -1), IFNULL(hi, -1)"
     con.executescript(GRANT_SCHEMA)
-    con.execute(f"DELETE FROM fcc_grant WHERE code IN ({','.join('?' * len(codes))})", codes)
-    con.executemany("INSERT INTO fcc_grant VALUES(?,?,?,?,?,?,?)", rows)
+    con.execute(f"DELETE FROM fcc_grant WHERE rowid NOT IN (SELECT MIN(rowid) FROM fcc_grant GROUP BY {key})")
+    con.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS fcc_grant_line ON fcc_grant({key})")
+    con.executemany("INSERT OR IGNORE INTO fcc_grant VALUES(?,?,?,?,?,?,?)", rows)
+    if power:  # this class's devices with a band in this power range: exactly the devices of this search
+        con.execute("DELETE FROM fcc_grant_watts WHERE eq_class=? AND lo=? AND hi=?", (eq_class or "", *power))
+        con.executemany("INSERT OR IGNORE INTO fcc_grant_watts VALUES(?,?,?,?)", [(i, eq_class or "", *power) for i in ids])
+    elif eq_class:  # this class is exactly the devices of this search
+        con.execute("DELETE FROM fcc_grant_eq WHERE eq_class=?", (eq_class,))
+        con.executemany("INSERT OR IGNORE INTO fcc_grant_eq VALUES(?,?)", [(i, eq_class) for i in ids])
     today = datetime.date.today().isoformat()
     for c in codes:
         n, d = con.execute("SELECT COUNT(*), COUNT(DISTINCT fcc_id) FROM fcc_grant WHERE code=?", (c,)).fetchone()
         con.execute("INSERT OR REPLACE INTO fcc_grant_src VALUES(?,?,?,?)", (c, n, d, today))
     con.commit()
-    return dict(grants_source(con), imported={"file": name, "codes": codes, "lines": len(rows)})
+    return dict(grants_source(con), imported={"file": name, "codes": codes, "devices": len(ids), "lines": len(rows),
+                                              "eq_class": eq_class, "watts": watts})
+
+
+def _device_info(con, ids):
+    """Each device's booster classes and power ranges: {fcc_id: {"classes": ["B9B", ...], "eq_class": the first (Part 90
+    first), "class_name": all of them in words, "watts": [lo, hi] of its strongest band's range, "watts_from": the weakest
+    band's range's low end}}."""
+    out = {}
+    order = list(BOOSTER_CLASSES)
+    try:
+        for fid, c in con.execute("SELECT fcc_id, eq_class FROM fcc_grant_eq"):
+            if fid in ids:
+                d = out.setdefault(fid, {"classes": []})
+                d["classes"] = sorted(set(d["classes"]) | {c}, key=lambda k: order.index(k) if k in order else 99)
+                d["eq_class"] = d["classes"][0]
+                d["class_name"] = ", ".join(BOOSTER_CLASSES.get(k, ("", k))[1] for k in d["classes"])
+        for fid, lo, hi in con.execute("SELECT fcc_id, lo, hi FROM fcc_grant_watts ORDER BY lo"):
+            if fid in ids:
+                d = out.setdefault(fid, {})
+                d.setdefault("watts_from", lo)
+                d["watts"] = [lo, hi]
+    except sqlite3.Error:
+        pass
+    return out
 
 
 def _bands(pairs):
@@ -148,14 +211,18 @@ def kept_grants(con, q):
                                                     "address": "", "view": f"https://fccid.io/{urllib.parse.quote(fid)}", "lines": []})
         g["lines"].append((lo, hi))
     out = [dict(g, bands=_bands(g.pop("lines"))) for g in by.values()]
+    info = _device_info(con, {g["fcc_id"] for g in out})
+    for g in out:
+        g.update(info.get(g["fcc_id"], {}))
     out.sort(key=lambda x: x["grant_date"], reverse=True)
     return out
 
 
-def boosters_for(con, freqs, limit=40, bands=None):
+def boosters_for(con, freqs, limit=40, bands=None, classes=None, min_watts=None):
     """Devices on the kept grants whose frequency lines take in every one of these frequencies (MHz), newest grant first;
     with bands ({name: [MHz, ...]}), also each band's devices on their own (a building often needs several bands that
-    no single device is granted for)."""
+    no single device is granted for). classes (["B9A", "B9B"]) keeps those booster classes only; min_watts keeps devices
+    with a band whose power range reaches it (the FCC's ranges: a device in 2-5 W counts for 2)."""
     bands = {k: sorted({round(float(f), 5) for f in v if f not in (None, "")}) for k, v in (bands or {}).items()}
     fs = sorted({round(float(f), 5) for f in freqs if f not in (None, "")} | {f for v in bands.values() for f in v})
     try:
@@ -167,10 +234,19 @@ def boosters_for(con, freqs, limit=40, bands=None):
         d = by.setdefault(fid, {"fcc_id": fid, "code": code, "maker": DAS_MAKERS.get(code) or app or code, "granted": "", "lines": set()})
         d["granted"] = max(d["granted"], granted or "")
         d["lines"].add((lo, hi))
+    info = _device_info(con, set(by))
+    for fid, d in by.items():
+        d.update(info.get(fid, {}))
+    if classes:
+        by = {k: d for k, d in by.items() if set(d.get("classes") or []) & set(classes)}
+    if min_watts:
+        by = {k: d for k, d in by.items() if d.get("watts") and d["watts"][0] >= float(min_watts)}
     covers = lambda d, want: bool(want) and all(any(lo - 1e-6 <= f <= hi + 1e-6 for lo, hi in d["lines"]) for f in want)
     newest = lambda want: sorted((d for d in by.values() if covers(d, want)), key=lambda d: d["granted"], reverse=True)
     shown = lambda d: {"fcc_id": d["fcc_id"], "maker": d["maker"], "granted": d["granted"], "bands": _bands(d["lines"]),
-                       "view": f"https://fccid.io/{urllib.parse.quote(d['fcc_id'])}"}
+                       "view": f"https://fccid.io/{urllib.parse.quote(d['fcc_id'])}", "eq_class": d.get("eq_class"),
+                       "classes": d.get("classes") or [], "class_name": d.get("class_name"), "watts": d.get("watts"),
+                       "watts_from": d.get("watts_from")}
     hits = newest(fs)
     per = []
     for name, want in bands.items():
@@ -236,10 +312,13 @@ def _take_site_grants(con, site, log=None):
     if not theirs["lines"] or (here["at"] and here["at"] >= (theirs["at"] or "")):
         return
     con.executescript(GRANT_SCHEMA)
-    con.execute("DELETE FROM fcc_grant")
-    con.execute("DELETE FROM fcc_grant_src")
-    con.executemany("INSERT INTO fcc_grant VALUES(?,?,?,?,?,?,?)", site.execute("SELECT fcc_id, code, applicant, purpose, granted, lo, hi FROM fcc_grant"))
-    con.executemany("INSERT INTO fcc_grant_src VALUES(?,?,?,?)", site.execute("SELECT code, lines, devices, at FROM fcc_grant_src"))
+    for t in ("fcc_grant", "fcc_grant_src", "fcc_grant_eq", "fcc_grant_watts"):
+        con.execute(f"DELETE FROM {t}")
+        try:
+            cols = ", ".join(r[1] for r in con.execute(f"PRAGMA table_info({t})"))
+            con.executemany(f"INSERT INTO {t} VALUES({','.join('?' * len(cols.split(', ')))})", site.execute(f"SELECT {cols} FROM {t}"))
+        except sqlite3.Error:  # a site pack from before the booster classes
+            pass
     con.commit()
     if log:
         log(f"{theirs['devices']:,} DAS and booster grants from the RF Recon site")
@@ -359,7 +438,11 @@ def _grantee_table(name, data):
             p = _Cells()
             p.feed(s)
             return p.rows
-        root = ET.fromstring(data)  # the bytes, so the file's own encoding line is honoured (the FCC's says ISO-8859-1)
+        try:
+            root = ET.fromstring(data)  # the bytes, so the file's own encoding line is honoured (the FCC's says ISO-8859-1)
+        except ET.ParseError:  # the FCC's exports leave some "&" bare ("Design & Development"): escape those and read again
+            fixed = re.sub(r"&(?!(?:[A-Za-z]+|#\d+|#x[0-9A-Fa-f]+);)", "&amp;", s)
+            root = ET.fromstring(re.sub(r'^(<\?xml[^>]*?)encoding="[^"]*"', r'\1encoding="UTF-8"', fixed).encode("utf-8"))
         # the element holding the most records: children that have fields of their own (not the most children, which a
         # short file's one record would win with its fields)
         best = max(root.iter(), key=lambda e: sum(1 for c in e if len(c)))
@@ -462,10 +545,12 @@ def lookup(q, limit=300, con=None):
         out.append({"fcc_id": fid, "grantee": g("grantee"), "grant_date": f"{yy}-{mm}-{dd}" if yy else g("grantDate"),
                     "purpose": g("applicationPurpose"), "address": ", ".join(x for x in (g("address"), g("city"), g("state"), g("zipCode"), g("country")) if x),
                     "view": f"https://fccid.io/{urllib.parse.quote(fid)}" if fid else None})
-    bands = {}  # the FCC's list has no frequencies: the kept grants add them
+    bands, info = {}, {}  # the FCC's list has no frequencies, class or power: the kept grants add them
     for k in kept:
         bands.setdefault(k["fcc_id"].replace("-", ""), []).extend(map(tuple, k["bands"]))
+        info[k["fcc_id"].replace("-", "")] = {f: k[f] for f in ("classes", "eq_class", "class_name", "watts", "watts_from") if f in k}
     for o in out:
         o["bands"] = _bands(bands.get(o["fcc_id"].replace("-", ""), []))
+        o.update(info.get(o["fcc_id"].replace("-", ""), {}))
     out.sort(key=lambda x: x["grant_date"], reverse=True)
     return {"query": q, "count": len(out), "results": out[:limit], "search_form": SEARCH_FORM, "maker": maker}
