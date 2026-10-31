@@ -70,7 +70,7 @@ S.views.data = async v => {
   if (v.id === "pcPanels") return pcPanels(v);
   v.innerHTML = '<div id="packPanels"></div><div id="pcPanels"><p class="status">Loading your keys and crowd data…</p></div>';
   await packPanels($("#packPanels"));
-  await pcPanels($("#pcPanels"));
+  if ($("#pcPanels")) await pcPanels($("#pcPanels"));
 };
 async function pcPanels(v) {
   try { await pcData(v); }
@@ -88,6 +88,7 @@ async function pcPanels(v) {
 }
 async function packPanels(v) {
   const packs = await RFPack.list(), p = RFPack.info(), other = packs.filter(x => x.id !== p?.id), upd = await RFPack.packUpdate().catch(() => null);
+  if (!v.isConnected) return;  // left already (a first visit opens Packs, then the map once the state's pack arrives)
   v.innerHTML = (`
   <div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Data pack in use</h3>${p ? `<p style="font-size:18px;margin:4px 0"><b>${esc(p.name)}</b></p>
