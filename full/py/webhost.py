@@ -135,9 +135,9 @@ def db():
         con.execute("ATTACH DATABASE ? AS pk", (PACK,))
         for i, h in enumerate(HISTORY):
             con.execute(f"ATTACH DATABASE ? AS h{i}", (h,))
-        if os.path.exists(GRANTEE):
-            con.execute("ATTACH DATABASE ? AS gr", (GRANTEE,))
         _views(con)
+    if os.path.exists(GRANTEE):  # the maker codes with or without a state's pack (until 10/31 only with one: a look-up
+        con.execute("ATTACH DATABASE ? AS gr", (GRANTEE,))  # made before the pack arrived named no maker)
     return con
 
 
