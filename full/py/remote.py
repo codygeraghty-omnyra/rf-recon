@@ -7,9 +7,9 @@ Logins live in DATA_DIR/remote_users.json as salted PBKDF2 hashes. Cody adds a p
 password is shown once, for him to pass on. A session is a signed cookie tied to the login's salt, so removing a
 person or giving them a new password ends their sessions at once.
 
-Remote people can't reach anything that writes (every POST), the keys and update settings, TAK settings, the
-field-pack folders, or the Signal ID Wiki catalog. Ships come only from what is already streaming: their looks
-never start the stream on Cody's aisstream key.
+Remote people can't reach anything that writes (every POST) except leaving a note for Cody (notes.py: their own,
+size-capped), nor the keys and update settings, TAK settings, the field-pack folders, or the Signal ID Wiki catalog.
+Ships come only from what is already streaming: their looks never start the stream on Cody's aisstream key.
 """
 import base64
 import hashlib
@@ -32,6 +32,7 @@ LOCK_AFTER, LOCK_S = 8, 15 * 60  # wrong passwords per name before a 15-minute l
 BLOCKED = ("/api/settings", "/api/update/", "/api/tak/", "/api/fieldpack", "/api/net/", "/api/sigwiki/", "/api/artemis/", "/api/crowd/", "/api/remote", "/api/kit")
 EMPTY = {"/api/sigwiki/match": {"candidates": []}, "/api/sigwiki/range": {"signals": []}}  # answered empty so pages carry on
 OPEN = ("/static/theme/", "/remote/")  # the sign-in page's own look
+NOTE_WRITE = re.compile(r"^/api/notes(/\d+/file)?$")  # a new note and its recordings / photos
 
 ON = threading.local()  # ON.user is set while a remote request is being answered
 _LOCK = threading.Lock()
@@ -193,9 +194,13 @@ def set_link(on):
     return link()
 
 
+def note_write(method, path):
+    return method == "POST" and bool(NOTE_WRITE.match(path))
+
+
 def refused(method, path):
     """Why a remote person can't do this, or None when they can."""
-    if method != "GET":
+    if method != "GET" and not note_write(method, path):
         return "View only: changes are made on Cody's PC."
     if path.startswith(BLOCKED):
         return "That part of RF Recon stays on Cody's PC."

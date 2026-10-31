@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "cde35d137f";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "e973043013";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -824,6 +824,14 @@ async function start() {
   else summary();
 }
 start().catch(e => { busy(); toast(`RF Recon lite couldn't start: ${e.message}`); console.error(e); });
+
+// the Note button (notes.js, shared with the PC app): above the tab bar, under this app's own sheets; a note carries the
+// screen and the phone's position (a fix from the last 10 minutes), else the map's centre
+window.RFNotes?.mount({store: "browser", bottom: "calc(env(safe-area-inset-bottom) + 84px)", z: 35, context: () => {
+  const me = S.me && Date.now() - S.me.ts < 600000 ? [S.me.lat, S.me.lon] : null, c = me || S.center;
+  const tab = $(`#nav [data-t="${S.tab}"]`)?.textContent.trim();
+  return {screen: tab ? `the ${tab} screen` : "", lat: c?.[0], lon: c?.[1]};
+}});
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("sw.js").then(reg => {

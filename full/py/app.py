@@ -19,7 +19,7 @@ import threading
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from xml.sax.saxutils import escape
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +41,7 @@ import faa  # noqa: E402
 import fieldpack  # noqa: E402
 import geo  # noqa: E402
 import network  # noqa: E402
+import notes  # noqa: E402
 import opensources  # noqa: E402
 import psap  # noqa: E402
 import remote  # noqa: E402
@@ -96,7 +97,7 @@ def init():
         print(f"Note: no FCC database yet at {DB_PATH}. The app will start; use Data & updates > Update now,\n"
               f"or run  python uls_import.py  first.")
     con = sqlite3.connect(DB_PATH)
-    con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA)
+    con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA + notes.SCHEMA)
     import towers
     towers.ensure_schema(con)
     con.close()
@@ -489,8 +490,9 @@ def coverage_args(qs):
 
 # ---------------------------------------------------------------- backup of your own work
 
-BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at "RF Recon backups (private)" in Drive
-USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting") + das.TABLES + network.TABLES
+BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at RF Recon\backups in Drive (shared)
+USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES
+NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: RF Recon\notes in Drive)
 
 
 def backup_user_data():
@@ -1345,6 +1347,50 @@ class H(BaseHTTPRequestHandler):
         except ValueError as e:
             return self.send(400, {"error": str(e)})
 
+    def notes_route(self, method, p, qs):
+        """Notes (notes.py): the list, a new note, its recordings and photos (sent one by one as the request body), a
+        file to play or show, and delete. Someone on the remote link sees and adds only their own and can't delete."""
+        who = getattr(remote.ON, "user", None)
+        con = db()
+        try:
+            m = re.match(r"^/api/notes(?:/(\d+))?(?:/([^/]+))?$", p)
+            if not m:
+                raise LookupError("No such page.")
+            nid, sub = (int(m.group(1)) if m.group(1) else None), m.group(2)
+            if method == "GET" and nid is None:
+                return self.send(200, dict(notes.listing(con, NOTES_DIR, who), remote=bool(who)))
+            if method == "GET":
+                fp, ctype = notes.file_path(con, NOTES_DIR, nid, unquote(sub or ""), who)
+                size = os.path.getsize(fp)
+                rng = re.match(r"bytes=(\d*)-(\d*)$", self.headers.get("Range") or "")
+                a, b = 0, size - 1
+                if rng and (rng.group(1) or rng.group(2)):  # a video or voice note seeks by asking for part of the file
+                    a, b = (int(rng.group(1)), min(int(rng.group(2) or size - 1), size - 1)) if rng.group(1) else (max(0, size - int(rng.group(2))), size - 1)
+                    if a > b:
+                        return self.send(416, b"", ctype, {"Content-Range": f"bytes */{size}"})
+                with open(fp, "rb") as fh:
+                    fh.seek(a)
+                    data = fh.read(b - a + 1)
+                return self.send(206 if rng and (rng.group(1) or rng.group(2)) else 200, data, ctype,
+                                 {"Accept-Ranges": "bytes", "Content-Range": f"bytes {a}-{b}/{size}",
+                                  "Content-Disposition": f'inline; filename="{os.path.basename(fp)}"'})
+            if nid is None:
+                return self.send(200, {"id": notes.create(con, NOTES_DIR, self.body_json(), who)})
+            if sub == "file":
+                files = notes.add_file(con, NOTES_DIR, nid, fstr(qs, "role"), fstr(qs, "ext"), self.rfile,
+                                       int(self.headers.get("Content-Length") or 0), fnum(qs, "secs"), who)
+                return self.send(200, {"files": files})
+            if sub == "delete" and not who:
+                notes.delete(con, NOTES_DIR, nid)
+                return self.send(200, {"ok": True})
+            raise LookupError("No such page.")
+        except (PermissionError, ValueError, LookupError) as e:
+            if method == "POST":
+                self.close_connection = True  # a refused upload's body may still be on the way
+            return self.send(403 if isinstance(e, PermissionError) else 404 if isinstance(e, LookupError) else 400, {"error": str(e)})
+        finally:
+            con.close()
+
     def das_route(self, method, p, qs):
         """DAS / ERCES jobs, contacts, pre-survey, file import and the job folders (das.py). Errors reach the
         caller's handler: LookupError -> 404, anything else -> 500 (ValueError messages are shown as they are)."""
@@ -1449,6 +1495,8 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.startswith("/api/das/"):
                 return self.das_route("GET", p, qs)
+            if p == "/api/notes" or p.startswith("/api/notes/"):
+                return self.notes_route("GET", p, qs)
             if p in EXTRA_ROUTES:
                 return self.extra_route("GET", p, qs)
             if p in ("/", "/index.html"):
@@ -1639,6 +1687,8 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.startswith("/api/das/"):
                 return self.das_route("POST", p, qs)
+            if p == "/api/notes" or p.startswith("/api/notes/"):
+                return self.notes_route("POST", p, qs)
             if p in EXTRA_ROUTES:
                 return self.extra_route("POST", p, qs)
             if p == "/api/kit/update":  # a newer install-kit zip: its files over this copy's, then the launcher restarts us
@@ -1870,7 +1920,8 @@ class RemoteH(H):
     def answer(self, method, handler):
         p = urlparse(self.path).path
         remote.ON.user = None
-        if method != "GET" and p != "/remote/login":
+        keep = remote.note_write(method, p)  # a note's words and files, the one thing remote people send: read by the handler
+        if method != "GET" and p != "/remote/login" and not keep:
             self.raw_body()  # read what was sent even when refusing it: left on a kept-alive connection, it garbles the next request
             if self.headers.get("Content-Length"):
                 self.headers.replace_header("Content-Length", "0")
@@ -1890,6 +1941,7 @@ class RemoteH(H):
             return handler()
         user = remote.user_of(self.headers.get("Cookie"))
         if not user:
+            self.close_connection = keep  # a refused note's body is never read
             if method == "GET" and p in ("/", "/index.html"):
                 return self.send(303, b"", "text/plain", {"Location": "/remote/login"})
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})

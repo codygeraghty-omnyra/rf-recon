@@ -68,9 +68,17 @@ const HELP = [
     <li><b>Automatic updates</b>: one switch for all, <i>Only on Wi-Fi / Ethernet</i>, and per source: on / off, how often, Run now, last result.</li>
     <li><b>API keys</b> for WiGLE, OpenCelliD and RepeaterBook stay in your local database.</li>
     <li>Import your own map layer (CSV, KML, KMZ, GeoJSON) or RadioReference-style labels.</li></ul>`],
+  ["notes", "Notes", `
+    <ul><li>The <b>Note</b> button, bottom right on every screen (or the <b>N</b> key): a voice note, the screen recorded while you
+      talk and point, a photo with a voice or written note, or just words. Each note keeps the time, the screen, the pin and the mission.</li>
+    <li>On this PC a note is a folder in <i>RF Recon › notes</i> in Drive (note.txt plus the recording or photo), so it opens there too.
+      From the remote link a note goes straight to Cody's PC. In the web version and RF Recon lite it stays in that browser:
+      <b>Share with Cody</b> sends it by text, email or Drive.</li>
+    <li>On a phone, record the screen with the phone's own screen recorder, then pick the video in <b>Record the screen</b>.</li></ul>`],
   ["mouse", "Mouse and keyboard", `
     <table><tbody>
     <tr><td><b>?</b> or <b>F1</b></td><td>This help, on the current tab's section</td></tr>
+    <tr><td><b>N</b></td><td>Leave a note</td></tr>
     <tr><td><b>Enter</b> in the Pin box</td><td>Take the highlighted suggestion (↑ / ↓ to move), or search coordinates</td></tr>
     <tr><td><b>Ctrl + wheel</b></td><td>Zoom the spectrum or topology at the cursor (the plain wheel scrolls the page)</td></tr>
     <tr><td><b>Drag</b> / <b>Shift + drag</b></td><td>Spectrum: zoom into a range / pan</td></tr>
@@ -98,7 +106,8 @@ const HELP = [
     <ul><li>The app and its docs are in the <b>RF Recon</b> folder in Google Drive; double-click <i>RF Recon (beta)</i> there to open it.</li>
     <li>FCC data and the database stay on this PC (<span class="mono">rf-recon\\data</span> in your Windows user folder): gigabytes that shouldn't sync or go over a phone connection.</li>
     <li>In a browser elsewhere (the web and phone versions), the data is a field pack from the Drive folder's <i>field packs</i>, kept in that browser.</li>
-    <li>Your own work (missions, captures, labels, settings, not API keys) is backed up to <i>backups</i> in the Drive folder every 6 hours.</li></ul>`],
+    <li>Your own work (missions, captures, labels, settings, not API keys) is backed up to <i>backups</i> in the Drive folder every 6 hours.</li>
+    <li>Notes from the Note button are in <i>notes</i> in the Drive folder, a folder each.</li></ul>`],
 ];
 
 (function helpUi() {
