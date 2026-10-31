@@ -117,9 +117,10 @@ async function packPanels(v) {
     <p class="hint" style="margin-top:0">This is RF Recon in your browser, run by the PC app's own code: every tab, from search and the map's layers to
       missions, captures, the field log, labels, DAS jobs, talk groups, your own layers and crowd data with your own keys. The first time you keep
       something here, RF Recon's engine loads in this browser (about 15 MB, once). A pack and everything you do here stay in this browser.
-      Only these stay on the PC: live ships (aisstream allows its keys on a server only), the Signal ID Wiki and Artemis (their sites refuse web
-      pages and their terms don't allow passing them on), FCC ID grant lists (the FCC refuses web pages; the maker still shows), and live Push
-      to ATAK over your network (here it hands the package to ATAK instead). It works on a phone too; for one state kept on the phone with no
+      Signal ID Wiki matches come from a copy on the RF Recon site: the facts only (frequencies, modes, bandwidths, where heard), each
+      linked to its page. Only these stay on the PC: live ships (aisstream allows its keys on a server only), Artemis (its database is for
+      internal use only), FCC ID grant lists (the FCC refuses web pages; the maker still shows and the grants open in your browser), and live
+      Push to ATAK over your network (here it hands the package to ATAK instead). It works on a phone too; for one state kept on the phone with no
       signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`);
   $("#pkFile").onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
