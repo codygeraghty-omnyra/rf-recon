@@ -1,6 +1,8 @@
 /* RF Recon (beta), full web version: the PC's connection and data-updates chip is hidden (the pack's button at the top
    says when the site has newer data). Push to ATAK stays: here it hands ATAK the package (tak.js). */
 #netChip { display: none !important; }
+/* the maker list comes from the site by itself; an import here would keep this browser on its own copy from then on */
+label:has(#fiImp) { display: none !important; }
 /* Packs hides the PC's machine panels (web.js); a grid's own display would otherwise beat the hidden attribute */
 #view .panel[hidden], #view .grid2[hidden] { display: none !important; }
 /* the pack's line is longer than the PC's: it gives way to the buttons instead of pushing them onto a second row */
