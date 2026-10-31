@@ -98,6 +98,11 @@ async function packForPin(lat, lon) {
   setTimeout(() => location.reload(), 50);
   return saved ? `Switching to ${saved.name}, already in this browser…` : `Loading ${s.name} (${s.mb.toFixed(1)} MB) from the RF Recon site…`;
 }
+async function packUpdate() {  // the web version's data updates: a newer pack of the same area on the site
+  if (!PACK) return null;
+  const s = (await sitePacks()).find(x => x.name === PACK.name);
+  return s && (s.made_at || "") > (PACK.made_at || "") ? s : null;
+}
 async function removePack(id) {
   await idb.del("packs", id); await idb.del("packdata", id);
   if (PACK?.id === id) { await idb.del("kv", "activePack"); DB?.close(); DB = META = PACK = null; }
@@ -853,17 +858,18 @@ async function route(path, p, method, body) {
   if (path === "/sigwiki/match") return {candidates: []};  // the Signal ID Wiki catalog stays on the PC (its terms)
   if (path === "/sigwiki/range") return {signals: []};
   if (path === "/update/status" || path === "/net/hint") return STUB_STATUS();
-  if (path === "/settings" && method === "GET") return {creds: {}, states: ""};
+  if (path === "/fieldpacks") return {packs: [], folder: "", phone_url: "../", job: {running: false, log: []}};  // packs are made on the PC
   const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;
 }
 /* ---------- your own work: the PC app's own server, run in this browser (pyworker.js, webhost.py) ---------- */
 // what only the PC's code answers: missions, captures, the field log, labels, DAS, talk groups, your layers, cell
 // sites, FCC ID look-ups, the unlisted-signal check and the PC's downloads
-const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|talkgroups|cells|fccid|report\/signals|layers|export\.|heatmap\.zip|coverage\.kmz)/;
+const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|talkgroups|cells|fccid|report\/signals|layers|settings|crowd\/|export\.|heatmap\.zip|coverage\.kmz)/;
 // once something is saved in this browser the PC's code answers the map as well, so captures, labels and layers show
 const PY_WITH_WORK = /^\/(area|heatmap|network|find|mwlinks)$/;
 // asked for at start-up: until something is saved, the empty answer, so a visit that keeps nothing never loads the engine
-const PY_EMPTY = {"/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []}};
+const PY_EMPTY = {"/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []},
+  "/settings": {creds: {}, states: ""}};
 const WORK = "rfr.work";
 const hasWork = () => { try { return localStorage.getItem(WORK) === "1"; } catch (e) { return false; } };
 let PYW = null, pySeq = 0, pyStart = null, pyHist = false, pyGrantee = false;
@@ -954,6 +960,6 @@ L.tileLayer = (url, opts) => {
 };
 
 window.RFPack = {ready, info: () => PACK, meta: () => META, list: () => idb.all("packs"), import: importPack, remove: removePack,
-  sitePacks, loadSite: loadSitePack, hasWork,
+  sitePacks, loadSite: loadSitePack, hasWork, packUpdate,
   use: async id => { await idb.put("kv", id, "activePack"); }, exportFile};
 })();

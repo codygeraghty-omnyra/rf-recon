@@ -1401,5 +1401,10 @@
 "history_mb": 1.0
 }
 ],
-"grantee": "fcc_grantee.rfpack"
+"grantee": "fcc_grantee.rfpack",
+"satnogs": {
+"file": "satnogs.json",
+"credit": "SatNOGS Network, CC BY-SA 4.0",
+"made_at": "2026-10-31 07:11"
+}
 }

@@ -1,5 +1,7 @@
-/* RF Recon (beta), full web version: PC-only controls hidden (the connection and data-updates chip, and Push to ATAK,
-   which needs the PC on the same network as the phones; the ATAK download does the same from here). */
-#netChip, #takPush { display: none !important; }
+/* RF Recon (beta), full web version: the PC's connection and data-updates chip is hidden (the pack's button at the top
+   says when the site has newer data). Push to ATAK stays: here it hands ATAK the package (tak.js). */
+#netChip { display: none !important; }
+/* Packs hides the PC's machine panels (web.js); a grid's own display would otherwise beat the hidden attribute */
+#view .panel[hidden], #view .grid2[hidden] { display: none !important; }
 /* the pack's line is longer than the PC's: it gives way to the buttons instead of pushing them onto a second row */
 @media (min-width: 601px) { #meta { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; } }

@@ -25,21 +25,78 @@ try:
 except ImportError:  # desktop Python, for tests (tests/test_webhost.py)
     pass
 
+import concurrent.futures  # noqa: E402
+import urllib.parse  # noqa: E402
 import urllib.request  # noqa: E402
+from xml.sax.saxutils import quoteattr  # noqa: E402
 
+
+class _InOrder(concurrent.futures.Executor):
+    """A thread pool's place in the browser, which has no threads: each task runs as it's submitted (terrain tiles)."""
+    def __init__(self, *a, **k):
+        pass
+
+    def submit(self, fn, *a, **k):
+        f = concurrent.futures.Future()
+        try:
+            f.set_result(fn(*a, **k))
+        except Exception as e:
+            f.set_exception(e)
+        return f
+
+
+concurrent.futures.ThreadPoolExecutor = _InOrder
 _urlopen = urllib.request.urlopen
 
 
-def _urlopen_or_oserror(*a, **k):  # the browser refusing a site (no CORS) reads as being offline, as the PC code expects
+class _Answer(io.BytesIO):
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+
+def _site(path):  # a file on the RF Recon site, beside the web version (this runs in full/pyworker.js)
+    import js
+    return urllib.parse.urljoin(str(js.location.href), path)
+
+
+def _pskreporter(url):
+    """PSKReporter's answer as the XML the PC reads: browsers may only have it as a script (its callback= reply)."""
+    import js
+    js.eval("self.rfrPskReply = d => { self.rfrPskData = JSON.stringify(d); }")  # letters only: it strips _ from the name
     try:
-        return _urlopen(*a, **k)
+        js.importScripts(url + ("&" if "?" in url else "?") + "callback=rfrPskReply")
+    except Exception:  # it refuses a query that comes too soon after the last one
+        raise ValueError("PSKReporter didn't answer: it takes one query every five minutes. Try again in a few minutes.") from None
+    d = json.loads(str(js.rfrPskData))
+    el = lambda tag, a: f"<{tag} " + " ".join(f"{k}={quoteattr(str(v))}" for k, v in a.items() if not isinstance(v, (dict, list))) + "/>"
+    body = "".join(el("activeReceiver", a) for a in d.get("activeReceiver") or []) + "".join(el("receptionReport", a) for a in d.get("receptionReport") or [])
+    return f"<receptionReports>{body}</receptionReports>".encode("utf-8")
+
+
+def _urlopen_web(req, *a, **k):
+    """urllib in the browser: PSKReporter through its script reply, SatNOGS from the copy on the RF Recon site (neither lets
+    a web page read it directly), the rest through the browser; a site that refuses the browser reads as being offline."""
+    url = req.full_url if isinstance(req, urllib.request.Request) else str(req)
+    host = urllib.parse.urlsplit(url).hostname or ""
+    try:
+        if host == "retrieve.pskreporter.info":
+            return _Answer(_pskreporter(url))
+        if host == "network.satnogs.org":
+            return _urlopen(_site("../packs/satnogs.json"), timeout=k.get("timeout", 90))
+        return _urlopen(req, *a, **k)
     except OSError:
         raise
     except Exception as e:
         raise OSError(f"the browser couldn't reach it: {e}") from None
 
 
-urllib.request.urlopen = _urlopen_or_oserror
+if "pyodide" in sys.modules:
+    urllib.request.urlopen = _urlopen_web
 
 import app  # noqa: E402
 import captures  # noqa: E402

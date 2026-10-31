@@ -141,7 +141,7 @@ def fetch_wigle(con, lat, lon, radius_mi, api_name, api_token, kinds=("network",
 
 # ---------------------------------------------------------------- OpenCelliD
 
-def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=2.0, max_requests=40):
+def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40):  # OpenCelliD refuses a box over 4 km²; 2 km tiles came out just over it
     s, n, w, e = geo.bbox(lat, lon, radius_mi)
     dlat = tile_km / 111.0
     dlon = tile_km / (111.0 * max(0.05, math.cos(math.radians(lat))))
