@@ -964,11 +964,14 @@ async function pyRoute(path, search, method, opts) {
     pyHist = true;
   }
   if (!pyGrantee && path === "/fccid") {  // the FCC's equipment-maker codes, one file on the site (fieldpack.build_grantee)
+    // kept in this browser, and fetched again when the site's is newer (index grantee_made; the query gets past the
+    // site's 10-minute cache): until 10/31 a kept copy was never refreshed, so a browser stayed on the 2021 list
     let buf = await idb.get("packdata", "grantee");
-    if (!buf) {
-      const name = (await (await realFetch("../packs/index.json", {cache: "no-cache"})).json()).grantee;
-      const r = name ? await realFetch(`../packs/${name}`) : null;
-      if (r?.ok) { buf = await r.arrayBuffer(); await idb.put("packdata", buf, "grantee"); }
+    const idx = await realFetch("../packs/index.json", {cache: "no-cache"}).then(r => r.json()).catch(() => ({}));
+    const made = idx.grantee_made || "";
+    if (idx.grantee && (!buf || (made && made !== await idb.get("packdata", "grantee_made")))) {
+      const r = await realFetch(`../packs/${idx.grantee}?v=${encodeURIComponent(made)}`, {cache: "no-cache"}).catch(() => null);
+      if (r?.ok) { buf = await r.arrayBuffer(); await idb.put("packdata", buf, "grantee"); await idb.put("packdata", made, "grantee_made"); }
     }
     if (buf) { const file = (await unpack(buf)).slice().buffer; await pySend({kind: "grantee", file}, [file]); }
     pyGrantee = true;
