@@ -98,6 +98,7 @@ def init():
               f"or run  python uls_import.py  first.")
     con = sqlite3.connect(DB_PATH)
     con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA + notes.SCHEMA)
+    notes.migrate(con)
     import towers
     towers.ensure_schema(con)
     con.close()

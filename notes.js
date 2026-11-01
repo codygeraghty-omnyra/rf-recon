@@ -23,6 +23,18 @@ const TILES = [
   ["text", ["pen"], "Written note", "Just type."]];
 const KIND_LABEL = {voice: "Voice note", screen: "Screen recording", "photo-voice": "Photo + voice note", "photo-text": "Photo + written note",
   text: "Written note"};  // a saved note's kind, as notes.py KINDS names it
+// Send email now: the note goes to RF Recon's note mailer (app/mail/notes_mailer.gs, a Google Apps Script under Cody's
+// account), which numbers it, has Claude name it, and emails Cody. Each person's send code comes in their link (?send=)
+// and is kept in this browser; the mailer checks it.
+const MAIL_URL = window.RFR_MAIL_URL  // tests point this at a stand-in mailer
+  || "https://script.google.com/macros/s/AKfycbxrBO08HXAxE4Oi2wb60eVnI0M7F6_7HSfiicosras--oG2SPkN7T8db4zMnjyqJdwlcA/exec";
+const MAIL_MAX = 20 * 1024 * 1024;
+const ls = {get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window: asked again next time */ } }};
+try {
+  const u = new URL(location.href), c = u.searchParams.get("send");
+  if (c) { ls.set("rfr.sendCode", c.trim().toUpperCase()); u.searchParams.delete("send"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); }
+} catch (e) { /* an odd address: the code can be typed instead */ }
 const pick = list => (window.MediaRecorder && list.find(t => MediaRecorder.isTypeSupported(t))) || "";
 const AUDIO = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus", "audio/webm"];
 const VIDEO = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"];
@@ -87,6 +99,8 @@ const CSS = `
 .rfn-item video { max-width: 100%; max-height: 260px; border-radius: 10px; display: block; margin-bottom: 8px; background: #000; }
 .rfn-item audio { width: 100%; margin-bottom: 8px; }
 .rfn-item .rfn-btns { margin-top: 4px; }
+.rfn-sent { display: inline-flex; align-items: center; height: 44px; padding: 0 4px; font-weight: 600; color: var(--good-ink, #1a7f37); }
+.rfn-code { color: inherit; background: rgba(255,255,255,.05); border: 1px solid var(--g-border, rgba(255,255,255,.15)); font: 16px ui-monospace, monospace; }
 .rfn-bar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 2147483000; display: flex; align-items: center; gap: 12px;
   padding: 8px 8px 8px 16px; border-radius: 999px; color: #fff; background: rgba(20,18,16,.9); border: 1px solid rgba(255,255,255,.18);
   box-shadow: 0 10px 30px rgba(0,0,0,.45); font: 600 14px system-ui, sans-serif; }
@@ -112,7 +126,7 @@ const server = {
   },
   async save(n) {
     const r = await fetch("/api/notes", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({kind: n.kind, text: n.text, screen: n.screen, lat: n.lat, lon: n.lon, mission: n.mission, mission_id: n.mission_id})});
+      body: JSON.stringify({kind: n.kind, text: n.text, transcript: n.transcript, screen: n.screen, lat: n.lat, lon: n.lon, mission: n.mission, mission_id: n.mission_id})});
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.statusText);
     for (const f of n.files) {
@@ -126,7 +140,10 @@ const server = {
   async remove(id) {
     const r = await fetch(`/api/notes/${id}/delete`, {method: "POST"});
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
-  }};
+  },
+  async blobs(n) { return Promise.all(n.files.map(async f => ({...f, blob: await (await fetch(f.url)).blob()}))); },
+  sent: id => JSON.parse(ls.get(`rfr.sent.${location.host}.${id}`) || "null"),
+  async markSent(id, s) { ls.set(`rfr.sent.${location.host}.${id}`, JSON.stringify(s)); }};
 const browser = {
   db: null,
   open() {
@@ -154,18 +171,42 @@ const browser = {
   async save(n) {
     const ts = new Date();
     const rec = {ts: `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, "0")}-${String(ts.getDate()).padStart(2, "0")} ${String(ts.getHours()).padStart(2, "0")}:${String(ts.getMinutes()).padStart(2, "0")}`,
-      kind: n.kind, label: KIND_LABEL[n.kind] || "Note", text: n.text, screen: n.screen, lat: n.lat, lon: n.lon, mission: n.mission, who: "",
+      kind: n.kind, label: KIND_LABEL[n.kind] || "Note", text: n.text, transcript: n.transcript || "", screen: n.screen, lat: n.lat, lon: n.lon, mission: n.mission, who: "",
       files: n.files.map((f, i) => ({name: `${f.role}${n.files.filter((g, j) => j < i && g.role === f.role).length ? " " + (i + 1) : ""}.${extOf(f.type)}`,
         role: f.role, type: f.type, secs: f.secs ? Math.round(f.secs) : undefined, blob: f.blob}))};
     return this.tx("readwrite", s => s.add(rec));
   },
-  remove(id) { return this.tx("readwrite", s => s.delete(id)); }};
+  remove(id) { return this.tx("readwrite", s => s.delete(id)); },
+  async blobs(n) { return n.files; },
+  sent: () => null,  // kept on the note itself (n.sent)
+  async markSent(id, s) {
+    const rec = await this.tx("readonly", st => st.get(id));
+    if (rec) { rec.sent = s; await this.tx("readwrite", st => st.put(rec)); }
+  }};
 
 /* ---------- capture: microphone, screen, camera ---------- */
 let live = [];  // every stream and timer in use, stopped together
 function stopLive() {
   for (const x of live) { try { x.stop ? x.stop() : x.getTracks ? x.getTracks().forEach(t => t.stop()) : clearInterval(x); } catch (e) { /* already stopped */ } }
   live = [];
+}
+// what's said while a voice note or the screen records, written down by the browser's own speech recognition (free;
+// Chrome sends the audio to Google for it, Safari does it on the device); a note without it still sends
+function listen() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let text = "", on = true, rec, ended;
+  const done = new Promise(ok => { ended = ok; });
+  if (!SR) return {stop: async () => ""};
+  try {
+    rec = new SR();
+    rec.continuous = true; rec.interimResults = false; rec.lang = navigator.language || "en-US";
+    rec.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += e.results[i][0].transcript.trim() + " "; };
+    rec.onerror = () => { /* no permission, no network, mic busy: the recording carries on */ };
+    rec.onend = () => { if (on) { try { rec.start(); } catch (e) { ended(); } } else ended(); };  // it stops itself after a pause
+    rec.start();
+  } catch (e) { return {stop: async () => ""}; }
+  return {stop: async () => { on = false; try { rec.stop(); } catch (e) { ended(); }
+    await Promise.race([done, new Promise(ok => setTimeout(ok, 1500))]); return text.trim(); }};
 }
 const micWords = e => e?.name === "NotAllowedError" ? "RF Recon can't use the microphone. Allow it for this page (the icon at the left of the address bar, or the phone's browser settings), then try again."
   : e?.name === "NotFoundError" ? "This device has no microphone RF Recon can use." : `The microphone didn't start: ${e?.message || e}`;
@@ -252,7 +293,7 @@ function show(title, body, back) {
   if (back) dlg.querySelector("[data-act=back]").onclick = back;
   if (!dlg.open) dlg.showModal();
 }
-const whereText = () => opts.store !== "server" ? "Kept in this browser on this device until you delete it. Share sends a note to Cody."
+const whereText = () => opts.store !== "server" ? "Kept in this browser on this device until you delete it. Share with Cody emails a note to him."
   : opts.remote ? "Goes straight to Cody's RF Recon. Only you and Cody see it." : "Saved on this PC, a folder each in RF Recon › notes in Drive.";
 function context() {
   let c = {};
@@ -300,15 +341,16 @@ async function voice() {
     <div class="rfn-hint" style="margin:0">Talk now. Your words are recorded until you press Stop.</div></div>
     <div class="rfn-btns" style="justify-content:center"><button class="rfn-btn stop" data-act="stop">■ Stop</button><button class="rfn-btn quiet" data-act="cancel">Cancel</button></div>`);
   const lvl = dlg.querySelector("#rfnLvl"), tm = dlg.querySelector("#rfnTime");
-  const r = recorder(stream, AUDIO, v => { lvl.style.width = `${Math.round(v * 100)}%`; });
+  const r = recorder(stream, AUDIO, v => { lvl.style.width = `${Math.round(v * 100)}%`; }), ear = listen();
   recOn = true;
   const tick = setInterval(() => { tm.textContent = clock((Date.now() - r.t0) / 1000); }, 250);
-  live.push(tick);
+  live.push(tick, ear);
   dlg.querySelector("[data-act=cancel]").onclick = () => { stopLive(); recOn = false; open(); };
   dlg.querySelector("[data-act=stop]").onclick = async () => {
-    const got = await r.stop();
+    const [got, heard] = await Promise.all([r.stop(), ear.stop()]);
     stopLive(); recOn = false;
     draft.files.push({role: "voice", blob: got.blob, type: got.blob.type, secs: got.secs});
+    if (heard) draft.transcript = [draft.transcript, heard].filter(Boolean).join(" ");
     compose(false);
   };
 }
@@ -325,7 +367,8 @@ async function screen() {
   screenOn = true;
   dlg.close();
   const both = new MediaStream([...disp.getVideoTracks(), ...(mic ? mic.getAudioTracks() : [])]);
-  const r = recorder(both, VIDEO);
+  const r = recorder(both, VIDEO), ear = mic ? listen() : {stop: async () => ""};
+  live.push(ear);
   const bar = document.createElement("div");
   bar.className = "rfn-bar";
   bar.innerHTML = `<span class="rfn-dot" style="width:12px;height:12px"></span><span id="rfnBarT">Recording screen${mic ? " and voice" : " (no microphone)"} 0:00</span>
@@ -343,10 +386,11 @@ async function screen() {
     clearInterval(tick);
     removeEventListener("pointermove", move, true); removeEventListener("pointerdown", down, true);
     bar.remove(); halo.remove();
-    const got = await r.stop();
+    const [got, heard] = await Promise.all([r.stop(), ear.stop()]);
     screenOn = false;
     stopLive();
     draft.files.push({role: "screen", blob: got.blob, type: got.blob.type, secs: got.secs});
+    if (heard) draft.transcript = [draft.transcript, heard].filter(Boolean).join(" ");
     if (!mic) draft.text = "(Recorded without a microphone.) ";
     compose(false);
   };
@@ -415,6 +459,7 @@ function compose(focusText, err) {
   const c = ctxLine(draft);
   show(KIND_LABEL[draft.kind] || "Note", `<div class="rfn-media">${media}</div>
     <textarea id="rfnText" placeholder="${draft.files.length ? "Add words if you like (optional)" : "What do you want Cody to know?"}">${h(draft.text)}</textarea>
+    ${draft.transcript ? `<div class="rfn-ctx">Heard: ${h(draft.transcript)}</div>` : ""}
     ${c ? `<div class="rfn-ctx">Saved with it: ${h(c)}</div>` : ""}
     ${err ? `<p class="rfn-err">${h(err)}</p>` : ""}
     <div class="rfn-btns"><button class="rfn-btn primary" data-act="save">Save note</button>
@@ -447,13 +492,69 @@ function compose(focusText, err) {
   };
 }
 
-function saved(id) {
-  show("Note saved", `<p>${h(opts.store !== "server" ? "It's kept in this browser. Share it to send it to Cody (text, email or Drive)." : opts.remote ? "Cody has it." : "It's in RF Recon › notes in Drive, and under My notes here.")}</p>
-    <div class="rfn-btns">${opts.store !== "server" ? '<button class="rfn-btn primary" data-act="share">Share with Cody</button>' : ""}
-    <button class="rfn-btn${opts.store === "server" ? " primary" : ""}" data-act="done">Done</button><button class="rfn-btn quiet" data-act="list">My notes</button></div>`);
+async function saved(id) {
+  const n = opts.remote ? null : (await store.list().catch(() => ({notes: []}))).notes.find(x => x.id === id);
+  show("Note saved", `<p>${h(opts.remote ? "Cody has it." : opts.store !== "server" ? "It's kept in this browser. Share it with Cody to email it to him." : "It's in RF Recon › notes, and under My notes here.")}</p>
+    ${n ? sendBox(n) : ""}
+    <div class="rfn-btns"><button class="rfn-btn" data-act="done">Done</button><button class="rfn-btn quiet" data-act="list">My notes</button></div>`);
   dlg.querySelector("[data-act=done]").onclick = () => dlg.close();
   dlg.querySelector("[data-act=list]").onclick = () => list();
-  dlg.querySelector("[data-act=share]")?.addEventListener("click", async () => { const all = (await store.list()).notes; const n = all.find(x => x.id === id); if (n) share(n); });
+  if (n) wireSend(dlg.querySelector(".rfn-send"), n);
+}
+
+/* ---------- Share with Cody: press once and it becomes Send email now; press that and the note goes, from this window ---------- */
+const sentOf = n => n.sent || store.sent(n.id);
+function sendBox(n) {
+  const s = sentOf(n);
+  return `<div class="rfn-send"><div class="rfn-btns" style="margin-top:6px">${s ? `<span class="rfn-sent">✓ Emailed to Cody · report #${s.report}</span>`
+    : '<button class="rfn-btn primary" data-act="send">Share with Cody</button>'}
+    <button class="rfn-btn quiet" data-act="other" ${s ? "" : "hidden"}>${s ? "Share again another way" : "Share another way"}</button></div><div class="rfn-sendmsg"></div></div>`;
+}
+const b64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1] || ""); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+const appName = () => `${opts.store === "browser" ? (/\/full\//.test(location.pathname) ? "the web version" : "RF Recon lite") : "the PC version"} on ${
+  /iPhone|iPad/.test(navigator.userAgent) ? "an iPhone or iPad" : /Android/.test(navigator.userAgent) ? "Android" : /Windows/.test(navigator.userAgent) ? "Windows" : /Mac/.test(navigator.userAgent) ? "a Mac" : "a computer"}`;
+function wireSend(box, n) {
+  const btn = box.querySelector("[data-act=send]"), other = box.querySelector("[data-act=other]"), msg = box.querySelector(".rfn-sendmsg");
+  other.onclick = () => share(n);
+  if (!btn) return;
+  const say = (t, bad) => { msg.innerHTML = t ? `<p class="${bad ? "rfn-err" : "rfn-hint"}" style="margin:6px 0 0">${t}</p>` : ""; };
+  btn.onclick = async () => {
+    if (!MAIL_URL) return share(n);  // no mailer set up: the share sheet, as before
+    if (btn.dataset.armed !== "1") { btn.dataset.armed = "1"; btn.textContent = "Send email now"; other.hidden = false; return; }
+    let code = ls.get("rfr.sendCode");
+    if (!code) {
+      say(`<label style="display:block">Your send code (it's in the link Cody sent you)<input class="rfn-code" autocomplete="off" style="display:block;width:100%;margin-top:4px;height:40px;border-radius:10px;padding:0 10px"></label>
+        <button class="rfn-btn" data-act="code" style="margin-top:6px">Use it and send</button>`);
+      const inp = msg.querySelector(".rfn-code"); inp.focus();
+      msg.querySelector("[data-act=code]").onclick = async () => {
+        const c = inp.value.trim().toUpperCase(); if (!c) return inp.focus();
+        try {
+          const r = await (await fetch(MAIL_URL, {method: "POST", body: JSON.stringify({check: true, code: c})})).json();
+          if (!r.ok) return say(h(r.error), true);
+          ls.set("rfr.sendCode", c); ls.set("rfr.sendName", r.name); btn.click();
+        } catch (e) { say("No connection to send it. Try again with signal, or Share another way.", true); }
+      };
+      return;
+    }
+    btn.disabled = true; btn.textContent = "Sending…"; say("");
+    try {
+      const files = await store.blobs(n);
+      if (files.reduce((s, f) => s + (f.blob?.size || 0), 0) > MAIL_MAX) throw new Error("This note is too big to email (over 20 MB). Use Share another way.");
+      const body = JSON.stringify({code, label: n.label || KIND_LABEL[n.kind] || "Note", kind: n.kind, ts: n.ts, screen: n.screen || "", lat: n.lat, lon: n.lon,
+        mission: n.mission || "", text: n.text || "", transcript: n.transcript || "", app: appName(),
+        files: await Promise.all(files.map(async f => ({name: `RF Recon note ${n.ts.replace(/:/g, "-")} ${f.name}`, type: f.type, b64: await b64(f.blob)})))});
+      const r = await (await fetch(MAIL_URL, {method: "POST", body})).json();
+      if (!r.ok) throw new Error(r.error || "It didn't send.");
+      const s = {report: r.report, subject: r.subject, at: new Date().toISOString()};
+      await store.markSent(n.id, s); n.sent = s;
+      btn.outerHTML = `<span class="rfn-sent">✓ Emailed to Cody · report #${r.report}</span>`;
+      other.textContent = "Share again another way";
+      say(h(r.subject));
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "Send email now";
+      say(h(/fetch|network|Failed/i.test(e.message) ? "No connection to send it. Try again with signal, or Share another way." : e.message), true);
+    }
+  };
 }
 
 function noteTxt(n) {
@@ -483,12 +584,12 @@ async function list() {
       <div class="rfn-meta">${h(n.ts)} · ${h(n.label || KIND_LABEL[n.kind] || "Note")}${n.who ? ` · from ${h(n.who)}` : ""}${ctxLine(n) ? ` · ${h(ctxLine(n))}` : ""}</div>
       ${n.files.map(f => f.role === "photo" ? `<img src="${f.url}" alt="Photo" loading="lazy">` : f.role === "screen" ? `<video src="${f.url}" controls playsinline preload="metadata"></video>`
         : `<audio src="${f.url}" controls preload="metadata"></audio>`).join("")}
-      ${n.text ? `<p>${h(n.text)}</p>` : ""}
-      <div class="rfn-btns">${opts.store !== "server" ? '<button class="rfn-btn" data-act="share">Share with Cody</button>' : ""}
-        ${opts.remote ? "" : '<button class="rfn-btn quiet danger" data-act="del">Delete</button>'}</div></div>`).join("")}</div>`, () => open());
+      ${n.text ? `<p>${h(n.text)}</p>` : ""}${n.transcript ? `<p class="rfn-hint" style="margin:0 0 8px">Heard: ${h(n.transcript)}</p>` : ""}
+      ${opts.remote ? "" : sendBox(n)}
+      <div class="rfn-btns">${opts.remote ? "" : '<button class="rfn-btn quiet danger" data-act="del">Delete</button>'}</div></div>`).join("")}</div>`, () => open());
   dlg.querySelectorAll(".rfn-item").forEach(el => {
     const n = ns.find(x => String(x.id) === el.dataset.id);
-    el.querySelector("[data-act=share]")?.addEventListener("click", () => share(n));
+    if (!opts.remote) wireSend(el.querySelector(".rfn-send"), n);
     const del = el.querySelector("[data-act=del]");
     if (del) del.onclick = async () => {
       if (del.dataset.sure !== "1") { del.dataset.sure = "1"; del.textContent = "Delete it? Press again"; setTimeout(() => { del.dataset.sure = ""; del.textContent = "Delete"; }, 4000); return; }

@@ -15,8 +15,15 @@ import time
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS note(id INTEGER PRIMARY KEY, ts TEXT, who TEXT, kind TEXT, text TEXT, screen TEXT,
-    lat REAL, lon REAL, mission_id INTEGER, mission TEXT, folder TEXT, files TEXT);
+    lat REAL, lon REAL, mission_id INTEGER, mission TEXT, folder TEXT, files TEXT, transcript TEXT);
 """
+
+
+def migrate(con):
+    """Columns added after the first notes (10/31): what the browser heard during a voice note or screen recording."""
+    if "transcript" not in [r[1] for r in con.execute("PRAGMA table_info(note)")]:
+        con.execute("ALTER TABLE note ADD COLUMN transcript TEXT")
+        con.commit()
 KINDS = {"voice": "Voice note", "screen": "Screen recording", "photo-voice": "Photo + voice note",
          "photo-text": "Photo + written note", "text": "Written note"}
 TYPES = {".webm": "video/webm", ".mp4": "video/mp4", ".mov": "video/quicktime", ".m4a": "audio/mp4", ".ogg": "audio/ogg",
@@ -50,6 +57,8 @@ def _write_txt(folder, r):
     if files:
         lines.append("Files: " + ", ".join(f["name"] + (f" ({f['secs'] // 60}:{f['secs'] % 60:02d})" if f.get("secs") else "") for f in files))
     lines += ["", r["text"] or "(no words)"]
+    if r["transcript"]:
+        lines += ["", "What was said (the browser's own transcript, may have mistakes):", r["transcript"]]
     with open(os.path.join(folder, "note.txt"), "w", encoding="utf-8", newline="\r\n") as fh:
         fh.write("\n".join(lines) + "\n")
 
@@ -75,9 +84,9 @@ def create(con, base, d, who=None):
         folder, n = f"{name} ({n})", n + 1
     os.makedirs(os.path.join(base, folder))
     mid = d.get("mission_id") if isinstance(d.get("mission_id"), int) and not who else None
-    cur = con.execute("INSERT INTO note(ts,who,kind,text,screen,lat,lon,mission_id,mission,folder,files) VALUES(?,?,?,?,?,?,?,?,?,?,'[]')",
+    cur = con.execute("INSERT INTO note(ts,who,kind,text,screen,lat,lon,mission_id,mission,folder,files,transcript) VALUES(?,?,?,?,?,?,?,?,?,?,'[]',?)",
                       (ts, who or "", kind, str(d.get("text") or "").replace("\r\n", "\n").strip()[:20000], _clean(d.get("screen"), 80), lat,
-                       lon if lat is not None else None, mid, _clean(d.get("mission"), 120) if mid else "", folder))
+                       lon if lat is not None else None, mid, _clean(d.get("mission"), 120) if mid else "", folder, _clean(d.get("transcript"), 20000)))
     nid = cur.lastrowid
     if mid:  # the mission's own log says a note was left, and what it says
         con.execute("INSERT INTO mission_log(mission_id,ts,kind,detail) VALUES(?,?,?,?)",
