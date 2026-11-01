@@ -523,16 +523,28 @@ function wireSend(box, n) {
     if (btn.dataset.armed !== "1") { btn.dataset.armed = "1"; btn.textContent = "Send email now"; other.hidden = false; return; }
     let code = ls.get("rfr.sendCode");
     if (!code) {
-      say(`<label style="display:block">Your send code (it's in the link Cody sent you)<input class="rfn-code" autocomplete="off" style="display:block;width:100%;margin-top:4px;height:40px;border-radius:10px;padding:0 10px"></label>
-        <button class="rfn-btn" data-act="code" style="margin-top:6px">Use it and send</button>`);
+      // asked once per browser: a home-screen app on an iPhone keeps its own storage, so a code a link set in Safari
+      // doesn't reach it, and the person types it here
+      say(`<label style="display:block">Type your send code. Cody gave it to you with your RF Recon link; it looks like NAME-AB123.
+        <input class="rfn-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NAME-AB123"
+          style="display:block;width:100%;margin-top:4px;height:44px;border-radius:10px;padding:0 10px"></label>
+        <div class="rfn-btns" style="margin-top:6px"><button class="rfn-btn primary" data-act="code">Use it and send</button>
+          <button class="rfn-btn quiet" data-act="nocode">No code? Share another way</button></div>
+        <p class="rfn-hint" style="margin:4px 0 0">It's asked once on this phone or computer.</p>`);
+      msg.querySelector("[data-act=nocode]").onclick = () => share(n);
       const inp = msg.querySelector(".rfn-code"); inp.focus();
+      inp.onkeydown = e => { if (e.key === "Enter") msg.querySelector("[data-act=code]").click(); };  // the phone keyboard's Go
+      // a wrong code or no signal: said under the box, which stays, so it can be typed again
+      const oops = t => { let p = msg.querySelector(".rfn-codeerr");
+        if (!p) { p = Object.assign(document.createElement("p"), {className: "rfn-err rfn-codeerr"}); p.style.margin = "6px 0 0"; msg.append(p); }
+        p.textContent = t; inp.focus(); inp.select(); };
       msg.querySelector("[data-act=code]").onclick = async () => {
         const c = inp.value.trim().toUpperCase(); if (!c) return inp.focus();
         try {
           const r = await (await fetch(MAIL_URL, {method: "POST", body: JSON.stringify({check: true, code: c})})).json();
-          if (!r.ok) return say(h(r.error), true);
+          if (!r.ok) return oops(r.error);
           ls.set("rfr.sendCode", c); ls.set("rfr.sendName", r.name); btn.click();
-        } catch (e) { say("No connection to send it. Try again with signal, or Share another way.", true); }
+        } catch (e) { oops("No connection to send it. Try again with signal, or Share another way."); }
       };
       return;
     }
