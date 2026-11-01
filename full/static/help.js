@@ -72,8 +72,10 @@ const HELP = [
     <ul><li>The <b>Note</b> button, bottom right on every screen (or the <b>N</b> key): a voice note, the screen recorded while you
       talk and point, a photo with a voice or written note, or just words. Each note keeps the time, the screen, the pin and the mission.</li>
     <li>On this PC a note is a folder in <i>RF Recon › notes</i> in Drive (note.txt plus the recording or photo), so it opens there too.
-      From the remote link a note goes straight to Cody's PC. In the web version and RF Recon lite it stays in that browser:
-      <b>Share with Cody</b> sends it by text, email or Drive.</li>
+      From the remote link a note goes straight to Cody's PC. In the web version and RF Recon lite it stays in that browser.</li>
+    <li>To send one to Cody: <b>Share with Cody</b>, then <b>Send email now</b>. It's emailed from the page, numbered (report #1, #2 ...)
+      with a short topic; the first time it asks for your send code, which is in the link Cody sent you.
+      <b>Share another way</b> still opens the phone's share sheet.</li>
     <li>On a phone, record the screen with the phone's own screen recorder, then pick the video in <b>Record the screen</b>.</li></ul>`],
   ["mouse", "Mouse and keyboard", `
     <table><tbody>
