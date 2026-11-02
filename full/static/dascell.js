@@ -83,8 +83,19 @@ window.dasCellRequire = (el, j, save) => {
 // the donor check from the Providence RFP §3.9 (the only published one): design target −85 dBm with SINR 5 dB; minimum −95 dBm with SINR 0 dB
 const DONOR = {target:-85, target_sinr:5, min:-95, min_sinr:0};
 const donorVerdict = r => !r||!has(r.rsrp) ? null : (+r.rsrp>=DONOR.target&&(!has(r.sinr)||+r.sinr>=DONOR.target_sinr)) ? "target" : (+r.rsrp>=DONOR.min&&(!has(r.sinr)||+r.sinr>=DONOR.min_sinr)) ? "minimum" : "below";
-// bands 47 CFR 20.21(e)(3) doesn't list for consumer boosters (last amended 2018): 600 MHz, WCS, 2.5 GHz, CBRS, C-band / 3.45 GHz
-const NOT_CONSUMER = [[/^(b|n)?71$/i,"600 MHz (B71)"],[/^(b|n)?30$/i,"WCS (B30)"],[/^(b|n)?41$/i,"2.5 GHz (B41 / n41)"],[/^(b|n)?48$/i,"CBRS (B48 / n48)"],[/^(b|n)?(77|78)$/i,"C-band / 3.45 GHz (n77)"]];
+// bands a consumer booster may not carry (DAS-Cellular follow-up, 2026-11-02): not in 47 CFR 20.21(e)(3) (eCFR current to
+// 29 Oct 2026, unchanged since 2018; the FCC never adopted its 2018 proposal for 600 MHz, WCS and 2.5 GHz) nor in the
+// consumer table of FCC KDB 935210 D02 (Nov 2024). [pattern, name, what else applies]
+const NOT_CONSUMER = [[/^(b|n)?71$/i,"600 MHz (B71)",""],[/^(b|n)?30$/i,"WCS (B30)","AT&T told the FCC it does not intend to consent to industrial boosters in WCS either (31 Jan 2019)"],
+  [/^(b|n)?41$/i,"2.5 GHz (B41 / n41)","FCC 13-21 refused it for consumer boosters"],[/^(b|n)?48$/i,"CBRS (B48 / n48)","above 23 dBm EIRP per 10 MHz a CBRS booster counts as a CBSD and must register with a SAS"],
+  [/^(b|n)?(77|78)$/i,"C-band / 3.45 GHz (n77)",""],[/^(b|n)?70$/i,"AWS-4 (B70)",""]];
+// how each carrier takes a consent request, as far as the research found (public sources only)
+const CARRIER_ASK = {
+  "T-Mobile": "Industrial: T-Mobile's “In-Building Telecommunications Agreement” (Rebroadcast Agreement) with Exhibit A (site: county and FIPS code, address, coordinates; booster: FCC ID, bands, UARFCN, EIRP, gain, noise, antenna height, protections), emailed to rebroadcastagreements@t-mobile.com; review takes several weeks. Found only on reseller and Wilson pages (form saved 2020): confirm with T-Mobile before relying on it.",
+  "AT&T": "No public industrial consent form: att.com/das or your AT&T representative, usually for a carrier-fed DAS (an AT&T signal source took 9+ months in 2022). AT&T has said it won't consent to industrial boosters in WCS.",
+  "Verizon": "No public industrial consent form: your Verizon account manager.",
+  "FirstNet": "No public consent form: your AT&T / FirstNet representative. Band 14 is Part 90 spectrum: FirstNet / AT&T written authorization (90.219); a Class B booster is registered with the FCC.",
+};
 const APPROVAL_PATHS = [["industrial","Industrial booster or off-air DAS: the carrier's express consent (47 CFR 20.21(c))"],["consumer","Consumer booster: register it with the carrier (20.21(a)(2), (h))"],
   ["carrier","Carrier-fed DAS (base station or small cell): carrier agreement, design review, carrier acceptance test"]];
 window.dasCellPresurvey = async (el, j, save) => {
@@ -98,7 +109,8 @@ window.dasCellPresurvey = async (el, j, save) => {
   for(const c of cov.carriers||[]) row(c.brand).cov.push(c);
   for(const s of cs.sites||[]) row(s.operator).sites.push(s);
   for(const r of Object.values((d.grid||{}).results||{})) for(const x of readingsOf(r)) if(isCell(x)&&has(x.band)) row(x.carrier).bands.add(String(x.band));
-  const list=[...by.values()], flagged=[...new Set(list.flatMap(x=>[...x.bands]).flatMap(b=>NOT_CONSUMER.filter(([re])=>re.test(b)).map(([,n])=>n)))];
+  const list=[...by.values()], measured=list.flatMap(x=>[...x.bands]);
+  const flagged=NOT_CONSUMER.filter(([re])=>measured.some(b=>re.test(b))), b66=measured.some(b=>/^(b|n)?66$/i.test(b));
   const vtxt={target:"meets the −85 dBm target", minimum:"meets the −95 dBm minimum only", below:"below the −95 dBm minimum"}, vcol={target:"var(--good)", minimum:"var(--warn)", below:"var(--bad)"};
   el.innerHTML=`<div class="panel"><h3>Cellular carriers at the building <span class="hint">· commercial DAS: what each carrier has here, its signal at the roof, and its approval</span></h3>
     <div class="tw wrap"><table><thead><tr><th>Carrier</th><th>FCC Broadband Map (modelled)</th><th>Cell sites within 1 mi</th><th>Rooftop donor (measured)</th><th>Approval</th><th></th></tr></thead><tbody>
@@ -112,11 +124,13 @@ window.dasCellPresurvey = async (el, j, save) => {
         <td><select data-ap="path" style="max-width:190px"><option value="">— path —</option>${APPROVAL_PATHS.map(([k,l])=>`<option value="${k}" ${a.path===k?"selected":""} title="${esc(l)}">${esc(l.split(":")[0])}</option>`).join("")}</select>
           <div class="row" style="gap:4px;margin-top:3px;flex-wrap:wrap"><label class="inl hint">asked <input data-ap="asked" type="date" value="${esc(a.asked||"")}"></label><label class="inl hint">consent <input data-ap="consent" type="date" value="${esc(a.consent||"")}"></label></div>
           <input data-ap="contact" placeholder="contact, reference or bands consented" value="${esc(a.contact||"")}" style="width:100%;margin-top:3px">
-          ${x.carrier==="FirstNet"?'<div class="hint">Band 14 is Part 90 spectrum: FirstNet / AT&amp;T written authorization (90.219); a Class B booster is registered with the FCC.</div>':""}</td>
+          ${CARRIER_ASK[x.carrier]?`<div class="hint" style="margin-top:3px">${esc(CARRIER_ASK[x.carrier])}</div>`:""}</td>
         <td><button data-let="${esc(x.carrier)}" title="A letter asking this carrier's express consent to retransmit its bands (47 CFR 20.21(c)); print or save as PDF">⎙ Consent letter</button></td></tr>`; }).join("")}</tbody></table></div>
-    ${flagged.length?`<p class="status err" style="margin:8px 0 0">Measured here: ${esc(flagged.join(", "))}. 47 CFR 20.21(e)(3) doesn't list these for consumer boosters (last amended 2018), so plan an industrial booster with each carrier's express consent, or a carrier-fed source.</p>`:""}
+    ${flagged.length?`<p class="status err" style="margin:8px 0 0">Measured here: ${esc(flagged.map(([,n])=>n).join(", "))}. A consumer booster may not carry these: 47 CFR 20.21(e)(3) lists only Cellular, PCS, AWS-1, Lower 700 A–E, Upper 700 C and SMR (current as of 29 Oct 2026, unchanged since 2018; the FCC never adopted its 2018 proposal to add 600 MHz, WCS and 2.5 GHz), and FCC KDB 935210 D02 (Nov 2024) has none of them for consumer boosters.
+      Plan an industrial booster with each carrier's express consent, a carrier-fed source, or the carrier's own small cell.${flagged.filter(f=>f[2]).map(([,n,w])=>` ${esc(n)}: ${esc(w)}.`).join("")}</p>`:""}
+    ${b66?'<p class="hint" style="margin:6px 0 0">B66 measured: a consumer booster may carry only its AWS-1 part (1710–1755 / 2110–2155 MHz); its AWS-3 part needs an industrial booster (KDB 935210 D02).</p>':""}
     <p class="hint" style="margin-bottom:0">Donor check from the Providence RFP §3.9, the only published one: design target −85 dBm RSRP with SINR ≥ 5 dB on at least one band per carrier; minimum −95 dBm with SINR ≥ 0 dB, and nothing ordered until the donor is confirmed.
-      The FCC keeps no registration for commercial boosters (its signal booster database is for Part 90 Class B), and no carrier publishes a consent form: consent is “a letter, email or other record” from the carrier naming the bands it lets you retransmit (FCC 13-21 ¶112).
+      The FCC keeps no registration for commercial boosters (its signal booster database is for Part 90 Class B). Of the carriers, only T-Mobile's consent form has turned up (on reseller pages); otherwise consent is “a letter, email or other record” from the carrier naming the bands it lets you retransmit (FCC 13-21 ¶112), and the letter here asks for exactly that.
       Carrier coverage is what each carrier tells the FCC (Data &amp; updates: FCC carrier coverage); cell sites are crowd and survey data (Cell sites tab).</p></div>`;
   const keep=async patch=>{ j=await save({cellular:{...(j.data.cellular||{}), ...patch}}); };
   el.querySelectorAll("[data-dn]").forEach(i=>i.onchange=async()=>{ const car=i.closest("tr").dataset.car, all={...((j.data.cellular||{}).donor||{})}, x={...(all[car]||{})};
@@ -139,12 +153,17 @@ function dasCellConsent(j, carrier){
     <p>We plan to install an industrial signal booster (distributed antenna system) at the building above to improve ${esc(carrier)} coverage inside it. Under 47 CFR 20.21(c), an industrial booster may operate only with the express consent of the licensee whose frequencies it retransmits. We ask for that consent.</p>
     <table style="width:100%;border-collapse:collapse" border="1" cellpadding="4"><tbody>
       <tr><td>Location</td><td>${esc(d.address||"")}${d.lat!=null?` (${(+d.lat).toFixed(5)}, ${(+d.lon).toFixed(5)})`:""}</td></tr>
+      <tr><td>County and county FIPS code</td><td>${blank}</td></tr>
       <tr><td>Bands to retransmit</td><td>${bands.size?esc([...bands].join(", ")):blank}</td></tr>
-      <tr><td>Booster make, model and FCC ID</td><td>${blank}</td></tr>
-      <tr><td>Maximum gain / maximum output power</td><td>${blank} dB / ${blank} dBm</td></tr>
+      <tr><td>Channels (EARFCN / UARFCN), uplink and downlink</td><td>${blank}</td></tr>
+      <tr><td>Booster make, model, FCC ID and date of certification</td><td>${blank}</td></tr>
+      <tr><td>Peak and average gain, uplink / downlink</td><td>${blank} dB / ${blank} dB</td></tr>
+      <tr><td>Maximum output power (EIRP), uplink / downlink</td><td>${blank} dBm / ${blank} dBm</td></tr>
+      <tr><td>Maximum transmitted noise</td><td>${blank} dBm</td></tr>
+      <tr><td>Self-monitoring, anti-oscillation, gain control</td><td>yes / no: ${blank}</td></tr>
       <tr><td>Donor antenna: azimuth, height</td><td>${dn.az!=null?`${dn.az}°`:blank}, ${dn.height_ft!=null?`${dn.height_ft} ft`:blank}${has(dn.rsrp)?` · measured ${dn.rsrp} dBm RSRP${has(dn.sinr)?`, SINR ${dn.sinr} dB`:""}${dn.band?` on band ${esc(dn.band)}`:""}`:""}</td></tr>
       <tr><td>Installer contact</td><td>${esc(me?[me.name, me.org, me.phone, me.email].filter(Boolean).join(" · "):blank)}</td></tr></tbody></table>
-    <p>Gain, AGC, oscillation shutdown and band settings will be set to the FCC limits and your requirements, and the booster will be shut off at your request (47 CFR 20.21(d)). Please confirm by letter or email naming the bands you consent to, with any conditions (FCC 13-21 ¶112), or tell us your own process.</p>
+    <p>Gain, AGC, oscillation shutdown and band settings will be set to the FCC limits and your requirements, and the booster will be shut off at your request (47 CFR 20.21(d)). Please confirm by letter or email naming the bands you consent to, with any conditions (FCC 13-21 ¶112), or tell us your own process.${carrier==="T-Mobile"?" Our In-Building Telecommunications Agreement (Rebroadcast Agreement) with its Exhibit A is attached.":""}</p>
     <p>Consent given by: ______________________________ Title: ____________________ Date: ____________</p>
     <p>Thank you,<br>${esc(me?[me.name, me.org, me.phone, me.email].filter(Boolean).join("<br>"):"")}</p></div>`;
   document.body.appendChild(box); document.body.classList.add("print-das"); window.print();
