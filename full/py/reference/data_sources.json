@@ -1,5 +1,5 @@
 {
- "_about": "Open and crowd data sources for RF Recon: what each needs, costs and allows. Checked on the providers' own pages 2026-10-28 (header-only or anonymous requests; no sign-ups). 'updater' names the Data & updates sources it covers; 'keys' the settings it needs; 'status' says whether RF Recon uses it.",
+ "_about": "Open and crowd data sources for RF Recon: what each needs, costs and allows. Checked on the providers' own pages 2026-10-28; the map, terrain, address-search, building-outline and radar services 2026-11-02 (header-only or anonymous requests; no sign-ups). 'updater' names the Data & updates sources it covers; 'keys' the settings it needs; 'status' says whether RF Recon uses it.",
  "sources": [
   {
    "name": "FCC ULS licences, ASR towers, broadcast",
@@ -69,7 +69,10 @@
    "cost": "Free (release v74 is a 302 MB download, about 290 MB unpacked)",
    "terms": "App GPL-3.0; the database is Signal Identification Wiki content: read on this PC, never exported",
    "area": "Catalog (by frequency, bandwidth and mode, not by place)",
-   "status": "In RF Recon: each Signal ID Wiki match shows its waterfall and plays its audio (map details, field log). Data & updates, Artemis signal database, downloads it (off until you switch it on)"
+   "status": "In RF Recon: each Signal ID Wiki match shows its waterfall and plays its audio (map details, field log). Data & updates, Artemis signal database, downloads it (off until you switch it on)",
+   "updater": [
+    "artemis"
+   ]
   },
   {
    "name": "WiGLE",
@@ -353,6 +356,86 @@
    "updater": [
     "psap"
    ]
+  },
+  {
+   "name": "OpenStreetMap map tiles",
+   "url": "https://operations.osmfoundation.org/policies/tiles/",
+   "what": "The Street base map",
+   "key": "none",
+   "cost": "Free (donation-funded, best effort)",
+   "terms": "Tile policy: light use, credit OpenStreetMap, honour caching; no bulk downloads, prefetching or offline use",
+   "area": "Map tiles",
+   "status": "In RF Recon: the Street base map"
+  },
+  {
+   "name": "USGS The National Map",
+   "url": "https://www.usgs.gov/programs/national-geospatial-program/national-map",
+   "what": "Satellite, satellite + labels, topo and terrain relief base maps",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public domain; USGS asks for credit",
+   "area": "Map tiles",
+   "status": "In RF Recon: the four USGS base maps"
+  },
+  {
+   "name": "Esri World Imagery",
+   "url": "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9",
+   "what": "Hi-res satellite base map (the ATAK map style starts on it)",
+   "key": "none",
+   "cost": "Free to view",
+   "terms": "Esri Master License Agreement; credit Esri, Vantor, Earthstar Geographics; not for exporting tiles to use offline",
+   "area": "Map tiles",
+   "status": "In RF Recon: the Satellite hi-res (Esri) base map"
+  },
+  {
+   "name": "US Census Bureau TIGERweb",
+   "url": "https://tigerweb.geo.census.gov/",
+   "what": "County and state lines",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Map tiles",
+   "status": "In RF Recon: the County + state lines layer"
+  },
+  {
+   "name": "Terrain Tiles on AWS (Tilezen)",
+   "url": "https://registry.opendata.aws/terrain-tiles/",
+   "what": "Ground elevation: USGS 3DEP in the US, SRTM and others elsewhere",
+   "key": "none (no AWS account)",
+   "cost": "Free",
+   "terms": "AWS open data; credit the sources in Tilezen's attribution list",
+   "area": "Elevation tiles",
+   "status": "In RF Recon: terrain profiles and coverage estimates; tiles already fetched are kept for use with no signal"
+  },
+  {
+   "name": "Photon address search (komoot)",
+   "url": "https://photon.komoot.io/",
+   "what": "Addresses and places for the Pin box",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Public demo server: \"please be fair\"; heavy use is throttled; no availability promise. OpenStreetMap data",
+   "area": "By address or place name",
+   "status": "In RF Recon: addresses in the Pin box's search"
+  },
+  {
+   "name": "Overpass API (OpenStreetMap)",
+   "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
+   "what": "Building outlines",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Main server: under 10,000 queries and 1 GB a day; OpenStreetMap data, credit OpenStreetMap",
+   "area": "Yes (box)",
+   "status": "In RF Recon: DAS jobs' building outlines (a second public server if the first is busy)"
+  },
+  {
+   "name": "Iowa Environmental Mesonet: NEXRAD",
+   "url": "https://mesonet.agron.iastate.edu/ogc/",
+   "what": "Live weather radar, refreshed every 5 minutes",
+   "key": "none",
+   "cost": "Free",
+   "terms": "No terms published for the tile service",
+   "area": "Map tiles",
+   "status": "In RF Recon: the map's Weather radar (NEXRAD, live) layer"
   }
  ]
 }

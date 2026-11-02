@@ -66,6 +66,11 @@ const HELP = [
   ["data", "Data &amp; updates", `
     <ul><li><b>Connection</b>: online / offline and the link type (a phone tether counts as cellular).</li>
     <li><b>Automatic updates</b>: one switch for all, <i>Only on Wi-Fi / Ethernet</i>, and per source: on / off, how often, Run now, last result.</li>
+    <li><b>Ways in</b>: every way people get this version or its data (the remote link, the web version, RF Recon lite, field packs,
+      the install kit, the Drive folder, exports, Push to ATAK) and which ones work with this PC off.</li>
+    <li><b>Data sources</b> are what RF Recon downloads; <b>Used live as you work</b> lists the maps, terrain, address search,
+      building outlines, weather radar and live ships it reads as you go; <b>Other open and crowd sources</b> is the research: what else exists,
+      what it costs and allows, and why it is or isn't in RF Recon.</li>
     <li><b>API keys</b> for WiGLE, OpenCelliD and RepeaterBook stay in your local database.</li>
     <li>Import your own map layer (CSV, KML, KMZ, GeoJSON) or RadioReference-style labels.</li></ul>`],
   ["notes", "Notes", `

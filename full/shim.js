@@ -828,6 +828,11 @@ async function basemaps(path, p, method, body) {
 
 /* ---------- the server's routes ---------- */
 const STUB_STATUS = () => ({net: {online: navigator.onLine, checked: null}, sources: {}, auto: false, links: [], link: "", running: []});
+let CATALOG = null;  // reference/data_sources.json, shipped with the engine's Python: Data & updates' tables of sources used live and researched
+async function catalog() {
+  if (!CATALOG) try { const r = await realFetch("py/reference/data_sources.json"); if (r.ok) CATALOG = (await r.json()).sources.filter(c => !c.updater); } catch (e) {}
+  return CATALOG || [];
+}
 async function route(path, p, method, body) {
   if (path === "/meta") return META ? {built_at: META.fcc_built_at, towers_built_at: META.towers_built_at, tx_rows: META.counts?.licences,
     towers_rows: META.counts?.towers, pack: META.name, pack_made: META.made_at} : {};
@@ -857,7 +862,8 @@ async function route(path, p, method, body) {
   if (path === "/geocode") return geocode(p);
   if (path === "/sigwiki/match") return {candidates: await sigwikiMatch(fnum(p, "freq"), fnum(p, "bw"), fstr(p, "type"), fnum(p, "limit", 5))};
   if (path === "/sigwiki/range") return {signals: await sigwikiRange(fnum(p, "lo", 0), fnum(p, "hi", 1e6))};
-  if (path === "/update/status" || path === "/net/hint") return STUB_STATUS();
+  if (path === "/update/status") return {...STUB_STATUS(), catalog: await catalog()};
+  if (path === "/net/hint") return STUB_STATUS();
   if (path === "/fieldpacks") return {packs: [], folder: "", phone_url: "../", job: {running: false, log: []}};  // packs are made on the PC
   const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;
 }

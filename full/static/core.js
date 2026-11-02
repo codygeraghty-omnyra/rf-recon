@@ -253,7 +253,7 @@ const BASEMAPS={  // served through /tiles/<src>/ so viewed tiles are cached for
   "Street (OpenStreetMap)":{src:"osm", maxZoom:19, attribution:"© OpenStreetMap contributors"},
   "Satellite (USGS)":{src:"usgs-imagery", maxNativeZoom:16, maxZoom:19, attribution:USGS},
   "Satellite + labels (USGS)":{src:"usgs-imagery-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
-  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:19, maxZoom:19, attribution:"Esri, Maxar, Earthstar Geographics"},
+  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:19, maxZoom:19, attribution:"Esri, Vantor, Earthstar Geographics"},
   "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
   "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:19, attribution:USGS},
 };

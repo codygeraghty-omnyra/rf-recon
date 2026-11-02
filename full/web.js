@@ -62,7 +62,7 @@ window.missionBoot = async () => {
 
 const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
 const pcData = S.views.data;  // the PC's Data & updates (mission.js): its keys, crowd, import and FCC ID panels serve here too
-const PC_ONLY = ["Connection", "Automatic updates", "This copy of RF Recon", "Phone app: field packs", "Remote access", "Push to ATAK", "Data sources"];
+const PC_ONLY = ["Connection", "Automatic updates", "Ways in", "This copy of RF Recon", "Phone app: field packs", "Remote access", "Push to ATAK", "Data sources"];
 const NOT_HERE = ["aisstream_key", "fcc_bdc_username"];  // live ships: aisstream allows server-side use only; carrier coverage: PC import
 // Packs: the packs at once, then the PC's panels below them when the engine answers (with work kept here it may still be
 // starting). The PC's panels redraw themselves through S.views.data(their own box): that box gets only them again.

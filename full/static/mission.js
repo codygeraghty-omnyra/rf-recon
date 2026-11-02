@@ -217,6 +217,19 @@ const API_KEYS=[
 const keySaved=(settings,k)=>k.fields.every(([f])=>settings.creds[f]);
 const CROWD_FETCH=[["wigle","WiGLE","wigle"],["opencellid","OpenCelliD","opencellid"],["ttn","LoRaWAN gateways"],["satnogs","SatNOGS stations"],["wspr","WSPR"],["pskreporter","PSKReporter"]];
 const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"],[336,"2 weeks"],[720,"monthly"]];
+// Ways in: every way people get this version or its data, and whether it needs this PC on. The remote link's row
+// (#wayRemote) and the two site links (#wayWeb, #wayLite) are filled in live; the panel shows on the copy with the remote door.
+const WAYS=[
+  ["This PC","Everything","No","localhost:8765; starts with Windows"],
+  ["Remote link","This full version, live: view and search after signing in, nothing changed","No: it runs on this PC and its connection",'<span id="wayRemote">Checking…</span>'],
+  ["Full web version","Nearly every tab in any browser. Each state's FCC data loads from the RF Recon site; each person's work stays in their browser","Yes, 24/7 on GitHub's servers",'<a id="wayWeb" target="_blank" rel="noopener">The web version ↗</a>'],
+  ["RF Recon lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>'],
+  ["Field packs","One area's public data in a file, for the web version or RF Recon lite","Yes","Phone app: field packs, below"],
+  ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of RF Recon, below; install kit in the Drive folder"],
+  ["Drive folder","The docs, install kit, field packs and backups","Yes","Google Drive › RF Recon, for the people it's shared with"],
+  ["Exports","CSV, KML and ATAK data packages of what's on the map","Yes, once made","The export buttons beside the results"],
+  ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK on this PC's networks, or your TAK Server","No","Push to ATAK, below"],
+];
 S.views.data = async (v) => {
   if(S.remote){ v.innerHTML='<p class="status">Data &amp; updates stays on Cody\'s PC.</p>'; return; }
   let settings={creds:{},states:""}, layers={layers:[],fetches:[]};
@@ -237,6 +250,11 @@ S.views.data = async (v) => {
       <label style="margin-top:8px">Carrier coverage states (FCC Broadband Map: about 100 MB to 2 GB of download a state)<input id="uBdcStates" value="${esc(settings.bdc_states||"")}" placeholder="SC,NC,MN"></label>
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
+  <div class="panel" id="waysPanel" hidden><h3>Ways in: who can use this version and its data</h3>
+    <div class="tw wrap"><table><thead><tr><th>Way</th><th>What they get</th><th>With this PC off</th><th>Where</th></tr></thead><tbody>${
+      WAYS.map(([w,what,off,where])=>`<tr><td><b>${w}</b></td><td>${what}</td><td>${off}</td><td>${where}</td></tr>`).join("")}</tbody></table></div>
+    <p class="hint">Kept on this PC on purpose: the FCC database and its downloads, your API keys, the crowd data and the Signal ID Wiki catalog. Only the remote link shows them, live.
+      To have this full version up 24/7 with this PC off, it has to run on a computer that's always on: a small cloud server (about $5 to $15 a month) or an always-on mini PC at home, with the same sign-ins. Neither is set up.</p></div>
   <div class="panel"><h3>This copy of RF Recon</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
   <div class="panel"><h3>Phone app: field packs</h3>
     <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for RF Recon lite (beta), the phone app, which works with no signal.
@@ -266,7 +284,8 @@ S.views.data = async (v) => {
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px"><span class="hint" id="fiGr"></span>
       <label class="inl">Import FCC grant searches <input type="file" id="fiGrImp" multiple accept=".xml,.xls,.xlsx,.htm,.html,.csv"></label></div></div>
   <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
-  <div class="panel"><h3>Other open and crowd sources</h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
+  <div class="panel"><h3>Used live as you work <span class="hint">· not on the list above: nothing to download or schedule</span></h3><div id="srcLive"><p class="hint">Loading…</p></div></div>
+  <div class="panel"><h3>Other open and crowd sources <span class="hint">· researched</span></h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
     <div class="panel"><h3>Your API keys</h3>
       <p class="hint" style="margin-top:0">Free accounts of your own, kept only in this PC's database. Each sign-up has its own terms, so RF Recon can't make them for you.</p>
@@ -339,6 +358,7 @@ S.views.data = async (v) => {
     catch(e){ $("#tkMsg").textContent=e.message; } };
   const fpPaint=async()=>{ if(!$("#fpList")) return; const f=await api("/api/fieldpacks"), j=f.job;
     $("#fpDir").textContent=f.folder; $("#fpUrl").href=f.phone_url; $("#fpUrl").textContent=f.phone_url;
+    if($("#wayLite")){ const lite=new URL(f.phone_url, location.href); $("#wayLite").href=lite.href; $("#wayWeb").href=new URL("full/", lite).href; }  // the web version's is "../"
     $("#fpList").innerHTML=f.packs.map(p=>`<tr><td>${esc(p.file)}</td><td class="n">${p.mb} MB</td><td class="mono">${esc(p.made)}</td></tr>`).join("")||'<tr><td colspan="3" class="hint">None yet.</td></tr>';
     $("#fpMsg").textContent=j.running?(j.log[j.log.length-1]||"Starting…"):j.error?`Error: ${j.error}`:j.result?`Done: ${j.result.name}, ${j.result.mb} MB, ${j.result.counts.licences.toLocaleString()} licences.${j.result.big?" That's large for a phone: a pack around the pin keeps it smaller.":""}`:"";
     $("#fpMake").disabled=$("#fpPin").disabled=j.running;
@@ -367,9 +387,11 @@ S.views.data = async (v) => {
   // remote access (remote.py): the Tailscale Funnel link, and the people who can sign in at it
   const raPaint=async()=>{ if(!$("#raList")) return; let r; try{ r=await api("/api/remote"); }catch(e){ $("#raLink").innerHTML=`<p class="hint">${esc(e.message)}</p>`; return; }
     $("#raList").closest(".panel").hidden=!r.door;  // a copy without the remote door (the install kit) has nothing to show here
-    const L=r.link||{};
+    $("#waysPanel").hidden=!r.door;  // and Ways in is about sharing that copy
+    const L=r.link||{}, n=r.people.length, ts={NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running";
+    $("#wayRemote").textContent=`${!L.installed?"Tailscale isn't installed":L.state!=="Running"?`Off: Tailscale is ${ts}`:L.on?"On":"Off"} · ${n?`${n} ${n===1?"person":"people"} can sign in`:"no one can sign in yet"}. Remote access, below`;
     $("#raLink").innerHTML=!L.installed?'<p class="hint">Tailscale isn\'t installed on this PC: it carries the link.</p>'
-      :L.state!=="Running"?`<p class="hint">Tailscale is ${esc({NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running")} on this PC. Sign in to Tailscale (system tray) to get the link.</p>`
+      :L.state!=="Running"?`<p class="hint">Tailscale is ${esc(ts)} on this PC. Sign in to Tailscale (system tray) to get the link.</p>`
       :`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><b>Link</b><span class="mono">${esc(L.url||"")}</span><span class="tag">${L.on?"On":"Off"}</span>
          ${L.on?'<button id="raCopy">Copy link</button>':""}<button id="raToggle">${L.on?"Turn the link off":"Turn the link on"}</button></div>`;
     $("#raList").innerHTML=r.people.map(u=>`<tr><td>${esc(u.name)}</td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
@@ -444,11 +466,17 @@ function paintSources(){
     $$("#uLinks [data-link]").forEach(b=>b.classList.toggle("on", b.dataset.link==="all"?on.size===3:on.has(b.dataset.link)));
     const now=u.link==="vpn"||u.link==="unknown"?"ethernet":u.link;
     $("#uLinkNow").innerHTML=`This PC is on <b>${esc(nm[now]||u.link||"?")}</b> now: updates ${on.has(now)?'<span style="color:var(--good)">can run</span>':'<span style="color:var(--warn)">wait for '+[...on].map(k=>nm[k]).join(" or ")+"</span>"}.`; }
-  const cat=$("#srcCatalog");
-  if(cat && u.catalog) cat.innerHTML=`<div class="tw"><table><thead><tr><th>Source</th><th>What it gives</th><th>Key</th><th>Cost</th><th>Area search</th><th>Terms</th><th>In RF Recon</th></tr></thead><tbody>${
-    u.catalog.map(c=>`<tr><td><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.name)}</b> ↗</a></td><td>${esc(c.what)}</td><td>${esc(c.key)}${c.signup?` · <a href="${esc(c.signup)}" target="_blank" rel="noopener">sign up ↗</a>`:""}</td>
-      <td>${esc(c.cost)}</td><td>${esc(c.area)}</td><td class="hint">${esc(c.terms)}</td><td>${esc(c.status)}</td></tr>`).join("")}</tbody></table></div>
-    <p class="hint">Checked on each provider's own pages on 2026-10-28. “Could add” means its terms and API allow it; say which to wire in. Sign-ups need your own account: RF Recon never makes one for you.</p>`;
+  // the catalog's sources with no Data & updates entry: the ones RF Recon uses live, then the researched rest
+  const catRows=(rows,live)=>`<div class="tw wrap"><table><thead><tr><th>Source</th><th>What it gives</th><th>Key</th><th>Cost</th>${live?"":"<th>Area search</th>"}<th>Terms</th><th>${live?"Where in RF Recon":"In RF Recon"}</th></tr></thead><tbody>${
+    rows.map(c=>`<tr><td><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.name)}</b> ↗</a></td><td>${esc(c.what)}</td><td>${esc(c.key)}${c.signup?` · <a href="${esc(c.signup)}" target="_blank" rel="noopener">sign up ↗</a>`:""}</td>
+      <td>${esc(c.cost)}</td>${live?"":`<td>${esc(c.area)}</td>`}<td class="hint">${esc(c.terms)}</td><td>${esc(live?c.status.replace(/^In RF Recon:\s*(.)/,(m,ch)=>ch.toUpperCase()):c.status)}</td></tr>`).join("")}</tbody></table></div>`;
+  const inApp=c=>/^In RF Recon/.test(c.status);
+  if($("#srcLive") && u.catalog) $("#srcLive").innerHTML=catRows(u.catalog.filter(inApp),true)+`
+    <p class="hint">Terms checked on each provider's own page: the maps, terrain, address search, building outlines and radar on 2026-11-02, live ships on 2026-10-28.
+      Plus what you bring in yourself: your own layers (CSV, KML, KMZ, GeoJSON, GPX), RadioReference-style labels, talk groups (CSV, Excel or JSON), field captures, and your own maps (ATAK map sources, a tile address or MBTiles).</p>`;
+  if($("#srcCatalog") && u.catalog) $("#srcCatalog").innerHTML=catRows(u.catalog.filter(c=>!inApp(c)),false)+`
+    <p class="hint">Checked on each provider's own pages on 2026-10-28. “Could add” means its terms and API allow it; say which to wire in. Sign-ups need your own account: RF Recon never makes one for you.
+      The research behind RF Recon is in the Drive folder's docs › research: DAS and ERCES, link budget, PIM, RF parts, building plans and materials, receivers and SDRs, the data roadmap and the capability and UX review.</p>`;
   $$("[data-int]").forEach(x=>x.onchange=async()=>{ UPD=await post("/api/update/config",{sources:{[x.dataset.int]:{interval_h:+x.value}}}); paintSources(); });
   $$("[data-run]").forEach(x=>x.onclick=async()=>{ UPD=await post("/api/update/run",{ids:[x.dataset.run],force:true}); paintNet(); paintSources(); });
 }
