@@ -9,7 +9,7 @@
 const DAS = {
   threshold: -95,            // dBm, minimum signal at each test location (IFC 510 / NFPA 1225 default; AHJs may change it)
   daq: 3.0,                  // delivered audio quality, minimum, downlink and uplink (NFPA 1225 ch. 18)
-  sinr: 18, ber: 2.5,        // measured equivalent of DAQ 3.0 for P25: SINR >= 18 dB with BER <= 2.5% (NFPA 1225 ch. 18, TSB-88)
+  sinr: 18, ber: 2.5,        // measured equivalent of DAQ 3.0 for P25: SINR >= 18 dB with BER <= 2.5% (NFPA 1225 A.20.3.10)
   general_pct: 95,           // % of general building areas that must pass (NFPA 1225 ch. 18; older NFPA 72 used 90)
   critical_pct: 99,          // % of critical areas that must pass
   grids: 20,                 // grid squares per floor (NFPA 1225 ch. 18)
@@ -460,7 +460,7 @@ async function dasPresurvey(el, j, save){
 function dasRequire(el, j, save){
   const d=j.data||{}, req=d.require||{}, prof=d.profile||{};
   const rows=[["Signal at each test location", DASJ.threshold==null?"No dBm floor (DAQ decides)":`≥ ${DASJ.threshold} dBm downlink (uplink too where the AHJ asks)`],
-    ["Audio quality", `DAQ ≥ ${DASJ.daq} downlink and uplink; design to 3.4. Measured equivalent: SINR ≥ ${DAS.sinr} dB with BER ≤ ${DAS.ber}%`],
+    ["Audio quality", `DAQ ≥ ${DASJ.daq} downlink and uplink; design to 3.4. Measured equivalent: SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%`],
     ["Coverage", `${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas, each floor`],
     ["Grid test", `${DAS.grids} roughly equal areas per floor, one test point near each centre; more than 1 failed area fails the floor. With exactly 2 failed, the floor may be re-divided into 40 and passes with no more than 2 non-adjacent failures. Areas 20–80 ft across; floors over 128,000 sq ft split into sectors`],
     ["Test radio", "A calibrated portable of the agency's current model, through the agency's system; two radios keyed at once on different channels (one within 10 ft of an indoor antenna, one at the farthest point)"],
@@ -499,8 +499,10 @@ function dasRequire(el, j, save){
 /* ---------- grid test: a grid per floor (over the floor plan when there is one), critical areas, any tool's results ---------- */
 // A reading passes with the downlink at or above the threshold and audio quality met: DAQ when it was scored, or the
 // measured equivalent (SINR and BER) when that's what the tool reported. Uplink level and DAQ count when present.
-// measured equivalent of the profile's DAQ for P25 (TSB-88): DAQ 3.0 = SINR 18 dB / BER 2.5%, DAQ 3.4 = 19 dB / 2%
-const daqEq = () => DASJ.daq>=3.4 ? {sinr:19, ber:2} : {sinr:DAS.sinr, ber:DAS.ber};
+// measured equivalent of the profile's DAQ for P25 Phase 1: DAQ 3.0 = SINR 18 dB / BER 2.5% (NFPA 1225 A.20.3.10),
+// DAQ 3.4 = 17.7 dB / 2% (TSB-88.1-D/E, C4FM narrow IF, faded). The 19 dB often quoted for 3.4 is the VSELP/LSM row.
+// 17.7 sits under NFPA's 18 dB for 3.0, and a stricter DAQ never accepts a lower SINR, so 3.4 keeps the higher of the two.
+const daqEq = () => DASJ.daq>=3.4 ? {sinr:Math.max(17.7, DAS.sinr), ber:2} : {sinr:DAS.sinr, ber:DAS.ber};
 const has = x => x!=null && x!=="";
 const gridPass = r => { if(!r||!(has(r.dl)||has(r.daq)||has(r.sinr))) return null;
   const dq = has(r.daq) ? +r.daq>=DASJ.daq : (has(r.sinr)||has(r.ber)) ? (!has(r.sinr)||+r.sinr>=daqEq().sinr)&&(!has(r.ber)||+r.ber<=daqEq().ber) : true;
