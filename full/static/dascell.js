@@ -9,8 +9,8 @@
 const CELL_PRESETS = {
   common: {name:"Common", rsrp:-95, rsrp_hi:-100, sinr:5, pct:95,
     src:"Owner specs and RFPs cluster at RSRP −95 dBm over 95% for LTE and −100 to −105 dBm for C-band; SINR runs 5–10 dB in US documents. Guidance, not a carrier spec."},
-  cooper: {name:"Cooper University Health (2026)", rsrp:-95, rsrp_hi:-100, hi_by:{"AT&T":-100, "Verizon":-105}, sinr:null, pct:95, carriers:["AT&T","Verizon","T-Mobile"],
-    src:"Cooper spec 27 53 19 (4 Feb 2026): LTE −95 dBm for AT&T, Verizon and T-Mobile; C-band −100 dBm (AT&T) and −105 dBm (Verizon); 95% of the area. Read from search summaries only (the PDF was blocked)."},
+  cooper: {name:"Cooper University Health (2026)", rsrp:-95, rsrp_hi:-100, hi_by:{"AT&T":-100, "Verizon":-105, "T-Mobile":-100}, sinr:null, pct:95, carriers:["AT&T","Verizon","T-Mobile"],
+    src:"Cooper spec 27 53 19 (4 Feb 2026), Table 2: LTE 1900 and 2100 at −95 dBm RSRP for AT&T, Verizon and T-Mobile; C-band −100 dBm for AT&T (80 MHz), −105 dBm for Verizon (100 MHz) and −100 dBm for T-Mobile (40 MHz); 95% of the area each; no SINR target. Each band must meet it on its own, while the grid judges a carrier's best cell below 3.3 GHz, so check 1900 and 2100 apart in a square's readings."},
   pvd_normal: {name:"Providence RFP, normal mode (2026)", rsrp:-85, rsrp_hi:-85, sinr:10, pct:95, carriers:["Verizon"],
     src:"Providence Water RFP PVD26-53 §3.6, normal mode: Verizon RSRP ≥ −85 dBm on ≥ 95% of each area, SINR ≥ 10 dB where signal is present."},
   pvd_failover: {name:"Providence RFP, failover (2026)", rsrp:-95, rsrp_hi:-95, sinr:5, pct:90,

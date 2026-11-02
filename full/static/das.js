@@ -329,7 +329,8 @@ async function dasPresurvey(el, j, save){
   const P={radius:ps.radius||15, loss:ps.loss??DAS.loss[d.construction]??14, threshold:ps.threshold||DASJ.threshold||-95};
   el.innerHTML='<p class="status">Finding the public safety systems around the building…</p>';
   let r; try{ r=await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${P.radius}&loss=${P.loss}&threshold=${P.threshold}`); }
-  catch(e){ el.innerHTML=`<p class="status err">${esc(e.message)}</p><div id="psCell" style="margin-top:10px"></div>`; window.dasCellPresurvey?.($("#psCell"), j, save); return; }  // the carriers need no FCC data
+  catch(e){ if(!el.isConnected) return; el.innerHTML=`<p class="status err">${esc(e.message)}</p><div id="psCell" style="margin-top:10px"></div>`; window.dasCellPresurvey?.($("#psCell"), j, save); return; }  // the carriers need no FCC data
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const inc=new Set(ps.include||[]), any=inc.size>0;
   const chosen=r.systems.filter(s=>inc.has(s.call_sign));
   const need=chosen.filter(s=>s.margin_db!=null&&s.margin_db<0).length;
@@ -541,6 +542,7 @@ async function dasGrid(el, j, save){
   const cellCards=()=>floors.map(fl=>{ const s=cellFloor(d,fl,cv); return `<div class="card" data-fl="${esc(fl.name)}" style="cursor:pointer;${fl.name===D.floor?"outline:2px solid var(--accent)":""}">
     <div class="v" style="color:${!s.tested?"var(--muted)":s.ok?"var(--good)":"var(--bad)"}">${s.tested?s.pct+"%":"–"}</div><div class="k">Floor ${esc(fl.name)} · ${esc(cvL.carrier)} ${s.pass}/${s.tested} at target${s.untested?` · ${s.untested} untested`:""}${s.noSinr?` · ${s.noSinr} without SINR`:""}</div></div>`; }).join("");
   const files=(await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files.filter(x=>/\.(png|jpe?g|gif|webp|svg)$/i.test(x.name));
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const crit=[...((d.require||{}).critical||[]), ...((d.require||{}).other||[])];
   const cr=G.critical||{}, critTested=crit.filter(a=>scored(d,cr[a])!=null), critPass=crit.filter(a=>scored(d,cr[a]));
   const st=floors.map(x=>({f:x, ...floorStats(d,x)}));
