@@ -248,6 +248,23 @@ tbody tr:hover{background:var(--wash)}
 .tag.w{background:var(--serious);color:#1c0d05;box-shadow:none}
 .tag.das{background:var(--accent-wash);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
 .dasnote{margin-top:3px}
+/* DAS Screening (dasscreen.js): striped calls, so a screening call never reads as a Grid test result */
+.scr-sq{border:1px solid rgba(20,20,20,.35);border-radius:0;margin:0;padding:2px;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:#111;background:color-mix(in srgb,#fff 25%,transparent);transition:background-color var(--t-move) var(--ease),box-shadow var(--t-border) ease}
+.scr-sq .hint{color:#333}.scr-sq>b,.scr-sq>.mono{background:rgba(255,255,255,.8);border-radius:4px;padding:0 4px;line-height:1.35}.scr-sq:hover{box-shadow:inset 0 0 0 3px var(--accent)}.scr-sq.sel{box-shadow:inset 0 0 0 3px #1d4ed8}
+.scr-sq.pass{background:repeating-linear-gradient(135deg,color-mix(in srgb,#3ccf7a 55%,transparent) 0 7px,color-mix(in srgb,#3ccf7a 30%,transparent) 7px 14px)}
+.scr-sq.close{background:repeating-linear-gradient(135deg,color-mix(in srgb,#fab219 65%,transparent) 0 7px,color-mix(in srgb,#fab219 35%,transparent) 7px 14px)}
+.scr-sq.fail{background:repeating-linear-gradient(135deg,color-mix(in srgb,#e5534b 60%,transparent) 0 7px,color-mix(in srgb,#e5534b 32%,transparent) 7px 14px)}
+.scr-sq.skip{background:repeating-linear-gradient(45deg,color-mix(in srgb,#8c959f 35%,transparent) 0 6px,transparent 6px 12px);cursor:default}
+.scr-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:8px;color:var(--muted)}
+.scr-legend i{display:inline-block;width:16px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px;border:1px solid var(--line);background:#fff}
+.scr-legend i.pass{background:repeating-linear-gradient(135deg,#3ccf7a 0 4px,transparent 4px 8px)}
+.scr-legend i.close{background:repeating-linear-gradient(135deg,#fab219 0 4px,transparent 4px 8px)}
+.scr-legend i.fail{background:repeating-linear-gradient(135deg,#e5534b 0 4px,transparent 4px 8px)}
+.scr-word{font-size:17px}.scr-word.pass{color:var(--good-ink)}.scr-word.close{color:var(--warning)}.scr-word.fail{color:var(--bad-ink)}
+.scr-tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;border:1px solid var(--line)}
+.scr-tag.pass{background:color-mix(in srgb,#3ccf7a 25%,transparent);border-color:#3ccf7a}
+.scr-tag.close{background:color-mix(in srgb,#fab219 25%,transparent);border-color:#fab219}
+.scr-tag.fail{background:color-mix(in srgb,#e5534b 25%,transparent);border-color:#e5534b}
 #map,#dashmap{border:1px solid var(--g-border);border-radius:var(--radius);box-shadow:var(--g-shadow)}
 #cy{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
 .ring{background:var(--g-strong);color:var(--ink-2);border-bottom-color:var(--grid)}
@@ -448,6 +465,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/plans.js"></script>
 <script src="static/dasdesign.js"></script>
 <script src="static/dascell.js"></script>
+<script src="static/dasscreen.js"></script>
 <script src="static/dasexample.js"></script>
 <script src="static/welcome.js"></script>
 <script src="static/notes.js"></script>

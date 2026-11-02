@@ -1914,14 +1914,14 @@
       },
       {
        "freq": "154.13",
-       "dl": -93,
+       "dl": -94.5,
        "daq": 3.4,
        "ul": -81,
        "ul_daq": 3.5,
        "inst": "PCTEL IBflex|EX-1001",
        "time": "2026-10-21T13:35:00Z",
        "source": "PCTEL IBflex export (example)",
-       "note": "Northwest corner office: VHF 2 dB above the -95 dBm floor. Passes; recheck at the annual retest."
+       "note": "Northwest corner office: VHF 0.5 dB above the -95 dBm floor, inside the IBflex's 1 dB accuracy. Passes; recheck before the witnessed walk and at the annual retest."
       }
      ]
     },

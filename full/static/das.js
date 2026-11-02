@@ -258,7 +258,7 @@ async function dasJob(v, id){
   if(gen!==D.gen) return;  // the board or another job was drawn while this waited
   DASJ={...DAS, ...(((j.data||{}).profile)||{})};
   const d=j.data||{}, save=async(patch,extra)=>{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); return j; };
-  const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
+  const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["screen","Screening"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px"><button id="djBack">← All jobs</button>
       <input id="djName" value="${esc(j.name)}" style="font-size:18px;font-weight:700;min-width:260px">
       <label class="inl">Stage <select id="djStage">${D.stages.map(s=>`<option ${s===j.stage?"selected":""}>${esc(s)}</option>`).join("")}</select></label>
@@ -274,7 +274,7 @@ async function dasJob(v, id){
   $("#djDel").onclick=async()=>{ if(!confirm(`Delete “${j.name}”? Its files stay in the Drive folder.`)) return; await post(`/api/das/jobs/${id}/delete`); D.job=null; render(); };
   const body=$("#djBody");
   ({overview:dasOverview, presurvey:dasPresurvey, require:dasRequire, grid:dasGrid, files:dasFiles, log:dasLog, report:dasReport,
-    pim:window.dasPim, materials:window.dasMaterials, plans:window.dasPlans, design:window.dasDesign}[D.sub]||dasOverview)(body, j, save);  // fieldref.js, plans.js, dasdesign.js
+    pim:window.dasPim, screen:window.dasScreen, materials:window.dasMaterials, plans:window.dasPlans, design:window.dasDesign}[D.sub]||dasOverview)(body, j, save);  // fieldref.js, plans.js, dasdesign.js, dasscreen.js
 }
 
 function dasOverview(el, j, save){
