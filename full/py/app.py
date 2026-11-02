@@ -1461,7 +1461,7 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, das.presurvey(con, lat, lon, fnum(qs, "radius", 15), fnum(qs, "loss", 15), fnum(qs, "threshold", -95)))
             if p == "/api/das/parse" and method == "POST":  # any tool's results file -> rows + a guess at its columns
                 fmt, head, rows = das.read_table(fstr(qs, "name"), self.raw_body())
-                return self.send(200, {"format": fmt, "headers": head, "rows": rows[:20000], "total": len(rows), "guess": das.guess_mapping(head)})
+                return self.send(200, {"format": fmt, "headers": head, "rows": rows[:20000], "total": len(rows), "guess": das.guess_for(fmt, head)})
             if p == "/api/das/search":  # everything in the DAS tab: jobs (every field), contacts, log, files, research
                 return self.send(200, finder.das_search(con, fstr(qs, "q")))
             if p == "/api/das/building":  # the building's outline, footprint and levels from OpenStreetMap

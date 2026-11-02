@@ -17,6 +17,7 @@ import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime
 import zipfile
 
 import geo
@@ -385,8 +386,95 @@ def _points(pts):
     return head, rows
 
 
+def carrier_name(s):
+    """One name per carrier, whatever a tool calls it ("T-Mobile US", "Verizon Wireless", "FirstNet (AT&T)")."""
+    t = str(s or "").strip()
+    for pat, name in ((r"first\s*net", "FirstNet"), (r"t-?\s?mobile|sprint", "T-Mobile"), (r"verizon", "Verizon"),
+                      (r"at&t|\batt\b|cingular", "AT&T"), (r"us\s?cellular", "UScellular"), (r"dish|boost|echostar", "Dish / Boost")):
+        if re.search(pat, t, re.I):
+            return name
+    return t
+
+
+def nr_arfcn_mhz(n):
+    """5G NR-ARFCN -> MHz (3GPP TS 38.104 global raster: 5 kHz steps below 3 GHz, 15 kHz from 3 to 24.25 GHz)."""
+    return 0.005 * n if n < 600000 else 3000 + 0.015 * (n - 600000) if n < 2016667 else None
+
+
+def _compass(text):
+    """A Cel-Fi COMPASS XR "Full Signal Report" (.csv): a few header lines (date, time, WAVE PRO version, COMPASS serial),
+    then one block per carrier and technology ("AT&T (4G)") with one row per field and one column per cell, every value
+    with a trailing tab. -> one row per cell. A cell listed under two names of one carrier (T-Mobile and T-Mobile US share
+    their cells under two PLMNs) is kept once. The report is one spot, so it has no floor or grid: the import asks where."""
+    rows = [[c.replace("\t", "").strip() for c in r] for r in csv.reader(io.StringIO(text))]
+    when = [r[0] for r in rows[1:8] if r and r[0]]
+    date = next((x for x in when if re.match(r"\d{1,2}/\d{1,2}/\d{4}$", x)), "")
+    tm = next((x for x in when if re.match(r"\d{1,2}:\d\d(:\d\d)?\s*[AP]M$", x, re.I)), "")
+    stamp = ""
+    if date:
+        try:
+            stamp = datetime.strptime(f"{date} {tm or '12:00:00 AM'}", "%m/%d/%Y %I:%M:%S %p").strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            stamp = date
+    head = ["Carrier", "Technology", "PLMN ID", "Band", "Bandwidth (MHz)", "Channel", "DL MHz", "PCI", "RSSI (dBm)",
+            "RSRP (dBm)", "RSRQ (dB)", "Node", "Cell ID", "Time"]
+    out, seen, block, fields = [], set(), None, {}
+
+    def flush():
+        if not block:
+            return
+        name, tech = block
+        n = max((len([v for v in vals if v]) for vals in fields.values()), default=0)
+        for i in range(n):
+            g = lambda *ks: next((fields[k][i] for k in ks if k in fields and i < len(fields[k]) and fields[k][i]), "")  # noqa: E731
+            ch, mhz = g("EARFCN", "ARFCN/UARFCN", "ARFCN", "NR-ARFCN"), g("DL Center Freq. (MHz)", "Center Freq. (MHz)")
+            if (not mhz or not re.match(r"-?[\d.]+$", mhz)) and tech == "NR" and ch.isdigit():
+                f = nr_arfcn_mhz(int(ch))
+                mhz = f"{f:g}" if f else ""
+            row = {"Carrier": carrier_name(name), "Technology": tech, "PLMN ID": g("PLMN ID"), "Band": g("Band"),
+                   "Bandwidth (MHz)": g("Bandwidth (MHz)"), "Channel": ch, "DL MHz": mhz, "PCI": g("PCI"),
+                   "RSSI (dBm)": g("RSSI (dBm)"), "RSRP (dBm)": g("RSRP (dBm)"), "RSRQ (dB)": g("RSRQ (dB)"),
+                   "Node": g("eNodeB", "gNodeB"), "Cell ID": g("Cell ID"), "Time": stamp}
+            key = (row["Carrier"], tech, ch, row["PCI"])
+            if key not in seen:
+                seen.add(key)
+                out.append(row)
+
+    for r in rows:
+        if len(r) > 1 and not r[0] and re.search(r"\((\dG)\)\s*$", r[1]):
+            flush()
+            m = re.match(r"(.+?)\s*\((\d)G\)\s*$", r[1])
+            block, fields = (m.group(1), {"4": "LTE", "5": "NR", "3": "UMTS", "2": "GSM"}.get(m.group(2), m.group(2) + "G")), {}
+        elif block and r and r[0]:
+            fields[r[0]] = r[1:]
+    flush()
+    return head, out
+
+
+def _add_carrier(head, rows):
+    """A table with a PLMN (MCC-MNC) column and no carrier column gets one, named from RF Recon's operator list (cells.py)."""
+    norm = {re.sub(r"[^a-z0-9]", "", h.lower()): h for h in head}
+    if any(k in norm for k in GRID_ALIASES["carrier"]):
+        return head, rows
+    col = next((norm[k] for k in ("plmn", "plmnid", "mccmnc", "mccmncid", "hni") if k in norm), None)
+    if not col:
+        return head, rows
+    import cells
+    for r in rows:
+        m = re.match(r"\s*(\d{3})\s*[-_/ ]?\s*(\d{2,3})\s*$", str(r.get(col, "")))
+        r["Carrier"] = carrier_name(cells.operator(m.group(1), m.group(2))) if m else ""
+    return head + ["Carrier"], rows
+
+
 def read_table(name, data):
-    """Any tool's results as (format, headers, rows): CSV / TSV / TXT, Excel .xlsx, JSON, KML / KMZ, GPX."""
+    """Any tool's results as (format, headers, rows): CSV / TSV / TXT, Excel .xlsx, JSON, KML / KMZ, GPX, and the Cel-Fi
+    COMPASS XR Full Signal Report."""
+    fmt, head, rows = _read_table(name, data)
+    head, rows = _add_carrier(head, rows)
+    return fmt, head, rows
+
+
+def _read_table(name, data):
     import captures
     n = (name or "").lower()
     if n.endswith(".kmz"):
@@ -394,6 +482,8 @@ def read_table(name, data):
     if n.endswith(".xlsx") or (data[:2] == b"PK" and not n.endswith(".zip")):
         return ("xlsx",) + _records(_xlsx_table(data))
     text = data.decode("utf-8-sig", "replace")
+    if text.lstrip().upper().startswith("CEL-FI COMPASS"):
+        return ("compass",) + _compass(text)
     if n.endswith(".kml") or "<kml" in text[:500]:
         return ("kml",) + _points(captures.parse_kml_text(text)[0])
     if n.endswith(".gpx") or "<gpx" in text[:500]:
@@ -439,6 +529,9 @@ GRID_ALIASES = {
     "rsrp": ["rsrp", "rsrpdbm", "ssrsrp", "ssrsrpdbm", "ltersrp", "nrrsrp"],
     "rsrq": ["rsrq", "rsrqdb", "ssrsrq", "ssrsrqdb"],
     "pci": ["pci", "physicalcellid", "nrpci", "ltepci"],
+    "carrier": ["carrier", "carriername", "operator", "operatorname", "provider", "networkoperator", "networkname", "mno", "wsp"],
+    "band": ["band", "bandnumber", "lteband", "nrband", "bandclass"],
+    "mhz": ["dlmhz", "dlcenterfreqmhz", "centerfreqmhz", "dlfrequencymhz", "downlinkmhz", "dlcentermhz"],
 }
 CONTACT_ALIASES = {
     "name": ["name", "fullname", "contact", "contactname", "person"],
@@ -465,6 +558,17 @@ def guess_mapping(headers, aliases=GRID_ALIASES):
                     used.add(hit)
                     break
     return out
+
+
+def guess_for(fmt, headers):
+    """guess_mapping for a parsed results file: a cell's identity ("Cell ID") is never a grid square, and a COMPASS
+    report's RSSI is an LTE channel's wideband level, not a public-safety downlink."""
+    m = guess_mapping(headers)
+    if m.get("grid") and re.sub(r"[^a-z0-9]", "", m["grid"].lower()) in ("cellid", "cid", "ci", "eci", "nci", "cellidentity"):
+        del m["grid"]
+    if fmt == "compass":
+        m.pop("dl", None)
+    return m
 
 
 def parse_vcards(text):

@@ -70,15 +70,20 @@ function lbCompute(I){
   const dM=LB.ft2m(num0(I.edge_ft)), walls=num0(I.walls_db);
   const pl=f=>I.model==="fspl"?LB.fspl(dM,f):LB.p1238(dM,f,num0(I.N)||30,num0(I.floor_loss));
   const nch=Math.max(1,num0(I.n_ch)||1);
+  // an LTE / 5G band runs the downlink in RSRP (one subcarrier): gains and losses are the same, and the BDA's composite
+  // output cap comes down by 10·log10(subcarriers in the channel)
+  const nsc=I.cell?cellSubcarriers((n(I.bw_khz)??20000)/1000, n(I.scs_khz)??15):1, re=I.cell?10*Math.log10(nsc):0;
   // downlink
   const dl=[], push=(arr,stage,db,level,note="")=>arr.push({stage,db,level,note});
   let L=n(I.roof_dbm);
-  push(dl,"Signal at the roof (isotropic)",null,L,I.roof_src||"");
+  push(dl,I.cell?"RSRP at the roof (isotropic)":"Signal at the roof (isotropic)",null,L,I.roof_src||"");
   L=L+num0(I.donor_gain_dbi); push(dl,"Donor antenna gain",num0(I.donor_gain_dbi),L);
   L=L-donorDl; push(dl,"Donor cable and connectors",-donorDl,L);
-  const bdaIn=L, perCh=n(I.bda_max_dbm)!=null?n(I.bda_max_dbm)-10*Math.log10(nch)-num0(I.backoff_db):null, want=bdaIn+num0(I.bda_dl_gain_db);
+  const bdaIn=L, perCh=n(I.bda_max_dbm)!=null?n(I.bda_max_dbm)-10*Math.log10(nch)-num0(I.backoff_db)-re:null, want=bdaIn+num0(I.bda_dl_gain_db);
   const bdaOut=perCh!=null?Math.min(want,perCh):want;
-  push(dl,`BDA downlink gain${perCh!=null&&want>perCh?" (output limited)":""}`,num0(I.bda_dl_gain_db),bdaOut,perCh!=null?`${nch} channel${nch===1?"":"s"}: at most ${perCh.toFixed(1)} dBm each`:"");
+  push(dl,`BDA downlink gain${perCh!=null&&want>perCh?" (output limited)":""}`,num0(I.bda_dl_gain_db),bdaOut,perCh!=null?(I.cell
+    ?`${nch} carrier${nch===1?"":"s"}: at most ${perCh.toFixed(1)} dBm per subcarrier (${(perCh+re).toFixed(1)} dBm per carrier less 10·log10(${nsc}) = ${re.toFixed(1)} dB)`
+    :`${nch} channel${nch===1?"":"s"}: at most ${perCh.toFixed(1)} dBm each`):"");
   L=bdaOut-passDl; push(dl,"Passive network to the farthest antenna",-passDl,L,pass_dl.rows.map(r=>`${r.name} ${r.db.toFixed(1)}`).join(" · "));
   const eirp=L+num0(I.server_gain_dbi); push(dl,"Server antenna gain (EIRP)",num0(I.server_gain_dbi),eirp);
   const plDl=pl(I.f_dl); L=eirp-plDl; push(dl,`In-building path, ${num0(I.edge_ft)} ft (${I.model==="fspl"?"free space":"ITU-R P.1238"})`,-plDl,L);
@@ -86,7 +91,7 @@ function lbCompute(I){
   const edge=L;
   // uplink
   const ul=[]; const fu=I.f_ul||I.f_dl;
-  let U=num0(I.portable_dbm); push(ul,"Portable radio power",null,U,I.portable_src||"");
+  let U=num0(I.portable_dbm); push(ul,I.cell?"Phone power":"Portable radio power",null,U,I.portable_src||"");
   U-=num0(I.body_db); push(ul,"Body and hand loss",-num0(I.body_db),U);
   const plUl=pl(fu); U-=plUl; push(ul,`In-building path, ${num0(I.edge_ft)} ft`,-plUl,U);
   U-=walls; push(ul,"Walls and floors",-walls,U);
@@ -113,6 +118,16 @@ function lbCompute(I){
   // checks: ok is true, false, "warn", or null when an input is missing. A limit left blank skips its check.
   const C=[], chk=(id,name,ok,detail)=>C.push({id,name,ok,detail});
   const dlNeed=num0(I.dl_min_dbm)+num0(I.margin_db);
+  if(I.cell){  // LTE / 5G: the cellular target, the 20.21 consumer caps for scale, isolation and headroom; no agency-site or 90.219 checks
+    chk("dl_edge","RSRP at the far edge",edge>=dlNeed,`${edge.toFixed(1)} dBm vs ${dlNeed.toFixed(1)} dBm needed (${num0(I.dl_min_dbm)} target + ${num0(I.margin_db)} dB margin; Requirements, Cellular)`);
+    const dlComp=bdaOut+re+10*Math.log10(nch);
+    chk("consumer_dl","Downlink under the consumer booster cap (47 CFR 20.21)",dlComp<=17?true:"warn",`${dlComp.toFixed(1)} dBm composite vs 17 dBm (0.05 W)${dlComp>17?": over it, so an industrial booster with each carrier's express consent (20.21(c))":""}`);
+    chk("consumer_ul","Uplink under the consumer booster cap (47 CFR 20.21)",ulOut<=30?true:"warn",`${ulOut.toFixed(1)} dBm vs 30 dBm (1 W)${ulOut>30?": over it, so an industrial booster with each carrier's express consent":""}`);
+    const isoGain=Math.max(num0(I.bda_dl_gain_db),g), isoMargin=n(I.isolation_margin_db)??20, isoNeed=isoGain+isoMargin, iso=n(I.isolation_db);
+    chk("isolation","Donor to server isolation",iso==null?null:iso>=isoNeed?true:iso>=isoGain+Math.min(15,isoMargin)?"warn":false,iso!=null?`${iso} dB vs ${isoNeed} dB needed (gain + ${isoMargin})`:`needs a measured or estimated isolation: at least ${isoNeed} dB`);
+    if(perCh!=null) chk("headroom","BDA output headroom",want<=perCh,want<=perCh?`${(perCh-want).toFixed(1)} dB under the maximum`:`${(want-perCh).toFixed(1)} dB over the maximum: the BDA is limiting; lower its gain`);
+    return {dl, ul, checks:C, edge, eirp, bdaOut, perCh, atSite, erpUl, noiseErp10k, noiseSite10k, rise, passDl, passUl, plSiteDl, dlErp:bdaOut-donorDl, nsc};
+  }
   chk("dl_edge","Downlink at the far edge",edge>=dlNeed,`${edge.toFixed(1)} dBm vs ${dlNeed.toFixed(1)} dBm needed (${num0(I.dl_min_dbm)} + ${num0(I.margin_db)} dB margin)`);
   const ulMin=n(I.ul_min_dbm)??-95, ulTop=n(I.ul_max_dbm);
   if(atSite!=null) chk("ul_site","Uplink level at the agency's receiver",atSite>=ulMin&&(ulTop==null||atSite<=ulTop),
@@ -148,7 +163,8 @@ function dsBands(d){
   for(const p of plan){ const b=p.band||dasBand(+p.downlink_mhz); const x=m.get(b)||{band:b, dl:[], ul:[], best:null, systems:new Set()};
     x.dl.push(+p.downlink_mhz); String(p.uplink_mhz||"").split(" ").filter(Boolean).forEach(u=>x.ul.push(+u));
     if(p.best_outdoor_dbm!==""&&p.best_outdoor_dbm!=null) x.best=Math.max(x.best??-999,+p.best_outdoor_dbm); x.systems.add(p.system); m.set(b,x); }
-  return [...m.values()].map(x=>({...x, f_dl:Math.max(...x.dl), f_ul:x.ul.length?Math.max(...x.ul):Math.max(...x.dl), n_ch:new Set(x.dl).size, systems:[...x.systems]}));
+  return [...m.values()].map(x=>({...x, f_dl:Math.max(...x.dl), f_ul:x.ul.length?Math.max(...x.ul):Math.max(...x.dl), n_ch:new Set(x.dl).size, systems:[...x.systems]}))
+    .concat(((d.design||{}).cell_bands||[]).map(id=>window.cellBandEntry?cellBandEntry(d, id):null).filter(Boolean));  // LTE / 5G bands (dascell.js)
 }
 // one band's inputs: what the job saved, else the defaults (with where each came from)
 function dsInputs(d, b){
@@ -161,7 +177,11 @@ function dsInputs(d, b){
     site_sens_dbm:v("site_sens_dbm"), site_net_gain_db:0, site_nf_db:null, site_dist_mi:null, site_erp_dbm:null, bw_khz:v("bw_khz")??12.5,
     isolation_db:null, isolation_margin_db:v("isolation_margin_db")??20, ul_gain_max_db:v("ul_gain_max_db"), donor_port_max_dbm:v("donor_port_max_dbm"),
     noise_site_max_dbm:v("noise_site_max_dbm"), erp_limit_dbm:v("erp_limit_dbm")??37, noise_limit_dbm:v("noise_limit_dbm")??-43};
-  return {...def, ...saved};
+  // an LTE / 5G band: a phone, not a portable radio; the job's cellular RSRP target; no 90.219 or agency-site checks
+  if(b.cell) Object.assign(def, {cell:true, portable_dbm:23, portable_src:"a phone at full power: LTE / NR power class 3, 23 dBm (3GPP, background)", body_db:3,
+    dl_min_dbm:b.target, margin_db:0, bw_khz:b.bw_mhz*1000, scs_khz:b.scs, site_sens_dbm:null, ul_min_dbm:null, ul_max_dbm:null, erp_limit_dbm:null, noise_limit_dbm:null,
+    noise_site_max_dbm:null, ul_gain_max_db:null, donor_port_max_dbm:null, roof_src:"the rooftop donor reading (Pre-survey) or a scan: enter it"});
+  return {...def, ...saved, cell:!!b.cell};
 }
 
 window.dasDesign = async (el, j, save) => {
@@ -185,38 +205,57 @@ const LB_FIELDS=[  // [key, label, unit, group]
   ["site_erp_dbm","Site ERP","dBm","Uplink and site"],["bw_khz","Channel bandwidth","kHz","Uplink and site"],["isolation_db","Donor to server isolation (measured or estimated)","dB","Checks"],
   ["isolation_margin_db","Isolation margin over gain","dB","Checks"],["ul_min_dbm","Uplink at the site, at least","dBm","Checks"],["ul_max_dbm","Uplink at the site, at most","dBm","Checks"],
   ["ul_gain_max_db","Uplink gain cap","dB","Checks"],["donor_port_max_dbm","Uplink at the donor port, at most","dBm","Checks"],["noise_site_max_dbm","BDA noise at the site, at most (per 10 kHz)","dBm","Checks"],
-  ["erp_limit_dbm","ERP per channel, at most","dBm","Checks"],["noise_limit_dbm","Uplink noise ERP, at most (per 10 kHz)","dBm","Checks"]];
+  ["erp_limit_dbm","ERP per channel, at most","dBm","Checks"],["noise_limit_dbm","Uplink noise ERP, at most (per 10 kHz)","dBm","Checks"],
+  ["scs_khz","Subcarrier spacing (LTE 15, 5G mid-band 30)","kHz","Uplink and site"]];
+// fields that mean nothing for one kind of band: the agency site and 90.219 limits for LTE / 5G, subcarriers for LMR
+const LB_ONLY_LMR=new Set(["site_sens_dbm","site_nf_db","site_erp_dbm","ul_min_dbm","ul_max_dbm","ul_gain_max_db","donor_port_max_dbm","noise_site_max_dbm","erp_limit_dbm","noise_limit_dbm"]);
+const lbFieldsFor = cell => LB_FIELDS.filter(([k])=>cell?!LB_ONLY_LMR.has(k):k!=="scs_khz");
 // where a default came from, with its citations
 const lbSrcNote = p => p.cite?`${esc(p.src)} ${frCite(FR.budget,p.cite)}`:esc(p.src||"");
 async function dsBudget(el, j, save){
   const d=j.data||{}, bands=dsBands(d);
-  if(!bands.length){ el.innerHTML='<p class="status">Pick the systems in the Pre-survey first: the link budget works per band from their channels.</p>'; return; }
+  // LTE / 5G bands for a commercial DAS, added by hand (dascell.js DAS_LTE_BANDS, from the DAS-Cellular research)
+  const haveCell=new Set((d.design||{}).cell_bands||[]), cellAdd=window.cellBandEntry?`<label class="inl" title="A commercial cellular band: its link budget runs in RSRP against the job's cellular target (Requirements)">Add an LTE / 5G band
+    <select id="lbAddCell"><option value="">—</option>${DAS_LTE_BANDS.filter(x=>!haveCell.has(x.id)).map(x=>`<option value="${esc(x.id)}">${esc(x.label)} · ${esc(x.carriers)}</option>`).join("")}</select></label>`:"";
+  const setCell=async ids=>{ j=await save({design:{...(j.data.design||{}), cell_bands:ids}}); render(); };
+  const wireAdd=()=>$("#lbAddCell")?.addEventListener("change", e=>{ if(e.target.value){ S.das.lbBand=null; setCell([...haveCell, e.target.value]); } });
+  if(!bands.length){ el.innerHTML=`<p class="status">Pick the systems in the Pre-survey first: the link budget works per band from their channels. Or add an LTE / 5G band for a commercial DAS.</p><div class="maptools">${cellAdd}</div>`; wireAdd(); return; }
   const D=S.das; D.lbBand=bands.some(b=>b.band===D.lbBand)?D.lbBand:bands[0].band;
   const b=bands.find(x=>x.band===D.lbBand), I=dsInputs(d,b), R=lbCompute(I), cables=(FR.parts?.cables||[]).filter(c=>c.loss_db_100ft);
   const keep=async patch=>{ const all={...((d.design||{}).bands||{})}, x={...(all[b.band]||{}), ...patch};
     for(const k in patch) if(patch[k]===null) delete x[k];  // a cleared field goes back to its default
     all[b.band]=x; await save({design:{...(d.design||{}), bands:all}}); render(); };
   const Dflt=lbDefaults(b.band), mine=((d.design||{}).bands||{})[b.band]||{};
-  const field=([k,l,u])=>{ const v=I[k]; return `<label style="display:block;margin:4px 0"><span class="hint">${esc(l)}${u?` (${u})`:""}</span>
-    <input data-lb="${k}" type="number" step="any" value="${v??""}" style="width:100%">${Dflt[k]&&mine[k]==null?`<span class="hint" style="font-size:11px">default: ${lbSrcNote(Dflt[k])}</span>`:""}</label>`; };
-  const groups=[...new Set(LB_FIELDS.map(f=>f[3]))];
+  // an LTE / 5G band names its inputs for a phone and RSRP, and says where its own defaults came from
+  const CELL_LABEL={roof_dbm:"RSRP at the roof (isotropic)", portable_dbm:"Phone power", body_db:"Head and hand loss", dl_min_dbm:"RSRP needed", n_ch:"Carriers sharing the BDA in this band", bw_khz:"Channel bandwidth"};
+  const CELL_NOTE={portable_dbm:"a phone at full power: power class 3, 23 dBm (3GPP, background)", body_db:"a 3 dB placeholder (background): set it",
+    dl_min_dbm:"this job's cellular RSRP target (Requirements, Cellular)", margin_db:"no researched cellular margin: set yours", bw_khz:"the band's usual channel width",
+    scs_khz:"LTE 15 kHz; 5G mid-band 30 kHz", roof_dbm:"the rooftop donor reading (Pre-survey) or a scan"};
+  const field=([k,l,u])=>{ const v=I[k], note=b.cell&&CELL_NOTE[k]?esc(CELL_NOTE[k]):Dflt[k]?lbSrcNote(Dflt[k]):"";
+    return `<label style="display:block;margin:4px 0"><span class="hint">${esc(b.cell&&CELL_LABEL[k]||l)}${u?` (${u})`:""}</span>
+    <input data-lb="${k}" type="number" step="any" value="${v??""}" style="width:100%">${note&&mine[k]==null?`<span class="hint" style="font-size:11px">default: ${note}</span>`:""}</label>`; };
+  const FIELDS=lbFieldsFor(!!b.cell), groups=[...new Set(FIELDS.map(f=>f[3]))];
   const stageTable=rows=>`<table><thead><tr><th>Stage</th><th class="n">dB</th><th class="n">Level dBm</th><th>Note</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.stage)}</td><td class="n">${r.db==null?"":(r.db>=0?"+":"")+r.db.toFixed(1)}</td><td class="n"><b>${r.level==null||isNaN(r.level)?"–":r.level.toFixed(1)}</b></td><td class="hint">${esc(r.note||"")}</td></tr>`).join("")}</tbody></table>`;
   el.innerHTML=`<div class="maptools no-print" style="gap:10px;flex-wrap:wrap"><div class="seg" id="lbBand">${bands.map(x=>`<button data-b="${esc(x.band)}" class="${x.band===b.band?"on":""}">${esc(x.band)}</button>`).join("")}</div>
-      <span class="hint">${b.n_ch} downlink channel${b.n_ch===1?"":"s"} · worst case at ${b.f_dl} MHz down, ${b.f_ul} MHz up · ${esc(b.systems.join(", "))}</span></div>
+      ${cellAdd}${b.cell?`<button id="lbRmCell" title="Take this LTE / 5G band out of the job's link budget">Remove this band</button>`:""}
+      <span class="hint">${b.cell?`${esc(b.systems.join(", "))} · ${I.bw_khz/1000} MHz at ${I.scs_khz} kHz = ${cellSubcarriers(I.bw_khz/1000, +I.scs_khz)} subcarriers · worst case at ${b.f_dl} MHz down, ${b.f_ul} MHz up · RSRP target ${I.dl_min_dbm} dBm`
+        :`${b.n_ch} downlink channel${b.n_ch===1?"":"s"} · worst case at ${b.f_dl} MHz down, ${b.f_ul} MHz up · ${esc(b.systems.join(", "))}`}</span></div>
     <div class="cards" style="margin:0 0 10px">${R.checks.map(c=>`<div class="card" title="${esc(c.detail)}"><div class="v" style="color:${c.ok==null?"var(--muted)":c.ok==="warn"?"var(--warn)":c.ok?"var(--good)":"var(--bad)"}">${c.ok==null?"–":c.ok==="warn"?"Warn":c.ok?"Pass":"Fail"}</div><div class="k">${esc(c.name)}<br><span class="hint">${esc(c.detail)}</span></div></div>`).join("")}</div>
     <div class="grid2" style="margin-top:0;grid-template-columns:minmax(300px,1fr) minmax(360px,1.4fr)">
       <div class="panel"><h3>Inputs <span class="hint">· saved with the job; clear a field for its default</span></h3>
-        ${groups.map(g=>`<details ${["Donor","Booster","Building"].includes(g)?"open":""}><summary style="cursor:pointer"><b>${esc(g)}</b></summary>${LB_FIELDS.filter(f=>f[3]===g).map(field).join("")}
+        ${groups.map(g=>`<details ${["Donor","Booster","Building"].includes(g)?"open":""}><summary style="cursor:pointer"><b>${esc(g)}</b></summary>${FIELDS.filter(f=>f[3]===g).map(field).join("")}
           ${g==="Donor"?`<label style="display:block;margin:4px 0"><span class="hint">Donor cable</span><div class="row" style="gap:6px"><select id="lbDc" style="flex:1"><option value="">none</option>${cables.map(c=>`<option ${I.donor_cable?.cable===c.name?"selected":""}>${esc(c.name)}</option>`).join("")}</select><input id="lbDcFt" type="number" step="any" placeholder="ft" value="${I.donor_cable?.ft??""}" style="width:80px"></div></label>`:""}
           ${g==="Building"?`<label style="display:block;margin:4px 0"><span class="hint">In-building model</span><select id="lbModel"><option value="p1238" ${I.model!=="fspl"?"selected":""}>ITU-R P.1238 (distance coefficient)</option><option value="fspl" ${I.model==="fspl"?"selected":""}>Free space + walls</option></select></label>`:""}
           ${g==="Passive network"?`<div id="lbPass">${(I.passive||[]).map((e,i)=>`<div class="row" style="gap:6px;align-items:center;margin:3px 0"><span style="flex:1">${e.kind==="cable"?`${esc(e.cable)} · ${e.ft} ft`:`${esc(e.name)} · ${e.db} dB`}</span><button data-rmp="${i}">✕</button></div>`).join("")||'<p class="hint">No parts yet: add the cable runs and splitters or couplers to the farthest antenna.</p>'}</div>
             <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px"><select id="lbPc" style="flex:1"><option value="">Cable…</option>${cables.map(c=>`<option>${esc(c.name)}</option>`).join("")}</select><input id="lbPcFt" type="number" step="any" placeholder="ft" style="width:70px"><button id="lbAddC">Add run</button></div>
             <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px"><input id="lbPn" placeholder="Splitter, coupler tap…" style="flex:1"><input id="lbPd" type="number" step="any" placeholder="dB" style="width:70px"><button id="lbAddP">Add part</button></div>
             <button id="lbFromBom" style="margin-top:6px" title="Cable runs from this job's Materials list">Add the cable runs from Materials</button>`:""}</details>`).join("")}</div>
-      <div><div class="panel"><h3>Downlink: agency site to the far edge</h3>${stageTable(R.dl)}</div>
-        <div class="panel"><h3>Uplink: portable radio to the agency site</h3>${stageTable(R.ul)}</div>
-        <p class="hint">${R.perCh!=null?`Per-channel output: ${R.bdaOut.toFixed(1)} dBm (at most ${R.perCh.toFixed(1)}). `:""}Antenna EIRP ${R.eirp.toFixed(1)} dBm per channel: the Antennas and coverage view uses it. ${LB_FORMULA_NOTE}</p></div></div>`;
+      <div><div class="panel"><h3>${b.cell?"Downlink: carrier site to the far edge, in RSRP":"Downlink: agency site to the far edge"}</h3>${stageTable(R.dl)}</div>
+        <div class="panel"><h3>${b.cell?"Uplink: phone to the booster":"Uplink: portable radio to the agency site"}</h3>${stageTable(R.ul)}</div>
+        <p class="hint">${b.cell?`RSRP is one subcarrier of the channel: a channel's total power less 10·log10(subcarriers); ${cellSubcarriers(I.bw_khz/1000, +I.scs_khz)} subcarriers here. Antenna EIRP ${R.eirp.toFixed(1)} dBm per subcarrier: the Antennas and coverage view shows RSRP. The 20.21 consumer caps are shown for scale: a commercial DAS is usually an industrial booster, run under each carrier's consent terms. Phone power and head-and-hand loss are placeholders (background): set them. `
+          :`${R.perCh!=null?`Per-channel output: ${R.bdaOut.toFixed(1)} dBm (at most ${R.perCh.toFixed(1)}). `:""}Antenna EIRP ${R.eirp.toFixed(1)} dBm per channel: the Antennas and coverage view uses it. `}${LB_FORMULA_NOTE}</p></div></div>`;
   $("#lbBand").onclick=e=>{ const x=e.target.closest("[data-b]"); if(x){ D.lbBand=x.dataset.b; render(); } };
+  wireAdd(); $("#lbRmCell")?.addEventListener("click", ()=>setCell([...haveCell].filter(x=>x!==b.id)));
   el.querySelectorAll("[data-lb]").forEach(i=>i.onchange=()=>keep({[i.dataset.lb]:i.value===""?null:+i.value}));
   $("#lbModel").onchange=e=>keep({model:e.target.value});
   const dc=()=>keep({donor_cable:$("#lbDc").value?{kind:"cable", cable:$("#lbDc").value, ft:+$("#lbDcFt").value||0}:null});
