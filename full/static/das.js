@@ -493,13 +493,27 @@ function calOf(d, r){ if(!r||!(has(r.dl)||has(r.daq)||has(r.sinr))) return null;
   const i=((d.testing||{}).instruments||[]).find(x=>instKey(x)===r.inst);
   if(!i) return {ok:false, why:r.inst?"instrument no longer on the job's list":"no instrument recorded", name:r.inst?r.inst.replace("|"," "):"not recorded"};
   return {...instState(i, Date.parse(r.time||"")||Date.now()), name:instName(i)}; }
+// A square can hold several readings (r.readings): one per channel or system, and cellular ones (LTE / 5G: kept and shown,
+// never scored against these public-safety rules; an RSRP isn't a -95 dBm downlink). eff() gives the reading that decides
+// the square: the worst one taken with a calibrated instrument (a failing one first, then the lowest level), so a square
+// passes only when every channel does. A square saved before readings were kept per channel is one plain reading.
+const CELL_TECH=/\b(LTE|NR|5G|4G|3G|UMTS|WCDMA|HSPA|GSM|CDMA|EV-?DO)\b/i;
+const isCell = x => (has(x.tech)&&CELL_TECH.test(String(x.tech))) || has(x.rsrp) || has(x.rsrq);
+const chKey = x => [x.tech, x.freq, x.pci].map(v=>String(v??"").trim().toLowerCase()).join("|");
+const readingsOf = r => !r ? [] : Array.isArray(r.readings) ? r.readings : (has(r.dl)||has(r.daq)||has(r.sinr)) ? [r] : [];
+function eff(d, r){ const rs=r&&Array.isArray(r.readings)?r.readings:null; if(!rs) return r;
+  const lmr=rs.filter(x=>!isCell(x)&&(has(x.dl)||has(x.daq)||has(x.sinr))), ok=lmr.filter(x=>calOf(d,x)?.ok), pool=ok.length?ok:lmr;
+  const lvl=x=>[has(x.dl)?+x.dl:1e9, has(x.daq)?+x.daq:1e9, has(x.sinr)?+x.sinr:1e9];
+  const worst=[...pool].sort((a,b)=>{ const fa=gridPass(a)===false, fb=gridPass(b)===false; if(fa!==fb) return fa?-1:1;
+    const ka=lvl(a), kb=lvl(b); return ka[0]-kb[0]||ka[1]-kb[1]||ka[2]-kb[2]; })[0];
+  return {...(worst||{}), readings:rs, at:worst?rs.indexOf(worst):-1, channels:lmr.length, cellular:rs.length-lmr.length}; }
 // pass / fail for the score: null when untested or not counted
 const scored = (d, r) => { const c=calOf(d, r); return c&&c.ok ? gridPass(r) : null; };
 const notCounted = (d, r) => { const c=calOf(d, r); return !!c && !c.ok; };
 // per floor: do-not-test squares leave the count; squares marked critical are judged against the critical percentage
 function floorStats(d, f){ const res=(d.grid||{}).results||{}, n=(f.grids||DAS.grids), skip=new Set(f.skip||[]), crit=new Set(f.critical||[]);
   const o={n, tested:0, pass:0, gen:0, genPass:0, crit:0, critPass:0, untested:0, notCounted:0};
-  for(let g=1; g<=n; g++){ if(skip.has(g)) continue; const r=res[`${f.name}|${g}`], p=scored(d, r), c=crit.has(g);
+  for(let g=1; g<=n; g++){ if(skip.has(g)) continue; const r=eff(d, res[`${f.name}|${g}`]), p=scored(d, r), c=crit.has(g);
     if(notCounted(d, r)) o.notCounted++;
     c?o.crit++:o.gen++; if(p==null){ o.untested++; continue; } o.tested++; if(p){ o.pass++; c?o.critPass++:o.genPass++; } }
   o.counted=o.gen+o.crit; o.pct=o.counted?Math.round(100*o.pass/o.counted):0;
@@ -511,6 +525,11 @@ async function dasGrid(el, j, save){
   const D=S.das; D.floor=floors.some(f=>f.name===D.floor)?D.floor:floors[0].name; D.mark=D.mark||"read";
   const f=floors.find(x=>x.name===D.floor), n=f.grids||DAS.grids, cols=f.cols||(n===20?5:Math.ceil(Math.sqrt(n))), rows=Math.ceil(n/cols);
   const skip=new Set(f.skip||[]), critSet=new Set(f.critical||[]);
+  // the grid sits on the plan where you put it (Place grid: drag, resize, rotate); the plan keeps its own shape. Its real
+  // width in feet (shared with the Design tab) gives each square's size
+  const planSrc=f.plan?await jobFileSrc(j.id, f.plan):null, hasPlan=!!planSrc;
+  if(D.mark==="place"&&!hasPlan) D.mark="read";
+  const box=boxOf(f), place=D.mark==="place", wft=(((d.design||{}).floors||{})[f.name]||{}).width_ft||null;
   const files=(await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files.filter(x=>/\.(png|jpe?g|gif|webp|svg)$/i.test(x.name));
   const crit=[...((d.require||{}).critical||[]), ...((d.require||{}).other||[])];
   const cr=G.critical||{}, critTested=crit.filter(a=>scored(d,cr[a])!=null), critPass=crit.filter(a=>scored(d,cr[a]));
@@ -520,26 +539,30 @@ async function dasGrid(el, j, save){
   const insts=(d.testing||{}).instruments||[], inst=G.inst||"";
   const instOpts=sel=>`${insts.map(i=>{ const s=instState(i); return `<option value="${esc(instKey(i))}" ${instKey(i)===sel?"selected":""}>${esc(instName(i))} · ${esc(s.why)}${s.ok?"":" (won't count)"}</option>`; }).join("")}
     <option value="uncal" ${sel==="uncal"?"selected":""}>Not calibrated: an SDR, a phone app, a quick check (pre-survey)</option>`;
-  const unnamedRes=Object.keys(res).filter(k=>calOf(d,res[k])&&!res[k].inst), unnamedCr=Object.keys(cr).filter(k=>calOf(d,cr[k])&&!cr[k].inst), unnamed=unnamedRes.length+unnamedCr.length;
+  const unnamedRes=Object.keys(res).filter(k=>readingsOf(res[k]).some(x=>calOf(d,x)&&!x.inst)), unnamedCr=Object.keys(cr).filter(k=>calOf(d,cr[k])&&!cr[k].inst), unnamed=unnamedRes.length+unnamedCr.length;
   // NFPA 1225: 20 squares per floor, each 20-80 ft across; floors over 128,000 sq ft split into sectors
   const per=d.area_sqft&&floors.length?d.area_sqft/floors.length:null, side=per?Math.sqrt(per/(n-skip.size||n)):null;
   const warn=[]; if(n<DAS.grids) warn.push(`${n} squares is fewer than the ${DAS.grids} the code asks for.`);
   if(per&&per>DAS.sector_sqft) warn.push(`About ${Math.round(per).toLocaleString()} sq ft per floor: floors over ${DAS.sector_sqft.toLocaleString()} sq ft are split into sectors of ${DAS.grids} squares each.`);
+  else if(hasPlan&&wft) {}  // measured on the plan instead (#dgSize)
   else if(side&&side>DAS.cell_ft[1]) warn.push(`Each square is about ${Math.round(side)} ft across, over the ${DAS.cell_ft[1]} ft limit: add squares.`);
   else if(side&&side<DAS.cell_ft[0]) warn.push(`Each square is about ${Math.round(side)} ft across, under ${DAS.cell_ft[0]} ft: fewer squares will do.`);
-  const delta=g=>{ const b=base?.results?.[`${f.name}|${g}`], r=res[`${f.name}|${g}`]; return b&&r&&has(b.dl)&&has(r.dl)?Math.round(+r.dl-+b.dl):null; };
+  const delta=g=>{ const b=eff(d, base?.results?.[`${f.name}|${g}`]), r=eff(d, res[`${f.name}|${g}`]); return b&&r&&has(b.dl)&&has(r.dl)?Math.round(+r.dl-+b.dl):null; };
   el.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <label class="inl">Floor <select id="dgF">${floors.map(x=>`<option ${x.name===D.floor?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
       <label class="inl">Squares <input id="dgN" type="number" min="1" max="100" value="${n}" style="width:64px"></label>
       <label class="inl">Columns <input id="dgC" type="number" min="1" max="20" value="${cols}" style="width:56px"></label>
       <label class="inl">Floor plan <select id="dgPlan"><option value="">— none —</option>${files.map(x=>`<option ${x.name===f.plan?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
-      <div class="seg" id="dgMark" title="What a click on a square does">${[["read","Enter readings"],["skip","Do not test"],["crit","Critical"]].map(([k,l])=>`<button data-m="${k}" class="${D.mark===k?"on":""}">${l}</button>`).join("")}</div>
+      ${hasPlan?`<label class="inl" title="The plan's real width in feet, from the drawing's scale or dimensions. The Design tab uses the same number">Plan width <input id="dgW" type="number" step="any" min="1" value="${wft??""}" placeholder="ft" style="width:72px"> ft</label>`:""}
+      <div class="seg" id="dgMark" title="What a click on a square does">${[["read","Enter readings"],["skip","Do not test"],["crit","Critical"],...(hasPlan?[["place","Place grid"]]:[])].map(([k,l])=>`<button data-m="${k}" class="${D.mark===k?"on":""}">${l}</button>`).join("")}</div>
+      ${place?`<label class="inl" title="Turn the grid to line up with the building on the plan">Rotate <input id="dgRot" type="number" step="0.5" min="-180" max="180" value="${box.rot}" style="width:64px">°</label><button id="dgFit" title="The grid covers the whole plan again, square to it">Fit to plan</button>`:""}
       <label class="inl" title="What takes the readings you enter or import here. Only an instrument calibrated within ${DAS.cal_months} months counts toward pass / fail; add instruments on the Overview (model | serial | calibration date)">Taken with
         <select id="dgInst"><option value="">— pick —</option>${instOpts(inst)}</select></label>
       <label class="inl" title="Results from any tool: CSV, TSV, Excel, JSON, KML/KMZ or GPX">Import results <input type="file" id="dgImp" accept=".csv,.tsv,.txt,.xlsx,.json,.kml,.kmz,.gpx"></label>
-      <button id="dgCsv">⇩ Results CSV</button><button id="dgJson">⇩ Results JSON</button>
+      <button id="dgCsv" title="One row per square: the reading that decides it">⇩ Results CSV</button><button id="dgAll" title="Every reading, one row per channel, cellular ones too: imports back into RF Recon or into another tool">⇩ All readings CSV</button><button id="dgJson">⇩ Results JSON</button>
       <button id="dgBase" title="Keep these results as the acceptance test, to compare each annual retest with">${base?`Baseline: ${esc(base.date)} · replace`:"Save as acceptance baseline"}</button></div>
     ${warn.length?`<p class="status err" style="margin:0 2px 8px">${warn.map(esc).join(" ")}</p>`:""}
+    ${f.plan&&!hasPlan?`<p class="status err" style="margin:0 2px 8px">Couldn't open the floor plan ${esc(f.plan)}: is it still in the job's Files?</p>`:""}
     ${!inst?`<p class="status" style="margin:0 2px 8px">Pick what's taking the readings (<b>Taken with</b>) before you enter or import any.${insts.length?"":" Add your instruments on the Overview first: model | serial | calibration date."}</p>`:""}
     ${unnamed?`<p class="status err" style="margin:0 2px 8px">${unnamed} reading${unnamed===1?" doesn't":"s don't"} say what took ${unnamed===1?"it":"them"}, so ${unnamed===1?"it doesn't":"they don't"} count.
       Taken with <select id="dgFix"><option value="">— pick —</option>${instOpts("")}</select> <button id="dgFixGo">Apply to ${unnamed===1?"it":`these ${unnamed}`}</button></p>`:""}
@@ -547,13 +570,17 @@ async function dasGrid(el, j, save){
         <div class="v" style="color:${x.untested?"var(--muted)":x.ok?"var(--good)":"var(--bad)"}">${x.genPct}%</div><div class="k">Floor ${esc(x.f.name)} · ${x.genPass}/${x.gen} general${x.crit?` · ${x.critPass}/${x.crit} critical`:""}${x.untested?` · ${x.untested} untested`:""}${x.notCounted?` · ${x.notCounted} not counted`:""}</div></div>`).join("")}
       ${crit.length?`<div class="card"><div class="v" style="color:${critTested.length<crit.length?"var(--muted)":critPass.length===crit.length?"var(--good)":"var(--bad)"}">${critPass.length}/${crit.length}</div><div class="k">Named critical areas pass</div></div>`:""}</div>
     <div class="grid2" style="margin-top:0;grid-template-columns:minmax(320px,2fr) minmax(260px,1fr)">
-      <div class="panel"><h3>Floor ${esc(f.name)} <span class="hint">· ${D.mark==="read"?"click a square to enter its reading":D.mark==="skip"?"click squares that aren't tested (shafts, closets the AHJ excludes)":"click squares that are critical areas"} · pass = ≥ ${DASJ.threshold} dBm and DAQ ≥ ${DASJ.daq} (or SINR ≥ ${daqEq().sinr} dB, BER ≤ ${daqEq().ber}%), from a calibrated instrument; grey = not counted</span></h3>
-        <div id="dgWrap" style="position:relative;width:100%;aspect-ratio:${cols}/${rows};${f.plan?`background:center/100% 100% no-repeat url('/api/das/jobs/${j.id}/file?name=${encodeURIComponent(f.plan)}')`:""};border-radius:10px;overflow:hidden">
-          <div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
-          ${Array.from({length:n},(_,i)=>{ const g=i+1, r=res[`${f.name}|${g}`], p=scored(d,r), cal=calOf(d,r), nc=cal&&!cal.ok, sk=skip.has(g), c=critSet.has(g), dl=delta(g);
+      <div class="panel"><h3>Floor ${esc(f.name)} <span class="hint">· ${place?"drag the grid to move it, the corner dot to size it, the top dot to turn it":D.mark==="read"?"click a square to enter its readings":D.mark==="skip"?"click squares that aren't tested (shafts, closets the AHJ excludes)":"click squares that are critical areas"} · pass = ≥ ${DASJ.threshold} dBm and DAQ ≥ ${DASJ.daq} (or SINR ≥ ${daqEq().sinr} dB, BER ≤ ${daqEq().ber}%) on every channel, from a calibrated instrument; grey = not counted</span></h3>
+        <div id="dgWrap" style="position:relative;width:100%;${hasPlan?"":`aspect-ratio:${cols}/${rows};`}border-radius:10px;overflow:${place?"visible":"hidden"}">
+          ${hasPlan?`<img id="dgImg" src="${planSrc}" alt="Floor ${esc(f.name)} plan" draggable="false" style="display:block;width:100%;height:auto;user-select:none;pointer-events:none">`:""}
+          <div id="dgCells" style="position:absolute;${boxCss(f, hasPlan)};display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)${place?";outline:2px dashed var(--accent);cursor:move;touch-action:none":""}">
+          ${Array.from({length:n},(_,i)=>{ const g=i+1, r=eff(d, res[`${f.name}|${g}`]), p=scored(d,r), cal=calOf(d,r), nc=cal&&!cal.ok, sk=skip.has(g), c=critSet.has(g), dl=delta(g);
             const bg=sk?"repeating-linear-gradient(45deg,color-mix(in srgb,var(--panel) 60%,transparent) 0 6px,transparent 6px 12px)":nc?"color-mix(in srgb,#8c959f 40%,transparent)":p==null?"color-mix(in srgb,var(--panel) 35%,transparent)":p?"color-mix(in srgb,#3ccf7a 45%,transparent)":"color-mix(in srgb,#e5534b 55%,transparent)";
-            return `<button data-g="${g}" title="Square ${g}${c?" (critical)":""}${sk?" (not tested)":""}${cal?(cal.ok?` · taken with ${cal.name}`:` · not counted: ${cal.why}${r.inst&&r.inst!=="uncal"?` (${cal.name})`:""}`):""}" style="border:${c?"2px solid #fab219":nc?"1px dashed var(--muted)":"1px solid var(--line)"};border-radius:0;margin:0;padding:2px;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;background:${bg}">
-              <b>${f.name}-${g}${c?" ★":""}</b>${sk?'<span class="hint">not tested</span>':`<span class="mono">${r&&has(r.dl)?`${r.dl} dBm`:""}</span><span class="mono hint">${r&&has(r.daq)?`DAQ ${r.daq}`:r&&has(r.sinr)?`${r.sinr} dB SINR`:""}</span>${nc?'<span class="hint">not counted</span>':""}${dl!=null?`<span class="mono hint">${dl>=0?"+":""}${dl} dB vs baseline</span>`:""}`}</button>`; }).join("")}</div></div>
+            return `<button data-g="${g}" title="Square ${g}${c?" (critical)":""}${sk?" (not tested)":""}${r?.channels>1?` · ${r.channels} channels; ${has(r.freq)?`${r.freq} decides`:"the worst decides"}`:""}${r?.cellular?` · ${r.cellular} cellular reading${r.cellular===1?"":"s"}, not scored`:""}${cal?(cal.ok?` · taken with ${cal.name}`:` · not counted: ${cal.why}${r.inst&&r.inst!=="uncal"?` (${cal.name})`:""}`):""}" style="border:${c?"2px solid #fab219":nc?"1px dashed var(--muted)":"1px solid var(--line)"};border-radius:0;margin:0;padding:2px;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;background:${bg}${place?";pointer-events:none":""}">
+              <b>${f.name}-${g}${c?" ★":""}</b>${sk?'<span class="hint">not tested</span>':`<span class="mono">${r&&has(r.dl)?`${r.dl} dBm`:""}</span><span class="mono hint">${r&&has(r.daq)?`DAQ ${r.daq}`:r&&has(r.sinr)?`${r.sinr} dB SINR`:""}</span>${r?.channels>1?`<span class="hint">worst of ${r.channels}</span>`:""}${r?.cellular?`<span class="hint">+${r.cellular} cellular</span>`:""}${nc?'<span class="hint">not counted</span>':""}${dl!=null?`<span class="mono hint">${dl>=0?"+":""}${dl} dB vs baseline</span>`:""}`}</button>`; }).join("")}
+          ${place?`<span data-h="rot" title="Turn" style="position:absolute;left:50%;top:6px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:grab"></span>
+            <span data-h="size" title="Size" style="position:absolute;right:4px;bottom:4px;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:nwse-resize"></span>`:""}</div></div>
+        ${hasPlan?`<p class="hint" id="dgSize" style="margin:6px 2px 0">${wft?"":"Enter the plan's width in feet to check each square's size."}</p>`:""}
         <div id="dgEdit" style="margin-top:8px"></div></div>
       <div class="panel"><h3>Named critical areas</h3>${crit.length?`<table><thead><tr><th>Area</th><th>DL dBm</th><th>DAQ</th><th>UL dBm</th><th>UL DAQ</th><th></th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r);
           return `<tr data-ca="${esc(a)}"><td>${esc(a)}</td>${["dl","daq","ul","ul_daq"].map(k=>`<td><input data-x="${k}" type="number" step="${/daq/.test(k)?"0.1":"1"}" value="${r[k]??""}" style="width:64px"></td>`).join("")}<td title="${cal?esc(cal.ok?`taken with ${cal.name}`:`not counted: ${cal.why}`):""}">${cal&&!cal.ok?'<span class="hint">not counted</span>':p==null?"":p?"✅":"❌"}</td></tr>`; }).join("")}</tbody></table>`
@@ -569,36 +596,59 @@ async function dasGrid(el, j, save){
   $("#dgInst").onchange=async e=>{ j=await save({grid:{...(j.data.grid||{}), inst:e.target.value||null}}); render(); };
   $("#dgFixGo")?.addEventListener("click", async()=>{ const v=$("#dgFix").value; if(!v){ $("#dgFix").focus(); return; }
     const G2=j.data.grid||{}, results={...(G2.results||{})}, critical={...(G2.critical||{})};
-    for(const k of unnamedRes) results[k]={...results[k], inst:v}; for(const k of unnamedCr) critical[k]={...critical[k], inst:v};
+    for(const k of unnamedRes) results[k]=Array.isArray(results[k].readings)?{...results[k], readings:results[k].readings.map(x=>calOf(d,x)&&!x.inst?{...x, inst:v}:x)}:{...results[k], inst:v};
+    for(const k of unnamedCr) critical[k]={...critical[k], inst:v};
     j=await save({grid:{...G2, results, critical}});
     await post(`/api/das/jobs/${j.id}/note`,{text:`Said what took ${unnamed} earlier reading${unnamed===1?"":"s"}: ${v==="uncal"?"not calibrated":v.replace("|"," ")}`}); render(); });
   const needInst=()=>{ if(inst) return false; $("#dgEdit").innerHTML='<p class="status err">Pick what\'s taking the readings first: <b>Taken with</b>, above.</p>'; $("#dgInst").focus(); return true; };
   $("#dgBase").onclick=async()=>{ if(base&&!confirm(`Replace the ${base.date} baseline with today's results?`)) return;
     j=await save({baseline:{date:today(), results:{...((j.data.grid||{}).results||{})}, critical:{...((j.data.grid||{}).critical||{})}}}); render(); };
   el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ const g=+b.dataset.g;
+    if(D.mark==="place") return;
     if(D.mark!=="read"){ const key=D.mark==="skip"?"skip":"critical", set=new Set(f[key]||[]); set.has(g)?set.delete(g):set.add(g); return setFloor({[key]:[...set].sort((a,c)=>a-c)}); }
     if(needInst()) return;
-    const r=res[`${f.name}|${g}`]||{}, was=calOf(d,r);
-    $("#dgEdit").innerHTML=`<div class="row" style="align-items:flex-end"><b>Square ${f.name}-${g}</b>${[["dl","DL dBm",1],["daq","DL DAQ",.1],["sinr","SINR dB",.1],["ber","BER %",.01],["ul","UL dBm",1],["ul_daq","UL DAQ",.1]].map(([k,l,s])=>`<label>${l}<input id="ge_${k}" type="number" step="${s}" value="${r[k]??""}" style="width:72px"></label>`).join("")}
-      <label class="grow">Note<input id="ge_note" value="${esc(r.note||"")}"></label><button class="primary" id="geSave">Save</button><button id="geClear">Clear</button></div>
-      <p class="hint" style="margin:4px 0 0">Saved as taken with ${esc(inst==="uncal"?"no calibrated instrument (pre-survey, not counted)":instName(insts.find(i=>instKey(i)===inst)||{model:inst}))}${was?` · now: ${esc(was.name)}`:""}</p>`;
-    const put=async val=>{ const results={...((j.data.grid||{}).results||{})}; if(val) results[`${f.name}|${g}`]=val; else delete results[`${f.name}|${g}`];
+    // the square's readings, one per channel (and cellular ones): Save adds one, or replaces the one on the same channel
+    const key=`${f.name}|${g}`, rs=readingsOf(res[key]), top=eff(d, res[key]);
+    let editing=null;
+    const KS=[["dl","DL dBm",1],["daq","DL DAQ",.1],["sinr","SINR dB",.1],["ber","BER %",.01],["ul","UL dBm",1],["ul_daq","UL DAQ",.1]];
+    const cellTxt=x=>[x.tech, has(x.rsrp)?`RSRP ${x.rsrp}`:"", has(x.rsrq)?`RSRQ ${x.rsrq}`:"", has(x.sinr)?`SINR ${x.sinr}`:"", has(x.pci)?`PCI ${x.pci}`:""].filter(Boolean).join(" · ");
+    $("#dgEdit").innerHTML=`${rs.length?`<div class="tw" style="margin-bottom:8px"><table><thead><tr><th>Channel / MHz</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">SINR / BER</th><th class="n">UL dBm</th><th class="n">UL DAQ</th><th>Taken with</th><th>Result</th><th></th></tr></thead><tbody>${rs.map((x,i)=>{ const cal=calOf(d,x), p=gridPass(x), dec=top?.at===i;
+        return `<tr><td>${esc(has(x.freq)?x.freq:"—")}${rs.length>1&&dec?' <span class="tag">decides</span>':""}</td>${isCell(x)?`<td colspan="5" class="hint">Cellular: ${esc(cellTxt(x))}</td>`:`<td class="n">${x.dl??""}</td><td class="n">${x.daq??""}</td><td class="n">${[x.sinr,has(x.ber)?x.ber+"%":""].filter(v=>has(v)).join(" / ")}</td><td class="n">${x.ul??""}</td><td class="n">${x.ul_daq??""}</td>`}
+          <td>${esc(cal?cal.name:x.inst==="uncal"?"not calibrated":"")}</td><td>${isCell(x)?'<span class="hint">not scored</span>':cal&&!cal.ok?'<span class="hint">not counted</span>':p==null?"":p?"pass":"fail"}</td>
+          <td style="white-space:nowrap">${isCell(x)?"":`<button data-ge="${i}">Edit</button> `}<button data-gx="${i}">Delete</button></td></tr>`; }).join("")}</tbody></table></div>`:""}
+      <div class="row" style="align-items:flex-end"><b>Square ${f.name}-${g}</b><label>Channel / MHz<input id="ge_freq" placeholder="optional" style="width:110px"></label>${KS.map(([k,l,s])=>`<label>${l}<input id="ge_${k}" type="number" step="${s}" style="width:72px"></label>`).join("")}
+      <label class="grow">Note<input id="ge_note"></label><button class="primary" id="geSave">${rs.length?"Save reading":"Save"}</button><button id="geClear" title="Remove every reading in this square">Clear square</button></div>
+      <p class="hint" style="margin:4px 0 0">Saved as taken with ${esc(inst==="uncal"?"no calibrated instrument (pre-survey, not counted)":instName(insts.find(i=>instKey(i)===inst)||{model:inst}))}. ${rs.length?"A reading on a channel already here replaces it; a new channel adds a row. The square passes only when every channel passes.":"Add a channel to keep one reading per channel."}</p>`;
+    const put=async list=>{ const results={...((j.data.grid||{}).results||{})}; if(list.length) results[key]={readings:list}; else delete results[key];
       j=await save({grid:{...(j.data.grid||{}),results}}); render(); };
+    const fill=x=>{ $("#ge_freq").value=x?.freq??""; for(const [k] of KS) $(`#ge_${k}`).value=x?.[k]??""; $("#ge_note").value=x?.note||""; };
+    // a square with one reading and no channel opens with it filled in, as before; otherwise the form adds a reading
+    // (Edit on a row fills it in to change that one)
+    if(rs.length===1&&!isCell(rs[0])&&!has(rs[0].freq)){ editing=0; fill(rs[0]); }
+    $("#dgEdit").querySelectorAll("[data-ge]").forEach(b2=>b2.onclick=()=>{ editing=+b2.dataset.ge; fill(rs[editing]); $("#ge_dl").focus(); });
+    $("#dgEdit").querySelectorAll("[data-gx]").forEach(b2=>b2.onclick=()=>put(rs.filter((_,i)=>i!==+b2.dataset.gx)));
     const v2=k=>$(`#ge_${k}`).value===""?null:+$(`#ge_${k}`).value;
-    $("#geSave").onclick=()=>put({dl:v2("dl"), daq:v2("daq"), sinr:v2("sinr"), ber:v2("ber"), ul:v2("ul"), ul_daq:v2("ul_daq"), note:$("#ge_note").value, time:new Date().toISOString(), source:"typed", inst});
-    $("#geClear").onclick=()=>put(null); $("#ge_dl").focus(); });
+    $("#geSave").onclick=()=>{ const x={freq:$("#ge_freq").value.trim()||null, dl:v2("dl"), daq:v2("daq"), sinr:v2("sinr"), ber:v2("ber"), ul:v2("ul"), ul_daq:v2("ul_daq"),
+        note:$("#ge_note").value, time:new Date().toISOString(), source:"typed", inst};
+      const rest=rs.filter((y,i)=>i!==editing&&chKey(y)!==chKey(x)); put([...rest, x]); };
+    $("#geClear").onclick=()=>put([]); $("#ge_dl").focus(); });
   el.querySelectorAll("tr[data-ca] input").forEach(i=>i.onchange=async()=>{ if(needInst()){ render(); return; }
     const tr=i.closest("tr"), a=tr.dataset.ca, val={...((j.data.grid||{}).critical||{})[a]};
     val[i.dataset.x]=i.value===""?null:+i.value; val.inst=inst; val.time=new Date().toISOString();
     j=await save({grid:{...(j.data.grid||{}),critical:{...((j.data.grid||{}).critical||{}),[a]:val}}}); render(); });
   const flat=()=>dasFlat(j.data);
   $("#dgCsv").onclick=()=>dasDl(`${fileSafe(j.name)} grid test.csv`, csvOf(flat()), "text/csv");
-  $("#dgJson").onclick=()=>dasDl(`${fileSafe(j.name)} grid test.json`, JSON.stringify({job:j.name, threshold_dbm:DASJ.threshold, daq:DASJ.daq, results:flat()},null,1), "application/json");
+  $("#dgJson").onclick=()=>dasDl(`${fileSafe(j.name)} grid test.json`, JSON.stringify({job:j.name, threshold_dbm:DASJ.threshold, daq:DASJ.daq, results:dasFlat(j.data, true)},null,1), "application/json");
   $("#dgImp").onchange=async e=>{ const file=e.target.files[0]; if(!file) return; let t;
     if(needInst()){ e.target.value=""; return; }
     try{ t=await api(`/api/das/parse?name=${encodeURIComponent(file.name)}`,{method:"POST",body:await file.arrayBuffer()}); }catch(err){ alert("Couldn't read that file: "+err.message); return; }
-    dasMapImport($("#dgMap"), t, file.name, async mapped=>{ const results={...((j.data.grid||{}).results||{})}; let n2=0;
-      for(const r of mapped){ const fl=r.floor||D.floor, g=r.grid; if(!g) continue; const {floor,grid,...vals}=r; results[`${fl}|${g}`]={...vals, source:file.name, inst}; n2++; }
+    dasMapImport($("#dgMap"), t, file.name, async mapped=>{ const results={...((j.data.grid||{}).results||{})}; let n2=0, nCell=0;
+      // every row is kept: several rows for one square (one per channel or system) all stay and the worst decides; a row
+      // replaces what that square already had on the same channel, and the square's other channels stay
+      const by={}, at=new Date().toISOString();
+      for(const r of mapped){ const fl=r.floor||D.floor, g=r.grid; if(!g) continue; const {floor,grid,critical,...vals}=r;
+        (by[`${fl}|${g}`]||=[]).push({...vals, time:vals.time||at, source:file.name, inst}); n2++; if(isCell(vals)) nCell++; }
+      for(const [k,rows] of Object.entries(by)){ const keys=new Set(rows.map(chKey)); results[k]={readings:[...readingsOf(results[k]).filter(x=>!keys.has(chKey(x))), ...rows]}; }
       // floors named in the file that the job doesn't have yet are added; squares the file marks critical (the phone's
       // grid test does) join that floor's critical list
       const have=new Set((j.data.floors||[]).map(x=>x.name)), extra=[...new Set(mapped.map(r=>r.floor).filter(x=>x&&!have.has(x)))].map(x=>({name:x,grids:DAS.grids}));
@@ -606,36 +656,86 @@ async function dasGrid(el, j, save){
       const floors=[...(j.data.floors||[]),...extra].map(f=>{ const add=mapped.filter(r=>(r.floor||D.floor)===f.name&&isCrit(r.critical)).map(r=>+r.grid||r.grid);
         return add.length?{...f, critical:[...new Set([...(f.critical||[]),...add])]}:f; });
       j=await save({grid:{...(j.data.grid||{}),results}, floors});
-      await post(`/api/das/jobs/${j.id}/note`,{text:`Imported ${n2} grid readings from ${file.name}, taken with ${inst==="uncal"?"no calibrated instrument":inst.replace("|"," ")}`}); render(); }); };
+      await post(`/api/das/jobs/${j.id}/note`,{text:`Imported ${n2} grid readings from ${file.name}${nCell?` (${nCell} cellular, kept but not scored)`:""}, taken with ${inst==="uncal"?"no calibrated instrument":inst.replace("|"," ")}`}); render(); }); };
+  $("#dgAll").onclick=()=>dasDl(`${fileSafe(j.name)} all readings.csv`, csvOf(dasReadings(j.data)), "text/csv");
+  // Place grid: drag the grid to move it, the corner dot to size it (about its centre, along its own sides), the top dot to turn it
+  $("#dgW")?.addEventListener("change", async e=>{ const all=(j.data.design||{}).floors||{};
+    j=await save({design:{...(j.data.design||{}), floors:{...all, [f.name]:{...(all[f.name]||{}), width_ft:+e.target.value||null}}}}); render(); });
+  $("#dgRot")?.addEventListener("change", e=>setFloor({gridbox:{...box, rot:Math.max(-180,Math.min(180,+e.target.value||0))}}));
+  $("#dgFit")?.addEventListener("click", ()=>setFloor({gridbox:null}));
+  const img=$("#dgImg"), sizeNote=b=>{ const out=$("#dgSize"); if(!out||!wft||!img?.naturalWidth) return;
+    const hft=wft*img.naturalHeight/img.naturalWidth, sw=b.w/100*wft/cols, sh=b.h/100*hft/rows, [lo,hi]=DAS.cell_ft, bad=Math.max(sw,sh)>hi||Math.min(sw,sh)<lo;
+    out.innerHTML=`Each square is about <b>${Math.round(sw)} × ${Math.round(sh)} ft</b>${bad?` <span style="color:var(--bad)">· NFPA 1225 asks ${lo}–${hi} ft: ${Math.max(sw,sh)>hi?"add squares or shrink the grid":"fewer squares will do"}</span>`:` · within the ${lo}–${hi} ft NFPA 1225 asks`}.`; };
+  if(img){ if(img.complete) sizeNote(box); else img.onload=()=>sizeNote(box); }
+  if(place){ const wrap=$("#dgWrap"), gd=$("#dgCells"), b={...box}; let drag=null;
+    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    const paint=()=>{ Object.assign(gd.style,{left:`${b.cx-b.w/2}%`, top:`${b.cy-b.h/2}%`, width:`${b.w}%`, height:`${b.h}%`, transform:`rotate(${b.rot}deg)`}); $("#dgRot").value=b.rot; sizeNote(b); };
+    gd.onpointerdown=e=>{ drag={h:e.target.dataset?.h||"move", x0:e.clientX, y0:e.clientY, b0:{...b}, R:wrap.getBoundingClientRect()}; gd.setPointerCapture(e.pointerId); e.preventDefault(); };
+    gd.onpointermove=e=>{ if(!drag) return; const {R,b0}=drag, cx=R.left+b0.cx/100*R.width, cy=R.top+b0.cy/100*R.height;
+      if(drag.h==="move"){ b.cx=clamp(b0.cx+(e.clientX-drag.x0)/R.width*100,0,100); b.cy=clamp(b0.cy+(e.clientY-drag.y0)/R.height*100,0,100); }
+      else if(drag.h==="size"){ const a=b0.rot*Math.PI/180, vx=e.clientX-cx, vy=e.clientY-cy;
+        b.w=clamp(2*Math.abs(vx*Math.cos(a)+vy*Math.sin(a))/R.width*100,3,300); b.h=clamp(2*Math.abs(-vx*Math.sin(a)+vy*Math.cos(a))/R.height*100,3,300); }
+      else { let r2=Math.round((Math.atan2(e.clientY-cy, e.clientX-cx)*180/Math.PI+90)*2)/2; if(r2>180) r2-=360; b.rot=r2; }
+      paint(); };
+    gd.onpointerup=gd.onpointercancel=()=>{ if(!drag) return; drag=null;
+      setFloor({gridbox:{cx:+b.cx.toFixed(2), cy:+b.cy.toFixed(2), w:+b.w.toFixed(2), h:+b.h.toFixed(2), rot:b.rot}}); }; }
 }
-// every reading as rows: the grid test's CSV / JSON and the report's tables
-function dasFlat(d){
+// where a floor's grid sits on its plan, in percent of the plan (centre, size) and degrees; the whole plan by default
+const boxOf = f => ({cx:50, cy:50, w:100, h:100, rot:0, ...(f.gridbox||{})});
+const boxCss = (f, onPlan=!!f.plan) => { if(!onPlan) return "inset:0"; const b=boxOf(f); return `left:${b.cx-b.w/2}%;top:${b.cy-b.h/2}%;width:${b.w}%;height:${b.h}%;transform:rotate(${b.rot}deg)`; };
+// a job file (a floor plan) as an address the page can show. Fetched through the page, because the web version answers
+// /api/ itself and a plain <img src="/api/..."> would leave the site; kept for the visit (job files are never overwritten)
+const JOB_SRC=new Map();
+function jobFileSrc(jid, name){ const k=`${jid}|${name}`;
+  if(!JOB_SRC.has(k)) JOB_SRC.set(k, fetch(`/api/das/jobs/${jid}/file?name=${encodeURIComponent(name)}`)
+    .then(r=>{ if(!r.ok) throw new Error(String(r.status)); return r.blob(); }).then(b=>URL.createObjectURL(b))
+    .catch(()=>{ JOB_SRC.delete(k); return null; }));
+  return JOB_SRC.get(k); }
+// every reading as rows: the grid test's CSV / JSON and the report's tables (one row per square: the reading that decides it)
+function dasFlat(d, withReadings=false){
   const floors=Array.isArray(d.floors)?d.floors:[], res=(d.grid||{}).results||{}, cr=(d.grid||{}).critical||{}, base=d.baseline;
   const crit=[...((d.require||{}).critical||[]), ...((d.require||{}).other||[])], out=[];
-  const row=(floor,grid,critical,r,b)=>{ const cal=calOf(d,r), p=gridPass(r);
-    return {floor, grid, critical:critical?"yes":"", dl_dbm:r.dl??"", dl_daq:r.daq??"", sinr_db:r.sinr??"", ber_pct:r.ber??"", ul_dbm:r.ul??"", ul_daq:r.ul_daq??"",
+  const row=(floor,grid,critical,r0,b0)=>{ const r=eff(d,r0)||{}, b=eff(d,b0), cal=calOf(d,r), p=gridPass(r);
+    return {floor, grid, critical:critical?"yes":"", channel:r.freq??"", channels:r.channels??(has(r.dl)||has(r.daq)||has(r.sinr)?1:""), dl_dbm:r.dl??"", dl_daq:r.daq??"", sinr_db:r.sinr??"", ber_pct:r.ber??"", ul_dbm:r.ul??"", ul_daq:r.ul_daq??"",
       pass:p==null?"":cal&&!cal.ok?"not counted":p?"pass":"fail", instrument:cal?cal.name:"", counted:cal?(cal.ok?"yes":`no: ${cal.why}`):"",
-      baseline_dl_dbm:b?.dl??"", change_db:has(r.dl)&&b&&has(b.dl)?Math.round(+r.dl-+b.dl):"", note:r.note||"", time:r.time||"", source:r.source||""}; };
+      baseline_dl_dbm:b?.dl??"", change_db:has(r.dl)&&b&&has(b.dl)?Math.round(+r.dl-+b.dl):"", cellular:r.cellular||"", note:r.note||"", time:r.time||"", source:r.source||"",
+      ...(withReadings?{readings:readingsOf(r0)}:{})}; };
   for(const x of floors){ const skip=new Set(x.skip||[]), cs=new Set(x.critical||[]);
     for(let g=1; g<=(x.grids||DAS.grids); g++) if(!skip.has(g)) out.push(row(x.name, `${x.name}-${g}`, cs.has(g), res[`${x.name}|${g}`]||{}, base?.results?.[`${x.name}|${g}`])); }
   for(const a of crit) out.push(row("named critical area", a, true, cr[a]||{}, base?.critical?.[a]));
   return out;
 }
+// every reading, one row per channel (cellular too), in the columns the grid import reads, so it goes back in as it came out
+function dasReadings(d){
+  const out=[];
+  for(const x of (Array.isArray(d.floors)?d.floors:[])) for(let g=1; g<=(x.grids||DAS.grids); g++)
+    for(const r of readingsOf(((d.grid||{}).results||{})[`${x.name}|${g}`])){ const cal=calOf(d,r), p=isCell(r)?null:gridPass(r);
+      out.push({floor:x.name, grid:`${x.name}-${g}`, critical:(x.critical||[]).includes(g)?"yes":"", channel:r.freq??"", technology:r.tech??"", pci:r.pci??"",
+        dl_dbm:r.dl??"", dl_daq:r.daq??"", sinr_db:r.sinr??"", ber_pct:r.ber??"", ul_dbm:r.ul??"", ul_daq:r.ul_daq??"", rsrp_dbm:r.rsrp??"", rsrq_db:r.rsrq??"",
+        x:r.x??"", y:r.y??"", latitude:r.lat??"", longitude:r.lon??"", instrument:cal?cal.name:r.inst==="uncal"?"not calibrated":"",
+        result:isCell(r)?"cellular, not scored":p==null?"":cal&&!cal.ok?"not counted":p?"pass":"fail", time:r.time||"", source:r.source||"", note:r.note||""}); }
+  return out;
+}
 // column mapping preview for any imported table
 function dasMapImport(el, t, fname, done){
-  const fields=[["floor","Floor"],["grid","Grid / area"],["dl","DL dBm"],["daq","DL DAQ"],["sinr","SINR dB"],["ber","BER %"],["ul","UL dBm"],["ul_daq","UL DAQ"],["critical","Critical area"],["note","Note"],["time","Time"]];
+  const fields=[["floor","Floor"],["grid","Grid / area"],["freq","Channel / MHz"],["dl","DL dBm"],["daq","DL DAQ"],["sinr","SINR dB"],["ber","BER %"],["ul","UL dBm"],["ul_daq","UL DAQ"],
+    ["tech","Technology"],["rsrp","RSRP dBm (cellular)"],["rsrq","RSRQ dB (cellular)"],["pci","PCI (cellular)"],["x","Plan X"],["y","Plan Y"],["lat","Latitude"],["lon","Longitude"],
+    ["critical","Critical area"],["note","Note"],["time","Time"]];
   const opts=h=>`<option value="">—</option>${t.headers.map(x=>`<option ${x===h?"selected":""}>${esc(x)}</option>`).join("")}`;
   el.innerHTML=`<div class="panel" style="margin-top:10px"><h3>Import ${esc(fname)} <span class="hint">· ${esc(t.format.toUpperCase())}, ${t.total.toLocaleString()} rows · check the columns, then import</span></h3>
     <div class="row">${fields.map(([k,l])=>`<label>${l}<select data-m="${k}">${opts(t.guess[k])}</select></label>`).join("")}<button class="primary" id="dmGo">Import</button><button id="dmNo">Cancel</button></div>
     <div class="tw" style="max-height:240px;margin-top:8px"><table><thead><tr>${t.headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.slice(0,12).map(r=>`<tr>${t.headers.map(h=>`<td>${esc(r[h]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-    <p class="hint">Rows without a grid or area are skipped. Grid names like “Grid 7” or “2-7” are read as square 7. Floors the file names that this job doesn't have yet are added. Readings replace what's in those squares.</p></div>`;
+    <p class="hint">Rows without a grid or area are skipped. Grid names like “Grid 7” or “2-7” are read as square 7. Floors the file names that this job doesn't have yet are added.
+      Several rows for one square (one per channel or system) are all kept, and the worst decides it; a row replaces what that square already had on the same channel.
+      Cellular rows (LTE or 5G, or any row with RSRP / RSRQ) are kept and shown but never scored against these public-safety rules.</p></div>`;
   el.scrollIntoView({behavior:"smooth",block:"start"});
   $("#dmNo").onclick=()=>{ el.innerHTML=""; };
   $("#dmGo").onclick=()=>{ const m={}; el.querySelectorAll("[data-m]").forEach(s=>{ if(s.value) m[s.dataset.m]=s.value; });
     if(!m.grid){ alert("Pick the column that names the grid square or area."); return; }
     const numv=x=>{ const v=parseFloat(String(x??"").replace(/[^\d.\-]/g,"")); return isFinite(v)?v:null; };
     done(t.rows.map(r=>{ const o={floor:m.floor?String(r[m.floor]||"").trim():"", grid:String(r[m.grid]||"").trim().replace(/^(grid|area|square|cell)\s*#?\s*/i,"").replace(/^[^-]+-(\d+)$/,"$1")};
-      for(const k of ["dl","daq","sinr","ber","ul","ul_daq"]) if(m[k]) o[k]=numv(r[m[k]]);
+      for(const k of ["dl","daq","sinr","ber","ul","ul_daq","rsrp","rsrq","x","y","lat","lon"]) if(m[k]) o[k]=numv(r[m[k]]);
+      for(const k of ["freq","tech","pci"]) if(m[k]&&String(r[m[k]]??"").trim()!=="") o[k]=String(r[m[k]]).trim();
       if(m.note) o.note=r[m.note]; if(m.time) o.time=r[m.time]; if(m.critical) o.critical=r[m.critical]; return o; })); };
 }
 
@@ -671,7 +771,7 @@ function dasReport(el, j){
   const ok=allTested&&st.every(x=>x.ok)&&crit.every(a=>scored(d,cr[a]));
   const nc=st.reduce((s,x)=>s+x.notCounted,0)+crit.filter(a=>notCounted(d,cr[a])).length;
   const plan=(d.presurvey||{}).plan||[];
-  const cell=(f,g)=>{ const r=res[`${f.name}|${g}`], p=scored(d,r), n2=notCounted(d,r), sk=(f.skip||[]).includes(g), c=(f.critical||[]).includes(g);
+  const cell=(f,g)=>{ const r=eff(d, res[`${f.name}|${g}`]), p=scored(d,r), n2=notCounted(d,r), sk=(f.skip||[]).includes(g), c=(f.critical||[]).includes(g);
     return `<div style="border:${c?"2px solid #b8860b":n2?"1px dashed #777":"1px solid #999"};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;
       background:${sk?"repeating-linear-gradient(45deg,#ddd 0 5px,transparent 5px 10px)":n2?"rgba(140,149,159,.45)":p==null?"rgba(255,255,255,.55)":p?"rgba(60,207,122,.55)":"rgba(229,83,75,.6)"}">
       <b>${esc(f.name)}-${g}${c?" ★":""}</b>${sk?"not tested":r&&has(r.dl)?`${r.dl} dBm`:""}${n2?"<span>not counted</span>":""}</div>`; };
@@ -681,7 +781,7 @@ function dasReport(el, j){
     <h2 style="margin:0 0 4px">Emergency responder radio coverage test: ${esc(j.name)}</h2>
     <p style="margin:0 0 10px">${esc(d.address||"")} · ${esc(d.ahj||"AHJ not set")} · ${esc(d.code||"IFC 510 + NFPA 1225")} · prepared ${esc(today())}</p>
     <p style="font-size:18px;margin:6px 0"><b>Result: ${allTested?(ok?'<span style="color:#1a7f37">PASS</span>':'<span style="color:#cf222e">FAIL</span>'):"Not complete (untested areas below)"}</b></p>
-    <p class="hint">Pass criteria: each test location ≥ ${DASJ.threshold} dBm downlink and uplink, DAQ ≥ ${DASJ.daq} both ways (or SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%); ${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas on each floor; ${DAS.grids} grid squares per floor. Only readings taken with an instrument calibrated within ${DAS.cal_months} months of the reading are scored.</p>
+    <p class="hint">Pass criteria: each test location ≥ ${DASJ.threshold} dBm downlink and uplink, DAQ ≥ ${DASJ.daq} both ways (or SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%), on every channel tested there (the worst channel is shown); ${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas on each floor; ${DAS.grids} grid squares per floor. Only readings taken with an instrument calibrated within ${DAS.cal_months} months of the reading are scored.</p>
     ${nc?`<p style="margin:4px 0"><b>${nc} reading${nc===1?" was":"s were"} not scored</b>: taken without a calibrated instrument, or with no instrument recorded. They are shown grey (“not counted”) as pre-survey information only.</p>`:""}
     <h3>Building and people</h3><div class="kvg"><div>Building</div><div>${esc([j.name, d.address, d.floors?.length?`${d.floors.length} floors`:"", d.area_sqft?`${Number(d.area_sqft).toLocaleString()} sq ft`:"", d.construction].filter(Boolean).join(" · "))}</div>
       ${DAS_ROLES.map(([k,l])=>{ const c=who(k); return c?`<div>${esc(l)}</div><div>${esc([c.name,c.org,c.phone,c.email].filter(Boolean).join(" · "))}</div>`:""; }).join("")}</div>
@@ -694,12 +794,16 @@ function dasReport(el, j){
       ${crit.length?`<tr><td>Named critical areas</td><td></td><td class="n">${crit.filter(a=>scored(d,cr[a])).length}/${crit.length}</td><td class="n">${crit.filter(a=>scored(d,cr[a])==null).length}</td><td class="n">${crit.filter(a=>notCounted(d,cr[a])).length||""}</td><td></td></tr>`:""}</tbody></table>
     ${st.map(x=>{ const f=x.f, n=f.grids||DAS.grids, cols=f.cols||(n===20?5:Math.ceil(Math.sqrt(n))), rows=Math.ceil(n/cols);
       return `<div style="break-before:page;margin-top:16px"><h3>Floor ${esc(f.name)}: ${x.genPass}/${x.gen} general${x.crit?`, ${x.critPass}/${x.crit} critical`:""} pass</h3>
-        <div style="position:relative;width:100%;max-width:720px;aspect-ratio:${cols}/${rows};${f.plan?`background:center/100% 100% no-repeat url('/api/das/jobs/${j.id}/file?name=${encodeURIComponent(f.plan)}')`:""};border:1px solid #999">
-          <div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${Array.from({length:n},(_,i)=>cell(f,i+1)).join("")}</div></div>
-        <table style="margin-top:8px"><thead><tr><th>Grid</th><th>Critical</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">SINR / BER</th><th class="n">UL dBm</th><th class="n">UL DAQ</th>${d.baseline?'<th class="n">vs baseline</th>':""}<th>Instrument</th><th>Result</th><th>Note</th></tr></thead><tbody>
-        ${dasFlat(d).filter(r=>r.floor===f.name).map(r=>`<tr><td>${esc(r.grid)}</td><td>${r.critical?"★":""}</td><td class="n">${r.dl_dbm}</td><td class="n">${r.dl_daq}</td><td class="n">${[r.sinr_db,r.ber_pct!==""?r.ber_pct+"%":""].filter(x=>x!=="").join(" / ")}</td><td class="n">${r.ul_dbm}</td><td class="n">${r.ul_daq}</td>${d.baseline?`<td class="n">${r.change_db!==""?(r.change_db>=0?"+":"")+r.change_db+" dB":""}</td>`:""}<td>${esc(r.instrument)}</td><td>${r.pass||"untested"}</td><td>${esc(r.note)}</td></tr>`).join("")}</tbody></table></div>`; }).join("")}
+        <div style="position:relative;width:100%;max-width:720px;${f.plan?"":`aspect-ratio:${cols}/${rows};`}border:1px solid #999;overflow:hidden">
+          ${f.plan?`<img data-plan="${esc(f.plan)}" data-ar="${cols}/${rows}" alt="Floor ${esc(f.name)} plan" style="display:block;width:100%;height:auto;min-height:120px">`:""}
+          <div style="position:absolute;${boxCss(f)};display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${Array.from({length:n},(_,i)=>cell(f,i+1)).join("")}</div></div>
+        <table style="margin-top:8px"><thead><tr><th>Grid</th><th>Critical</th><th>Channel</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">SINR / BER</th><th class="n">UL dBm</th><th class="n">UL DAQ</th>${d.baseline?'<th class="n">vs baseline</th>':""}<th>Instrument</th><th>Result</th><th>Note</th></tr></thead><tbody>
+        ${dasFlat(d).filter(r=>r.floor===f.name).map(r=>`<tr><td>${esc(r.grid)}</td><td>${r.critical?"★":""}</td><td>${esc(r.channel)}${r.channels>1?` <span class="hint">(worst of ${r.channels})</span>`:""}</td><td class="n">${r.dl_dbm}</td><td class="n">${r.dl_daq}</td><td class="n">${[r.sinr_db,r.ber_pct!==""?r.ber_pct+"%":""].filter(x=>x!=="").join(" / ")}</td><td class="n">${r.ul_dbm}</td><td class="n">${r.ul_daq}</td>${d.baseline?`<td class="n">${r.change_db!==""?(r.change_db>=0?"+":"")+r.change_db+" dB":""}</td>`:""}<td>${esc(r.instrument)}</td><td>${r.pass||"untested"}</td><td>${esc(r.note)}</td></tr>`).join("")}</tbody></table></div>`; }).join("")}
     ${crit.length?`<div style="margin-top:16px"><h3>Named critical areas</h3><table><thead><tr><th>Area</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">UL dBm</th><th class="n">UL DAQ</th><th>Instrument</th><th>Result</th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r); return `<tr><td>${esc(a)}</td><td class="n">${r.dl??""}</td><td class="n">${r.daq??""}</td><td class="n">${r.ul??""}</td><td class="n">${r.ul_daq??""}</td><td>${esc(cal?cal.name:"")}</td><td>${cal&&!cal.ok?"not counted":p==null?"untested":p?"pass":"fail"}</td></tr>`; }).join("")}</tbody></table></div>`:""}
   </div>`;
+  // each floor's plan under its grid; a plan that won't open leaves the grid at its own shape
+  el.querySelectorAll("img[data-plan]").forEach(async im=>{ const s=await jobFileSrc(j.id, im.dataset.plan);
+    if(s){ im.src=s; im.style.minHeight=""; } else { const box=im.parentElement, g=box.querySelector("div"); box.style.aspectRatio=im.dataset.ar; if(g) g.style.cssText=g.style.cssText.replace(/left:[^;]+;top:[^;]+;width:[^;]+;height:[^;]+;transform:[^;]+/,"inset:0"); im.remove(); } });
   $("#drPrint").onclick=()=>{ document.body.classList.add("print-das"); window.print(); setTimeout(()=>document.body.classList.remove("print-das"),500); };
   $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
 }

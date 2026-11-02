@@ -418,20 +418,27 @@ def read_table(name, data):
 GRID_ALIASES = {
     "floor": ["floor", "level", "flr", "story", "storey", "buildingfloor", "floorname", "floorlevel"],
     "grid": ["grid", "gridid", "gridno", "gridnumber", "area", "zone", "cell", "point", "testpoint", "location", "square", "label", "name"],
+    # RSRP is LTE / 5G, not a public-safety downlink level: it has its own field and is never scored against the dBm floor
     "dl": ["dldbm", "downlink", "downlinkdbm", "dl", "dlrssi", "dlpower", "dlpowerdbm", "downlinkpower", "dllevel", "rssi", "dbm",
-           "signal", "level", "power", "rsrp", "rxdbm", "rxlevel", "channelpower"],
+           "signal", "level", "power", "rxdbm", "rxlevel", "channelpower"],
     "ul": ["uldbm", "uplink", "uplinkdbm", "ul", "ulrssi", "ulpower", "ulpowerdbm", "uplinkpower", "ullevel", "talkback"],
     "ul_daq": ["uldaq", "daqul", "uplinkdaq"],
     "daq": ["dldaq", "daqdl", "downlinkdaq", "daq", "daqscore", "audioquality", "quality", "deliveredaudioquality"],
     "sinr": ["sinr", "sinrdb", "dlsinr", "snr"],
     "ber": ["ber", "berpct", "berpercent", "dlber", "biterrorrate", "framebe"],
-    "freq": ["freqmhz", "freq", "frequency", "frequencymhz", "channel", "channelmhz"],
+    "freq": ["freqmhz", "freq", "frequency", "frequencymhz", "channel", "channelmhz", "ch", "chan", "channelname", "dlfreq",
+             "dlfrequency", "dlfreqmhz", "dlmhz", "centerfreq", "centerfrequency", "earfcn", "nrarfcn", "arfcn"],
     "critical": ["critical", "criticalarea", "iscritical", "areatype"],
     "pass": ["pass", "result", "passfail", "status", "outcome"],
     "lat": ["lat", "latitude"], "lon": ["lon", "lng", "long", "longitude"],
-    "x": ["x", "planx", "px"], "y": ["y", "plany", "py"],
+    "x": ["x", "planx", "px", "xpos", "posx"], "y": ["y", "plany", "py", "ypos", "posy"],
     "note": ["notes", "note", "comment", "comments", "remarks", "description"],
     "time": ["time", "timestamp", "datetime", "date", "ts"],
+    # cellular readings (LTE / 5G): kept on the square, never scored against the public-safety rules
+    "tech": ["technology", "tech", "rat", "networktype", "airinterface", "systemtype", "signaltype", "mode", "protocol"],
+    "rsrp": ["rsrp", "rsrpdbm", "ssrsrp", "ssrsrpdbm", "ltersrp", "nrrsrp"],
+    "rsrq": ["rsrq", "rsrqdb", "ssrsrq", "ssrsrqdb"],
+    "pci": ["pci", "physicalcellid", "nrpci", "ltepci"],
 }
 CONTACT_ALIASES = {
     "name": ["name", "fullname", "contact", "contactname", "person"],
