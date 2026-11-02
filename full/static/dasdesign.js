@@ -186,6 +186,7 @@ function dsInputs(d, b){
 
 window.dasDesign = async (el, j, save) => {
   await Promise.all([frLoad("budget"), frLoad("parts"), frLoad("plans")]);
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const D=S.das; D.dview=D.dview||"budget";
   el.innerHTML=`<div class="seg no-print" id="dsSeg" style="margin-bottom:10px">${DS_VIEWS.map(([k,l])=>`<button data-v="${k}" class="${D.dview===k?"on":""}">${l}</button>`).join("")}</div><div id="dsBody"></div>`;
   $("#dsSeg").onclick=e=>{ const b=e.target.closest("[data-v]"); if(b){ D.dview=b.dataset.v; render(); } };
@@ -329,7 +330,7 @@ async function dsFloors(el, j, save){
       :!fl.width_ft?'<p class="status">Enter the plan\'s real width in feet (from the drawing\'s scale or dimensions) so distances are right.</p>':""}
     <div class="grid2" style="margin-top:0;grid-template-columns:minmax(360px,2fr) minmax(240px,1fr)">
       <div class="panel" style="padding:8px"><div id="dfWrap" style="position:relative;width:100%;line-height:0">
-        ${f.plan?`<img id="dfImg" src="/api/das/jobs/${j.id}/file?name=${encodeURIComponent(f.plan)}" style="width:100%;display:block;border-radius:8px;background:#fff" alt="Floor ${esc(f.name)} plan">`:'<div style="aspect-ratio:4/3;border-radius:8px;border:1px dashed var(--line)"></div>'}
+        ${f.plan?`<img id="dfImg" style="width:100%;display:block;border-radius:8px;background:#fff" alt="Floor ${esc(f.name)} plan">`:'<div style="aspect-ratio:4/3;border-radius:8px;border:1px dashed var(--line)"></div>'}
         <canvas id="dfHeat" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5;border-radius:8px"></canvas>
         <svg id="dfSvg" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair"></svg></div>
         <p class="hint" id="dfHint" style="margin:6px 2px 0"></p></div>
@@ -375,7 +376,8 @@ async function dsFloors(el, j, save){
       if(near>=0){ keep({antennas:fl.antennas.filter((_,i)=>i!==near)}); return; }
       const wi=(fl.walls||[]).findIndex(w=>{ const ax=w.x1*W, ay=w.y1*H, bx=w.x2*W, by=w.y2*H, px=x*W, py=y*H, L2=(bx-ax)**2+(by-ay)**2, t=L2?Math.max(0,Math.min(1,((px-ax)*(bx-ax)+(py-ay)*(by-ay))/L2)):0; return Math.hypot(px-(ax+t*(bx-ax)),py-(ay+t*(by-ay)))<8; });
       if(wi>=0) keep({walls:fl.walls.filter((_,i)=>i!==wi)}); } };
-  if(img&&!img.complete) img.onload=draw; else draw();
+  // the plan comes through jobFileSrc (das.js), so the web version shows it too; the heatmap draws once it has loaded
+  if(img){ img.onload=draw; jobFileSrc(j.id, f.plan).then(u=>{ if(u&&img.isConnected) img.src=u; }); } else draw();
   new ResizeObserver(draw).observe(svg);
 }
 // one floor's design as a picture (plan, predicted coverage, walls, antennas), for the submittal packet
@@ -400,10 +402,12 @@ async function dsFloorPicture(j, d, f, b){
 /* ---------- the design submittal for the AHJ (Report → Design submittal) ---------- */
 window.dasSubmittal = async (el, j) => {
   await Promise.all([frLoad("budget"), frLoad("parts"), frLoad("plans")]);
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[], bands=dsBands(d), plan=(d.presurvey||{}).plan||[], cs=S.das.contacts;
   const who=k=>cs.find(c=>String(c.id)===String((d.contacts||{})[k])), tech=who("tech");
   const worst=bands.slice().sort((a,b)=>b.f_dl-a.f_dl)[0];
   const pics=worst?await Promise.all(floors.map(f=>dsFloorPicture(j,d,f,worst))):[];
+  if(!el.isConnected) return;
   const P=FR.parts&&!FR.parts.empty?FR.parts:null, sheet=name=>{ if(!P) return null; const row=[...(P.cables||[]),...(P.connectors||[]),...(P.components||[])].find(x=>(x.name||x.type)===name);
     const src=row&&(P._ix||(P._ix=frSrcIndex(P)))[(row.sources||[])[0]]; return src?src.url:null; };
   const bt=dsBatteryTotals(d), T=d.testing||{}, crit=[...((d.require||{}).critical||[]), ...((d.require||{}).other||[])];

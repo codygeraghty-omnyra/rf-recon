@@ -1203,8 +1203,12 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def raw_body(self):
+        """What was sent, read once: the header then says 0, so do_POST's drain finds nothing left."""
         n = int(self.headers.get("Content-Length") or 0)
-        return self.rfile.read(n) if n else b""
+        if not n:
+            return b""
+        self.headers.replace_header("Content-Length", "0")
+        return self.rfile.read(n)
 
     def body_json(self):
         b = self.raw_body()
@@ -1390,8 +1394,14 @@ class H(BaseHTTPRequestHandler):
             if nid is None:
                 return self.send(200, {"id": notes.create(con, NOTES_DIR, self.body_json(), who)})
             if sub == "file":
-                files = notes.add_file(con, NOTES_DIR, nid, fstr(qs, "role"), fstr(qs, "ext"), self.rfile,
-                                       int(self.headers.get("Content-Length") or 0), fnum(qs, "secs"), who)
+                n = int(self.headers.get("Content-Length") or 0)
+                if n:  # streamed here, so do_POST's drain mustn't wait for it again
+                    self.headers.replace_header("Content-Length", "0")
+                try:
+                    files = notes.add_file(con, NOTES_DIR, nid, fstr(qs, "role"), fstr(qs, "ext"), self.rfile, n, fnum(qs, "secs"), who)
+                except Exception:
+                    self.close_connection = True  # a refused file may be left unread: never reuse this connection
+                    raise
                 return self.send(200, {"files": files})
             if sub == "delete" and not who:
                 notes.delete(con, NOTES_DIR, nid)
@@ -1704,6 +1714,12 @@ class H(BaseHTTPRequestHandler):
             return self.send(404, b"", "image/png")
 
     def do_POST(self):
+        try:
+            return self.post_route()
+        finally:  # a handler that ignores what was sent (delete, run) must still read it: left on a kept-alive connection,
+            self.raw_body()  # it garbles the next request (11/2: a second DAS delete in a row came back 501)
+
+    def post_route(self):
         u = urlparse(self.path)
         qs = parse_qs(u.query)
         p = u.path
@@ -1907,10 +1923,17 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/update/run":
                 d = self.body_json()
                 ids = d.get("ids")
-                if d.get("ids") == "enabled":
+                if ids == "enabled":
                     ids = [sid for sid, c in UPD.config().items() if c["enabled"]]
+                elif ids == "all":  # Update all: every source, whether it's selected or not
+                    ids = list(UPD.config())
+                skipped = []
+                if d.get("ids") == "all" or d.get("skip_no_key"):  # a run of many leaves out the ones whose key isn't saved
+                    acc = {sid: s.get("access") or {} for sid, s in UPD.snapshot()["sources"].items()}
+                    skipped = [i for i in ids or [] if acc.get(i, {}).get("needs_key") and not acc[i].get("key_saved")]
+                    ids = [i for i in ids if i not in skipped]
                 started = UPD.run_sources(ids or [], force=bool(d.get("force")))
-                return self.send(200, {"started": started, **UPD.snapshot()})
+                return self.send(200, {"started": started, "skipped": skipped, **UPD.snapshot()})
             if p == "/api/fieldpack":
                 return self.send(200, {"job": start_fieldpack(self.body_json())})
             if p == "/api/net/hint":

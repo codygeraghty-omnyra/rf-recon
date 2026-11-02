@@ -202,7 +202,7 @@ function paintNet(browserOffline){
   const link={wifi:"Wi-Fi",cellular:"Cellular",ethernet:"Ethernet",vpn:"VPN"}[u.link]||"";
   $("#netText").textContent=(busy?"Updating… ":"")+(online?(u.net.online==null?"checking":`Online${link?" · "+link:""}`):"Offline")+(u.auto?" · auto":"");
 }
-// the keys RF Recon can use (stored in the setting table's creds); a field's third value is its hint, or "text" for a name
+// the keys RF Recon can use (sealed outside the database, keystore.py); a field's third value is its hint, or "text" for a name
 const API_KEYS=[
   {id:"wigle", name:"WiGLE", what:"Wi-Fi, Bluetooth and cell points near the pin", src:"wigle", get:"https://wigle.net/account",
    fields:[["wigle_name","API name","text"],["wigle_token","API token","32 characters"]], how:"Account → API token: the name and the token. Non-commercial use only."},
@@ -210,11 +210,23 @@ const API_KEYS=[
    fields:[["opencellid_key","Access token","pk.…"]], how:"The access token on your account page. 1,000 requests a day; CC BY-SA 4.0."},
   {id:"aisstream", name:"aisstream", what:"live ships (the Ships map overlay)", get:"https://aisstream.io/apikeys",
    fields:[["aisstream_key","API key","40 characters"]], how:"Sign in, then API Keys. Ships stream only while the overlay is on."},
-  {id:"fccbdc", name:"FCC Broadband Map", what:"carrier coverage data (the import isn't built yet)", get:"https://broadbandmap.fcc.gov/manage-api-access",
+  {id:"fccbdc", name:"FCC Broadband Map", what:"carrier coverage (the Carrier coverage layer and the DAS cellular pre-survey)", src:"bdc", get:"https://broadbandmap.fcc.gov/manage-api-access",
    fields:[["fcc_bdc_username","FCC sign-in email","text"],["fcc_bdc_token","API token","from Manage API Access"]],
    how:"Sign in at broadbandmap.fcc.gov, then Manage API Access → Generate. The FCC's API terms apply."},
 ];
 const keySaved=(settings,k)=>k.fields.every(([f])=>settings.creds[f]);
+// What the DAS tab takes from each update source (Data & updates marks them; the DAS tab's Data & links updates them),
+// and from the services it uses live. Checked against the code 11/2: the pre-survey (das.presurvey), cell sites
+// (cells.py), carrier coverage (bdc.at), donor terrain and building outlines.
+const DAS_USES={"uls:LMpriv":"the pre-survey's public safety, business and government systems",
+  "uls:LMcomm":"the pre-survey's commercial and SMR trunked systems",
+  "asr":"donor site heights and owners, and the tower each cell site sits on",
+  "bdc":"the cellular pre-survey's carriers at the building",
+  "opencellid":"the cell sites near the building (cellular pre-survey)",
+  "wigle":"the cell sites near the building (cellular pre-survey)"};
+const DAS_LIVE={"Terrain Tiles on AWS (Tilezen)":"donor paths and terrain around a job, kept for no signal",
+  "Overpass API (OpenStreetMap)":"a job's building outline, floors and height"};
+const dasNote=why=>`<div class="hint dasnote"><span class="tag das">DAS</span> ${esc(why)}</div>`;
 const CROWD_FETCH=[["wigle","WiGLE","wigle"],["opencellid","OpenCelliD","opencellid"],["ttn","LoRaWAN gateways"],["satnogs","SatNOGS stations"],["wspr","WSPR"],["pskreporter","PSKReporter"]];
 const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"],[336,"2 weeks"],[720,"monthly"]];
 // Ways in: every way people get this version or its data, and whether it needs this PC on. The remote link's row
@@ -245,9 +257,12 @@ S.views.data = async (v) => {
       <div class="row" style="align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><b>Update over</b>
         <div class="seg" id="uLinks">${[["all","All"],["wifi","Wi-Fi"],["ethernet","Ethernet"],["cellular","Cellular / phone tether"]].map(([k,l])=>`<button data-link="${k}">${l}</button>`).join("")}</div></div>
       <p class="hint" id="uLinkNow" style="margin:4px 0 0"></p>
-      <div class="row" style="margin-top:10px"><button id="uAllOn">Select all sources</button><button id="uAllOff">Select none</button><button class="primary" id="uRunAll">Update all selected now</button></div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="primary" id="uUpdAll">⟳ Update all</button><button id="uRunAll">Update all selected now</button><button id="uAllOn">Select all sources</button><button id="uAllOff">Select none</button></div>
+      <p class="hint" id="uUpdMsg" style="margin:4px 0 0">Update all checks every source below now, selected or not, and downloads only what's newer. Sources whose key isn't saved are left out.</p>
       <label style="margin-top:10px">Limit FCC data to states (blank = whole US)<input id="uStates" value="${esc(settings.states||"")}" placeholder="VA,MD,DC"></label>
+      ${dasNote("the pre-survey reads the FCC licences and towers kept for these states")}
       <label style="margin-top:8px">Carrier coverage states (FCC Broadband Map: about 100 MB to 2 GB of download a state)<input id="uBdcStates" value="${esc(settings.bdc_states||"")}" placeholder="SC,NC,MN"></label>
+      ${dasNote("the cellular pre-survey shows carriers only for buildings in these states")}
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
   <div class="panel" id="waysPanel" hidden><h3>Ways in: who can use this version and its data</h3>
@@ -282,13 +297,14 @@ S.views.data = async (v) => {
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="hint" id="fiSrc">Maker names: …</span>
       <label class="inl">Import the FCC's list <input type="file" id="fiImp" accept=".csv,.txt,.tsv,.xlsx,.xls,.xml,.json,.zip,.htm,.html"></label></div>
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px"><span class="hint" id="fiGr"></span>
-      <label class="inl">Import FCC grant searches <input type="file" id="fiGrImp" multiple accept=".xml,.xls,.xlsx,.htm,.html,.csv"></label></div></div>
-  <div class="panel"><h3>Data sources</h3><div id="srcList"></div></div>
+      <label class="inl">Import FCC grant searches <input type="file" id="fiGrImp" multiple accept=".xml,.xls,.xlsx,.htm,.html,.csv"></label></div>
+    ${dasNote("the grant searches imported here are the booster list in the pre-survey (devices granted for the building's bands)")}</div>
+  <div class="panel"><h3>Data sources <span class="hint">· <span class="tag das">DAS</span> marks what the DAS tab uses; it also updates them (DAS › Data &amp; links)</span></h3><div id="srcList"></div></div>
   <div class="panel"><h3>Used live as you work <span class="hint">· not on the list above: nothing to download or schedule</span></h3><div id="srcLive"><p class="hint">Loading…</p></div></div>
   <div class="panel"><h3>Other open and crowd sources <span class="hint">· researched</span></h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
     <div class="panel"><h3>Your API keys</h3>
-      <p class="hint" style="margin-top:0">Free accounts of your own, kept only in this PC's database. Each sign-up has its own terms, so RF Recon can't make them for you.</p>
+      <p class="hint" style="margin-top:0">Free accounts of your own, sealed for your Windows account on this PC, outside every database file, so no copy, kit or backup carries them. Each sign-up has its own terms, so RF Recon can't make them for you.</p>
       ${API_KEYS.map(k=>{ const saved=keySaved(settings,k), s=k.src&&UPD?.sources?.[k.src];
         const last=s?.state==="error"?` · Last try failed: ${esc(s.message||"")}`:s?.last_updated?` · Last fetch ${esc(s.last_updated)}${s.message?`: ${esc(s.message)}`:""}`:"";
         return `<div style="border-top:1px solid var(--line);padding:10px 0 4px">
@@ -297,13 +313,14 @@ S.views.data = async (v) => {
           <div class="row" style="gap:12px"><a href="${esc(k.get)}" target="_blank" rel="noopener">${saved?"Your account ↗":"Get a key ↗"}</a>${saved?`<a href="#" data-kclear="${k.id}">Remove</a>`:""}</div></div>
         <div class="row" style="margin-top:6px">${k.fields.map(([f,label,ph])=>`<label class="grow">${esc(label)}<input data-cred="${f}" type="${ph==="text"?"text":"password"}" autocomplete="off"
           placeholder="${saved?"saved: type to replace":esc(ph==="text"?"":ph)}"></label>`).join("")}</div>
-        <p class="hint" style="margin:4px 0 0">${esc(k.how)}${last}</p></div>`; }).join("")}
+        <p class="hint" style="margin:4px 0 0">${esc(k.how)}${last}</p>${DAS_USES[k.src]?dasNote(DAS_USES[k.src]):""}</div>`; }).join("")}
       <div class="row" style="margin-top:10px;align-items:center"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
       <p class="hint">Not here: RepeaterBook (its policy discourages tools that mix sources) and RadioReference (its API needs Premium, $30 a year, plus a paid licence for dashboards).</p></div>
     <div class="panel"><h3>Fetch crowd data for the current pin now</h3>
       <div class="row" style="flex-wrap:wrap">${CROWD_FETCH.map(([id,label,key])=>{ const k=key&&API_KEYS.find(x=>x.id===key), off=k&&!keySaved(settings,k);
         return `<button data-fetch="${id}" ${off?`disabled title="Add your ${esc(k.name)} key first (Your API keys)"`:""}>${esc(label)}${off?' <span class="hint">· needs key</span>':""}</button>`; }).join("")}</div>
       <p class="hint" style="margin:4px 0 0">Uses the pin and radius above. An area already fetched recently isn't downloaded again; the same emitter from several sources shows once on the map, with each source's data.</p>
+      ${dasNote("WiGLE and OpenCelliD fetched around a building are the cell sites its cellular pre-survey shows")}
       <div id="fetchMsg" class="hint" style="margin-top:6px"></div>
       <h3 style="margin-top:14px">Import your own layer</h3>
       <div class="row"><label class="grow">Layer name<input id="cl_name" value="My layer"></label><input type="file" id="cl_file" accept=".csv,.kml,.kmz,.geojson,.json,.gpx"></div>
@@ -420,6 +437,13 @@ S.views.data = async (v) => {
     cfg({links:ALL.filter(x=>cur.has(x))}); };
   $("#uAllOn").onclick=()=>cfg({all:true}); $("#uAllOff").onclick=()=>cfg({all:false});
   $("#uRunAll").onclick=async()=>{ UPD=await post("/api/update/run",{ids:"enabled",force:true}); paintNet(); paintSources(); };
+  // Update all: every source now, selected or not; each downloads only what's newer, and a source needing a key you haven't saved is left out
+  $("#uUpdAll").onclick=async()=>{ const b=$("#uUpdAll"), m=$("#uUpdMsg"); b.disabled=true;
+    try{ const r=await post("/api/update/run",{ids:"all"}); UPD=r; paintNet(); paintSources();
+      const nm=id=>UPD.sources[id]?.label||id;
+      m.innerHTML=`${r.started.length?`Updating ${r.started.length} sources: each one's progress is in its row below.`:"Nothing started: every source is already running."}${
+        r.skipped.length?` Left out, no key saved: ${r.skipped.map(id=>esc(nm(id))).join(", ")} (Your API keys).`:""}`; }
+    catch(e){ m.textContent=e.message; } b.disabled=false; };
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
   $("#uBdcStates").onchange=e=>post("/api/settings",{bdc_states:e.target.value});
   $("#k_save").onclick=async()=>{ const creds={}; v.querySelectorAll("[data-cred]").forEach(i=>{ if(i.value.trim()) creds[i.dataset.cred]=i.value.trim(); });
@@ -456,7 +480,7 @@ function paintSources(){
     <label class="switch"><input type="checkbox" data-src="${esc(id)}" ${s.enabled?"checked":""}><span></span></label>
     <div><b>${esc(s.label)}</b><div class="hint">${esc(s.description)}</div>
       ${s.access?.key?`<div class="hint" title="${esc(s.access.terms||"")}">${acc(s.access)}</div>`:""}
-      ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}</div>
+      ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}${DAS_USES[id]?dasNote(DAS_USES[id]):""}</div>
     <select data-int="${esc(id)}" class="hide-m">${INTERVALS.map(([h,l])=>`<option value="${h}" ${+s.interval_h===h?"selected":""}>${l}</option>`).join("")}</select>
     <div class="hide-m" style="font-size:12px">${s.running?'<span class="tag w">running</span> ':""}${s.state==="error"?'<span class="tag" style="color:var(--bad)">error</span> ':s.state==="ok"?'<span class="tag v">ok</span> ':""}${esc(s.message||"")}
       <div class="hint">${freshness(s, u.auto)} · updated ${esc(s.last_updated||"never")}${s.remote?` · source file ${esc(s.remote)}`:""}${s.rows!=null?` · ${Number(s.rows).toLocaleString()} rows`:""}</div></div>
@@ -469,7 +493,7 @@ function paintSources(){
   // the catalog's sources with no Data & updates entry: the ones RF Recon uses live, then the researched rest
   const catRows=(rows,live)=>`<div class="tw wrap"><table><thead><tr><th>Source</th><th>What it gives</th><th>Key</th><th>Cost</th>${live?"":"<th>Area search</th>"}<th>Terms</th><th>${live?"Where in RF Recon":"In RF Recon"}</th></tr></thead><tbody>${
     rows.map(c=>`<tr><td><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.name)}</b> ↗</a></td><td>${esc(c.what)}</td><td>${esc(c.key)}${c.signup?` · <a href="${esc(c.signup)}" target="_blank" rel="noopener">sign up ↗</a>`:""}</td>
-      <td>${esc(c.cost)}</td>${live?"":`<td>${esc(c.area)}</td>`}<td class="hint">${esc(c.terms)}</td><td>${esc(live?c.status.replace(/^In RF Recon:\s*(.)/,(m,ch)=>ch.toUpperCase()):c.status)}</td></tr>`).join("")}</tbody></table></div>`;
+      <td>${esc(c.cost)}</td>${live?"":`<td>${esc(c.area)}</td>`}<td class="hint">${esc(c.terms)}</td><td>${esc(live?c.status.replace(/^In RF Recon:\s*(.)/,(m,ch)=>ch.toUpperCase()):c.status)}${live&&DAS_LIVE[c.name]?dasNote(DAS_LIVE[c.name]):""}</td></tr>`).join("")}</tbody></table></div>`;
   const inApp=c=>/^In RF Recon/.test(c.status);
   if($("#srcLive") && u.catalog) $("#srcLive").innerHTML=catRows(u.catalog.filter(inApp),true)+`
     <p class="hint">Terms checked on each provider's own page: the maps, terrain, address search, building outlines and radar on 2026-11-02, live ships on 2026-10-28.

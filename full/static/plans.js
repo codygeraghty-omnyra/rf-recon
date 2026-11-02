@@ -23,6 +23,7 @@ window.dasPlans = async (el, j, save) => {
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[];
   let cur=floors;  // kept up to date across saves, so a second page doesn't undo the first
   const [files, rm]=await Promise.all([api(`/api/das/jobs/${j.id}/files`).then(x=>x.files).catch(()=>[]), frLoad("plans")]);
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const pdfs=files.filter(x=>/\.pdf$/i.test(x.name)), imgs=files.filter(x=>/\.(png|jpe?g|gif|webp)$/i.test(x.name));
   const usedBy=name=>floors.filter(f=>f.plan===name).map(f=>f.name);
   const req=rm.empty?null:rm.plan_request;
@@ -60,11 +61,12 @@ window.dasPlans = async (el, j, save) => {
   if($("#plCopy")) $("#plCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(`${$("#plSubj").value}\n\n${$("#plBody").value}`); $("#plCopied").textContent="Copied."; }catch(e){ $("#plCopied").textContent="Select the text and copy it."; } };
   // OpenStreetMap: footprint, levels, height and any material tags
   if(d.lat!=null&&d.lon!=null) api(`/api/das/building?lat=${d.lat}&lon=${d.lon}`).then(b=>{
+    if(!$("#plOsm")) return;  // the Plans view was left while OpenStreetMap answered
     const row=(k,v)=>v!=null&&v!==""?`<div>${k}</div><div>${esc(String(v))}</div>`:"";
     $("#plOsm").innerHTML=`<div class="kvg">${row("Name",b.name)}${row("Kind",b.kind)}${row("Levels",b.levels)}${row("Levels below ground",b.levels_below)}${row("Height",b.height_m!=null?`${b.height_m} m`:"")}
       ${row("Footprint",b.footprint_sqft?`${b.footprint_sqft.toLocaleString()} sq ft`:"")}${row("Wall material",b.material)}${row("Facade",b.facade)}${row("Roof",b.roof)}${row("Built",b.built)}</div>
       <p class="hint" style="margin:6px 0 0">${b.material||b.facade?"":"OpenStreetMap has no material for this building. "}${esc(b.source)}, <a href="https://www.openstreetmap.org/${esc(b.osm)}" target="_blank" rel="noopener">${esc(b.osm)} ↗</a></p>`;
-  }).catch(e=>{ $("#plOsm").innerHTML=`<p class="hint">${esc(e.message)}</p>`; });
+  }).catch(e=>{ if($("#plOsm")) $("#plOsm").innerHTML=`<p class="hint">${esc(e.message)}</p>`; });
   // a PDF: pages as thumbnails, each with a floor to save it under
   const open=async name=>{
     $("#plMsg").textContent=`Opening ${name}…`; $("#plPages").innerHTML="";

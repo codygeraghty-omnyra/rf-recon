@@ -214,6 +214,7 @@ S.views.parts = async v => {
 /* ---------- in a DAS job: PIM ---------- */
 window.dasPim = async (el, j, save) => {
   const r=await frLoad("pim"), d=j.data||{}, pim=d.pim||{}, checks=pim.checks||{}, runs=Array.isArray(pim.runs)?pim.runs:[];
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const lists=r.empty?[]:(r.checklists||[]).filter(cl=>/das|pre-test|pre test|close|report|setup|verif/i.test(cl.name));
   const limit=pim.limit_dbc??-140;  // the common system-level pass at 2 x 43 dBm (the research's limits); components are rated tighter
   const pass=x=>x.result_dbm!==""&&x.result_dbm!=null&&x.tone_dbm!==""?((+x.result_dbm)-(+x.tone_dbm))<=(+limit):null;
@@ -246,6 +247,7 @@ window.dasPim = async (el, j, save) => {
 /* ---------- in a DAS job: Materials (bill of materials) ---------- */
 window.dasMaterials = async (el, j, save) => {
   const r=await frLoad("parts"), d=j.data||{}, bom=Array.isArray(d.bom)?d.bom:[], mchecks=d.material_checks||{};
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const cat=r.empty?[]:[...(r.cables||[]).map(c=>({cat:"Cable", item:c.name, part:(c.part_examples||"").toString().split(/[,;]/)[0].trim(), supplier:c.vendor||""})),
     ...(r.connectors||[]).map(c=>({cat:"Connector", item:c.name, part:"", supplier:""})),
     ...(r.components||[]).map(c=>({cat:"Component", item:c.type, part:(c.part_examples||"").toString().split(/[,;]/)[0].trim(), supplier:(c.vendors||"").toString().split(/[,;]/)[0].trim()}))];

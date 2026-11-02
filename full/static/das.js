@@ -66,8 +66,10 @@ const daysTo = d => d ? Math.round((Date.parse(d+"T12:00:00")-Date.now())/864e5)
 
 S.views.das = async v => {
   const D=S.das=S.das||{view:"board", q:"", job:null, sub:"overview"};
+  const gen=D.gen=(D.gen||0)+1;  // a draw overtaken by a newer one while it waited stops, instead of binding to the newer one's screen
   try{ const r=await api("/api/das/jobs"); D.jobs=r.jobs; D.stages=r.stages; D.folder=r.folder; D.contacts=(await api("/api/das/contacts")).contacts; }
-  catch(e){ v.innerHTML=`<p class="status err">DAS jobs: ${esc(e.message)}</p>`; return; }
+  catch(e){ if(gen===D.gen) v.innerHTML=`<p class="status err">DAS jobs: ${esc(e.message)}</p>`; return; }
+  if(gen!==D.gen) return;
   if(D.job){ const j=D.jobs.find(x=>x.id===D.job); if(j) return dasJob(v, D.job); D.job=null; }
   const q=D.q.trim().toLowerCase(), jobs=D.jobs.filter(j=>!q||`${j.name} ${j.address||""} ${j.ahj||""} ${j.client||""}`.toLowerCase().includes(q));
   // what needs you: retests coming due, overdue next steps, open checks on jobs past design
@@ -89,7 +91,9 @@ S.views.das = async v => {
     <p style="margin:2px 2px 10px"><b>${D.jobs.length} job${D.jobs.length===1?"":"s"}</b>${need.length?` · <b style="color:var(--warn)">${need.length} need${need.length===1?"s":""} you</b>`:" · nothing waiting on you"}</p>
     ${need.length?`<div class="panel"><h3>Needs you</h3>${need.slice(0,8).map(([j,t])=>`<div class="row" style="justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(j.name)}</b> <span class="hint">${esc(j.stage)}</span> · ${esc(t)}</span><button data-open="${j.id}">Open</button></div>`).join("")}</div>`:""}
     <div id="dsFind"></div>
+    <div id="dsGuide"></div>
     <div id="dsBody"></div>`;
+  window.dasBoardGuide?.($("#dsGuide"), D);  // how a job moves, and the example jobs (dasexample.js)
   const body=$("#dsBody");
   if(q.length>=2&&window.findRender){  // everything in DAS that matches, above the board (the board below is filtered by name / address / AHJ / client)
     const box=$("#dsFind"); box.innerHTML='<p class="hint">Searching all DAS data…</p>';
@@ -179,14 +183,21 @@ async function dasData(el){
   try{ [upd, ter]=await Promise.all([api("/api/update/status"), api("/api/das/terrain/status")]); }catch(e){}
   const jobs=[]; for(const j of S.das.jobs) if(j.lat!=null) jobs.push(j);
   const full=[]; for(const j of jobs) full.push((await api(`/api/das/jobs/${j.id}`)).data||{});
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const outlined=full.filter(d=>d.building).length;
-  const fcc=[["uls:LMpriv","Public safety, business and government radio: the systems the pre-survey lists"],["uls:LMcomm","Commercial and SMR trunked systems"],["asr","Towers: donor site heights and owners"]];
+  // the sources the DAS tab reads (DAS_USES, mission.js): one switch keeps them all updating by themselves
+  const ids=Object.keys(DAS_USES).filter(id=>upd.sources[id]), auto=upd.auto&&ids.length&&ids.every(id=>upd.sources[id].enabled);
   el.innerHTML=`<div class="grid2" style="margin-top:0">
-    <div class="panel"><h3>FCC data the pre-survey reads</h3>${fcc.map(([id,why])=>{ const s=upd.sources[id]; if(!s) return "";
-        return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(s.label)}</b><div class="hint">${esc(why)}</div>
-          <div class="hint">${s.enabled?"":'<b style="color:var(--bad)">turned off</b> · '}${freshness(s, upd.auto)}${s.state==="error"?` · <span style="color:var(--bad)">${esc(s.message)}</span>`:""}</div></span>
+    <div class="panel"><h3>Data the DAS tab reads</h3>${ids.length?`
+      <div class="row" style="align-items:center"><label class="switch"><input type="checkbox" id="ddAuto" ${auto?"checked":""}><span></span></label><b>Auto-update DAS data when online</b></div>
+      <div class="row" style="margin-top:8px;align-items:center;flex-wrap:wrap"><button class="primary" id="ddRunAll">⟳ Update all DAS data now</button><span class="hint" id="ddRunMsg"></span></div>`
+      :'<p class="hint">Updates run in the PC version.</p>'}
+      ${ids.map(id=>{ const s=upd.sources[id];
+        return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0"><span><b>${esc(s.label)}</b><div class="hint">${esc(DAS_USES[id])}</div>
+          <div class="hint">${s.enabled?"":'<b style="color:var(--bad)">not updating by itself</b> · '}${s.access?.needs_key&&!s.access.key_saved?'<b style="color:var(--bad)">no key saved</b> · ':""}${freshness(s, upd.auto)}${s.state==="error"?` · <span style="color:var(--bad)">${esc(s.message)}</span>`:""}</div></span>
           <button data-run="${esc(id)}" ${s.running?"disabled":""}>${s.running?"Updating…":"Update now"}</button></div>`; }).join("")}
-      <p class="hint">Free US government data, no key. Schedules and Update over (Wi-Fi, Ethernet, cellular) are in Data &amp; updates.</p></div>
+      <p class="hint">On, the switch turns on automatic updates and selects all ${ids.length} of these; each then updates on its own schedule, over the connections Data &amp; updates allows. Off stops these ${ids.length} updating by themselves, on the map and in search too (they're the same data). Update all leaves out a source whose key isn't saved.
+        Schedules, keys and Update over (Wi-Fi, Ethernet, cellular) are in Data &amp; updates.</p></div>
     <div class="panel"><h3>Terrain and building outlines</h3>
       <p style="margin:0 0 6px">Terrain on this PC: <b>${ter.tiles.toLocaleString()}</b> tiles, ${ter.mb} MB${ter.folder?` <span class="hint mono">${esc(ter.folder)}</span>`:""}</p>
       <div class="row"><button id="ddTer" ${jobs.length?"":"disabled"}>⇩ Download terrain around every job (${jobs.length})</button><span class="hint" id="ddTerMsg"></span></div>
@@ -200,6 +211,14 @@ async function dasData(el){
       <p style="margin:8px 0 0">The rest of the research, each a database with a CSV per table and its report, in Drive under <span class="mono">RF Recon\\docs\\research</span>:
         ${DAS_RESEARCH.map(([n,id,w])=>`<a href="https://drive.google.com/drive/folders/${id}" target="_blank" rel="noopener">${esc(n)}</a> <span class="hint">(${esc(w)})</span>`).join(", ")}.</p></div>`;
   el.querySelectorAll("[data-run]").forEach(b=>b.onclick=async()=>{ b.disabled=true; b.textContent="Updating…"; await post("/api/update/run",{ids:[b.dataset.run],force:true}); });
+  if($("#ddAuto")) $("#ddAuto").onchange=async e=>{ const on=e.target.checked;
+    await post("/api/update/config",{...(on?{auto:true}:{}), sources:Object.fromEntries(ids.map(id=>[id,{enabled:on}]))}); if(el.isConnected) dasData(el); };
+  if($("#ddRunAll")) $("#ddRunAll").onclick=async()=>{ const b=$("#ddRunAll"); b.disabled=true;
+    try{ const r=await post("/api/update/run",{ids, skip_no_key:true}), nm=id=>r.sources[id]?.label||id;
+      if(!el.isConnected) return;
+      $("#ddRunMsg").textContent=`${r.started.length?`Updating ${r.started.length}.`:"All already updating."}${r.skipped.length?` Left out, no key saved: ${r.skipped.map(nm).join(", ")}.`:""}`;
+      el.querySelectorAll("[data-run]").forEach(x=>{ if(r.started.includes(x.dataset.run)){ x.disabled=true; x.textContent="Updating…"; } }); }
+    catch(e){ $("#ddRunMsg").textContent=e.message; } b.disabled=false; };
   $("#ddTer").onclick=async()=>{ const b=$("#ddTer"); b.disabled=true; $("#ddTerMsg").textContent="Downloading…";
     try{ const r=await post("/api/das/terrain/download",{areas:jobs.map((j,i)=>({lat:j.lat, lon:j.lon, radius:full[i].presurvey?.radius||15}))});
       const got=r.areas.reduce((a,x)=>a+x.fetched,0), bad=r.areas.reduce((a,x)=>a+x.failed,0);
@@ -234,8 +253,9 @@ function dasContacts(el){
 
 /* ---------- one job ---------- */
 async function dasJob(v, id){
-  const D=S.das; let j;
-  try{ j=await api(`/api/das/jobs/${id}`); }catch(e){ D.job=null; render(); return; }
+  const D=S.das, gen=D.gen; let j;
+  try{ j=await api(`/api/das/jobs/${id}`); }catch(e){ if(gen===D.gen){ D.job=null; render(); } return; }
+  if(gen!==D.gen) return;  // the board or another job was drawn while this waited
   DASJ={...DAS, ...(((j.data||{}).profile)||{})};
   const d=j.data||{}, save=async(patch,extra)=>{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); return j; };
   const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
@@ -244,7 +264,8 @@ async function dasJob(v, id){
       <label class="inl">Stage <select id="djStage">${D.stages.map(s=>`<option ${s===j.stage?"selected":""}>${esc(s)}</option>`).join("")}</select></label>
       <div class="seg" id="djSub">${subs.map(([k,l])=>`<button data-s="${k}" class="${D.sub===k?"on":""}">${l}</button>`).join("")}</div>
       <span style="margin-left:auto" class="row"><button id="djExp">⇩ Job JSON</button><button id="djDel">Delete job</button></span></div>
-    <div id="djBody"></div>`;
+    <div id="djGuide"></div><div id="djBody"></div>`;
+  window.dasJobGuide?.($("#djGuide"), j, D.sub);  // an example job explains each step (dasexample.js)
   $("#djBack").onclick=()=>{ D.job=null; render(); };
   $("#djName").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{name:e.target.value}); };
   $("#djStage").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{stage:e.target.value}); };
@@ -766,6 +787,7 @@ function dasMapImport(el, t, fname, where, done){
 /* ---------- files: anything, kept in the job's Drive folder ---------- */
 async function dasFiles(el, j){
   let f; try{ f=await api(`/api/das/jobs/${j.id}/files`); }catch(e){ el.innerHTML=`<p class="status err">${esc(e.message)}</p>`; return; }
+  if(!el.isConnected) return;  // a newer draw took over while this one waited
   const size=b=>b>1e6?`${(b/1e6).toFixed(1)} MB`:`${Math.max(1,Math.round(b/1e3))} KB`;
   el.innerHTML=`<div class="panel"><h3>Files <span class="hint">· ${esc(f.folder)}</span></h3>
     <div id="dfDrop" style="border:2px dashed var(--line);border-radius:12px;padding:18px;text-align:center;margin-bottom:10px">Drop any files here (floor plans, drawings, PDFs, photos, letters, test exports) or <label style="display:inline"><u>choose files</u><input type="file" id="dfIn" multiple hidden></label>.

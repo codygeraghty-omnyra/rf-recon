@@ -1,0 +1,23 @@
+{
+ "rfrecon_das_examples": 1,
+ "examples": [
+  {
+   "file": "erces-office.json",
+   "name": "Example: public safety ERCES, 3-storey office (example)",
+   "kind": "erces",
+   "plans": [
+    "example-office-floor-1.png",
+    "example-office-floor-2.png",
+    "example-office-floor-3.png"
+   ]
+  },
+  {
+   "file": "cellular-warehouse.json",
+   "name": "Example: carrier cellular DAS, warehouse (example)",
+   "kind": "cellular",
+   "plans": [
+    "example-warehouse-floor-1.png"
+   ]
+  }
+ ]
+}
