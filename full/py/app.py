@@ -29,6 +29,7 @@ import artemis  # noqa: E402
 import bdc  # noqa: E402
 import fccid  # noqa: E402
 import finder  # noqa: E402
+import keystore  # noqa: E402
 import kitupdate  # noqa: E402
 import basemaps  # noqa: E402
 import takpush  # noqa: E402
@@ -101,6 +102,11 @@ def init():
     notes.migrate(con)
     import towers
     towers.ensure_schema(con)
+    try:
+        if n := keystore.migrate(con, uls_import.DATA_DIR):
+            print(f"Moved {n} saved keys out of the database into {keystore.path(uls_import.DATA_DIR)}", flush=True)
+    except (OSError, RuntimeError, sqlite3.Error) as e:  # keys stay where they were; the next start tries again
+        print(f"Note: keys not moved out of the database yet ({e})", flush=True)
     con.close()
     cdb().close()
     threading.Thread(target=ensure_places, daemon=True).start()
@@ -110,6 +116,8 @@ def init():
 
 
 def get_setting(k, default=None):
+    if k == "creds":  # keys never touch a database file (keystore.py)
+        return keystore.load(uls_import.DATA_DIR) or default
     con = db()
     r = con.execute("SELECT v FROM setting WHERE k=?", (k,)).fetchone()
     con.close()
@@ -117,6 +125,8 @@ def get_setting(k, default=None):
 
 
 def set_setting(k, v):
+    if k == "creds":
+        return keystore.save(uls_import.DATA_DIR, v)
     con = db()
     con.execute("INSERT OR REPLACE INTO setting VALUES(?,?)", (k, json.dumps(v)))
     con.commit()

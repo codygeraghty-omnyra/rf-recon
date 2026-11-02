@@ -1,16 +1,16 @@
 {
- "version": "779083e",
- "built": "2026-11-02 05:19",
+ "version": "23e8f7d",
+ "built": "2026-11-02 09:57",
  "python": "3.12.10",
  "get": "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB",
  "notes": [
+  "Keys out of every database file",
+  "Full-copy kit",
   "Install kit",
   "DAS grid and pre-survey stop when a newer draw replaced the view while they waited (the",
   "Cooper preset from the spec's Table 2 read in full",
   "Carrier pre-survey from the research follow-up",
   "DAS cellular side",
-  "DAS grid test",
-  "Maps with no signal",
-  "Data & updates"
+  "DAS grid test"
  ]
 }
