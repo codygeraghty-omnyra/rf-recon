@@ -24,7 +24,8 @@ const HELP = [
     <ul><li>Every result as a dot, sized by how many entries share the site; towers outlined. Click a dot for what's there, then <i>Details</i>.</li>
     <li>Drag the green pin or click the map to move it; rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
     <li><b>Layers</b> (top right of the map): Street, USGS satellite / satellite + labels / topo / terrain relief, Esri hi-res satellite;
-      overlays for county and state lines and live NEXRAD weather radar. Viewed tiles are kept for offline use.</li>
+      overlays for county and state lines and live NEXRAD weather radar. USGS maps and county lines you view are kept for use with no signal.
+      Street and Esri are for use with signal only (their terms): with no signal the map shows USGS Topo, and goes back to your map when signal returns.</li>
     <li><b>Heatmap</b>: predicted from licensed power (free-space, best case), measured from your captures and WiGLE, or density.
       ⇩ exports it as KMZ (Google Earth, ATAK) and GeoTIFF (QGIS, ArcGIS).</li></ul>`],
   ["report", "Area report", `

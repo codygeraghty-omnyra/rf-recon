@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "7267f080a9";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "b4d3ce51e0";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -283,13 +283,34 @@ function initMap() {
   setBase(S.base);
   dots = L.layerGroup().addTo(map);
   map.on("click", e => { closeSuggest(); setCenter([e.latlng.lat, e.latlng.lng], false); });
+  addEventListener("offline", noSignal);
+  addEventListener("online", signalCheck);
+  setInterval(signalCheck, 30000);
 }
 function setBase(id) {
-  const b = BASES[id] || BASES.topo;
-  if (baseLayer) map.removeLayer(baseLayer);
-  baseLayer = L.tileLayer(b.url, {maxNativeZoom: b.max, maxZoom: 19, crossOrigin: "anonymous", attribution: b.attr}).addTo(map);
   S.base = BASES[id] ? id : "topo";
   kv.set("base", S.base);
+  drawBase(navigator.onLine === false && !BASES[S.base].save ? "topo" : S.base);
+}
+// Street (OpenStreetMap) is for use with signal only: its tile policy forbids keeping tiles for offline use, so the phone
+// never saves them (sw.js). With no signal the map shows Topo until signal returns, without changing the map you picked.
+let standIn = false, misses = 0;
+function drawBase(id) {
+  const b = BASES[id];
+  if (baseLayer) map.removeLayer(baseLayer);
+  standIn = id !== S.base; misses = 0;
+  baseLayer = L.tileLayer(b.url, {maxNativeZoom: b.max, maxZoom: 19, crossOrigin: "anonymous", attribution: b.attr}).addTo(map);
+  if (!b.save) { baseLayer.on("tileload", () => { misses = 0; }); baseLayer.on("tileerror", () => { if (++misses >= 4) noSignal(); }); }
+}
+function noSignal() {
+  if (standIn || BASES[S.base].save) return;
+  drawBase("topo");
+  toast(`No signal: showing ${BASES.topo.label}, saved on this phone. ${BASES[S.base].label} comes back when signal does.`);
+}
+async function signalCheck() {
+  if (!standIn || navigator.onLine === false) return;
+  const z = Math.min(map.getZoom(), 18), c = map.project(map.getCenter(), z).divideBy(256).floor();
+  try { if ((await fetch(L.Util.template(BASES[S.base].url, {x: c.x, y: c.y, z}), {cache: "no-store", mode: "cors"})).ok) drawBase(S.base); } catch (e) {}
 }
 function sitesOf(rows) {
   const m = new Map();

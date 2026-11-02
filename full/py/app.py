@@ -1150,6 +1150,8 @@ TILE_SOURCES = {  # id -> URL template; {bbox} sources are ArcGIS exports render
     "counties": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/export"
                 "?bbox={bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&dpi=96&f=image",
 }
+ONLINE_ONLY = {"osm", "esri-imagery"}  # their terms forbid keeping tiles for offline use: fetched each time, never on disk
+TILE_UA = "RF-Recon/2.0 (personal site-survey tool; local cache)"
 WEB_MERCATOR = 20037508.342789244
 
 
@@ -1656,20 +1658,30 @@ class H(BaseHTTPRequestHandler):
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
 
     def tile(self, src, z, x, y):
-        """Map tiles, cached locally as you view them (no bulk prefetch, per OSM policy),
-        so areas you've looked at keep working offline."""
+        """Map tiles. USGS and Census tiles (public domain) are kept on disk as you view them (no bulk prefetch),
+        so areas you've looked at keep working with no signal. OpenStreetMap's tile policy ("Offline use is not
+        permitted") and Esri's World Imagery licence don't allow that, so theirs pass through with the source's own
+        caching headers and are never kept here; with no signal the map shows USGS Topo (core.js)."""
         url = TILE_SOURCES.get(src)
         if not url:
             return self.send(404, {"error": "unknown tile source"})
-        # OSM keeps the original cache layout (data/tiles/z/x/y.png); other sources get their own folder
-        fp = os.path.join(TILE_DIR, *([] if src == "osm" else [src]), z, x, f"{y}.png")
+        if src in ONLINE_ONLY:
+            try:
+                req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)), headers={"User-Agent": TILE_UA})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    data, cc = r.read(), r.headers.get("Cache-Control") or "max-age=86400"
+                if tile_type(data) == "application/octet-stream":
+                    return self.send(404, b"", "image/png")
+                return self.send(200, data, tile_type(data), {"Cache-Control": cc})
+            except Exception:
+                return self.send(404, b"", "image/png")
+        fp = os.path.join(TILE_DIR, src, z, x, f"{y}.png")
         if os.path.exists(fp):
             with open(fp, "rb") as fh:
                 data = fh.read()
             return self.send(200, data, tile_type(data), {"Cache-Control": "max-age=604800"})
         try:
-            req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)),
-                                         headers={"User-Agent": "RF-Recon/2.0 (personal site-survey tool; local cache)"})
+            req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)), headers={"User-Agent": TILE_UA})
             with urllib.request.urlopen(req, timeout=15) as r:
                 data = r.read()
             if tile_type(data) == "application/octet-stream":  # an error page, not an image: don't cache it

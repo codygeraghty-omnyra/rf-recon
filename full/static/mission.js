@@ -313,7 +313,7 @@ S.views.data = async (v) => {
   </div>
   <div class="panel"><h3>Crowd / imported layers on this computer</h3>
     <div class="tw"><table><thead><tr><th>Source</th><th>Layer</th><th>Points</th><th>Last fetched</th></tr></thead><tbody>${layers.layers.map(l=>`<tr><td>${esc(l.source)}</td><td>${esc(l.layer)}</td><td class="n">${l.n.toLocaleString()}</td><td class="mono">${esc(l.fetched||"")}</td></tr>`).join("")||'<tr><td colspan="4" class="hint">None yet.</td></tr>'}</tbody></table></div>
-    <p class="hint">Map tiles are cached as you view them, so areas you looked at before a trip keep working offline.</p></div>`;
+    <p class="hint">The USGS maps and county lines you view are kept on this PC, so areas you looked at before a trip keep working with no signal. Street (OpenStreetMap) and Esri's hi-res satellite are for use with signal only (their terms don't allow keeping them for offline use): with no signal the map shows USGS Topo instead.</p></div>`;
   paintSources();
   const fiRun=async()=>{ const q=$("#fiQ").value.trim(); if(!q) return; $("#fiMsg").textContent="Asking the FCC…"; $("#fiOut").innerHTML="";
     try{ const r=await api(`/api/fccid?q=${encodeURIComponent(q)}`), m=r.maker;

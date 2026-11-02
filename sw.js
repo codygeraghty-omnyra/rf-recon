@@ -1,18 +1,22 @@
 /* RF Recon (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "7267f080a9";
+const VERSION = "b4d3ce51e0";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glass.css", "theme/skins.js", "theme/look.js",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/sqljs/sql-wasm.js", "vendor/sqljs/sql-wasm.wasm",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js", "notes.js", "das.js"];
-const TILE_HOSTS = ["basemap.nationalmap.gov", "tile.openstreetmap.org"];
+// USGS tiles only: they're public domain. OpenStreetMap's tile policy says "Offline use is not permitted", so its tiles
+// go through the browser's own cache (their caching headers) and are never saved here; the app shows Topo with no signal.
+const TILE_HOSTS = ["basemap.nationalmap.gov"];
+const NOT_KEPT = ["tile.openstreetmap.org"];  // saved here before 2026-11-02: removed on the next update
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES.map(f => new Request(f, {cache: "reload"})))).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith("rfr-shell-") && k !== SHELL).map(k => caches.delete(k))))
-    .then(() => self.clients.claim()));
+    .then(() => caches.open(TILES)).then(async c => { for (const r of await c.keys()) if (NOT_KEPT.includes(new URL(r.url).hostname)) await c.delete(r); })
+    .catch(() => {}).then(() => self.clients.claim()));
 });
 
 async function cacheFirst(cacheName, req) {

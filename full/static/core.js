@@ -249,11 +249,15 @@ function pinIcon(){ return L.divIcon({className:"rf-pin", html:'<div class="pini
 
 /* ---------- map layers: backgrounds + overlays, kept across searches and visits ---------- */
 const USGS="USGS The National Map";
-const BASEMAPS={  // served through /tiles/<src>/ so viewed tiles are cached for offline use
-  "Street (OpenStreetMap)":{src:"osm", maxZoom:19, attribution:"© OpenStreetMap contributors"},
+// served through /tiles/<src>/: USGS tiles you view are kept for no signal. online:true maps are for use with signal only
+// (OpenStreetMap's tile policy and Esri's licence forbid keeping tiles for offline use): with no signal the map shows
+// NO_SIGNAL_BASE until signal returns, without changing the map you picked.
+const NO_SIGNAL_BASE="Topo (USGS)";
+const BASEMAPS={
+  "Street (OpenStreetMap)":{src:"osm", maxZoom:19, attribution:"© OpenStreetMap contributors", online:true},
   "Satellite (USGS)":{src:"usgs-imagery", maxNativeZoom:16, maxZoom:19, attribution:USGS},
   "Satellite + labels (USGS)":{src:"usgs-imagery-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
-  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:19, maxZoom:19, attribution:"Esri, Vantor, Earthstar Geographics"},
+  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:19, maxZoom:19, attribution:"Esri, Vantor, Earthstar Geographics", online:true},
   "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
   "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:19, attribution:USGS},
 };
@@ -296,7 +300,7 @@ function mapPrefs(){
 }
 function addMapLayers(map){
   const pref=mapPrefs(), bases={}, overs={};
-  for(const [name,{src,url,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(url||`/tiles/${src}/{z}/{x}/{y}.png`,opt);  // url: a map you imported
+  for(const [name,{src,url,online,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(url||`/tiles/${src}/{z}/{x}/{y}.png`,opt);  // url: a map you imported
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
   bases[pref.base].addTo(map);
   for(const n of pref.overlays) overs[n].addTo(map);
@@ -304,7 +308,26 @@ function addMapLayers(map){
   let unloading=false;  // map.remove() (leaving the tab) removes every layer; that isn't a choice to save
   map.on("unload",()=>{ unloading=true; });
   const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){} };
-  map.on("baselayerchange", e=>{ pref.base=e.name; save(); });
+  // no signal on a map that's for use with signal only: show NO_SIGNAL_BASE, check every 30 s, go back when it answers
+  let standIn=false, swapping=false, misses=0, timer=null;
+  const swap=name=>{ swapping=true; for(const n of [pref.base, NO_SIGNAL_BASE]) if(map.hasLayer(bases[n])) map.removeLayer(bases[n]); bases[name].addTo(map); swapping=false; };
+  const noSignal=()=>{ if(standIn || !BASEMAPS[pref.base]?.online || unloading) return; standIn=true; swap(NO_SIGNAL_BASE);
+    $("#status").textContent=`No signal: showing ${NO_SIGNAL_BASE}, kept on this device. ${pref.base} isn't kept for use with no signal (its terms), so it comes back when signal does.`;
+    timer=setInterval(check, 30000); };
+  const back=()=>{ if(!standIn) return; standIn=false; misses=0; clearInterval(timer); if(!unloading) swap(pref.base); };
+  const check=async()=>{ if(navigator.onLine===false) return; const z=Math.min(map.getZoom(),18), c=map.project(map.getCenter(),z).divideBy(256).floor();
+    const u=L.Util.template(bases[pref.base]._url, {x:c.x, y:c.y, z, s:"a", r:""});
+    try{ if((await fetch(u, {cache:"no-store", mode:u.startsWith("/")?"same-origin":"cors"})).ok) back(); }catch(e){} };
+  for(const [n,b] of Object.entries(bases)) if(BASEMAPS[n]?.online){
+    b.on("tileload", ()=>{ misses=0; });
+    b.on("tileerror", ()=>{ if(++misses>=4) noSignal(); }); }
+  const onOff=()=>{ if(navigator.onLine===false) noSignal(); else if(standIn) check(); };
+  addEventListener("offline", onOff); addEventListener("online", onOff);
+  map.on("unload", ()=>{ clearInterval(timer); removeEventListener("offline", onOff); removeEventListener("online", onOff); });
+  if(navigator.onLine===false) noSignal();
+  map.on("baselayerchange", e=>{ if(swapping) return;
+    if(standIn){ standIn=false; misses=0; clearInterval(timer); }  // a map picked by hand ends the stand-in
+    pref.base=e.name; save(); if(navigator.onLine===false && BASEMAPS[e.name]?.online) noSignal(); });
   map.on("overlayadd", e=>{ if(!pref.overlays.includes(e.name)) pref.overlays.push(e.name); save(); });
   map.on("overlayremove", e=>{ if(unloading) return; pref.overlays=pref.overlays.filter(n=>n!==e.name); save(); });
 }
