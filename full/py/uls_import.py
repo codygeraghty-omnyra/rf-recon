@@ -310,15 +310,22 @@ def load_zip(con, path, states, include_inactive, log):
     batch = 50000
 
     def bulk(sql, rows_iter):
+        # a commit per batch: the raw_* tables are scratch (emptied when an import starts), and one write lock held
+        # for a whole file left everyone else's saves (DAS jobs, notes) failing "database is locked" for minutes.
+        # The pause after each commit lets a waiting save in: without it the next batch takes the lock straight back
+        # and the other writers' retries rarely land (seen 11/2 on the server: broadcast, FAA, catalog all failed)
         n, buf = 0, []
         for row in rows_iter:
             buf.append(row)
             if len(buf) >= batch:
                 con.executemany(sql, buf)
+                con.commit()
+                time.sleep(0.25)
                 n += len(buf)
                 buf.clear()
         if buf:
             con.executemany(sql, buf)
+            con.commit()
             n += len(buf)
         return n
 

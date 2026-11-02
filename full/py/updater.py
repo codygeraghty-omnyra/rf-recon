@@ -502,6 +502,16 @@ class Updater:
                     self.status[sid]["message"] = "waiting for " + " or ".join(LINK_NAMES[k] for k in self.links())
             return
         due = [sid for sid, c in self.config().items() if c["enabled"] and self._due(sid, c)]
+        # the 24/7 server (RF_RECON_HEAVY_HOURS="2-5", its local time): the heavy rebuilds (FCC licences, carrier
+        # coverage) start only in that window, when no one is saving; the rest run whenever they're due
+        win = os.environ.get("RF_RECON_HEAVY_HOURS", "")
+        if re.fullmatch(r"\d{1,2}-\d{1,2}", win):
+            a, b = (int(x) for x in win.split("-"))
+            if not (a <= time.localtime().tm_hour < b):
+                for sid in [s for s in due if s.startswith("uls:") or s == "bdc"]:
+                    due.remove(sid)
+                    if self.status[sid].get("state") != "running":  # one already running (Run now) keeps its progress line
+                        self.status[sid]["message"] = f"due: runs in the night window ({a}:00 to {b}:00)"
         self.run_sources(due)
 
     def start(self, every_s=600):

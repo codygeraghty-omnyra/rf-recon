@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Recon release notes</title>
+<link rel="stylesheet" data-dash-font href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="theme/glass.css">
+<script src="theme/skins.js"></script>
+<script src="theme/look.js"></script>
+<script>
+// the main page's light / dark choice carries over (index.html keeps it as "theme")
+try { var t = localStorage.getItem("theme");
+  if (t === "light") DashSkin.set("day"); else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark()); } catch (e) {}
+</script>
+<style>
+/* the look of static/index.html: its glass panels, headings and tags */
+:root, :root[data-skin]{ --panel: var(--g-strong); --chip: var(--wash); --muted: var(--ink-2); --accent-ink: var(--on-accent);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace; }
+*{box-sizing:border-box}
+html{background:var(--bg);scroll-padding-top:110px}
+body{margin:0;background:transparent;color:var(--ink);font:14px/1.5 var(--font, system-ui,-apple-system,"Segoe UI",sans-serif)}
+a{color:var(--accent)}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:12px;z-index:1001;margin:12px 14px 0;padding:9px 12px;
+  border:1px solid var(--g-border);border-color:var(--g-edges,var(--g-border));border-radius:var(--radius);
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+header h1{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:700;letter-spacing:.01em;margin:0 6px 0 0}
+header h1::before{content:"";width:36px;height:36px;border-radius:12px;flex:none;background:var(--accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314100c' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='1.7' fill='%2314100c'/><path d='M8.6 8.6a4.8 4.8 0 0 0 0 6.8M15.4 8.6a4.8 4.8 0 0 1 0 6.8M5.7 5.7a8.9 8.9 0 0 0 0 12.6M18.3 5.7a8.9 8.9 0 0 1 0 12.6'/></svg>") center/20px no-repeat;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 18px -10px var(--accent)}
+.hbtn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;background:var(--pill);background-image:var(--c-fill);
+  box-shadow:var(--c-depth),inset 0 0 0 1px var(--line);color:var(--ink);font-size:13px;font-weight:550;text-decoration:none;transition:background .15s}
+.hbtn:hover{background-color:var(--wash-2)}
+.spacer{flex:1}
+main{max-width:980px;margin:0 auto;padding:14px 14px 60px}
+.panel{border:1px solid var(--g-border);border-color:var(--g-edges,var(--g-border));border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);
+  box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);padding:16px 18px;margin-bottom:14px}
+.intro p{margin:0 0 6px}
+.intro p:last-of-type{margin-bottom:0}
+h3{font-size:14.5px;letter-spacing:-.005em;color:var(--ink);font-weight:600;margin:0 0 8px}
+.hint{color:var(--muted);font-size:12px}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:var(--wash);box-shadow:inset 0 0 0 1px var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 11px;font-size:12.5px;background:var(--pill);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);text-decoration:none}
+.chip:hover{background:var(--wash-2)}
+.find{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+input{font:inherit;color:var(--ink);background:var(--wash);border:0;border-radius:12px;padding:8px 12px;box-shadow:inset 0 1px 3px rgba(0,0,0,.22),inset 0 0 0 1px var(--line);flex:1 1 260px;min-width:0}
+input:focus{outline:none;box-shadow:inset 0 0 0 1.5px var(--accent)}
+::placeholder{color:var(--ink-2);opacity:.7}
+button{font:inherit;font-size:13px;font-weight:600;color:var(--ink);border:0;border-radius:999px;padding:7px 15px;cursor:pointer;background:var(--pill);background-image:var(--c-fill);
+  box-shadow:var(--c-depth),inset 0 0 0 1px var(--line);transition:background .15s,box-shadow .15s,transform .15s}
+button:hover{background-color:var(--wash-2)}
+button:active{box-shadow:var(--c-press),inset 0 0 0 1px var(--line);transform:translateY(1px)}
+mark{background:color-mix(in srgb,var(--accent) 38%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+.day{padding:0}
+.day>summary{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;list-style:none}
+.day>summary::-webkit-details-marker{display:none}
+.day .sh{flex:1;min-width:0}
+.day h2{font-size:17px;font-weight:650;letter-spacing:-.01em;margin:0}
+.day .sum{display:block;color:var(--ink-2);font-size:13px;margin-top:2px}
+.day .tag.n{flex:none;font-variant-numeric:tabular-nums}
+.chev{flex:none;width:8px;height:8px;border:solid currentColor;border-width:0 1.8px 1.8px 0;transform:rotate(-45deg);transition:transform var(--t-move,.2s) var(--ease,ease);margin:0 4px}
+.day[open] .chev{transform:rotate(45deg)}
+.day .body{padding:2px 18px 14px;border-top:1px solid var(--grid,var(--line))}
+.grp{margin-top:12px}
+.gtag{display:inline-block;font-size:11.5px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;padding:2px 10px;border-radius:999px}
+.gtag.new{background:var(--good);color:#0b1a10}
+.gtag.improved{background:var(--accent-wash);box-shadow:inset 0 0 0 1px var(--accent)}
+.gtag.fixed{background:var(--serious);color:#1c0d05}
+.gtag.data{background:var(--wash-2);box-shadow:inset 0 0 0 1px var(--line)}
+.gtag.where-it-is{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2)}
+ul{margin:0;padding-left:20px}
+li{margin:5px 0;line-height:1.5}
+li b{font-weight:650}
+.none{text-align:center;color:var(--ink-2)}
+@media (max-width:600px){
+  html{scroll-padding-top:20px}
+  header{position:static;margin:8px 8px 0;padding:8px 10px}
+  header h1{font-size:16px}
+  main{padding:10px 8px 60px}
+  .panel{padding:12px}
+  .day>summary{padding:12px;flex-wrap:wrap}
+  .day .body{padding:2px 12px 12px}
+  button,.hbtn,input{min-height:44px}
+  .find input{flex-basis:100%}
+}
+@media print{
+  #backdrop,header .spacer,#lookSlot,.find{display:none}
+  html,body{background:#fff;color:#000}
+  header{position:static}
+  .day:not([open]) .body{display:block}
+}
+</style>
+</head>
+<body>
+<div id="backdrop" aria-hidden="true">
+  <div class="scene s-room">
+    <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="bd-sw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14110e"/><stop offset=".62" stop-color="#2b231b"/><stop offset=".64" stop-color="#3a2f24"/><stop offset="1" stop-color="#16120e"/></linearGradient>
+        <linearGradient id="bd-win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6dccb"/><stop offset="1" stop-color="#b9a68a"/></linearGradient>
+        <radialGradient id="bd-lamp"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffb066" stop-opacity="0"/></radialGradient>
+        <radialGradient id="bd-spill" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#8a6c4e" stop-opacity=".7"/><stop offset="1" stop-color="#8a6c4e" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="1600" height="1000" fill="url(#bd-sw)"/>
+      <g fill="url(#bd-win)" opacity=".62">
+        <rect x="170" y="70" width="150" height="540" rx="4"/><rect x="334" y="70" width="150" height="540" rx="4"/><rect x="498" y="70" width="150" height="540" rx="4"/><rect x="662" y="70" width="150" height="540" rx="4"/>
+      </g>
+      <g fill="#14110e" opacity=".55"><rect x="170" y="300" width="642" height="10"/><rect x="170" y="430" width="642" height="8"/></g>
+      <g fill="url(#bd-win)" opacity=".34"><rect x="1120" y="120" width="96" height="430" rx="4"/><rect x="1228" y="120" width="96" height="430" rx="4"/></g>
+      <ellipse cx="560" cy="820" rx="560" ry="150" fill="url(#bd-spill)"/>
+      <rect x="360" y="612" width="560" height="150" rx="48" fill="#0f0c0a" opacity=".86"/>
+      <rect x="400" y="560" width="480" height="90" rx="40" fill="#1a1511" opacity=".9"/>
+      <rect x="1010" y="680" width="380" height="30" rx="8" fill="#0d0b09" opacity=".9"/>
+      <rect x="1040" y="708" width="16" height="140" fill="#0d0b09"/><rect x="1344" y="708" width="16" height="140" fill="#0d0b09"/>
+      <circle cx="1440" cy="330" r="200" fill="url(#bd-lamp)" opacity=".55"/>
+      <circle cx="1440" cy="330" r="46" fill="#ffe2b4" opacity=".75"/>
+      <ellipse cx="1000" cy="560" rx="70" ry="130" fill="#141a12" opacity=".8"/>
+    </svg>
+    <div class="wisps"></div>
+  </div>
+  <div class="scene s-dusk">
+    <svg viewBox="0 0 1600 440" preserveAspectRatio="none"><path d="M0 230 C 180 170 300 200 420 160 S 700 120 860 180 S 1160 110 1320 170 S 1520 150 1600 180 V440 H0Z" fill="#1d1916" opacity=".9"/><path d="M0 320 C 240 270 420 300 640 260 S 1040 300 1260 250 S 1500 280 1600 270 V440 H0Z" fill="#110f0d"/></svg>
+  </div>
+  <div class="scene s-liquid"><div class="blobs"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="scene s-day"><div class="blobs"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="photo"></div><div class="shade"></div>
+</div>
+<header>
+  <h1>RF Recon release notes</h1>
+  <span class="spacer"></span>
+  <a class="hbtn" href="../">&larr; Back to RF Recon</a>
+  <span id="lookSlot"></span>
+</header>
+<main>
+  <section class="panel intro">
+    <h3>What RF Recon is</h3>
+    <p>RF Recon (beta) shows the radio picture of a place before you get there: every FCC-licensed frequency, tower and technology around a pin, predicted coverage by band, your own field captures, and the signals nothing explains.</p><p>It runs in-building public safety and cellular DAS jobs from the pre-survey to design, grid test, PIM and the AHJ report.</p><p>It comes as the PC app, a full web version, RF Recon lite for phones with no signal, and an always-on online version for invited people.</p>
+    <div class="find">
+      <input id="q" type="search" placeholder="Search these notes: ATAK, grid test, web..." aria-label="Search the release notes" autocomplete="off">
+      <button id="openAll" type="button">Open all</button>
+      <button id="closeAll" type="button">Close all</button>
+    </div>
+    <div class="hint" id="count" style="margin-top:8px">158 changes, October 27 to November 2, 2026. Newest first.</div>
+    <h3 style="margin-top:14px">Contents</h3>
+    <nav class="chips" aria-label="Days"><a class="chip" href="#d-2026-11-02">November 2, 2026</a><a class="chip" href="#d-2026-10-31">October 31, 2026</a><a class="chip" href="#d-2026-10-29">October 29, 2026</a><a class="chip" href="#d-2026-10-28">October 28, 2026</a><a class="chip" href="#d-2026-10-27">October 27, 2026</a></nav>
+  </section>
+  <details class="panel day" id="d-2026-11-02" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, and your keys leave the database.</span></span><span class="tag n">30 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>Online 24/7.</b> RF Recon now runs around the clock for invited people, at its own web address. Each person has their own login with a role: View (look, search, leave notes), Full (also DAS jobs, missions and notes) or Admin (also keys, updates and people). Eight wrong passwords lock a name for 15 minutes.</li>
+<li><b>Install it as an app.</b> RF Recon installs as an app on a PC (the install icon in Chrome or Edge&#x27;s address bar) or on a phone (Add to Home Screen).</li>
+<li><b>DAS Screening step.</b> A new step after Grid test judges each Grid test reading with its instrument&#x27;s published accuracy: likely pass, too close to call or likely fail. It lists market instruments only: PCTEL IBflex, Anritsu S412E, Epiq PRiSM and Nextivity COMPASS XR. Readings marked not calibrated are listed but not judged. The Grid test score and the Report don&#x27;t change.</li>
+<li><b>DAS cellular side.</b> Cellular coverage targets with presets (Common, Cooper, Providence normal and failover, SOLiD, MCF). The Grid test&#x27;s Show picker colours one carrier, and its C-band or CBRS layer, by its best cell. Cellular results never count toward the public safety result.</li>
+<li><b>COMPASS XR importer.</b> Reads a Nextivity COMPASS XR Full Signal Report into the square you pick. Carrier names fill in from PLMN codes.</li>
+<li><b>Carrier pre-survey.</b> Cellular carriers at the building: FCC Broadband Map coverage, cell sites within 1 mile, a rooftop donor reading against the target, an approvals tracker and a consent letter per carrier (47 CFR 20.21(c)). The report gains a Commercial cellular coverage section.</li>
+<li><b>Cellular link budget.</b> Design adds LTE and 5G bands to the link budget, run in RSRP, with the consumer booster power caps.</li>
+<li><b>DAS example jobs.</b> Add example jobs makes two worked jobs: a public safety ERCES office at Acceptance and a carrier cellular warehouse at Design. On an example job, each step says what it&#x27;s for, what to fill in and what to look at. Buildings, people and companies are fictional. The board also explains how a DAS job moves.</li>
+<li><b>Update all.</b> Data &amp; updates gets Update all: every source checks now, selected or not, and each downloads only what&#x27;s newer. Sources whose key isn&#x27;t saved are skipped and named.</li>
+<li><b>DAS marks.</b> A DAS tag marks every source, key and setting in Data &amp; updates that the DAS tab uses. DAS › Data &amp; links gets an auto-update switch and Update all DAS data now.</li>
+<li><b>Ways in.</b> Data &amp; updates lists every way to reach RF Recon or its data, and which ones work with Cody&#x27;s PC off. Used live as you work lists the services the maps and searches call, with their terms.</li>
+<li><b>Full-copy install kit.</b> A second install kit carries the whole-US FCC data, carrier coverage, and the maps and terrain kept for no signal, so a new PC opens with everything and downloads nothing. It leaves out keys, logins, anyone&#x27;s own work, crowd data, the Signal ID Wiki catalog and Artemis.</li>
+<li><b>More looks.</b> Display settings add nine colour skins (Ember, Moss, Tide, Midnight, Rosé, Graphite, Sand, Mint, Lilac), seven textures, five kinds of light and shadow, and six more accents.</li>
+</ul></section>
+<section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
+<li><b>Every channel counts.</b> A Grid test square keeps every reading, one per channel or system. The worst calibrated reading decides, so a square passes only when every channel does. Imports keep channel, position and cellular fields and merge by channel. All readings CSV exports and imports back.</li>
+<li><b>Floor plans.</b> The plan keeps its own shape. Place grid puts, sizes and turns the grid on it, and the square size comes from the plan&#x27;s width.</li>
+<li><b>Too close to call.</b> The example job&#x27;s square 3-5 now reads 0.5 dB over the line, so Screening shows it as too close to call.</li>
+<li><b>Consumer booster bands.</b> The carrier pre-survey warns about bands a consumer booster may not carry: 600 MHz, WCS, 2.5 GHz, CBRS, 3.45 GHz / C-band and AWS-4, with notes per band. It also says how each carrier takes consent, and the consent letter asks what T-Mobile&#x27;s form asks.</li>
+<li><b>Cooper preset.</b> Matches the spec&#x27;s Table 2 in full: T-Mobile C-band at -100 dBm, LTE 1900 and 2100 per carrier, no SINR target. Each band must pass on its own.</li>
+<li><b>Maps with no signal.</b> Only the USGS maps and county lines are kept for use with no signal. Street and Esri satellite maps need signal, per their terms. With no signal the map switches to USGS Topo and goes back to your pick when signal returns. On the PC, online, web and lite.</li>
+<li><b>Keys sealed.</b> API keys are no longer stored in any database file. On the PC they&#x27;re sealed to your Windows account. On first start, older keys move over and the old copy is wiped from the file.</li>
+<li><b>Saves during a data refresh.</b> Saves no longer fail for minutes while the FCC data refreshes. If one still can&#x27;t go through, RF Recon says so plainly. On the online server, heavy data refreshes run at night, 2 to 5 AM Eastern.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>Second request failed.</b> A second request in a row, such as a second DAS delete, could fail with error 501. Proven fixed on live.</li>
+<li><b>Fast DAS switching.</b> Switching DAS screens fast drew onto the wrong screen and threw an error. Proven fixed on live.</li>
+<li><b>Web Design tab.</b> The web version&#x27;s Design tab now shows the floor plan, and plans show in its Grid test too. Proven fixed on live.</li>
+<li><b>DAQ 3.4 pass line.</b> Now SINR 18 dB / BER 2%. It was 19 dB, a figure from another radio type&#x27;s row in TSB-88. Requirements shows the job&#x27;s own DAQ equivalent.</li>
+<li><b>Cellular readings.</b> LTE and 5G readings (RSRP, RSRQ) were scored as public safety downlink levels. Now they&#x27;re kept and shown but never scored against the public safety rules.</li>
+<li><b>Web source tables.</b> The web version&#x27;s data source tables no longer sit on Loading.</li>
+<li><b>DAS screens left while loading.</b> DAS Data &amp; links and Plans no longer throw an error when left or redrawn while loading.</li>
+</ul></section>
+<section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
+<li><b>DAS cellular research.</b> Cellular presets, consent steps and the booster band rules come from new research, checked against the current FCC rule (47 CFR 20.21(e)(3), unchanged since 2018) and the FCC&#x27;s own grant list.</li>
+<li><b>Esri imagery credit.</b> Esri&#x27;s satellite imagery is now credited to Vantor.</li>
+</ul></section>
+<section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
+<li><b>PC app and online server.</b> Both run today&#x27;s version. They are separate copies: a DAS job made on one isn&#x27;t on the other.</li>
+<li><b>Web version.</b> Has the DAS changes, the example jobs and the fixes.</li>
+<li><b>Install kits.</b> Installed copies offer the update in Data &amp; updates.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-10-31" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 31, 2026</h2><span class="sum">The web version becomes the PC app in a browser and fits phones; notes, booster grants and calibrated grid scoring arrive.</span></span><span class="tag n">24 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>Web version fits phones.</b> The full app and the web version fit a phone, upright or on its side: one column, the header scrolls away, the tab bar sticks to the top, tabs scroll sideways and the filters start folded.</li>
+<li><b>RF Recon lite (beta).</b> The phone app is renamed RF Recon lite (beta).</li>
+<li><b>The web version is the PC app.</b> The web version runs the PC app&#x27;s own engine in the browser. Mission (captures, field log, replay, when heard, bearings), DAS jobs and their files, Cell sites, labels, talk groups, your own layers and FCC ID look-ups now work there, kept in that browser.</li>
+<li><b>Web version: crowd data and more.</b> WiGLE and OpenCelliD work with your own keys; LoRaWAN, WSPR, PSKReporter and SatNOGS work without. The Packs tab carries the PC&#x27;s Data screen and offers newer packs as they come out. Push to ATAK hands ATAK the package.</li>
+<li><b>Web version: Signal ID Wiki matching.</b> Spectrum&#x27;s known signals, marker look-ups, the unlisted check and the field log match signals as on the PC.</li>
+<li><b>Note button.</b> On every screen: voice, screen and voice with a pointer, photo and voice, photo and words, or words. On the PC, notes save to RF Recon/notes. People on the remote link can leave one. The web version and lite keep notes in the browser.</li>
+<li><b>Send email now.</b> Share with Cody sends the note straight to Cody as a numbered RF Recon report with a short topic line and the files attached. Each person&#x27;s send code comes in their link.</li>
+<li><b>Calibrated readings only.</b> The DAS Grid test scores only readings taken with a calibrated instrument. Each reading names what took it. SDR and phone app readings count as pre-survey. The AHJ report lists each reading&#x27;s instrument and what wasn&#x27;t scored.</li>
+<li><b>Boosters in the pre-survey.</b> The DAS pre-survey lists the boosters granted for the chosen channels, all bands and band by band, newest first, filtered by class (Part 90 by default) and power. FCC ID look-ups show each grant&#x27;s bands, class and power range, offline too.</li>
+<li><b>Import the FCC&#x27;s maker list.</b> The FCC ID panel says which maker list is kept and imports the FCC&#x27;s own download.</li>
+</ul></section>
+<section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
+<li><b>Maker list for everyone.</b> The FCC&#x27;s current maker list reaches every copy from the RF Recon site, so only one person ever downloads it. The web version hides the import for that reason.</li>
+<li><b>Send code prompt.</b> Says what a code looks like, keeps the box after a wrong code, sends on the Go key, and offers No code? Share another way.</li>
+<li><b>Report emails notify.</b> Note emails now come from a no-reply address, so Gmail notifies Cody.</li>
+<li><b>Help.</b> Covers Share with Cody and Send email now.</li>
+<li><b>Not-running page.</b> When RF Recon isn&#x27;t running, the page points to START HERE - RF Recon (beta) in the Drive folder.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>OpenCelliD tiles.</b> OpenCelliD refused every request because 2 km tiles sat just over its size limit. Tiles are now 1.9 km. PC and web.</li>
+<li><b>Web Packs error.</b> A Packs screen drawn after you&#x27;d already left it no longer throws an error.</li>
+<li><b>Web maker names.</b> An FCC ID look-up made before a state&#x27;s pack arrived named no maker, not even Apple. Makers now always show, and browsers that kept the 2021 list move to the current one.</li>
+<li><b>Grant imports.</b> Lines from several searches now add up instead of replacing each other, a device keeps every class it holds, a one-record file reads, and the FCC&#x27;s files with a bare &amp; read.</li>
+</ul></section>
+<section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
+<li><b>FCC grantee list.</b> The FCC&#x27;s own current list: 77,906 maker codes, 27,993 more than the 2021 open data. Codes it leaves out are kept for older devices.</li>
+<li><b>DAS and booster makers&#x27; grants.</b> Each grant line&#x27;s frequency range for 16 makers&#x27; 20 codes, including ADRF, Fiplex, Comba, SOLiD, CommScope, Corning, Nextivity, SureCall and weBoost: 1,244 devices and 5,178 lines.</li>
+<li><b>Every booster&#x27;s class and power.</b> 2,024 signal boosters from 127 makers by class, and the power range of all 472 Part 90 boosters.</li>
+<li><b>State packs.</b> Gain 911 centres and microwave links. Each state gets a history file of expired and removed licences, fetched when that layer is on.</li>
+<li><b>Copies on the RF Recon site.</b> A facts-only Signal ID Wiki copy (frequencies, modes, bandwidths, where heard, each linked to its page) and a SatNOGS copy (CC BY-SA 4.0).</li>
+</ul></section>
+<section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
+<li><b>Still PC-only.</b> Live ships, Artemis, FCC grant lists and live push to ATAK over your network.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-10-29" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 29, 2026</h2><span class="sum">DAS design and link budgets, mission replay and bearings, state packs on the RF Recon site, and DAS on the phone.</span></span><span class="tag n">18 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>DAS Design.</b> A link budget per band (downlink, uplink, code and 47 CFR 90.219 checks), antennas and walls on the plans with predicted coverage from measured wall losses, and battery sizing. The Report adds a design submittal.</li>
+<li><b>Mission replay.</b> Replay a mission&#x27;s readings on a map with play, speed and how far back to show. Quiet stretches are skipped.</li>
+<li><b>When heard.</b> An hour-by-weekday wheel shows when signals are heard.</li>
+<li><b>Lines of bearing.</b> Bearings from the field log or a capture&#x27;s bearing column draw lines and show where they cross, with the miss distance. The phone&#x27;s field log takes a bearing too.</li>
+<li><b>Artemis waterfalls and audio.</b> Each Signal ID Wiki match shows its waterfall and plays its audio. The Artemis download is off by default and stays on the PC.</li>
+<li><b>State packs.</b> One pack per state on the RF Recon site. The web version loads the one around a search by itself, and the phone app offers it. Both list every state.</li>
+<li><b>DAS on the phone.</b> Grid tests square by square with no signal, using the PC&#x27;s AHJ profiles and pass rules, exported as a CSV the PC&#x27;s Grid test reads. Also a PIM calculator and the code numbers.</li>
+<li><b>Phone display settings.</b> The phone app gets the same display settings as the PC: Match system, skins, accent, backdrop photo, glass, reduce transparency and motion.</li>
+</ul></section>
+<section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
+<li><b>Link budget defaults.</b> Each band starts from cited defaults (portable power, antenna and body loss, site sensitivity, fade margin and more). New checks: the uplink level window at the site, uplink over sensitivity, server ERP, donor port power, uplink gain cap, booster noise at the site and an isolation warning. A cleared box goes back to its default.</li>
+<li><b>Over-driven booster.</b> The link budget says how far over its per-channel maximum an over-driven booster is.</li>
+<li><b>DAS Data &amp; links.</b> Now covers design references, AHJ guidelines with their limits, PIM and parts, FCC ID and Broadband Map look-ups, and four new research sets.</li>
+<li><b>Critical areas on import.</b> A critical-area column in a grid import marks those squares critical.</li>
+<li><b>Kit update notes.</b> Read cleanly: cut at a comma, never mid-word.</li>
+<li><b>Area report.</b> The coverage note now says it uses terrain, as the map has since October 28.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>Kit updates not seen.</b> Installed copies couldn&#x27;t see a newer kit. Now they can.</li>
+<li><b>Reload after an update.</b> The page waits for the copy to report the new version before it reloads, and the version card retries once after a restart.</li>
+<li><b>State packs.</b> A site with only a latitude no longer fails a state&#x27;s pack, and one failed pack no longer blocks the next.</li>
+</ul></section>
+<section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
+<li><b>Field research.</b> Cited research sets for PIM, RF parts and suppliers, building plans and wall materials, and link budgets, opened from DAS Data &amp; links.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-10-28" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 28, 2026</h2><span class="sum">The web version, ATAK, the DAS jobs tab, the install kit and a long list of new layers and sources.</span></span><span class="tag n">45 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>Full web version.</b> Every PC tab runs in a browser from a field pack, with map tiles fetched from their sources. It keeps what it fetched for use with no signal.</li>
+<li><b>ATAK export.</b> A TAK data package of what&#x27;s on screen: a marker per site coloured by signal type, the search pin and ring, and the coverage heatmap. From the PC app, the web version and the phone app (Send to ATAK / iTAK).</li>
+<li><b>Push to ATAK.</b> Sends live markers to every TAK app on the PC&#x27;s networks, and to a TAK Server if one is set. On a phone or the web version, the share sheet hands ATAK the package.</li>
+<li><b>Map styles.</b> Standard, ATAK style (2525-style frames, imagery, MGRS readout) or your own map (an ATAK or WinTAK map source, a tile address, MBTiles). RF Recon&#x27;s maps export as ATAK map sources.</li>
+<li><b>DAS jobs tab.</b> In-building public safety radio (ERCES / BDA / DAS) from lead to annual retest: a board of jobs by stage, contacts, compliance dates and an AHJ profile per job, with links to the DAS research.</li>
+<li><b>DAS pre-survey.</b> From the FCC data: the public safety systems around the building, downlink and uplink channels, ESMR, Band 14 and simulcast flags, the strongest sites, levels outside and inside, the bands a booster must pass, a channel plan and consent letters (47 CFR 90.219).</li>
+<li><b>DAS grid test and AHJ report.</b> A grid per floor over the floor plan, readings typed or imported from any tool, pass or fail by the AHJ profile, cell-size warnings and an acceptance baseline for the annual retest. The AHJ report prints the summary, each floor&#x27;s plan and readings, the tester and instruments. Files go to a folder per job in Drive.</li>
+<li><b>PIM and Parts tabs.</b> Plus DAS Plans, Materials and PIM sections. PDF plan sheets load as floor plans, with a wall loss model.</li>
+<li><b>Emitter details.</b> Click any emitter for its coverage (with the antenna pattern and hills) and what it&#x27;s networked with: base stations and mobiles, channel pairs, simulcast, the tower, microwave links and talk groups.</li>
+<li><b>Cell sites tab.</b> Crowd and survey cells decoded to global cell IDs, grouped into sites and matched to FCC towers, with estimated sector directions.</li>
+<li><b>Carrier coverage.</b> Each carrier&#x27;s modelled 3G, 4G and 5G coverage with signal level, from the FCC Broadband Map, for chosen states: a heatmap by carrier and technology, and the carriers at the pin in Cell sites.</li>
+<li><b>Search everything.</b> One box over everything (the Search tab, or Ctrl+K), grouped and nearest first. It reads &#x27;Charlotte fire&#x27; as town plus kind and shows one row per licensee. DAS Find searches every field in every job.</li>
+<li><b>Pin lock.</b> Clicks select dots instead of moving the pin. A clicked dot lights up in the list and table and opens On this spot under the map.</li>
+<li><b>Measured heatmap.</b> By survey file and by signal.</li>
+<li><b>New map layers.</b> Live ships (AIS), 911 call centres (the FCC&#x27;s PSAP registry) and microwave backhaul links (the FCC&#x27;s path records).</li>
+<li><b>FCC ID look-up.</b> The FCC&#x27;s equipment authorization records by grantee code or FCC ID, with the maker behind any FCC ID, also offline.</li>
+<li><b>Install kit.</b> RF Recon for another PC, with its own Python. Its welcome screen picks states and downloads the FCC data. It finds a free port and installs newer kits from inside the app.</li>
+<li><b>Remote access.</b> A signed-in, view-only way into the PC version, with people managed in Data &amp; updates. Built and kept switched off.</li>
+<li><b>Display settings.</b> A settings sheet with skin cards, accent, backdrop photo, glass, reduce transparency, motion and data downloads.</li>
+<li><b>Back and Close buttons.</b> Beside the Look button, since RF Recon&#x27;s window has no browser back button.</li>
+<li><b>Your API keys.</b> A row per service: what it unlocks, saved or not, last fetch, where to get a key, and remove.</li>
+<li><b>Packs of several areas.</b> One field pack can hold several states and circles.</li>
+</ul></section>
+<section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
+<li><b>Site profile.</b> Settings and markings like the other tabs, and a chart of where sites sit around the pin by direction and distance.</li>
+<li><b>Data &amp; updates.</b> Update over All, Wi-Fi, Ethernet or cellular in one place, why each source isn&#x27;t downloading, and the key, cost and terms of each source.</li>
+<li><b>Heatmaps.</b> Predicted heatmaps use terrain, and AM and HF are left out of predictions. With no pin, a county heatmap covers the county. An empty heatmap says why.</li>
+<li><b>Merged emitters.</b> The same emitter from several sources shows once, with the most trusted source leading.</li>
+<li><b>Map filters fold away.</b> Collapse hides them, and the header says how many are on.</li>
+<li><b>Map zoom.</b> - and + buttons and a mouse-wheel zoom switch, side by side.</li>
+<li><b>Look.</b> Depth and beveled edges on panels and buttons, smoother motion, and Match system (light by day, dark at night) as the default skin.</li>
+<li><b>Opens from anywhere.</b> Opening the app&#x27;s page from the folder goes to the running app. The server can start with Windows. The phone app on a computer points to the full app.</li>
+<li><b>Table downloads.</b> Display settings name each table&#x27;s CSV by its heading.</li>
+<li><b>Carrier coverage downloads.</b> A download must be whole or it&#x27;s tried again. The next run fetches only the files that failed.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>Map clicks.</b> Clicks now reach the dots on the map, also through a locked pin.</li>
+<li><b>Settings stuck open.</b> The Look panel and display settings close when you pick an option or press outside them.</li>
+<li><b>Capture import.</b> The summary survives the search that follows, and leaving the tab mid-import is safe.</li>
+<li><b>Terminal pop-ups.</b> No more Windows Terminal windows popping up from the network check.</li>
+<li><b>Tab bar.</b> No longer covers the toolbar under it.</li>
+<li><b>Licensee categories.</b> Match whole words: Firebird isn&#x27;t fire, Marshall isn&#x27;t police.</li>
+<li><b>State-limited imports.</b> Keep microwave receive ends filed with no state. 911 centres wait for the town list. The welcome screen retries only what failed.</li>
+<li><b>Web version first run.</b> The web version no longer shows the PC&#x27;s first-run screen.</li>
+</ul></section>
+<section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
+<li><b>Open sources, no key.</b> The Things Network LoRaWAN gateways, SatNOGS ground stations, WSPR and PSKReporter.</li>
+<li><b>FCC Broadband Map.</b> Carrier coverage per state, with a free FCC key.</li>
+<li><b>FCC equipment grantee codes.</b> FCC open data, no key: the maker behind any FCC ID.</li>
+<li><b>Artemis.</b> The Artemis signal database: Signal ID Wiki signals with waterfalls and audio.</li>
+<li><b>Building outlines and terrain.</b> OpenStreetMap building outlines and public terrain tiles, for DAS and coverage.</li>
+</ul></section>
+<section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
+<li><b>Web version.</b> Coverage and network work there. Cell sites, carrier coverage and DAS jobs stay on the PC for now.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-10-27" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 27, 2026</h2><span class="sum">RF Recon (beta) arrives: the PC app, map layers, the Area report, the spectrum view, broadcast, NOAA and FAA layers, and the first phone app.</span></span><span class="tag n">41 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>RF Recon (beta).</b> The first version: FCC licences and towers around a pin, with Map, Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, Mission and Data &amp; updates tabs, in its own window on the PC.</li>
+<li><b>Area report.</b> Everything licensed around a pin: a one-sentence summary that follows the filters, tiles you can drill into, a bands table, predicted coverage per band, technologies and every licensed frequency. It prints.</li>
+<li><b>Unlisted signals.</b> Every capture and crowd point is checked against FCC licences on that frequency within 40 miles and against known unlicensed uses. What&#x27;s left is Unlisted, sorted first and drawn in red.</li>
+<li><b>Map layers.</b> Street, USGS satellite, topo and terrain relief, Esri hi-res satellite, county and state lines, and live NEXRAD radar. Your choice is remembered.</li>
+<li><b>Address search.</b> The pin box takes addresses, places and counties, with suggestions as you type. Towns and counties work offline.</li>
+<li><b>Nationwide search.</b> Licence search anywhere by call sign, licensee, service or frequency, with FCC search fields: presets, radio service codes, technology, emission, and grant and expiry dates.</li>
+<li><b>Links to a view.</b> The tab, pin, radius, county and filters live in the address, so a reload or a shared link restores the view.</li>
+<li><b>Spectrum view.</b> Exact frequencies down to kHz with channel widths, zoom and pan, a band-plan strip, a log axis for wide ranges, and markers with deltas.</li>
+<li><b>Signal ID Wiki.</b> What a signal could be, in every detail window, the Area report&#x27;s unlisted findings, the field log and the Spectrum tab. Kept on the PC for offline look-ups.</li>
+<li><b>Help.</b> The ? button or F1: 16 sections and a search box. It opens on the current tab&#x27;s section.</li>
+<li><b>Broadcast and NOAA layers.</b> AM, FM and TV stations, and NOAA Weather Radio transmitters. A county search returns the transmitters that warn that county.</li>
+<li><b>FAA aviation layer.</b> Every assigned aviation frequency with its facility and use, plus navaids and ILS.</li>
+<li><b>Compare two surveys.</b> Pick a baseline mission and a dB threshold to see what&#x27;s new, gone and changed.</li>
+<li><b>RadioReference links.</b> Every licence links to its RadioReference call-sign and state pages.</li>
+<li><b>Glass look.</b> Smoke, Haze, Dusk, Liquid and Daylight skins, four glass densities and one Look button for skin, glass and motion.</li>
+<li><b>Phone app and field packs.</b> An offline phone app with map, list, area report and a field log over one area&#x27;s data. Field packs are made from Data &amp; updates. The field log exports a CSV the PC imports.</li>
+<li><b>Backups.</b> Your own work (never API keys) is backed up every 6 hours.</li>
+</ul></section>
+<section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
+<li><b>Markings.</b> Dashboard charts get axes, medians and dated ticks. The map gets a scale bar, labelled distance rings and a cursor readout with distance and bearing from the pin. Agencies sort and filter, with Band and Nearest columns.</li>
+<li><b>Analyzer.</b> Sort order, rows per page, a column chooser, a row-colour legend, and Alt+click to filter a cell in or out.</li>
+<li><b>Topology.</b> The plain mouse wheel scrolls the page; Ctrl+wheel or pinch zooms. Zoom buttons, find a node, layouts, full screen and a legend.</li>
+<li><b>Data freshness.</b> Every source shows how old its data is and when the next check comes.</li>
+<li><b>Smaller updates.</b> FCC licence and tower updates download only files newer than the saved copy.</li>
+<li><b>Phone tether.</b> A phone tethered over USB counts as cellular, so Wi-Fi-only updates wait.</li>
+<li><b>Filtered towers.</b> With a frequency or text filter on, towers show only when they carry a matching licence.</li>
+<li><b>Connection status.</b> Recovers by itself after a brief dropout.</li>
+<li><b>Tap targets.</b> Controls are at least 44 pixels on phones.</li>
+<li><b>Bands.</b> 54-72 MHz is VHF TV low and 76-108 MHz is FM broadcast.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>Startup crash.</b> RF Recon no longer crashes on start on some Windows setups.</li>
+<li><b>Re-imports.</b> Every FCC import after the first failed, including automatic updates. Now they work.</li>
+<li><b>Tower owners.</b> Owner names come from the right field, without the FCC ID glued on.</li>
+<li><b>County search for towers.</b> Towers now carry their county, so county searches find them.</li>
+<li><b>FCC downloads.</b> When the FCC refuses the app&#x27;s downloader, it uses Windows&#x27; own curl. Automatic updates no longer get stuck after the first import.</li>
+<li><b>Search.</b> A street address like 7400 22nd St no longer reads as coordinates, and a slow search can&#x27;t overwrite a newer one.</li>
+<li><b>Stale app files.</b> After an update the browser no longer runs old code.</li>
+<li><b>Missions.</b> Saving a mission deleted in another window says so instead of failing.</li>
+<li><b>Phone app.</b> Search suggestions close when the pin moves.</li>
+</ul></section>
+<section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
+<li><b>Census county codes.</b> Give every tower its county.</li>
+<li><b>FCC Media Bureau and National Weather Service.</b> 59,150 AM, FM and TV transmitters, and 1,035 NOAA Weather Radio transmitters with the counties each warns.</li>
+<li><b>FAA aviation data.</b> The FAA&#x27;s 28-day aviation frequency data, checked weekly.</li>
+<li><b>Signal ID Wiki catalog.</b> 599 signals, refreshed monthly.</li>
+<li><b>Street addresses.</b> Photon (OpenStreetMap), US only.</li>
+</ul></section></div></details>
+  <section class="panel none" id="none" hidden>No line matches. Try fewer words.</section>
+</main>
+<script>
+(function () {
+  DashLook.mount(document.getElementById("lookSlot"), { nav: false });
+  var q = document.getElementById("q"), count = document.getElementById("count"), none = document.getElementById("none");
+  var days = Array.prototype.slice.call(document.querySelectorAll(".day"));
+  var items = Array.prototype.slice.call(document.querySelectorAll(".day li"));
+  var TOTAL = items.length, BASE = count.textContent;
+  items.forEach(function (li) { li._h = li.innerHTML; li._t = li.textContent.toLowerCase(); });
+  function mark(li, terms) {
+    var w = document.createTreeWalker(li, NodeFilter.SHOW_TEXT), nodes = [], n;
+    while ((n = w.nextNode())) nodes.push(n);
+    var re = new RegExp("(" + terms.map(function (t) { return t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|") + ")", "gi");
+    nodes.forEach(function (t) {
+      if (!re.test(t.nodeValue)) return; re.lastIndex = 0;
+      var span = document.createElement("span");
+      span.innerHTML = t.nodeValue.replace(/[&<>]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;"}[c]; }).replace(re, "<mark>$1</mark>");
+      t.parentNode.replaceChild(span, t);
+    });
+  }
+  function run() {
+    var s = q.value.trim().toLowerCase(), terms = s ? s.split(/\s+/) : [], shown = 0;
+    items.forEach(function (li) {
+      li.innerHTML = li._h;
+      var hit = terms.every(function (t) { return li._t.indexOf(t) >= 0; });
+      li.hidden = !hit;
+      if (hit) { shown++; if (terms.length) mark(li, terms); }
+    });
+    document.querySelectorAll(".grp").forEach(function (g) { g.hidden = !g.querySelector("li:not([hidden])"); });
+    days.forEach(function (d) {
+      var any = !!d.querySelector("li:not([hidden])");
+      d.hidden = !any;
+      if (terms.length) d.open = any; else d.open = d.dataset.default === "1";
+    });
+    none.hidden = shown > 0;
+    count.textContent = terms.length ? shown + " of " + TOTAL + " lines match." : BASE;
+  }
+  q.addEventListener("input", run);
+  q.addEventListener("keydown", function (e) { if (e.key === "Escape") { q.value = ""; run(); } });
+  document.getElementById("openAll").onclick = function () { days.forEach(function (d) { if (!d.hidden) d.open = true; }); };
+  document.getElementById("closeAll").onclick = function () { days.forEach(function (d) { d.open = false; }); };
+  function toHash() { var d = location.hash && document.getElementById(location.hash.slice(1)); if (d && d.tagName === "DETAILS") d.open = true; }
+  window.addEventListener("hashchange", toHash); toHash();
+})();
+</script>
+</body>
+</html>

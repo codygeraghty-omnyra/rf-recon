@@ -132,7 +132,8 @@ const HELP = [
 
 function openHelp(section) {
   $("#dlgTitle").textContent = "Help: RF Recon (beta)";
-  $("#dlgBody").innerHTML = `<input id="helpQ" placeholder="Search help…" style="width:100%;margin-bottom:8px">
+  $("#dlgBody").innerHTML = `<p style="margin:0 0 8px"><a href="static/release-notes.html" target="_blank" rel="noopener"><b>What's new:</b> release notes, every change since RF Recon began</a></p>
+    <input id="helpQ" placeholder="Search help…" style="width:100%;margin-bottom:8px">
     <div class="chips" style="margin-bottom:8px">${HELP.map(([id, t]) => `<span class="chip" data-hjump="${id}">${t}</span>`).join("")}</div>
     <div id="helpBody">${HELP.map(([id, t, body]) => `<div class="sec" id="help-${id}" data-text="${esc((t + " " + body.replace(/<[^>]+>/g, " ")).toLowerCase())}"><h3>${t}</h3>${body}</div>`).join("")}</div>`;
   $("#dlgBody").querySelectorAll("[data-hjump]").forEach(c => c.onclick = () => $("#help-" + c.dataset.hjump)?.scrollIntoView({behavior: "smooth", block: "start"}));

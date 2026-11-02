@@ -10,6 +10,11 @@ person or giving them a new password ends their sessions at once.
 Remote people can't reach anything that writes (every POST) except leaving a note for Cody (notes.py: their own,
 size-capped), nor the keys and update settings, TAK settings, the field-pack folders, or the Signal ID Wiki catalog.
 Ships come only from what is already streaming: their looks never start the stream on Cody's aisstream key.
+
+On the 24/7 server (RF_RECON_PUBLIC_URL set, 11/2) this door is the only way in: the server's own https front forwards
+to it, there is no Tailscale, and each login has a role. View: as above. Full: everything except the BLOCKED parts
+(keys, updates, the kit, people). Admin (Cody): everything. The first admin is made on the server itself:
+  python3 remote.py add "Cody" --role admin      (prints the password once)
 """
 import base64
 import hashlib
@@ -33,6 +38,9 @@ BLOCKED = ("/api/settings", "/api/update/", "/api/tak/", "/api/fieldpack", "/api
 EMPTY = {"/api/sigwiki/match": {"candidates": []}, "/api/sigwiki/range": {"signals": []}}  # answered empty so pages carry on
 OPEN = ("/static/theme/", "/remote/")  # the sign-in page's own look
 NOTE_WRITE = re.compile(r"^/api/notes(/\d+/file)?$")  # a new note and its recordings / photos
+
+SERVER_URL = (os.environ.get("RF_RECON_PUBLIC_URL") or "").rstrip("/")  # set on the 24/7 server: always on, no Tailscale
+ROLES = ("view", "full", "admin")
 
 ON = threading.local()  # ON.user is set while a remote request is being answered
 _LOCK = threading.Lock()
@@ -84,29 +92,54 @@ def active():
 
 
 def users():
-    return [{"name": u["name"], "added": u.get("added"), "last": u.get("last")} for u in _load().values()]
+    return [{"name": u["name"], "added": u.get("added"), "last": u.get("last"), "role": u.get("role") or "view"} for u in _load().values()]
 
 
-def add(name):
-    """Add a person (or give them a new password). Returns the password: shown once, never stored."""
+def role_of(name):
+    u = _load().get((name or "").strip().lower())
+    return (u.get("role") or "view") if u else None
+
+
+def add(name, role=None):
+    """Add a person (or give them a new password; their role stays unless one is given). Returns the password: shown
+    once, never stored."""
     name = (name or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._@'-]{1,39}", name):
         raise ValueError("Use a name of 2 to 40 letters, numbers, spaces or . _ @ ' -")
+    if role is not None and role not in ROLES:
+        raise ValueError(f"A role is one of: {', '.join(ROLES)}.")
     pw = "-".join(secrets.token_urlsafe(6) for _ in range(2))
     salt = secrets.token_hex(16)
     with _LOCK:
         us = _load()
         old = us.get(name.lower(), {})
         us[name.lower()] = {"name": name, "salt": salt, "hash": _hash(pw, salt), "added": old.get("added") or time.strftime("%Y-%m-%d %H:%M"),
-                            "last": old.get("last")}
+                            "last": old.get("last"), "role": role or old.get("role") or "view"}
         _save(us)
     return pw
+
+
+def set_role(name, role):
+    if role not in ROLES:
+        raise ValueError(f"A role is one of: {', '.join(ROLES)}.")
+    with _LOCK:
+        us = _load()
+        u = us.get((name or "").strip().lower())
+        if u is None:
+            raise LookupError("No one by that name.")
+        if u.get("role") == "admin" and role != "admin" and sum(1 for x in us.values() if x.get("role") == "admin") == 1:
+            raise ValueError("That's the last admin: make someone else admin first.")
+        u["role"] = role
+        _save(us)
 
 
 def remove(name):
     with _LOCK:
         us = _load()
-        if us.pop((name or "").strip().lower(), None) is None:
+        key = (name or "").strip().lower()
+        if key in us and us[key].get("role") == "admin" and sum(1 for x in us.values() if x.get("role") == "admin") == 1:
+            raise ValueError("That's the last admin: make someone else admin first.")
+        if us.pop(key, None) is None:
             raise LookupError("No one by that name.")
         _save(us)
 
@@ -170,7 +203,9 @@ def _ts(*args):
 
 
 def link():
-    """The public link: Tailscale on this PC, its https name, and whether Funnel sends it here."""
+    """The public link: Tailscale on this PC, its https name, and whether Funnel sends it here. On the server: its address."""
+    if SERVER_URL:
+        return {"installed": True, "state": "Running", "url": SERVER_URL, "on": True, "server": True}
     if not TAILSCALE:
         return {"installed": False}
     try:
@@ -186,6 +221,8 @@ def link():
 
 def set_link(on):
     """Turn the public link on (Funnel -> this PC's remote port, kept across restarts) or off."""
+    if SERVER_URL:
+        raise ValueError("This is the server: its link is always on.")
     if not TAILSCALE:
         raise ValueError("Tailscale isn't installed on this PC.")
     code, out = _ts("funnel", "--bg", f"http://127.0.0.1:{PORT}") if on else _ts("funnel", "reset")
@@ -198,19 +235,33 @@ def note_write(method, path):
     return method == "POST" and bool(NOTE_WRITE.match(path))
 
 
-def refused(method, path):
+def writer(role):
+    return role in ("full", "admin")
+
+
+def refused(method, path, role="view"):
     """Why a remote person can't do this, or None when they can."""
-    if method != "GET" and not note_write(method, path):
-        return "View only: changes are made on Cody's PC."
+    if role == "admin":
+        return None
+    if method != "GET" and not note_write(method, path) and not writer(role):
+        return "Your login is view only." if SERVER_URL else "View only: changes are made on Cody's PC."
     if path.startswith(BLOCKED):
-        return "That part of RF Recon stays on Cody's PC."
+        return "That part of RF Recon is for the admin." if SERVER_URL else "That part of RF Recon stays on Cody's PC."
     return None
+
+
+# installable as an app (Chrome, Edge, Android, iPhone "Add to Home Screen"): the manifest and icons are open to anyone,
+# so the sign-in page installs too; the service worker caches nothing (every answer comes fresh from the server)
+SW_JS = b"self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',()=>{});"
+APP_HEAD = ('<link rel="manifest" href="/static/app/manifest.webmanifest"><meta name="theme-color" content="#12110f">'
+            '<link rel="apple-touch-icon" href="/static/app/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes">'
+            '<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});</script>')
 
 
 def login_page(msg="", name=""):
     err = f'<p class="err">{html.escape(msg)}</p>' if msg else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in · RF Recon (beta)</title>
+<title>Sign in · RF Recon (beta)</title>{APP_HEAD}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{{color-scheme:dark;--ink:#f3ece6;--dim:#b9aea6;--accent:#f0a37a;--line:rgba(255,255,255,.14)}}
@@ -230,9 +281,31 @@ button:hover{{filter:brightness(1.08)}}
 .err{{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:rgba(220,80,60,.18);border:1px solid rgba(220,80,60,.4)}}
 .foot{{margin:16px 0 0;color:var(--dim);font-size:13px}}
 </style></head><body><main>
-<h1>RF / RECON <b>BETA</b></h1><p class="sub">Cody's RF Recon, view and search only.</p>
+<h1>RF / RECON <b>BETA</b></h1><p class="sub">{"Sign in to RF Recon." if SERVER_URL else "Cody's RF Recon, view and search only."}</p>
 <form method="post" action="/remote/login">
 <label for="n">Name</label><input id="n" name="name" autocomplete="username" required value="{html.escape(name)}" {'' if name else 'autofocus'}>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required {'autofocus' if name else ''}>
 <button type="submit">Sign in</button>{err}</form>
 <p class="foot">No login? Ask Cody for one.</p></main></body></html>"""
+
+
+if __name__ == "__main__":  # on the server: make or reset a login without the web page (the first admin)
+    import argparse
+    import uls_import
+    ap = argparse.ArgumentParser(description="RF Recon logins")
+    ap.add_argument("action", choices=("add", "list", "role", "remove"))
+    ap.add_argument("name", nargs="?")
+    ap.add_argument("--role", choices=ROLES)
+    a = ap.parse_args()
+    setup(uls_import.DATA_DIR)
+    if a.action == "list":
+        for u in users():
+            print(f"{u['name']}\t{u['role']}\tadded {u['added']}\tlast {u['last'] or 'not yet'}")
+    elif a.action == "add":
+        print(f"Password for {a.name.strip()} ({a.role or role_of(a.name) or 'view'}), shown once: {add(a.name, a.role)}")
+    elif a.action == "role":
+        set_role(a.name, a.role)
+        print(f"{a.name} is now {a.role}.")
+    else:
+        remove(a.name)
+        print(f"{a.name} can't sign in any more.")

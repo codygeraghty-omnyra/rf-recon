@@ -11,6 +11,7 @@ import io
 import json
 import math
 import mimetypes
+mimetypes.add_type("application/manifest+json", ".webmanifest")  # the app manifest (installable on the server)
 import os
 import re
 import sqlite3
@@ -1674,6 +1675,10 @@ class H(BaseHTTPRequestHandler):
             return self.send(404, {"error": "not found"})
         except LookupError as e:
             return self.send(404, {"error": str(e)})
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e):  # the FCC refresh is writing: say so, and that nothing was saved
+                return self.send(503, {"error": "RF Recon is refreshing its FCC data and couldn't do this just now. Nothing was changed: try again in a few minutes."})
+            return self.send(500, {"error": f"{type(e).__name__}: {e}"})
         except Exception as e:
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
 
@@ -1737,7 +1742,11 @@ class H(BaseHTTPRequestHandler):
                 return
             if p == "/api/remote/add":  # a new person (or a new password): shown once, for Cody to pass on
                 d = self.body_json()
-                return self.send(200, {"name": (d.get("name") or "").strip(), "password": remote.add(d.get("name")), "people": remote.users()})
+                return self.send(200, {"name": (d.get("name") or "").strip(), "password": remote.add(d.get("name"), d.get("role") or None), "people": remote.users()})
+            if p == "/api/remote/role":  # view, full or admin (the server's logins)
+                d = self.body_json()
+                remote.set_role(d.get("name"), d.get("role"))
+                return self.send(200, {"people": remote.users()})
             if p == "/api/remote/remove":
                 remote.remove(self.body_json().get("name"))
                 return self.send(200, {"people": remote.users()})
@@ -1946,6 +1955,10 @@ class H(BaseHTTPRequestHandler):
             return self.send(404, {"error": "not found"})
         except LookupError as e:
             return self.send(404, {"error": str(e)})
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e):  # the FCC refresh is writing: say so, and that nothing was saved
+                return self.send(503, {"error": "RF Recon is refreshing its FCC data and couldn't do this just now. Nothing was changed: try again in a few minutes."})
+            return self.send(500, {"error": f"{type(e).__name__}: {e}"})
         except Exception as e:
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
 
@@ -1955,6 +1968,10 @@ class RemoteH(H):
     in and can view and search only; the same routes answer, minus anything that writes or stays on Cody's PC."""
 
     def send(self, code, body, ctype="application/json", extra=None):
+        if ctype.startswith("text/html") and urlparse(self.path).path in ("/", "/index.html") and isinstance(body, (bytes, str)):
+            raw = body.encode() if isinstance(body, str) else body  # the app's page installs as an app (remote.APP_HEAD)
+            if b"</head>" in raw and b"manifest.webmanifest" not in raw:
+                body = raw.replace(b"</head>", remote.APP_HEAD.encode() + b"</head>", 1)
         return super().send(code, body, ctype, dict({"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff",
                                                      "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
                                                     if ctype.startswith(("application/json", "text/html")) else
@@ -1966,7 +1983,10 @@ class RemoteH(H):
     def answer(self, method, handler):
         p = urlparse(self.path).path
         remote.ON.user = None
-        keep = remote.note_write(method, p)  # a note's words and files, the one thing remote people send: read by the handler
+        user = remote.user_of(self.headers.get("Cookie"))
+        role = remote.role_of(user) if user else None
+        # what the handler itself reads: a note's words and files (anyone signed in), and every change by a full or admin login
+        keep = remote.note_write(method, p) or (bool(user) and remote.writer(role) and not remote.refused(method, p, role))
         if method != "GET" and p != "/remote/login" and not keep:
             self.raw_body()  # read what was sent even when refusing it: left on a kept-alive connection, it garbles the next request
             if self.headers.get("Content-Length"):
@@ -1983,22 +2003,23 @@ class RemoteH(H):
             return self.send(200, remote.login_page(), "text/html; charset=utf-8")
         if p == "/remote/logout":
             return self.send(303, b"", "text/plain", {"Location": "/remote/login", "Set-Cookie": remote.cookie("", self.secure(), clear=True)})
-        if p.startswith("/static/theme/") or p == "/favicon.ico":
+        if p == "/sw.js":
+            return self.send(200, remote.SW_JS, "text/javascript", {"Service-Worker-Allowed": "/"})
+        if p.startswith(("/static/theme/", "/static/app/")) or p == "/favicon.ico":
             return handler()
-        user = remote.user_of(self.headers.get("Cookie"))
         if not user:
             self.close_connection = keep  # a refused note's body is never read
             if method == "GET" and p in ("/", "/index.html"):
                 return self.send(303, b"", "text/plain", {"Location": "/remote/login"})
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})
         if p == "/api/me":
-            return self.send(200, {"remote": True, "user": user})
-        if p in remote.EMPTY:
+            return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL)})
+        if p in remote.EMPTY and role != "admin":
             return self.send(200, remote.EMPTY[p])
-        why = remote.refused(method, p)
+        why = remote.refused(method, p, role)
         if why:
             return self.send(403, {"error": why})
-        remote.ON.user = user
+        remote.ON.user = None if role == "admin" else user  # an admin is the owner: the parts held back from remote people work
         try:
             return handler()
         finally:

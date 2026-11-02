@@ -14,11 +14,16 @@ async function loadMission(id, applyArea){
   if(applyArea && m.lat!=null){ setMode("point"); $("#loc").value=`${m.lat}, ${m.lon}`; $("#radius").value=m.radius_mi||5; $("#radiusSlider").value=m.radius_mi||5; }
 }
 window.missionBoot = async () => {
-  try{ const me=await api("/api/me"); S.remote=me.remote?me:null; }catch(e){ S.remote=null; }
-  if(S.remote){  // signed in through the remote link (remote.py): view and search only
+  // signed in through the remote door (remote.py): view and full logins are "remote" (no Data & updates, no keys);
+  // an admin login (the server's owner) gets everything, plus a Sign out button
+  try{ const me=await api("/api/me"); S.me=me.remote?me:null; S.remote=me.remote&&me.role!=="admin"?me:null; }catch(e){ S.remote=null; S.me=null; }
+  if(S.remote){
     document.body.classList.add("remote"); if(S.tab==="data") setTab("map");
-    $("#netLed").className="led on"; $("#netText").textContent=`View only · ${S.remote.user} · Sign out`;
-    $("#netChip").title="Signed in to Cody's RF Recon. Press to sign out."; $("#netChip").onclick=()=>{ location.href="/remote/logout"; };
+    $("#netLed").className="led on"; $("#netText").textContent=`${S.remote.role==="full"?"Signed in":"View only"} · ${S.remote.user} · Sign out`;
+    $("#netChip").title=`Signed in to ${S.remote.server?"RF Recon":"Cody's RF Recon"}. Press to sign out.`; $("#netChip").onclick=()=>{ location.href="/remote/logout"; };
+  } else if(S.me){
+    const b=document.createElement("button"); b.className="hbtn"; b.id="meOut"; b.textContent=`Admin · ${S.me.user} · Sign out`;
+    b.onclick=()=>{ location.href="/remote/logout"; }; $("#netChip").after(b);
   }
   try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){}
   if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000);
@@ -280,11 +285,12 @@ S.views.data = async (v) => {
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Pack</th><th>Size</th><th>Made</th></tr></thead><tbody id="fpList"></tbody></table></div>
     <p class="hint">Packs carry public data only: never your missions, captures, labels or keys, and none of the crowd layers or the Signal ID Wiki catalog. VA, MD and DC together come to about 5 MB.</p></div>
   <div class="panel"><h3>Remote access: this full version from anywhere</h3>
-    <p class="hint" style="margin-top:0">People you add open the link in any browser, sign in, and can view and search everything here, but change nothing. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay on this PC. The link works while this PC is on and RF Recon is running, and what they look at runs over this PC's connection.</p>
+    <p class="hint" id="raHow" style="margin-top:0">People you add open the link in any browser, sign in, and can view and search everything here, but change nothing. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay on this PC. The link works while this PC is on and RF Recon is running, and what they look at runs over this PC's connection.</p>
     <div id="raLink"><p class="hint">Checking Tailscale…</p></div>
-    <div class="row" style="margin-top:8px;align-items:end"><label class="grow">Add a person<input id="raName" placeholder="Their name, e.g. Josh" autocomplete="off"></label><button class="primary" id="raAdd">Add and make a password</button></div>
+    <div class="row" style="margin-top:8px;align-items:end"><label class="grow">Add a person<input id="raName" placeholder="Their name, e.g. Josh" autocomplete="off"></label>
+      <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option></select></label><button class="primary" id="raAdd">Add and make a password</button></div>
     <p class="hint" id="raMsg" style="margin:6px 0 0"></p>
-    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Person</th><th>Added</th><th>Last here</th><th></th></tr></thead><tbody id="raList"></tbody></table></div></div>
+    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Person</th><th>Can</th><th>Added</th><th>Last here</th><th></th></tr></thead><tbody id="raList"></tbody></table></div></div>
   <div class="panel"><h3>Push to ATAK</h3>
     <p class="hint" style="margin-top:0">📡 Push to ATAK (beside the exports) sends what's on the map as live markers. They go to every ATAK, iTAK and WinTAK on this PC's networks over the TAK multicast those apps listen on out of the box, and to your TAK Server if you set one. Pushing again updates the same markers; they fade a day after the last push. Anyone on the same network with a TAK app sees them.</p>
     <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><label class="inl"><input type="checkbox" id="tkMc"> Network multicast</label>
@@ -407,22 +413,26 @@ S.views.data = async (v) => {
     $("#waysPanel").hidden=!r.door;  // and Ways in is about sharing that copy
     const L=r.link||{}, n=r.people.length, ts={NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running";
     $("#wayRemote").textContent=`${!L.installed?"Tailscale isn't installed":L.state!=="Running"?`Off: Tailscale is ${ts}`:L.on?"On":"Off"} · ${n?`${n} ${n===1?"person":"people"} can sign in`:"no one can sign in yet"}. Remote access, below`;
-    $("#raLink").innerHTML=!L.installed?'<p class="hint">Tailscale isn\'t installed on this PC: it carries the link.</p>'
+    if(L.server){ $("#raHow").textContent="The server is always on. People you add open the link in any browser (or install it as an app from there), sign in, and do what their login allows: View only looks and searches; Full also works DAS jobs, missions and notes; Admin also has the keys, updates and people."; }
+    $("#raLink").innerHTML=L.server?`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><b>Link</b><span class="mono">${esc(L.url||"")}</span><span class="tag">Always on</span><button id="raCopy">Copy link</button></div>`
+      :!L.installed?'<p class="hint">Tailscale isn\'t installed on this PC: it carries the link.</p>'
       :L.state!=="Running"?`<p class="hint">Tailscale is ${esc(ts)} on this PC. Sign in to Tailscale (system tray) to get the link.</p>`
       :`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><b>Link</b><span class="mono">${esc(L.url||"")}</span><span class="tag">${L.on?"On":"Off"}</span>
          ${L.on?'<button id="raCopy">Copy link</button>':""}<button id="raToggle">${L.on?"Turn the link off":"Turn the link on"}</button></div>`;
-    $("#raList").innerHTML=r.people.map(u=>`<tr><td>${esc(u.name)}</td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
+    $("#raList").innerHTML=r.people.map(u=>`<tr><td>${esc(u.name)}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
       <td style="text-align:right;white-space:nowrap"><button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
-      ||'<tr><td colspan="4" class="hint">No one yet. Add a person to give them a sign-in.</td></tr>';
+      ||'<tr><td colspan="5" class="hint">No one yet. Add a person to give them a sign-in.</td></tr>';
     if($("#raCopy")) $("#raCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(L.url); $("#raMsg").textContent="Link copied."; }catch(e){ $("#raMsg").textContent=L.url; } };
     if($("#raToggle")) $("#raToggle").onclick=async()=>{ $("#raMsg").textContent=L.on?"Turning the link off…":"Turning the link on…";
       try{ await post("/api/remote/link",{on:!L.on}); $("#raMsg").textContent=""; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); };
-    $("#raList").querySelectorAll("[data-ranew]").forEach(b=>b.onclick=()=>raAdd(b.dataset.ranew));
+    $("#raList").querySelectorAll("[data-ranew]").forEach(b=>b.onclick=()=>raAdd(b.dataset.ranew, true));
+    $("#raList").querySelectorAll("[data-rarole]").forEach(s=>s.onchange=async()=>{
+      try{ await post("/api/remote/role",{name:s.dataset.rarole, role:s.value}); $("#raMsg").textContent=`${s.dataset.rarole} is now ${s.options[s.selectedIndex].text}.`; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); });
     $("#raList").querySelectorAll("[data-rarm]").forEach(b=>b.onclick=async()=>{  // two presses, so a stray click doesn't lock someone out
       if(b.dataset.sure!=="1"){ b.dataset.sure="1"; b.textContent="Press again to remove"; setTimeout(()=>{ if(b.isConnected){ b.dataset.sure=""; b.textContent="Remove"; } },4000); return; }
       try{ await post("/api/remote/remove",{name:b.dataset.rarm}); $("#raMsg").textContent=`${b.dataset.rarm} can't sign in any more.`; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); }); };
-  const raAdd=async name=>{ name=(name||"").trim(); if(!name){ $("#raMsg").textContent="Type their name first."; return; }
-    try{ const r=await post("/api/remote/add",{name}); $("#raName").value="";
+  const raAdd=async (name, renew)=>{ name=(name||"").trim(); if(!name){ $("#raMsg").textContent="Type their name first."; return; }
+    try{ const r=await post("/api/remote/add",renew?{name}:{name, role:$("#raRole").value}); $("#raName").value="";
       $("#raMsg").innerHTML=`Password for <b>${esc(r.name)}</b>: <span class="mono" style="user-select:all;font-size:15px">${esc(r.password)}</span> · Shown only now: send it to them with the link. Their old password, if any, no longer works.`; raPaint(); }
     catch(e){ $("#raMsg").textContent=e.message; } };
   $("#raAdd").onclick=()=>raAdd($("#raName").value); $("#raName").onkeydown=e=>{ if(e.key==="Enter") raAdd($("#raName").value); };

@@ -306,7 +306,7 @@ async function open() {
   if (screenOn) return;  // the recording bar's Stop ends a screen recording
   stopLive(); recOn = false;
   if (opts.store === "server" && opts.remote == null) {  // on the remote link? the note goes to Cody's PC, and only theirs show
-    try { opts.remote = !!(await (await fetch("/api/me")).json()).remote; } catch (e) { opts.remote = false; }
+    try { const me = await (await fetch("/api/me")).json(); opts.remote = !!me.remote && me.role !== "admin"; } catch (e) { opts.remote = false; }
   }
   draft = {kind: null, text: "", files: [], ...context()};
   let count = "";
