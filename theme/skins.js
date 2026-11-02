@@ -1,13 +1,22 @@
 // Dashboard skins. Load in <head> so the skin is set before first paint.
-// Match system is the default (Cody, 10/28): Daylight by day, the last dark skin (Smoke unless another was picked)
-// at night. A skin picked in the Display settings is saved per browser and wins. DashSkin.set('haze') / .get().
-// Also kept here: Match system ('auto': the last dark skin at night, Daylight by day), the accent colour, glass
-// density, reduce transparency, motion and a backdrop photo. look.js is the settings panel for all of them.
+// Match system is the default (Cody, 10/28): the last light skin picked (Daylight unless another was) by day, the
+// last dark skin (Smoke unless another was) at night. A skin picked in the Display settings is saved per browser and
+// wins. DashSkin.set('haze') / .get().
+// Colour skins (Cody, 11/2) sit on a base skin: data-skin holds the base (Smoke for dark ones, Daylight for light
+// ones) and data-tint the colour skin, so DashSkin.get() and a tool's own data-skin checks still see 'day' or not.
+// DashSkin.shown() is the skin showing, colour skins included.
+// Also kept here: the accent colour, texture, light and shadow, glass density, reduce transparency, motion and a
+// backdrop photo. look.js is the settings panel for all of them.
 (function () {
-  var KEY = 'dash.skin', DARK_KEY = 'dash.skin.dark', PICKED = 'dash.skin.picked';
-  var SKINS = ['smoke', 'haze', 'dusk', 'liquid', 'day'];
-  var NAMES = { smoke: 'Smoke', haze: 'Haze', dusk: 'Dusk', liquid: 'Liquid', day: 'Daylight', auto: 'Match system' };
-  var ACCENT = { smoke: '#f0a07a', haze: '#ece6dc', dusk: '#c4ef4f', liquid: '#3d8bfd', day: '#2a78d6' };
+  var KEY = 'dash.skin', DARK_KEY = 'dash.skin.dark', LIGHT_KEY = 'dash.skin.light', PICKED = 'dash.skin.picked';
+  var SKINS = ['smoke', 'haze', 'dusk', 'liquid', 'ember', 'moss', 'tide', 'midnight', 'rose', 'graphite', 'day', 'sand', 'mint', 'lilac'];
+  var BASE = { ember: 'smoke', moss: 'smoke', tide: 'smoke', midnight: 'smoke', rose: 'smoke', graphite: 'smoke', sand: 'day', mint: 'day', lilac: 'day' };
+  var NAMES = { smoke: 'Smoke', haze: 'Haze', dusk: 'Dusk', liquid: 'Liquid', ember: 'Ember', moss: 'Moss', tide: 'Tide', midnight: 'Midnight',
+    rose: 'Rosé', graphite: 'Graphite', day: 'Daylight', sand: 'Sand', mint: 'Mint', lilac: 'Lilac', auto: 'Match system' };
+  var ACCENT = { smoke: '#f0a07a', haze: '#ece6dc', dusk: '#c4ef4f', liquid: '#3d8bfd', day: '#2a78d6', ember: '#ff8a57', moss: '#a6db8f',
+    tide: '#52dcd5', midnight: '#f2c14e', rose: '#f5a0b9', graphite: '#9cc4ff', sand: '#b5562e', mint: '#0f8a62', lilac: '#6a4fd6' };
+  function base(s) { return BASE[s] || s; }
+  function isLight(s) { return base(s) === 'day'; }
   // accent choices: a dark-skin pair and a Daylight pair each (accent, second accent); 'skin' keeps the skin's own
   var ACCENTS = [
     { id: 'peach', name: 'Peach', l: ['#c4562b', '#a8432a'], d: ['#f0a07a', '#e2795a'] },
@@ -17,6 +26,12 @@
     { id: 'aqua', name: 'Aqua', l: ['#0f8a62', '#2a78d6'], d: ['#2fd0a0', '#3d8bfd'] },
     { id: 'magenta', name: 'Magenta', l: ['#c03b70', '#6250d6'], d: ['#f08ab3', '#9085e9'] },
     { id: 'gold', name: 'Gold', l: ['#9a6b00', '#c4562b'], d: ['#f2c14e', '#f0a07a'] },
+    { id: 'coral', name: 'Coral', l: ['#c43c3c', '#c4562b'], d: ['#ff7b72', '#ffb347'] },
+    { id: 'ember', name: 'Ember', l: ['#b84a12', '#9a6b00'], d: ['#ff8a57', '#ffb347'] },
+    { id: 'sky', name: 'Sky', l: ['#0b6fa8', '#0f8a62'], d: ['#6cc7ff', '#52dcd5'] },
+    { id: 'sage', name: 'Sage', l: ['#3f7a52', '#8a6a1f'], d: ['#a6db8f', '#e3c770'] },
+    { id: 'rose', name: 'Rose', l: ['#b0346a', '#6a4fd6'], d: ['#f5a0b9', '#c9a0ff'] },
+    { id: 'silver', name: 'Silver', l: ['#4b5563', '#2a78d6'], d: ['#d6dbe2', '#9cc4ff'] },
   ];
   var ACCENT_KEY = 'dash.accent', SOLID_KEY = 'dash.solid', PHOTO_KEY = 'dash.photo', PHOTO_ON_KEY = 'dash.photo.on';
   var r = document.documentElement, dq = matchMedia('(prefers-color-scheme: dark)');
@@ -34,29 +49,31 @@
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* this visit only */ } }
   function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function forget(k) { try { localStorage.removeItem(k); } catch (e) { /* nothing stored */ } }
-  function lastDark() { var d = read(DARK_KEY); return d && d !== 'day' && SKINS.indexOf(d) >= 0 ? d : 'smoke'; }
+  function lastDark() { var d = read(DARK_KEY); return d && SKINS.indexOf(d) >= 0 && !isLight(d) ? d : 'smoke'; }
+  function lastLight() { var d = read(LIGHT_KEY); return d && SKINS.indexOf(d) >= 0 && isLight(d) ? d : 'day'; }
   function findAccent(id) { for (var i = 0; i < ACCENTS.length; i++) if (ACCENTS[i].id === id) return ACCENTS[i]; return null; }
 
-  var cur, choice, accent = findAccent(read(ACCENT_KEY)) ? read(ACCENT_KEY) : 'skin';
+  var cur, shown, choice, accent = findAccent(read(ACCENT_KEY)) ? read(ACCENT_KEY) : 'skin';
   function paintAccent() {
     var a = findAccent(accent);
     if (a) {
       var pair = cur === 'day' ? a.l : a.d;
       r.style.setProperty('--accent-o', pair[0]); r.style.setProperty('--accent-2-o', pair[1]); r.style.setProperty('--on-accent', onColor(pair[0]));
     } else {
-      r.style.removeProperty('--accent-o'); r.style.removeProperty('--accent-2-o'); r.style.setProperty('--on-accent', onColor(ACCENT[cur]));
+      r.style.removeProperty('--accent-o'); r.style.removeProperty('--accent-2-o'); r.style.setProperty('--on-accent', onColor(ACCENT[shown]));
     }
   }
   // remember: only a skin someone picked is saved; loading a page saves nothing, so the default can change
   function apply(c, remember) {
     if (c !== 'auto' && SKINS.indexOf(c) < 0) c = 'auto';
-    var s = c === 'auto' ? (dq.matches ? lastDark() : 'day') : c;
-    r.dataset.skin = s;
-    if (remember) { if (c !== 'auto' && s !== 'day') store(DARK_KEY, s); store(KEY, c); store(PICKED, '1'); }
-    choice = c; cur = s;
+    var s = c === 'auto' ? (dq.matches ? lastDark() : lastLight()) : c;
+    r.dataset.skin = base(s);
+    if (BASE[s]) r.dataset.tint = s; else delete r.dataset.tint;
+    if (remember) { if (c !== 'auto') store(isLight(s) ? LIGHT_KEY : DARK_KEY, s); store(KEY, c); store(PICKED, '1'); }
+    choice = c; cur = base(s); shown = s;
     paintAccent();
-    document.dispatchEvent(new CustomEvent('dashskin', { detail: s }));
-    return s;
+    document.dispatchEvent(new CustomEvent('dashskin', { detail: cur }));
+    return cur;
   }
   apply(read(PICKED) === '1' ? read(KEY) : 'auto');
   // Match system follows the computer's light or dark setting as it changes
@@ -90,6 +107,24 @@
     return m;
   }
   applyMotion(read(MOTION_KEY) || 'auto');
+  // texture and light and shadow (Cody, 11/2): grain and bevel are the look as it was, so they set no attribute
+  var TEXTURES = ['smooth', 'grain', 'film', 'frost', 'linen', 'brushed', 'dots'], TEXTURE_KEY = 'dash.texture';
+  var TEXTURE_NAMES = { smooth: 'Smooth', grain: 'Grain', film: 'Film', frost: 'Frost', linen: 'Linen', brushed: 'Brushed', dots: 'Dots' };
+  var LIGHTS = ['bevel', 'soft', 'flat', 'float', 'glow'], LIGHT_STYLE_KEY = 'dash.light';
+  var LIGHT_NAMES = { bevel: 'Bevel', soft: 'Soft', flat: 'Flat', float: 'Float', glow: 'Glow' };
+  var texture, light;
+  function applyTexture(t) {
+    if (TEXTURES.indexOf(t) < 0) t = 'grain';
+    if (t === 'grain') delete r.dataset.texture; else r.dataset.texture = t;
+    store(TEXTURE_KEY, t); texture = t; return t;
+  }
+  function applyLight(l) {
+    if (LIGHTS.indexOf(l) < 0) l = 'bevel';
+    if (l === 'bevel') delete r.dataset.light; else r.dataset.light = l;
+    store(LIGHT_STYLE_KEY, l); light = l; return l;
+  }
+  applyTexture(read(TEXTURE_KEY) || 'grain');
+  applyLight(read(LIGHT_STYLE_KEY) || 'bevel');
   function reduced() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
 
   // backdrop photo: a data URL kept in this browser; the backdrop shows it blurred instead of its scene
@@ -115,11 +150,17 @@
       fn();
     },
     list: SKINS.slice(), names: NAMES,
-    get: function () { return cur; },            // the skin showing now (Match system resolves to one of the five)
-    choice: function () { return choice; },     // what was picked: one of the five, or 'auto'
+    get: function () { return cur; },            // the base skin showing now (one of the five; 'day' means a light skin)
+    shown: function () { return shown; },       // the skin showing now, colour skins included
+    choice: function () { return choice; },     // what was picked: a skin, or 'auto'
     set: function (c) { return apply(c, true); },
-    lastDark: lastDark,
-    nextDark: function () { var dark = SKINS.filter(function (s) { return s !== 'day'; }); return apply(dark[(dark.indexOf(cur) + 1) % dark.length], true); },
+    base: base, isLight: isLight,
+    lastDark: lastDark, lastLight: lastLight,
+    nextDark: function () { var dark = SKINS.filter(function (s) { return !isLight(s); }); return apply(dark[(dark.indexOf(shown) + 1) % dark.length], true); },
+    textures: TEXTURES.slice(), textureNames: TEXTURE_NAMES,
+    texture: function (t) { return t === undefined ? texture : applyTexture(t); },
+    lights: LIGHTS.slice(), lightNames: LIGHT_NAMES,
+    light: function (l) { return l === undefined ? light : applyLight(l); },
     glassLevels: GLASS.slice(), glassNames: GLASS_NAMES,
     glass: function (g) { return g === undefined ? glass : applyGlass(g); },
     nextGlass: function () { return applyGlass(GLASS[(GLASS.indexOf(glass) + 1) % GLASS.length]); },

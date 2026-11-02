@@ -1,6 +1,7 @@
 // Look panel: one button in the top bar that opens the display settings for any dashboard tool on this kit, laid out
-// like the Sales CRM's Settings page: skin cards (Match system and the five skins), accent colours, a backdrop
-// photo, glass density, Reduce transparency and Motion. Back and Close sit beside the button.
+// like the Sales CRM's Settings page: skin cards (Match system, the five skins and the colour skins), texture, light
+// and shadow, accent colours, a backdrop photo, glass density, Reduce transparency and Motion. Back and Close sit
+// beside the button.
 // Load after skins.js (skins.js, then this file), then
 //   DashLook.mount(document.querySelector('.topbar-right'), { onChange: (kind, value) => redrawCharts(),
 //     keys: [['Ctrl K', 'Search everything']] });   // keys: the tool's own shortcuts, added to the Keyboard list
@@ -22,7 +23,11 @@
     + '.dl-cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:28px}@media (max-width:820px){.dl-cols{grid-template-columns:1fr;gap:0}}'
     + '.dl-data{gap:0;margin-bottom:18px}.dl-data .dl-btns{margin-top:10px}.dl-keys{gap:10px}.dl-key{display:flex;align-items:center;gap:12px;color:var(--ink-2,var(--ink));font-size:13px}.dl-key>span{display:inline-flex;gap:4px;min-width:74px}'
     + '.dl-key kbd{font:600 11px/1 var(--font);padding:4px 6px;border-radius:6px;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}'
-    + '.dl-skins{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-top:10px}'
+    + '.dl-skins{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:10px}@media (max-width:820px){.dl-skins{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}}'
+    + '.dl-minis{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-top:10px}'
+    + '.dl-mini .dl-pv{height:44px}.dl-pv.tex::before,.dl-pv.tex::after,.dl-pv.lt::after{display:none}'
+    + '.dl-pv.lt{background:linear-gradient(160deg,var(--bg),color-mix(in srgb,var(--bg) 70%,var(--accent)))}'
+    + '.dl-pv.lt::before{left:14px;right:14px;top:9px;bottom:13px;border:1px solid;border-color:var(--pe);background:var(--g-strong);box-shadow:var(--ps)}'
     + '.dl-card{display:flex;flex-direction:column;gap:7px;padding:7px;border-radius:16px;border:0;box-shadow:inset 0 0 0 1.5px var(--line);background:var(--wash);cursor:pointer;text-align:left;color:var(--ink);font:inherit;transition:box-shadow var(--t-border) ease,transform var(--t-hover) ease}'
     + '.dl-card:hover{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ink) 35%,transparent)}.dl-card:active{transform:translateY(1px)}'
     + '.dl-card[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--accent),0 12px 30px -16px var(--accent)}'
@@ -55,12 +60,39 @@
 
   // skin cards: name, one line, and a small preview (backdrop gradient, a glass pane, the accent dot)
   var SKIN_INFO = {
-    auto: ['Dark skin at night, Daylight by day', ['#2b231b', '#c8c3ff', 'rgba(255,255,255,.3)', '#f0a07a']],
+    auto: ['Your dark skin at night, your light one by day', ['#2b231b', '#c8c3ff', 'rgba(255,255,255,.3)', '#f0a07a']],
     smoke: ['Warm glass, peach', ['#2b231b', '#6b563f', 'rgba(38,34,30,.75)', '#f0a07a']],
     haze: ['Clearest glass, smoky', ['#3a3734', '#8d877e', 'rgba(30,30,32,.28)', '#ece6dc']],
     dusk: ['Slate glass, lime', ['#3c4758', '#87695a', 'rgba(20,23,23,.5)', '#c4ef4f']],
     liquid: ['Beveled glass, blue', ['#2a1d6e', '#0f5c8a', 'rgba(26,26,36,.45)', '#3d8bfd']],
+    ember: ['Charcoal glass, ember glow', ['#1a0c08', '#8a2f16', 'rgba(40,22,17,.62)', '#ff8a57']],
+    moss: ['Forest glass, sage', ['#0f1a12', '#3f6b3a', 'rgba(22,32,24,.56)', '#a6db8f']],
+    tide: ['Deep-sea glass, aqua', ['#08161b', '#1b5d72', 'rgba(16,30,36,.5)', '#52dcd5']],
+    midnight: ['Navy glass, gold', ['#0b0e22', '#352f7a', 'rgba(18,22,44,.54)', '#f2c14e']],
+    rose: ['Plum glass, rose', ['#170a12', '#7a2d55', 'rgba(40,20,32,.54)', '#f5a0b9']],
+    graphite: ['Matte charcoal, steel blue', ['#141516', '#4a4f57', 'rgba(36,38,41,.84)', '#9cc4ff']],
     day: ['Frosted white', ['#c8c3ff', '#bfe6ff', 'rgba(255,255,255,.6)', '#2a78d6']],
+    sand: ['Warm paper, terracotta', ['#f2d7b8', '#ead9bd', 'rgba(255,250,243,.62)', '#b5562e']],
+    mint: ['Cool mint, emerald', ['#bfe9d6', '#cfe6f2', 'rgba(248,255,251,.62)', '#0f8a62']],
+    lilac: ['Soft lilac, violet', ['#d9cdfb', '#f3d3e8', 'rgba(252,250,255,.62)', '#6a4fd6']],
+  };
+  // texture and light previews draw with the kit's own --tex-* and --lt-* values, so they show this skin
+  var TEX_INFO = {
+    smooth: ['No grain, clean glass', 'var(--surface)'],
+    grain: ['Fine grain on the backdrop', 'var(--tex-noise)'],
+    film: ['Heavier grain, panels too', 'var(--tex-noise),var(--tex-noise)'],
+    frost: ['Sparkling frosted panels', 'var(--tex-frost)'],
+    linen: ['Woven crosshatch', 'var(--tex-linen)'],
+    brushed: ['Brushed-metal lines', 'var(--tex-brushed)'],
+    dots: ['Dot grid behind the glass', 'var(--tex-dots)'],
+  };
+  var BEVEL = 'var(--g-edge-t) var(--g-edge-s) var(--g-edge-b)';
+  var LIGHT_INFO = {
+    bevel: ['Lit top edge, layered shadow', 'var(--lt-bevel)', BEVEL],
+    soft: ['Hairline, shadow underneath', 'var(--lt-soft)', 'var(--lt-hair)'],
+    flat: ['Hairline only, no shadow', 'var(--lt-flat)', 'var(--lt-hair)'],
+    float: ['Lifted high, long shadow', 'var(--lt-float)', BEVEL],
+    glow: ['Accent light underneath', 'var(--lt-glow)', 'color-mix(in srgb,var(--accent) 40%,var(--g-edge-t)) var(--g-edge-s) var(--g-edge-b)'],
   };
   var I = {
     x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -73,6 +105,21 @@
   function card(id, name) {
     var inf = SKIN_INFO[id], p = inf[1];
     return '<button type="button" class="dl-card" data-k="skin" data-v="' + id + '" aria-pressed="' + (DashSkin.choice() === id) + '"><span class="dl-pv" style="--p1:' + p[0] + ';--p2:' + p[1] + ';--pg:' + p[2] + ';--pa:' + p[3] + '"></span><span><b>' + esc(name) + '</b><small>' + esc(inf[0]) + '</small></span></button>';
+  }
+  function mini(k, id, name, pressed, sub, pv) {
+    return '<button type="button" class="dl-card dl-mini" data-k="' + k + '" data-v="' + id + '" aria-pressed="' + pressed + '">' + pv + '<span><b>' + esc(name) + '</b><small>' + esc(sub) + '</small></span></button>';
+  }
+  function texCards() {
+    return DashSkin.textures.map(function (t) {
+      var inf = TEX_INFO[t];
+      return mini('texture', t, DashSkin.textureNames[t], DashSkin.texture() === t, inf[0], '<span class="dl-pv tex" style="background:' + inf[1] + ',linear-gradient(160deg,var(--surface),var(--bg))"></span>');
+    }).join('');
+  }
+  function lightCards() {
+    return DashSkin.lights.map(function (l) {
+      var inf = LIGHT_INFO[l];
+      return mini('light', l, DashSkin.lightNames[l], DashSkin.light() === l, inf[0], '<span class="dl-pv lt" style="--ps:' + inf[1] + ';--pe:' + inf[2] + '"></span>');
+    }).join('');
   }
   function sw(on) { return '<button type="button" class="dl-switch" role="switch" aria-checked="' + on + '"'; }
   function html() {
@@ -105,6 +152,8 @@
     var keyUi = keys.map(function (k) { return '<div class="dl-key"><span>' + k[0].split(' ').map(function (x) { return '<kbd>' + esc(x) + '</kbd>'; }).join('') + '</span>' + esc(k[1]) + '</div>'; }).join('');
     return '<div class="dl-head"><div><b>Display</b><span class="dl-sub">Saved in this browser' + (note ? ' · ' + esc(note) : '') + '</span></div><button type="button" class="dl-x" data-close aria-label="Close display settings">' + I.x + '</button></div>'
       + '<div><b>Skin</b><span class="dl-sub">The whole look: glass, colour and backdrop</span><div class="dl-skins">' + skins + '</div></div>'
+      + (DashSkin.textures ? '<div><b>Texture</b><span class="dl-sub">The surface of the glass and the backdrop behind it</span><div class="dl-minis">' + texCards() + '</div></div>'
+        + '<div><b>Light and shadow</b><span class="dl-sub">How the panels catch light and sit off the page</span><div class="dl-minis">' + lightCards() + '</div></div>' : '')
       + '<div class="dl-cols"><div class="dl-sec">'
       + '<div class="dl-row"><div><b>Accent</b><span class="dl-sub">Buttons, highlights and the main chart line</span></div><div class="dl-sw">' + swatches + '</div></div>'
       + '<div><b>Backdrop photo</b><span class="dl-sub">Glass looks best over a photo. A room, a view, anything with light in it.</span>' + photoUi + '</div>'
@@ -207,7 +256,7 @@
   window.DashLook = {
     mount: function (container, o) {
       opts = o || {};
-      btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dl-look-btn'; btn.title = 'Display settings: skin, accent, glass, motion';
+      btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dl-look-btn'; btn.title = 'Display settings: skin, texture, light, accent, glass, motion';
       btn.setAttribute('aria-haspopup', 'dialog'); btn.setAttribute('aria-expanded', 'false');
       panel = document.createElement('div'); panel.className = 'dl-look'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Display settings'); panel.hidden = true;
       // Back and Close: dashboards open in Chrome --app windows, which have no browser back button
@@ -227,6 +276,8 @@
           if (k === 'skin') DashSkin.set(v);
           else if (k === 'accent') DashSkin.accent(v);
           else if (k === 'glass') DashSkin.glass(v);
+          else if (k === 'texture') DashSkin.texture(v);
+          else if (k === 'light') DashSkin.light(v);
           else if (k === 'solid') DashSkin.solid(!DashSkin.solid());
           else if (k === 'motion') DashSkin.motion(v);
           else if (k === 'photo') { if (v === 'remove') DashSkin.photo(null); else DashSkin.photoOn(v === 'on'); }
