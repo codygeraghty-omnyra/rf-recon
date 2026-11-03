@@ -672,10 +672,15 @@ def run_import(db_path, paths, states=(), active_only=False, log=print):
     con.execute("INSERT OR REPLACE INTO meta VALUES('sources', ?)", (",".join(os.path.basename(p) for p in paths),))
     con.execute("INSERT OR REPLACE INTO meta VALUES('states', ?)", (",".join(sorted(states)) or "ALL",))
     con.commit()
+    log("Clearing the import's scratch tables...")
     for t in ("raw_freq", "raw_emission", "raw_path"):
         con.execute(f"DELETE FROM {t}")
     con.commit()
     n = con.execute("SELECT COUNT(*) FROM tx").fetchone()[0]
+    try:  # a page being read can hold some back; the next import's checkpoint takes the rest
+        con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except sqlite3.Error:
+        pass
     con.close()
     log(f"ULS import done in {time.time()-t0:,.0f}s ({n:,} rows)")
     return n

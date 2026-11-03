@@ -72,8 +72,46 @@ def bearing_fix(readings):
     crossing = max(min((a - b) % 180, 180 - (a - b) % 180) for i, a in enumerate(bs) for b in bs[i + 1:])
     rms = math.sqrt(sum(m * m for m in miss) / len(miss))
     quality = "poor" if behind or crossing < 20 else "fair" if crossing < 45 or len(pts) < 3 else "good"
-    return {"lat": lat0 + fy / ky, "lon": lon0 + fx / kx, "n": len(pts), "rms_m": rms,
-            "crossing_deg": crossing, "behind": behind, "quality": quality}
+    out = {"lat": lat0 + fy / ky, "lon": lon0 + fx / kx, "n": len(pts), "rms_m": rms,
+           "crossing_deg": crossing, "behind": behind, "quality": quality}
+    out["ellipse"] = error_ellipse(lines, fx, fy, lat0, lon0, kx, ky)
+    return out
+
+
+BEARING_ERR_DEG = 5.0  # a handheld directional antenna's bearing, one sigma, when the readings can't say better
+
+
+def error_ellipse(lines, fx, fy, lat0, lon0, kx, ky, conf=0.95):
+    """Where the transmitter probably is: the 95% error ellipse of the bearing fix. Each line's sideways error grows
+    with distance (sigma = distance x tan(bearing error)); the bearing error is BEARING_ERR_DEG, or what the lines'
+    own misses show when three or more disagree by more. Weighted least squares gives the fix's covariance; its
+    eigenvectors are the ellipse's axes. Returns {a_m, b_m, axis_deg, bearing_err_deg, conf, ring} or None."""
+    dist = [max(30.0, math.hypot(fx - x, fy - y)) for x, y, _ux, _uy in lines]
+    err = BEARING_ERR_DEG
+    if len(lines) >= 3:  # the angles the lines actually miss the fix by
+        ang = [math.degrees(math.atan2(abs((fx - x) * uy - (fy - y) * ux), d)) for (x, y, ux, uy), d in zip(lines, dist)]
+        err = max(err, math.sqrt(sum(a * a for a in ang) / (len(ang) - 2)))
+    s11 = s12 = s22 = 0.0
+    for (x, y, ux, uy), d in zip(lines, dist):
+        w = 1 / (d * math.tan(math.radians(err))) ** 2
+        s11, s12, s22 = s11 + w * (1 - ux * ux), s12 - w * ux * uy, s22 + w * (1 - uy * uy)
+    det = s11 * s22 - s12 * s12
+    if det <= 0:
+        return None
+    c11, c12, c22 = s22 / det, -s12 / det, s11 / det  # covariance, m^2 (x east, y north)
+    tr, dif = (c11 + c22) / 2, math.sqrt(((c11 - c22) / 2) ** 2 + c12 * c12)
+    l1, l2 = tr + dif, max(tr - dif, 0.0)
+    k = math.sqrt(-2 * math.log(1 - conf))  # 2.45 for 95% in two dimensions
+    a, b = k * math.sqrt(l1), k * math.sqrt(l2)
+    theta = 0.5 * math.atan2(2 * c12, c11 - c22)  # the major axis, radians from east
+    ring = []
+    for i in range(49):
+        t = 2 * math.pi * i / 48
+        ex = a * math.cos(t) * math.cos(theta) - b * math.sin(t) * math.sin(theta)
+        ey = a * math.cos(t) * math.sin(theta) + b * math.sin(t) * math.cos(theta)
+        ring.append([round(lat0 + (fy + ey) / ky, 6), round(lon0 + (fx + ex) / kx, 6)])
+    return {"a_m": round(a), "b_m": round(b), "axis_deg": round((90 - math.degrees(theta)) % 180),
+            "bearing_err_deg": round(err, 1), "conf": conf, "ring": ring}
 
 
 def bbox(lat, lon, radius_mi):

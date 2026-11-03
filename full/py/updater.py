@@ -310,6 +310,8 @@ class Updater:
             return "Automatic updates are off: press Run now, or switch them on."
         return ""
 
+    RETRY_H = 2  # a source whose last run failed tries again after this, however long its interval
+
     def _due(self, sid, c):
         last = self.status[sid].get("last_checked")
         if not last:
@@ -318,7 +320,8 @@ class Updater:
             t = time.mktime(time.strptime(last, "%Y-%m-%d %H:%M"))
         except ValueError:
             return True
-        return time.time() - t >= float(c["interval_h"]) * 3600
+        hours = min(float(c["interval_h"]), self.RETRY_H) if self.status[sid].get("failed") else float(c["interval_h"])
+        return time.time() - t >= hours * 3600
 
     def run_sources(self, ids, force=False):
         """Run several sources in parallel (background). Returns ids started."""
@@ -341,6 +344,8 @@ class Updater:
             self._run_job(i, [i], force)
 
     def _mark(self, ids, **kw):
+        if kw.get("state") in ("error", "ok", "skipped"):
+            kw["failed"] = kw["state"] == "error"  # kept across restarts (state isn't saved): _due retries sooner
         for i in ids:
             self.status[i].update(kw)
         self._save()
@@ -379,7 +384,9 @@ class Updater:
                         raise RuntimeError(f"could not download l_{svc}.zip from the FCC")
                 self._mark(ids, message="rebuilding database…")
                 states = [s for s in (self.get("update.states", "") or "").split(",") if s]
-                n = uls_import.run_import(self.db, paths, states, False, lambda m, end="\n": None)
+                # each step's progress shows in its status line (it said only "rebuilding database…" for hours on the server)
+                n = uls_import.run_import(self.db, paths, states, False,
+                                          lambda m, end="\n": self._mark(ids, message=(m.strip() or "rebuilding database…")[:160]))
                 self._mark(["uls:" + s for s in services if "uls:" + s in self.status], state="ok",
                            message=f"{n:,} rows", last_checked=now(), last_updated=now(), rows=n)
                 import finder  # the licensee name index for Search is rebuilt for the new data

@@ -139,7 +139,7 @@ async function drawBandHeat(gen) {
 const CLAIM_COLOR = {1: "var(--good)", 2: "var(--good)", 3: "var(--warn)", 4: "var(--bad)", 5: "var(--bad)", 6: "var(--ink-2)"};
 function claimTag(r) {
   if (!r.claim_words) return "";
-  return `<b style="color:${CLAIM_COLOR[r.claim] || "inherit"}">${esc(r.claim_words)}</b> <span class="hint mono" title="Source grade A-F">${esc(r.source_grade || "")}</span>`
+  return `<b style="color:${CLAIM_COLOR[r.claim] || "inherit"}">${esc(r.claim_words)}</b> <span class="hint mono" title="${r.grade_earned ? "Source grade A-F, earned from its track record against your captures" : "Source grade A-F, proposed (no track record yet)"}">${esc(r.source_grade || "")}${r.grade_earned ? "✓" : ""}</span>`
     + (r.single_source ? ` <span class="tag" title="Only one independent origin says this">single source</span>` : "")
     + (r.flags?.length ? `<br><span style="color:var(--bad)">⚑ ${r.flags.map(esc).join("; ")}</span>` : "");
 }
@@ -170,6 +170,14 @@ async function loadSignals(gen) {
         <p class="hint">FCC licences loud enough here (free space, best case) that your captures should have heard them, in bands your captures covered, with nothing on their frequency.</p>
         <div class="tw" style="max-height:320px"><table><thead><tr><th>MHz</th><th>Call sign</th><th>Licensee</th><th class="n">Predicted dBm</th><th class="n">Miles</th><th>Why</th></tr></thead><tbody>
         ${res.not_heard.map(x => `<tr><td class="mono">${fmtF(x.freq_mhz)}</td><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.licensee || "")}</td><td class="n">${num(x.est_rx_dbm, 0)}</td><td class="n">${num(x.dist_mi, 1)}</td><td class="hint">${esc(x.why)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${(res.coverage || []).length ? `<h3 style="margin-top:14px">Carrier coverage vs your captures (${res.coverage.length})</h3>
+        <p class="hint">Where a capture decoded cell IDs, what the FCC Broadband Map says each carrier covers against what was heard. The map is modelled outdoors: indoors these are often expected.</p>
+        <div class="tw" style="max-height:320px"><table><thead><tr><th>Finding</th><th>Carrier</th><th>Tech</th><th class="n">Map dBm</th><th class="n">Heard dBm</th><th>Where</th><th>Why</th></tr></thead><tbody>
+        ${res.coverage.map(x => `<tr><td><span class="tag" style="border-color:var(--warn);color:var(--warn)">${esc(x.flag)}</span></td><td>${esc(x.carrier)}</td><td>${esc(x.tech)}</td><td class="n">${num(x.claimed_dbm, 0)}</td><td class="n">${num(x.heard_dbm, 0)}</td><td class="mono">${x.lat}, ${x.lon}</td><td class="hint">${esc(x.why)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      ${Object.keys(res.track || {}).length ? `<h3 style="margin-top:14px">Track record: how each source held up against your captures</h3>
+        <p class="hint">Pooled across every mission. A source earns its grade after ${20} outcomes; before that it keeps the proposed one. FCC licences: heard vs licensed, not heard. Crowd sources: a cell or radio your captures also decoded vs one near where you listened that they didn't.</p>
+        <div class="tw"><table><thead><tr><th>Source</th><th class="n">Confirmed</th><th class="n">Not confirmed</th><th class="n">Held up</th><th>Grade</th></tr></thead><tbody>
+        ${Object.entries(res.track).map(([s, t]) => { const n = t.confirmed + t.contradicted; return `<tr><td>${esc(s === "uls" ? "FCC licences" : (LAYERS[s]?.label || s))}</td><td class="n">${t.confirmed}</td><td class="n">${t.contradicted}</td><td class="n">${n ? Math.round(100 * t.confirmed / n) + "%" : "–"}</td><td>${t.grade ? `<b>${esc(t.grade)}</b> earned` : `${esc(t.proposed)} proposed <span class="hint">(${n} of 20 outcomes)</span>`}</td></tr>`; }).join("")}</tbody></table></div>` : ""}
       <p class="hint" style="font-size:11px">Grades: ${esc(res.rules || "")}. "Confirmed" needs two independent origins agreeing on something diagnostic (a decoded call sign, or a level that fits the licensed site), one of them your own capture. Copies of one source count once.</p>`;
     const all = $("#rp_sigall"); if (all) all.onclick = () => { S.reportSigAll = true; loadSignals(gen); };
     if (S.reportMap) for (const r of res.rows) if (r.lat != null)

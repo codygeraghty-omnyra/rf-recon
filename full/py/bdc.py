@@ -47,6 +47,9 @@ def db_path(data_dir):
 
 def connect(data_dir):
     con = sqlite3.connect(db_path(data_dir), timeout=60)
+    # WAL: readers (the coverage map, a DAS job's carrier look-up) don't block a load's commit, nor it them. In the
+    # default journal mode one map read during a file's load left the server's run "database is locked" (11/2).
+    con.execute("PRAGMA journal_mode=WAL")
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
     return con

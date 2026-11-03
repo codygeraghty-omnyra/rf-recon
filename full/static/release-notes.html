@@ -139,11 +139,11 @@ li b{font-weight:650}
       <button id="openAll" type="button">Open all</button>
       <button id="closeAll" type="button">Close all</button>
     </div>
-    <div class="hint" id="count" style="margin-top:8px">170 changes, October 27 to November 2, 2026. Newest first.</div>
+    <div class="hint" id="count" style="margin-top:8px">176 changes, October 27 to November 2, 2026. Newest first.</div>
     <h3 style="margin-top:14px">Contents</h3>
     <nav class="chips" aria-label="Days"><a class="chip" href="#d-2026-11-02">November 2, 2026</a><a class="chip" href="#d-2026-10-31">October 31, 2026</a><a class="chip" href="#d-2026-10-29">October 29, 2026</a><a class="chip" href="#d-2026-10-28">October 28, 2026</a><a class="chip" href="#d-2026-10-27">October 27, 2026</a></nav>
   </section>
-  <details class="panel day" id="d-2026-11-02" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, your keys leave the database, and RF Recon now says how far to trust each finding.</span></span><span class="tag n">42 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+  <details class="panel day" id="d-2026-11-02" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, your keys leave the database, and RF Recon now says how far to trust each finding.</span></span><span class="tag n">48 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
 <li><b>Online 24/7.</b> RF Recon now runs around the clock for invited people, at its own web address. Each person has their own login with a role: View (look, search, leave notes), Full (also DAS jobs, missions and notes) or Admin (also keys, updates and people). Eight wrong passwords lock a name for 15 minutes.</li>
 <li><b>Install it as an app.</b> RF Recon installs as an app on a PC (the install icon in Chrome or Edge&#x27;s address bar) or on a phone (Add to Home Screen).</li>
 <li><b>DAS Screening step.</b> A new step after Grid test judges each Grid test reading with its instrument&#x27;s published accuracy: likely pass, too close to call or likely fail. It lists market instruments only: PCTEL IBflex, Anritsu S412E, Epiq PRiSM and Nextivity COMPASS XR. Readings marked not calibrated are listed but not judged. The Grid test score and the Report don&#x27;t change.</li>
@@ -166,6 +166,9 @@ li b{font-weight:650}
 <li><b>Pending microwave links.</b> Microwave links filed with the FCC but not yet granted (about 2,300) draw dashed on the Microwave backhaul layer, with the filing number, purpose and date. Off by default: a 445 MB download.</li>
 <li><b>Building outlines from Overture.</b> When OpenStreetMap has no outline for a DAS building, or its servers don&#x27;t answer, the outline comes from Overture Maps for areas with an Overture extract (Jacksonville NC, Wilmington NC and Shakopee MN so far). Overture also fills a building height OpenStreetMap lacks, marked as an estimate.</li>
 <li><b>Sold build.</b> The copy Josh sells (the install kit and the online server) leaves out every source whose terms bar selling or sharing: WiGLE, RepeaterBook, wspr.live, the Signal ID Wiki, Artemis and live ships. Cody&#x27;s PC keeps them all. Help › Data credits and this build says which build you&#x27;re on and what it leaves out.</li>
+<li><b>Bearing error ellipse.</b> Mission › lines of bearing draws where the transmitter probably is as a 95% error ellipse instead of a circle, and says its size, for example 368 m long by 260 m wide. It assumes bearings good to ±5°, or what the lines&#x27; own misses show when three or more disagree by more. Lines that cross at a shallow angle stretch it along them.</li>
+<li><b>Carrier coverage vs your captures.</b> Where a capture decoded cell IDs, the Area report compares what the FCC Broadband Map says each carrier covers with what was heard: Claimed, not heard (the capture decoded other carriers there, but none of that one&#x27;s) and Weaker than claimed (more than 10 dB under the map). The map is modelled outdoors, so indoors these are often expected.</li>
+<li><b>Track record.</b> Pooled across every mission, the Area report counts how often each source&#x27;s claims held up against your own captures: FCC licences heard vs licensed but not heard, and crowd cells or radios your captures also decoded vs ones near where you listened that they didn&#x27;t. After 20 outcomes a source earns its grade (A to E), marked ✓, in place of the proposed one.</li>
 </ul></section>
 <section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
 <li><b>Every channel counts.</b> A Grid test square keeps every reading, one per channel or system. The worst calibrated reading decides, so a square passes only when every channel does. Imports keep channel, position and cellular fields and merge by channel. All readings CSV exports and imports back.</li>
@@ -177,6 +180,7 @@ li b{font-weight:650}
 <li><b>Keys sealed.</b> API keys are no longer stored in any database file. On the PC they&#x27;re sealed to your Windows account. On first start, older keys move over and the old copy is wiped from the file.</li>
 <li><b>Saves during a data refresh.</b> Saves no longer fail for minutes while the FCC data refreshes. If one still can&#x27;t go through, RF Recon says so plainly. On the online server, heavy data refreshes run at night, 2 to 5 AM Eastern.</li>
 <li><b>Crowd history kept.</b> When a crowd source changes a row on a later download, the old version is kept instead of overwritten.</li>
+<li><b>Download progress.</b> Data &amp; updates shows each step of an FCC licence rebuild instead of only rebuilding database.</li>
 </ul></section>
 <section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
 <li><b>Second request failed.</b> A second request in a row, such as a second DAS delete, could fail with error 501. Proven fixed on live.</li>
@@ -186,6 +190,8 @@ li b{font-weight:650}
 <li><b>Cellular readings.</b> LTE and 5G readings (RSRP, RSRQ) were scored as public safety downlink levels. Now they&#x27;re kept and shown but never scored against the public safety rules.</li>
 <li><b>Web source tables.</b> The web version&#x27;s data source tables no longer sit on Loading.</li>
 <li><b>DAS screens left while loading.</b> DAS Data &amp; links and Plans no longer throw an error when left or redrawn while loading.</li>
+<li><b>Carrier coverage on the server.</b> A carrier coverage download stopped with database is locked when someone looked at the coverage map while a file loaded. Loading and reading no longer block each other.</li>
+<li><b>Failed downloads retry.</b> A source whose download fails tries again after 2 hours. It used to wait out its whole interval: 30 days for carrier coverage.</li>
 </ul></section>
 <section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
 <li><b>DAS cellular research.</b> Cellular presets, consent steps and the booster band rules come from new research, checked against the current FCC rule (47 CFR 20.21(e)(3), unchanged since 2018) and the FCC&#x27;s own grant list.</li>

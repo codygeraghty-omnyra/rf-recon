@@ -6,8 +6,10 @@
 //   DashLook.mount(document.querySelector('.topbar-right'), { onChange: (kind, value) => redrawCharts(),
 //     keys: [['Ctrl K', 'Search everything']] });   // keys: the tool's own shortcuts, added to the Keyboard list
 // Inlined into a single-file page, escape any closing script tag in the code first (the hub's glass.py does).
-// The panel is a glass sheet. A pick applies and closes it (Cody, 10/28: "still gets stuck open"); so do its close
-// button, Escape and any press outside it (caught before the page sees it, so pages that stop clicks still close it).
+// The panel is a glass sheet. A pick applies and the sheet stays open for the next one (Cody, 11/2: "only close if
+// you click on the close x, or click outside the window, but still within the dashboard window"). It closes on its
+// close button, Escape, the Look button, and a press on the page outside it (caught before the page sees it, so pages
+// that stop clicks still close it). Leaving the window (another app, another monitor) never closes it.
 (function () {
   var css = '.dl-look-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--g-border);border-color:var(--c-edges,var(--g-border));background:var(--wash);background-image:var(--c-fill,none);box-shadow:var(--c-depth,none);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:background-color var(--t-hover) ease,box-shadow var(--t-hover) ease,transform var(--t-hover) ease}'
     + '.dl-look-btn:hover{background-color:var(--wash-2)}.dl-look-btn:active{box-shadow:var(--c-press,none);transform:translateY(1px)}'
@@ -202,7 +204,6 @@
       note = t.name + ' CSV downloaded';
     }
     if (note) hint(note);
-    close(true);
   }
   function label() { var c = DashSkin.choice(); btn.innerHTML = I.layers + esc(c === 'auto' ? 'System' : DashSkin.names[c]) + I.chev; }
   function place() {
@@ -211,7 +212,13 @@
     panel.style.top = top + 'px';
     panel.style.maxHeight = Math.max(240, innerHeight - top - 12) + 'px';
   }
-  function redraw() { var y = panel.scrollTop; panel.innerHTML = html(); panel.scrollTop = y; }
+  // the sheet is drawn again after a pick; focus goes back to the same control so the keyboard keeps its place
+  var fading = null, held = null;
+  function within(el, e) { var r = el.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; }
+  function redraw(k, v) {
+    var y = panel.scrollTop; panel.innerHTML = html(); panel.scrollTop = y;
+    if (k) { var b = panel.querySelector('button[data-k="' + k + '"]' + (v === undefined ? '' : '[data-v="' + v + '"]')); if (b) b.focus({ preventScroll: true }); }
+  }
   function close(refocus) { if (!panel.hidden) { panel.hidden = true; note = ''; btn.setAttribute('aria-expanded', 'false'); if (refocus) btn.focus(); } }
   function open() {
     panel.innerHTML = html(); panel.hidden = false; place();
@@ -229,7 +236,7 @@
       URL.revokeObjectURL(url);
       var kept = DashSkin.photo(c.toDataURL('image/jpeg', 0.82));
       hint(kept ? 'Photo set as the backdrop' : 'Photo set for this visit; too big to remember');
-      close(true);
+      redraw();
       if (opts.onChange) opts.onChange('photo', true);
     };
     img.onerror = function () { URL.revokeObjectURL(url); note = 'That image could not be read'; redraw(); };
@@ -272,7 +279,7 @@
         var b = e.target.closest('button[data-k]'); if (!b) return;
         var k = b.dataset.k, v = b.dataset.v;
         note = '';
-        DashSkin.swap(function () {
+        var fade = DashSkin.swap(function () {
           if (k === 'skin') DashSkin.set(v);
           else if (k === 'accent') DashSkin.accent(v);
           else if (k === 'glass') DashSkin.glass(v);
@@ -281,13 +288,35 @@
           else if (k === 'solid') DashSkin.solid(!DashSkin.solid());
           else if (k === 'motion') DashSkin.motion(v);
           else if (k === 'photo') { if (v === 'remove') DashSkin.photo(null); else DashSkin.photoOn(v === 'on'); }
-          label(); close(true);
+          label(); redraw(k, k === 'solid' ? undefined : v);
           if (opts.onChange) opts.onChange(k, k === 'skin' ? DashSkin.get() : v);
         });
+        // a quicker next pick cuts this fade short, and its ready promise rejects: expected, so caught
+        if (fade && fade.finished) { fading = fade; fade.ready.catch(done); fade.finished.then(done, done); }
+        function done() { if (fading === fade) fading = null; }
       });
       // Match system: when the computer switches light and dark, the page follows; let the tool redraw
       document.addEventListener('dashskin', function () { if (btn) label(); if (opts.onChange && DashSkin.choice() === 'auto') opts.onChange('skin', DashSkin.get()); });
-      document.addEventListener('pointerdown', function (e) { if (!panel.hidden && !panel.contains(e.target) && !btn.contains(e.target)) close(); }, true);
+      // While a pick's cross-fade runs (about 0.3 s), Chrome sends every press to the page root, so a quick second pick
+      // read as a press outside and closed the sheet. During the fade, where the press landed decides: inside the sheet
+      // it is held and given to the control under it on click; on the Look button likewise; anywhere else closes.
+      document.addEventListener('pointerdown', function (e) {
+        held = null;
+        if (panel.hidden) return;
+        if (fading && e.target === document.documentElement) {
+          if (within(panel, e)) {
+            held = Array.prototype.filter.call(panel.querySelectorAll('button, label'), function (b) { return within(b, e); }).pop() || panel;
+            return;
+          }
+          if (within(btn, e)) { held = btn; return; }
+        }
+        if (!panel.contains(e.target) && !btn.contains(e.target)) close();
+      }, true);
+      document.addEventListener('click', function (e) {
+        if (!held || e.target !== document.documentElement) return;
+        var h = held; held = null; e.stopPropagation();
+        if (h !== panel) h.click();
+      }, true);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hidden) close(true); });
       window.addEventListener('resize', function () { if (!panel.hidden) place(); });
     },

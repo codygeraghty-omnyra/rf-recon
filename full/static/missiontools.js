@@ -163,7 +163,7 @@ function mtBearings(el, T, B, M){
   el.innerHTML = `<div class="grid2" style="margin-top:0;grid-template-columns:minmax(240px,1fr) minmax(320px,1.6fr)">
     <div><div class="tw" style="max-height:420px"><table><thead><tr><th>Signal</th><th class="n">Bearings</th><th>Fix</th></tr></thead><tbody>${groups.map(x =>
       `<tr data-g="${esc(x.key)}" style="cursor:pointer;${x.key === g.key ? "background:var(--sel)" : ""}"><td>${esc(mtName(x))}${x.label ? `<br><span class="hint">${esc(x.label)}</span>` : ""}</td><td class="n">${x.readings.length}</td>
-        <td style="color:${qc(x.fix)}">${q(x.fix)}${x.fix ? ` · ±${num(x.fix.rms_m, 0)} m` : ""}</td></tr>`).join("")}</tbody></table></div>
+        <td style="color:${qc(x.fix)}">${q(x.fix)}${x.fix ? ` · ±${num(x.fix.rms_m, 0)} m${x.fix.ellipse ? ` · 95%: ${num(x.fix.ellipse.a_m * 2, 0)} × ${num(x.fix.ellipse.b_m * 2, 0)} m` : ""}` : ""}</td></tr>`).join("")}</tbody></table></div>
       <label class="inl" style="margin-top:8px">Draw lines <select id="brLen">${[1, 2, 5, 10, 20].map(n => `<option ${n === M.len ? "selected" : ""}>${n}</option>`).join("")}</select> mi long</label></div>
     <div><div id="brMap" style="height:380px;border-radius:12px"></div><div id="brFix" style="margin-top:8px"></div></div></div>`;
   el.querySelectorAll("[data-g]").forEach(r => r.onclick = () => { M.sel = r.dataset.g; mtBearings(el, T, B, M); });
@@ -172,6 +172,7 @@ function mtBearings(el, T, B, M){
   const f = g.fix, km = M.len * 1.609344, col = mtColor(g.sig_type), acc = mtCss("--accent", "#e07a3f");
   $("#brFix").innerHTML = f ? `<p style="margin:0"><b style="color:${qc(f)}">Fix (${q(f)})</b> <span class="mono">${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}</span> from ${f.n} bearings.
       The lines miss it by ${num(f.rms_m, 0)} m on average; the widest crossing is ${num(f.crossing_deg, 0)}°.</p>
+      ${f.ellipse ? `<p class="hint" style="margin:4px 0 0">95% error ellipse: ${num(f.ellipse.a_m * 2, 0)} m long (along ${num(f.ellipse.axis_deg, 0)}°) by ${num(f.ellipse.b_m * 2, 0)} m wide, assuming bearings good to ±${f.ellipse.bearing_err_deg}°${f.n >= 3 ? " (or what the lines' own misses show, if worse)" : ""}. The transmitter is inside it 19 times in 20 if that holds.</p>` : ""}
       ${f.behind ? `<p class="status err" style="margin:4px 0 0">${f.behind} bearing${f.behind === 1 ? " points" : "s point"} away from the fix: check ${f.behind === 1 ? "it" : "them"} (a reflection, or a bearing 180° out).</p>` : ""}
       ${f.crossing_deg < 20 ? `<p class="hint" style="margin:4px 0 0">The lines cross at a shallow angle, so the fix stretches along them. A bearing from further round the signal sharpens it.</p>` : ""}
       ${f.n < 3 ? `<p class="hint" style="margin:4px 0 0">Two bearings always meet somewhere; a third shows whether they agree.</p>` : ""}
@@ -187,7 +188,8 @@ function mtBearings(el, T, B, M){
       .bindTooltip(`${num(r.bearing, 0)}°${r.dbm != null ? ` · ${num(r.dbm, 0)} dBm` : ""}${r.ts ? `<br>${esc(new Date(r.ts).toLocaleString())}` : ""}`).addTo(map); }
   if(f){ ll.push([f.lat, f.lon]);
     const fc = {good: mtCss("--good", "#3fb950"), fair: mtCss("--warn", "#d29922"), poor: mtCss("--bad", "#f85149")}[f.quality];
-    L.circle([f.lat, f.lon], {radius: Math.max(30, f.rms_m), color: fc, weight: 2, fillOpacity: .15}).addTo(map);
+    if (f.ellipse) L.polygon(f.ellipse.ring, {color: fc, weight: 2, fillOpacity: .15}).bindTooltip(`95% error ellipse · ${num(f.ellipse.a_m * 2, 0)} × ${num(f.ellipse.b_m * 2, 0)} m`).addTo(map);
+    else L.circle([f.lat, f.lon], {radius: Math.max(30, f.rms_m), color: fc, weight: 2, fillOpacity: .15}).addTo(map);
     L.marker([f.lat, f.lon], {icon: pinIcon(), title: "Fix"}).bindTooltip(`Fix · ±${num(f.rms_m, 0)} m`).addTo(map);
     $("#brPin").onclick = () => { $("#loc").value = `${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}`; setTab("map"); runSearch(); };
     $("#brCopy").onclick = async () => { try{ await navigator.clipboard.writeText(`${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}`); $("#brMsg").textContent = "Copied."; }catch(e){ $("#brMsg").textContent = `${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}`; } }; }

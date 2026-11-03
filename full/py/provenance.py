@@ -56,6 +56,30 @@ STALE_DAYS = {"captures": 365, "uls": 30, "opencellid": 60, "wigle": 60, "repeat
 CALLSIGN = re.compile(r"^[A-Z]{1,3}[0-9][A-Z0-9]{1,4}$")
 
 
+TRACK_MIN = 20  # outcomes a source needs before its grade is earned rather than proposed
+
+
+def earned_grade(confirmed, contradicted):
+    """A grade from track record (Admiralty: "based on previous reporting"): the share of a source's claims our own
+    captures confirmed. None until it has TRACK_MIN outcomes: no track record isn't the same as untrustworthy."""
+    n = confirmed + contradicted
+    if n < TRACK_MIN:
+        return None
+    r = confirmed / n
+    return "A" if r >= 0.9 else "B" if r >= 0.75 else "C" if r >= 0.5 else "D" if r >= 0.25 else "E"
+
+
+def carrier_key(name):
+    """One name per carrier, whether it came from the FCC's coverage map (brand) or a cell ID's operator."""
+    n = re.sub(r"[^a-z]", "", (name or "").lower())
+    for key, words in (("att", ("att", "firstnet", "cingular")), ("verizon", ("verizon", "cellco")),
+                       ("tmobile", ("tmobile", "sprint", "metropcs")), ("uscellular", ("uscellular",)),
+                       ("dish", ("dish", "boost", "echostar"))):
+        if any(n.startswith(w) or w in n for w in words):
+            return key
+    return n or None
+
+
 def origin(source):
     return ORIGIN.get(source, ("other", "unknown", "unknown"))
 
@@ -106,7 +130,7 @@ def describe(source, label, when):
     return f"{label} ({word}{', as of ' + d if d else ''})"
 
 
-def judge(row, lic=None, fcc_as_of=None):
+def judge(row, lic=None, fcc_as_of=None, track=None):
     """The claim grade, the source letter, the single-source badge and the one-line why for one review row.
     row: a capture or crowd point (layer, freq_mhz, dbm, ident, ts or last_seen, calibrated, origins).
     lic: the FCC licence it was matched to ({call_sign, est_rx_dbm, ...}) or None."""
@@ -164,7 +188,9 @@ def judge(row, lic=None, fcc_as_of=None):
     else:
         reason = "one source only"
     days = age_days(when)
-    return {"claim": claim, "claim_words": words, "source_grade": grade(src, "on_air", row.get("calibrated")),
+    earned = ((track or {}).get(src) or {}).get("grade")  # a grade its own track record earned wins over the proposal
+    return {"claim": claim, "claim_words": words, "source_grade": earned or grade(src, "on_air", row.get("calibrated")),
+            "grade_earned": bool(earned),
             "origins": sorted(origins), "single_source": n == 1, "flags": flags,
             "why": " + ".join(parts) + f". {words}: {reason}" + (". " + "; ".join(flags) if flags else "") + ".",
             "age_days": days, "stale": stale(src, days)}

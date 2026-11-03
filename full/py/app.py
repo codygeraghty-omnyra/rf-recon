@@ -673,6 +673,7 @@ def signal_review(qs):
     want = [l for l in (fstr(qs, "layers") or ",".join(NON_FCC_LAYERS)).split(",") if l in NON_FCC_LAYERS]
     q["layers"] = [",".join(want) or "none"]
     rows = query_area(q).get("rows", [])
+    track = track_record()
     lookup, lcon = uls_lookup_factory()
     fcc_as_of = (lcon.execute("SELECT v FROM meta WHERE k='built_at'").fetchone() or [None])[0]
     scon = cdb()
@@ -697,7 +698,7 @@ def signal_review(qs):
                                           "also_in", "last_seen")}
             row = dict(keep, authority=cat, authority_note=note)
             row.update(provenance.judge(dict(r, bearing=point_bearing(r.get("extra"))) if r.get("layer") == "captures" else r,
-                                        lic=m, fcc_as_of=fcc_as_of))
+                                        lic=m, fcc_as_of=fcc_as_of, track=track))
             if cat == "Unlisted" and not getattr(remote.ON, "user", None):  # what it could be, from the Signal Identification Wiki (the catalog stays on this PC)
                 row["sigwiki"] = [{k: c[k] for k in ("title", "url", "score", "why")}
                                   for c in sigwiki.match(scon, f, r.get("bw_khz"), t, 3)]
@@ -706,8 +707,137 @@ def signal_review(qs):
         lcon.close()
         scon.close()
     out.sort(key=lambda x: (x["authority"] != "Unlisted", x.get("dist_mi") or 0))
+    caps = [r for r in rows if r.get("layer") == "captures"]
     return {"counts": counts, "rows": out, "layers": want, "rules": provenance.RULES, "fcc_as_of": fcc_as_of,
-            "not_heard": licensed_not_heard(qs, [r for r in rows if r.get("layer") == "captures"])}
+            "not_heard": licensed_not_heard(qs, caps), "coverage": coverage_conflicts(caps), "track": track}
+
+
+def cell_of(ident):
+    """(carrier key, operator, cell key) from a decoded cell ID, or None."""
+    import cells
+    p = cells.parse_id(ident)
+    if not p:
+        return None
+    op = cells.operator(p[0], p[1])
+    return provenance.carrier_key(op), op, f"cell:{p[0]}-{int(p[1])}-{p[3]}"
+
+
+def coverage_conflicts(caps, most_spots=40):
+    """Carrier coverage claimed (the FCC Broadband Map, bdc.py) against what captures heard, at each place where a
+    capture decoded cell IDs (pooled to about 300 m). Claimed, not heard: the map says a carrier covers it, the capture
+    decoded other carriers' cells there (so it was listening) and none of that carrier's. Weaker than claimed: heard,
+    but more than 10 dB under the map's modelled signal. The map is modelled outdoors; indoors both are often expected."""
+    spots = {}
+    for c in caps:
+        got = cell_of(c.get("ident")) if c.get("lat") is not None else None
+        if not got:
+            continue
+        sp = spots.setdefault((round(c["lat"] / 0.003) * 0.003, round(c["lon"] / 0.003) * 0.003), {"heard": {}, "n": 0})
+        sp["n"] += 1
+        key, op, _cell = got
+        if c.get("dbm") is not None and (key not in sp["heard"] or c["dbm"] > sp["heard"][key][1]):
+            sp["heard"][key] = (op, c["dbm"])
+        else:
+            sp["heard"].setdefault(key, (op, None))
+    out = []
+    for (la, lo), sp in sorted(spots.items(), key=lambda kv: -kv[1]["n"])[:most_spots]:
+        claimed = bdc.at(uls_import.DATA_DIR, la, lo)
+        if not claimed.get("loaded"):
+            return []  # no carrier coverage on this copy: nothing to compare against
+        for c in claimed["carriers"]:
+            key = provenance.carrier_key(c["brand"])
+            if c["tech"] not in ("4G LTE", "5G-NR") or not key:
+                continue
+            base = {"lat": round(la, 5), "lon": round(lo, 5), "carrier": c["brand"], "tech": c["tech"], "claimed_dbm": c["signal"],
+                    "readings": sp["n"], "as_of": claimed.get("as_of")}
+            if key not in sp["heard"]:
+                if sp["heard"]:  # it was listening: other carriers' cells were decoded here
+                    out.append(dict(base, flag="Claimed, not heard",
+                                    why=f"The FCC map (release {claimed.get('as_of')}) says {c['brand']} {c['tech']} covers this spot; "
+                                        f"{sp['n']} capture reading{'s' if sp['n'] != 1 else ''} here decoded "
+                                        f"{', '.join(v[0] for v in sp['heard'].values())} but no {c['brand']} cell. "
+                                        "The map is modelled outdoors: indoors this is often expected."))
+            else:
+                got = sp["heard"][key][1]
+                if got is not None and c["signal"] is not None and got < c["signal"] - 10:
+                    out.append(dict(base, flag="Weaker than claimed", heard_dbm=got,
+                                    why=f"Heard at {got:.0f} dBm, more than 10 dB under the map's {c['signal']} dBm for "
+                                        f"{c['brand']} {c['tech']}. The map is modelled outdoors: indoors this is often expected."))
+    return out
+
+
+TRACK = {"key": None, "value": {}}
+
+
+def track_record():
+    """How often each source's "on the air" claims held up against our own captures, pooled across every mission
+    (research rule 6). FCC licences: heard (a capture on the licensed frequency near the site) vs licensed, not heard
+    inside a swept band. Crowd sources: a crowd cell or radio our captures also decoded vs one of a kind our captures
+    decode, sitting near where we listened (300 m for cells, 100 m for Wi-Fi and Bluetooth), that they didn't.
+    Worked out from the raw rows when they change, and cached."""
+    con = db()
+    try:
+        key = con.execute("SELECT COUNT(*), MAX(id) FROM capture_point").fetchone()
+        key = (tuple(key), con.execute("SELECT v FROM meta WHERE k='built_at'").fetchone())
+        missions = [dict(r) for r in con.execute("SELECT id, lat, lon, radius_mi FROM mission WHERE lat IS NOT NULL")]
+        caps_by = {m["id"]: [dict(r, layer="captures") for r in con.execute("SELECT * FROM capture_point WHERE mission_id=?", (m["id"],))]
+                   for m in missions}
+    finally:
+        con.close()
+    cc = cdb()
+    try:
+        key = key + (cc.execute("SELECT COUNT(*), MAX(id) FROM ext_point").fetchone(),)
+        if TRACK["key"] == key:
+            return TRACK["value"]
+        tally = {}
+
+        def add(src, ok):
+            t = tally.setdefault(src, [0, 0])
+            t[0 if ok else 1] += 1
+        lookup, lcon = uls_lookup_factory()
+        try:
+            for m in missions:
+                caps = caps_by[m["id"]]
+                if not caps:
+                    continue
+                heard = {(x["call_sign"], round(x["freq_mhz"], 5)) for x in
+                         (lookup(c["freq_mhz"], c["lat"], c["lon"]) for c in caps if c.get("freq_mhz") and c.get("lat") is not None) if x}
+                for _ in heard:
+                    add("uls", True)
+                qs = {"lat": [str(m["lat"])], "lon": [str(m["lon"])], "radius": [str(m["radius_mi"] or 5)]}
+                for _ in licensed_not_heard(qs, caps, most=100000):
+                    add("uls", False)
+                ids, spots = set(), {"cell": [], "mac": []}
+                for c in caps:
+                    got = cell_of(c.get("ident"))
+                    mac = re.fullmatch(r"(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}", str(c.get("ident") or "").lower())
+                    if got:
+                        ids.add(got[2])
+                        spots["cell"].append((c["lat"], c["lon"]))
+                    elif mac:
+                        ids.add("mac:" + mac.group(0).replace("-", ":"))
+                        spots["mac"].append((c["lat"], c["lon"]))
+                s_, n_, w_, e_ = geo.bbox(m["lat"], m["lon"], m["radius_mi"] or 5)
+                for r in cc.execute("SELECT * FROM ext_point WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", (s_, n_, w_, e_)):
+                    r = dict(r)
+                    ident = opensources.identity(r)
+                    fam = "cell" if ident and ident.startswith("cell:") else "mac" if ident and ident.startswith("mac:") else None
+                    if not fam or not build.allowed(r["source"]):
+                        continue
+                    if ident in ids:
+                        add(r["source"], True)
+                        continue
+                    reach = 0.3 if fam == "cell" else 0.1
+                    if any(a is not None and geo.haversine_km(a, o, r["lat"], r["lon"]) <= reach for a, o in spots[fam][:2000]):
+                        add(r["source"], False)
+        finally:
+            lcon.close()
+        value = {src: {"confirmed": ok, "contradicted": bad, "grade": provenance.earned_grade(ok, bad),
+                       "proposed": provenance.grade(src, "on_air")} for src, (ok, bad) in tally.items()}
+        TRACK.update(key=key, value=value)
+        return value
+    finally:
+        cc.close()
 
 
 def licensed_not_heard(qs, caps, most=200):
