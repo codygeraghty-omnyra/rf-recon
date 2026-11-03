@@ -1,16 +1,16 @@
 {
- "version": "85335ef",
- "built": "2026-11-02 16:18",
+ "version": "13361f1",
+ "built": "2026-11-02 19:56",
  "python": "3.12.10",
  "get": "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB",
  "notes": [
-  "DAS",
-  "DAS",
-  "Display settings",
+  "Pending microwave applications and the Overture building fallback",
+  "FCC satellite earth stations layer",
+  "Provenance and confidence layer",
+  "Licence-clean sold build",
+  "Release notes",
   "Server",
-  "DAS example jobs and step guide",
-  "Data & updates",
-  "Keys out of every database file",
-  "Full-copy kit"
+  "Server",
+  "Server"
  ]
 }
