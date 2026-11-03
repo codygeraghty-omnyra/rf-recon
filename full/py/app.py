@@ -38,13 +38,16 @@ import captures  # noqa: E402
 import cells  # noqa: E402
 import coverage  # noqa: E402
 import das  # noqa: E402
+import build  # noqa: E402
 import connectors  # noqa: E402
+import provenance  # noqa: E402
 import faa  # noqa: E402
 import fieldpack  # noqa: E402
 import geo  # noqa: E402
 import network  # noqa: E402
 import notes  # noqa: E402
 import opensources  # noqa: E402
+import fss  # noqa: E402
 import psap  # noqa: E402
 import remote  # noqa: E402
 import sigid  # noqa: E402
@@ -101,6 +104,7 @@ def init():
     con = sqlite3.connect(DB_PATH)
     con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA + notes.SCHEMA)
     notes.migrate(con)
+    captures.migrate(con)
     import towers
     towers.ensure_schema(con)
     try:
@@ -407,13 +411,18 @@ def query_area(qs):
             args.append(int(mission))
         if not where:
             where.append("0")  # county mode without a mission: captures have no county
-        for r in con.execute(f"SELECT p.*, c.name AS capture_name FROM capture_point p JOIN capture c ON c.id=p.capture_id "
+        for r in con.execute(f"SELECT p.*, c.name AS capture_name, c.receiver, c.calibrated FROM capture_point p JOIN capture c ON c.id=p.capture_id "
                              f"WHERE {' AND '.join(where)} LIMIT {MAX_ROWS}", args):
             f = dict(r)
             f.update(layer="captures", fid=f"cap:{f['id']}", category="Survey: " + (f.get("sig_type") or "Unknown"),
                      band=uls_import.band_for(f.get("freq_mhz")))
             if not f.get("label"):
                 f["label"] = f.get("ident") or ""
+            if decorate(f, area):
+                out.append(f)
+    if "fss" in layers and area["point"] and has_table(con, "fss_earth"):  # protected C-band earth stations (receive only)
+        for r in con.execute(f"SELECT * FROM fss_earth WHERE status = 'Active' AND {area['sql']} LIMIT 2000", area["args"]):  # inactive ones lost their protection
+            f = fss.feature(r)
             if decorate(f, area):
                 out.append(f)
     if "psap" in layers and area["point"] and has_table(con, "psap"):  # 911 call centres, placed at their town's centre
@@ -427,7 +436,7 @@ def query_area(qs):
                 out.append(f)
     con.close()
 
-    crowd = [l for l in ("wigle", "opencellid", "repeaterbook", "custom") + tuple(opensources.SOURCES) if l in layers]
+    crowd = [l for l in ("wigle", "opencellid", "repeaterbook", "custom") + tuple(opensources.SOURCES) if l in layers and build.allowed(l)]
     if crowd and area["point"]:
         cc = cdb()
         crowd_rows = []
@@ -657,17 +666,21 @@ NON_FCC_LAYERS = ("captures", "wigle", "opencellid", "repeaterbook", "custom")
 def signal_review(qs):
     """Every survey and crowd point in the area, explained or flagged: an FCC licence on that frequency within
     40 mi, an allocation that allows it without a site licence (Part 15, Part 95, amateur, cellular...), or
-    nothing at all: 'Unlisted', the ones worth a second look."""
+    nothing at all: 'Unlisted', the ones worth a second look. Each row carries its claim grade, source letter,
+    single-source badge and one-line why (provenance.py). With captures in the area, licences our captures should
+    have heard and didn't come back as not_heard."""
     q = dict(qs)
     want = [l for l in (fstr(qs, "layers") or ",".join(NON_FCC_LAYERS)).split(",") if l in NON_FCC_LAYERS]
     q["layers"] = [",".join(want) or "none"]
     rows = query_area(q).get("rows", [])
     lookup, lcon = uls_lookup_factory()
+    fcc_as_of = (lcon.execute("SELECT v FROM meta WHERE k='built_at'").fetchone() or [None])[0]
     scon = cdb()
     out, counts = [], {}
     try:
         for r in rows:
             f, t = r.get("freq_mhz"), r.get("sig_type")
+            m = None
             cat, note = (sigid.authority(f, t) if t in sigid.PART15_TYPES | sigid.CELL_TYPES else (None, None))
             if cat is None and f and r.get("lat") is not None:
                 m = lookup(f, r["lat"], r["lon"])
@@ -680,8 +693,11 @@ def signal_review(qs):
                              else ("No frequency", "Recorded without a frequency"))
             counts[cat] = counts.get(cat, 0) + 1
             keep = {k: r.get(k) for k in ("fid", "layer", "lat", "lon", "dist_mi", "compass", "freq_mhz", "dbm",
-                                          "sig_type", "label", "ident", "ts", "capture_name", "kind")}
+                                          "sig_type", "label", "ident", "ts", "capture_name", "kind", "receiver", "calibrated",
+                                          "also_in", "last_seen")}
             row = dict(keep, authority=cat, authority_note=note)
+            row.update(provenance.judge(dict(r, bearing=point_bearing(r.get("extra"))) if r.get("layer") == "captures" else r,
+                                        lic=m, fcc_as_of=fcc_as_of))
             if cat == "Unlisted" and not getattr(remote.ON, "user", None):  # what it could be, from the Signal Identification Wiki (the catalog stays on this PC)
                 row["sigwiki"] = [{k: c[k] for k in ("title", "url", "score", "why")}
                                   for c in sigwiki.match(scon, f, r.get("bw_khz"), t, 3)]
@@ -690,7 +706,34 @@ def signal_review(qs):
         lcon.close()
         scon.close()
     out.sort(key=lambda x: (x["authority"] != "Unlisted", x.get("dist_mi") or 0))
-    return {"counts": counts, "rows": out, "layers": want}
+    return {"counts": counts, "rows": out, "layers": want, "rules": provenance.RULES, "fcc_as_of": fcc_as_of,
+            "not_heard": licensed_not_heard(qs, [r for r in rows if r.get("layer") == "captures"])}
+
+
+def licensed_not_heard(qs, caps, most=200):
+    """FCC licences in the area that our captures should have heard and didn't (provenance.not_heard): fixed sites,
+    predicted at the nearest place we listened (capture positions pooled to about 1 km), loud enough (free space
+    -80 dBm or more) that 30 dB of real-world loss still leaves them above a field receiver's floor."""
+    if not caps:
+        return []
+    q = dict(qs)
+    q["layers"] = ["uls"]
+    lic = [r for r in query_area(q).get("rows", []) if not r.get("is_mobile") and r.get("lat") is not None and r.get("freq_mhz")]
+    spots = {(round(c["lat"], 2), round(c["lon"], 2)) for c in caps if c.get("lat") is not None}
+    seen, cand = set(), []
+    for r in lic:
+        k = (r["call_sign"], round(r["freq_mhz"], 5))
+        if k in seen:
+            continue
+        seen.add(k)
+        d = min(geo.haversine_km(a, o, r["lat"], r["lon"]) for a, o in spots) if spots else None
+        p = geo.fspl_rx_dbm(r.get("erp_w") or r.get("power_out_w"), d, r["freq_mhz"])
+        if p is not None:
+            cand.append({"call_sign": r["call_sign"], "licensee": r.get("licensee"), "freq_mhz": r["freq_mhz"],
+                         "est_rx_dbm": round(p, 1), "dist_mi": round(d / geo.MI_KM, 1), "sig_type": r.get("sig_type")})
+    got = provenance.not_heard(cand, caps, floor_dbm=-80)
+    got.sort(key=lambda x: -x["est_rx_dbm"])
+    return got[:most]
 
 
 # ---------------------------------------------------------------- a mission over time: replay, activity, bearings
@@ -1138,12 +1181,15 @@ def uls_lookup_factory():
         tol = 0.00626
         s, n, w, e = geo.bbox(lat, lon, 40)
         best = None
-        for r in con.execute("SELECT call_sign, licensee, mode, lat, lon, freq_mhz FROM tx WHERE status='A' AND "
+        for r in con.execute("SELECT call_sign, licensee, mode, lat, lon, freq_mhz, erp_w, power_out_w FROM tx WHERE status='A' AND "
                              "freq_mhz BETWEEN ? AND ? AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
                              (freq - tol, freq + tol, s, n, w, e)):
             d = geo.haversine_km(lat, lon, r["lat"], r["lon"]) / geo.MI_KM
             if best is None or d < best["dist_mi"]:
                 best = dict(r, dist_mi=round(d, 1))
+        if best:  # the free-space level this licence predicts where the reading was taken (best case)
+            p = geo.fspl_rx_dbm(best.get("erp_w") or best.get("power_out_w"), best["dist_mi"] * geo.MI_KM, best["freq_mhz"])
+            best["est_rx_dbm"] = round(p, 1) if p is not None else None
         return best
     return lookup, con
 
@@ -1299,7 +1345,17 @@ class H(BaseHTTPRequestHandler):
                                 seen.add(r["rowid"])
                                 links.append(dict(r))
                     loaded = bool(links) or con.execute("SELECT 1 FROM mw_link LIMIT 1").fetchone() is not None
-                    return self.send(200, {"links": links[:lim], "loaded": loaded, "truncated": len(links) > lim})
+                    pending = []  # filed, not yet granted (mw_pending.py), when that source has been loaded
+                    if has_table(con, "mw_pending"):
+                        for side in ("tx", "rx"):
+                            for r in con.execute(f"SELECT rowid, * FROM mw_pending WHERE {side}_lat BETWEEN ? AND ? AND {side}_lon BETWEEN ? AND ? LIMIT ?",
+                                                 (s_, n_, w_, e_, lim)):
+                                if ("p", r["rowid"]) not in seen:
+                                    seen.add(("p", r["rowid"]))
+                                    pending.append(dict(r, pending=True))
+                    loaded = loaded or bool(pending) or (has_table(con, "mw_pending") and con.execute("SELECT 1 FROM mw_pending LIMIT 1").fetchone() is not None)
+                    return self.send(200, {"links": links[:lim], "pending": pending[:lim], "loaded": loaded,
+                                           "truncated": len(links) > lim})
                 finally:
                     con.close()
             if p == "/api/tak/settings":  # where Push to ATAK sends: the network's TAK multicast, and a TAK Server if set
@@ -1662,6 +1718,8 @@ class H(BaseHTTPRequestHandler):
                 creds = get_setting("creds", {}) or {}
                 return self.send(200, {"creds": {k: ("•••• set" if v else "") for k, v in creds.items()},
                                        "states": get_setting("update.states", ""), "bdc_states": get_setting("bdc.states", "")})
+            if p == "/api/build":  # personal or sold, what the sold build leaves out and why, and the data notices
+                return self.send(200, build.info())
             if p == "/api/update/status":
                 UPD.refresh_net_if_stale()  # the page polls this every 15 s
                 return self.send(200, UPD.snapshot())
@@ -1820,8 +1878,9 @@ class H(BaseHTTPRequestHandler):
                 fixed = (mm["lat"], mm["lon"]) if (mm and fstr(qs, "fixed") == "1") else None
                 fmt, pts, trk = captures.parse_any(fname, data, settings)
                 lookup, lcon = uls_lookup_factory()
+                rx = {k: fstr(qs, k) for k in ("receiver", "calibrated", "cal_date") if fstr(qs, k)}
                 summary = captures.store(con, int(mid) if mid is not None else None, fstr(qs, "name") or fname, fmt, pts, trk,
-                                         settings, lookup, extra_track=track, fixed_point=fixed)
+                                         settings, lookup, extra_track=track, fixed_point=fixed, receiver=rx or None)
                 lcon.close()
                 if mm:
                     con.execute("INSERT INTO mission_log(mission_id,ts,kind,detail) VALUES(?,?,?,?)",
@@ -1862,6 +1921,13 @@ class H(BaseHTTPRequestHandler):
                     cc.close()
                 return self.send(200, {"ok": True, "classification": c,
                                        "sigwiki": artemis.attach([{k: x[k] for k in ("title", "url", "score", "why")} for x in cands])})
+            m = re.match(r"^/api/captures/(\d+)/receiver$", p)  # what took it: model, calibrated, calibration date
+            if m:
+                d = self.body_json()
+                con = db()
+                captures.set_receiver(con, int(m.group(1)), d.get("receiver"), d.get("calibrated"), d.get("cal_date"))
+                con.close()
+                return self.send(200, {"ok": True})
             m = re.match(r"^/api/captures/(\d+)/delete$", p)
             if m:
                 cid = int(m.group(1))
@@ -1875,6 +1941,9 @@ class H(BaseHTTPRequestHandler):
                 creds = get_setting("creds", {}) or {}
                 cc = connectors.open_db(CROWD_PATH)
                 src, la, lo, rad = d["source"], float(d["lat"]), float(d["lon"]), float(d.get("radius", 5))
+                if not build.allowed(src):
+                    cc.close()
+                    return self.send(403, {"error": "Not in this build: " + build.PERSONAL_ONLY[src]})
                 if src == "wigle":
                     n = connectors.fetch_wigle(cc, la, lo, rad, creds.get("wigle_name", ""), creds.get("wigle_token", ""),
                                                kinds=tuple(d.get("kinds") or ("network", "bluetooth", "cell")))

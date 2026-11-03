@@ -93,11 +93,12 @@ S.views.report = (v, rows) => {
       ${g.length > 60 ? `<p class="hint">Showing 60 of ${g.length}. The Analyzer and Map table list them all, with the same filters.</p>` : ""}</details>`; }).join("") || '<p class="hint">None.</p>'}</div>
 
   <div class="panel" id="rp_sig" style="margin-top:10px"><h3>Signals not on the FCC licence list</h3>
-    <p class="hint">Your captures and the crowd layers (WiGLE, OpenCelliD, RepeaterBook, imported layers) in this area. Each is checked against FCC licences on that frequency within 40 mi,
+    <p class="hint">Your captures and the crowd layers (OpenCelliD and imported layers; WiGLE and RepeaterBook in the personal build) in this area. Each is checked against FCC licences on that frequency within 40 mi,
       then against bands where transmitting is allowed without a site licence (Part 15, Part 95, amateur, market-licensed cellular, broadcast, aviation, marine, federal).
       Whatever is left is <b style="color:${authColor("Unlisted")}">Unlisted</b>: worth a second look on site.</p>
     <div id="rp_sigbody">${survey.length ? '<p class="status">Checking…</p>' : `<p class="status">No survey or crowd data in this area yet.</p>
-      <div class="row no-print"><button data-goto="mission">Import captures (Mission)</button><button data-goto="data">Fetch WiGLE / OpenCelliD / RepeaterBook (Data &amp; updates)</button></div>`}</div></div>`;
+      <div class="row no-print"><button data-goto="mission">Import captures (Mission)</button><button data-goto="data">Fetch crowd data (Data &amp; updates)</button></div>`}</div></div>
+  ${(S.build||{}).notices ? `<p class="hint" style="margin-top:10px;font-size:11px">${esc(S.build.notices.fcc)} ${survey.some(r => r.layer === "opencellid") ? esc(S.build.notices.opencellid) : ""}</p>` : ""}`;
 
   v.querySelectorAll("[data-jump]").forEach(c => c.onclick = () => $("#" + c.dataset.jump)?.scrollIntoView({behavior: "smooth", block: "start"}));
   v.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => setTab(b.dataset.goto));
@@ -134,6 +135,15 @@ async function drawBandHeat(gen) {
   } catch (e) { if (gen === S.reportGen) note.textContent = "Coverage: " + e.message; }
 }
 
+// the claim grade in words (the louder of the two), the source's letter, and a badge when one origin says so alone
+const CLAIM_COLOR = {1: "var(--good)", 2: "var(--good)", 3: "var(--warn)", 4: "var(--bad)", 5: "var(--bad)", 6: "var(--ink-2)"};
+function claimTag(r) {
+  if (!r.claim_words) return "";
+  return `<b style="color:${CLAIM_COLOR[r.claim] || "inherit"}">${esc(r.claim_words)}</b> <span class="hint mono" title="Source grade A-F">${esc(r.source_grade || "")}</span>`
+    + (r.single_source ? ` <span class="tag" title="Only one independent origin says this">single source</span>` : "")
+    + (r.flags?.length ? `<br><span style="color:var(--bad)">⚑ ${r.flags.map(esc).join("; ")}</span>` : "");
+}
+
 async function loadSignals(gen) {
   const body = $("#rp_sigbody");
   try {
@@ -148,13 +158,19 @@ async function loadSignals(gen) {
     body.innerHTML = `<p>${n.toLocaleString()} points: <b>${lic.toLocaleString()}</b> match an FCC licence, <b>${(n - lic - un - (c["No frequency"] || 0)).toLocaleString()}</b> sit in bands allowed without a site licence,
       <b style="color:${un ? authColor("Unlisted") : "inherit"}">${un.toLocaleString()} unlisted</b>${c["No frequency"] ? `, ${c["No frequency"]} without a frequency` : ""}.</p>
       <div class="chips">${cats.map(([k, m]) => `<span class="chip"><span class="dot" style="background:${authColor(k)}"></span>${esc(k)} <b>${m.toLocaleString()}</b></span>`).join("")}</div>
-      <div class="tw" style="max-height:520px;margin-top:8px"><table><thead><tr><th>Finding</th><th>MHz</th><th>Type</th><th>dBm</th><th>Label / ID</th><th>Source</th><th>Distance</th><th>When</th><th>Why</th></tr></thead><tbody>
-      ${shown.map(r => `<tr><td><span class="tag" style="border-color:${authColor(r.authority)};color:${authColor(r.authority)}">${esc(r.authority)}</span></td>
+      <div class="tw" style="max-height:520px;margin-top:8px"><table><thead><tr><th>Finding</th><th title="How far to trust it: how many independent origins agree (words), and the source's own grade A-F">Claim</th><th>MHz</th><th>Type</th><th>dBm</th><th>Label / ID</th><th>Source</th><th>Distance</th><th>When</th><th>Why</th></tr></thead><tbody>
+      ${shown.map(r => `<tr${r.stale ? ` style="opacity:.55" title="${r.age_days} days old: past its refresh age"` : ""}><td><span class="tag" style="border-color:${authColor(r.authority)};color:${authColor(r.authority)}">${esc(r.authority)}</span></td>
+        <td>${claimTag(r)}</td>
         <td class="mono">${fmtF(r.freq_mhz)}</td><td>${esc(r.sig_type || "")}</td><td class="n">${num(r.dbm, 0)}</td>
         <td>${esc(r.label || r.ident || "")}</td><td>${esc(LAYERS[r.layer]?.label || r.layer)}${r.capture_name ? ` · ${esc(r.capture_name)}` : ""}</td>
-        <td class="n">${num(r.dist_mi, 2)} ${esc(r.compass || "")}</td><td class="mono">${esc((r.ts || "").slice(0, 16))}</td><td class="hint">${esc(r.authority_note || "")}
+        <td class="n">${num(r.dist_mi, 2)} ${esc(r.compass || "")}</td><td class="mono">${esc((r.ts || "").slice(0, 16))}</td><td class="hint">${esc(r.authority_note || "")}${r.why ? `<br>${esc(r.why)}` : ""}
           ${r.sigwiki?.length ? `<br>Could be: ${r.sigwiki.map(c => `<a href="${esc(c.url)}" target="_blank" rel="noopener" title="${esc(c.why.join(" · "))}">${esc(c.title)}</a>`).join(", ")} <span class="hint">(Signal ID Wiki)</span>` : ""}</td></tr>`).join("")}</tbody></table></div>
-      ${res.rows.length > shown.length ? `<button id="rp_sigall" class="no-print" style="margin-top:6px">Show all ${res.rows.length.toLocaleString()}</button>` : ""}`;
+      ${res.rows.length > shown.length ? `<button id="rp_sigall" class="no-print" style="margin-top:6px">Show all ${res.rows.length.toLocaleString()}</button>` : ""}
+      ${(res.not_heard || []).length ? `<h3 style="margin-top:14px">Licensed, not heard (${res.not_heard.length})</h3>
+        <p class="hint">FCC licences loud enough here (free space, best case) that your captures should have heard them, in bands your captures covered, with nothing on their frequency.</p>
+        <div class="tw" style="max-height:320px"><table><thead><tr><th>MHz</th><th>Call sign</th><th>Licensee</th><th class="n">Predicted dBm</th><th class="n">Miles</th><th>Why</th></tr></thead><tbody>
+        ${res.not_heard.map(x => `<tr><td class="mono">${fmtF(x.freq_mhz)}</td><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.licensee || "")}</td><td class="n">${num(x.est_rx_dbm, 0)}</td><td class="n">${num(x.dist_mi, 1)}</td><td class="hint">${esc(x.why)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      <p class="hint" style="font-size:11px">Grades: ${esc(res.rules || "")}. "Confirmed" needs two independent origins agreeing on something diagnostic (a decoded call sign, or a level that fits the licensed site), one of them your own capture. Copies of one source count once.</p>`;
     const all = $("#rp_sigall"); if (all) all.onclick = () => { S.reportSigAll = true; loadSignals(gen); };
     if (S.reportMap) for (const r of res.rows) if (r.lat != null)
       L.circleMarker([r.lat, r.lon], {radius: r.authority === "Unlisted" ? 6 : 4, color: authColor(r.authority), weight: 1.5, fillOpacity: .7})

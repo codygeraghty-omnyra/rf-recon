@@ -21,6 +21,7 @@ from datetime import datetime
 import zipfile
 
 import geo
+import overture
 import sigid
 import uls_import
 
@@ -215,6 +216,31 @@ def pick_building(data, lat, lon):
 
 
 def building_outline(lat, lon):
+    """OpenStreetMap first; Overture (overture.py, from extracts made ahead of time) when OpenStreetMap has no outline
+    within 80 m or its servers don't answer, and for a height OpenStreetMap lacks on the same building."""
+    try:
+        b = osm_outline(lat, lon)
+    except (ValueError, LookupError) as e:
+        ov = overture.find(lat, lon)
+        if not ov:
+            if isinstance(e, LookupError) and not overture.extracts():
+                raise LookupError(str(e).rstrip(".") + ". (No Overture extract covers this area yet.)") from None
+            raise
+        ov["fetched"] = now()
+        ov["note"] = ("OpenStreetMap's servers didn't answer" if isinstance(e, ValueError) else
+                      "OpenStreetMap has no outline here") + ": this outline is from Overture Maps."
+        return ov
+    if b.get("height_m") is None and b.get("outline"):
+        ov = overture.find(lat, lon)
+        ring = b["outline"]
+        mid = (sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring))
+        if ov and ov["height_m"] is not None and overture._inside(mid[0], mid[1], ov["outline"]):  # the same building
+            b.update(height_m=ov["height_m"], height_est=True, height_source=f"{ov['height_source'] or 'Overture'} (via Overture)",
+                     gers_id=ov["gers_id"], overture_release=ov["release"])
+    return b
+
+
+def osm_outline(lat, lon):
     """The main Overpass server, then a public mirror: either can be slow or down at busy times."""
     q = (f'[out:json][timeout:50];(way(around:80,{lat},{lon})["building"];relation(around:80,{lat},{lon})["building"];);out tags geom;')
     errors = []

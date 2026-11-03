@@ -15,6 +15,7 @@ import sqlite3
 import tarfile
 import urllib.request
 
+import build
 import uls_import
 
 ART_DIR = os.path.join(uls_import.DATA_DIR, "artemis")
@@ -41,7 +42,7 @@ def _con():
 
 def attach(cands):
     """Add {"media": {"image": url, "audio": url}} to Signal ID Wiki candidates Artemis has pictures or sound for."""
-    if not cands:
+    if not cands or not build.allowed("artemis"):
         return cands
     con, _ = _con()
     if not con:
@@ -64,6 +65,8 @@ def attach(cands):
 
 def media_file(doc_id):
     """(path, mime) of one picture or clip, or None. Only files the database lists, inside the release folder."""
+    if not build.allowed("artemis"):
+        return None
     con, folder = _con()
     if not con:
         return None
@@ -108,6 +111,8 @@ def unpack(tar_path, dest):
 def fetch(log=print):
     """Download and unpack the latest release if it's newer than the one here; returns the status. Unpacks only
     data.sqlite and media/<number>.png|ogg, so a release can't write anywhere else."""
+    if not build.allowed("artemis"):
+        return {"installed": False}
     req = urllib.request.Request(RELEASES, headers={"Accept": "application/vnd.github+json", "User-Agent": "RF-Recon"})
     with urllib.request.urlopen(req, timeout=30) as r:
         rel = json.load(r)

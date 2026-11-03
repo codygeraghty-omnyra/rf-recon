@@ -25,6 +25,7 @@ import urllib.request
 
 import captures
 import geo
+import provenance
 import sigid
 
 UA = "RF-Recon/2.0 (local site-survey tool)"
@@ -36,7 +37,15 @@ CREATE TABLE IF NOT EXISTS ext_point(id INTEGER PRIMARY KEY, source TEXT, layer 
 CREATE INDEX IF NOT EXISTS ext_latlon ON ext_point(lat, lon);
 CREATE TABLE IF NOT EXISTS ext_fetch(id INTEGER PRIMARY KEY, source TEXT, lat REAL, lon REAL, radius_mi REAL,
     fetched_at TEXT, rows INTEGER, message TEXT);
+CREATE TABLE IF NOT EXISTS ext_point_hist(id INTEGER PRIMARY KEY, point_id INTEGER, source TEXT, ext_id TEXT, lat REAL,
+    lon REAL, label TEXT, freq_mhz REAL, dbm REAL, mode TEXT, sig_type TEXT, last_seen TEXT, details TEXT,
+    fetched_at TEXT, replaced_at TEXT);
+CREATE INDEX IF NOT EXISTS ext_hist_point ON ext_point_hist(source, ext_id);
 """
+# provenance (provenance.py), added 2026-11-02; older copies gain them when the database opens
+PROV_COLS = (("origin_group", "TEXT"), ("method", "TEXT"), ("licence", "TEXT"), ("precision_m", "REAL"),
+             ("as_of", "TEXT"), ("derived_from", "TEXT"))
+HIST_FIELDS = ("lat", "lon", "label", "freq_mhz", "dbm", "mode", "sig_type", "last_seen", "details")
 ATTRIBUTION = {
     "wigle": "Data © WiGLE.net contributors (wigle.net)",
     "opencellid": "OpenCelliD Project, CC BY-SA 4.0 (opencellid.org)",
@@ -52,7 +61,24 @@ FIPS = dict(AL="01", AK="02", AZ="04", AR="05", CA="06", CO="08", CT="09", DE="1
 def open_db(path):
     con = sqlite3.connect(path, timeout=60)
     con.executescript(SCHEMA)
+    migrate(con)
     return con
+
+
+def migrate(con):
+    """Add the provenance columns to a crowd database made before 11/2 and fill them from each row's source."""
+    have = {r[1] for r in con.execute("PRAGMA table_info(ext_point)")}
+    missing = [(c, t) for c, t in PROV_COLS if c not in have]
+    if not missing:
+        return 0
+    for c, t in missing:
+        con.execute(f"ALTER TABLE ext_point ADD COLUMN {c} {t}")
+    for (src,) in con.execute("SELECT DISTINCT source FROM ext_point").fetchall():
+        p = provenance.tag(src)
+        con.execute("UPDATE ext_point SET origin_group=?, method=?, licence=?, precision_m=?, as_of=COALESCE(as_of, last_seen) "
+                    "WHERE source=?", (p["origin_group"], p["method"], p["licence"], p["precision_m"], src))
+    con.commit()
+    return len(missing)
 
 
 def http_json(url, headers=None, timeout=40):
@@ -76,12 +102,30 @@ def fnum(v):
 
 
 def upsert(con, rows):
+    """Write fetched rows. A row already here whose content changed keeps its old version in ext_point_hist first:
+    crowd history is kept, not overwritten (research rule 6); being seen again (only last_seen moves) isn't a change. Each row is tagged with its provenance."""
+    migrate(con)  # a connection opened without open_db (the schema run by hand) still gets the columns
+    now = time.strftime("%Y-%m-%d %H:%M")
+    cmp = ("lat", "lon", "label", "freq_mhz", "dbm", "mode", "sig_type")  # last_seen and details alone aren't a change
+    con.execute(f"CREATE TEMP TABLE IF NOT EXISTS _incoming(source, ext_id, {', '.join(cmp)})")
+    con.execute("DELETE FROM _incoming")
+    con.executemany(f"INSERT INTO _incoming VALUES({','.join('?' * (len(cmp) + 2))})",
+                    [(r[0], r[2], r[3], r[4], r[6], r[7], r[9], r[10], r[11]) for r in rows])
+    con.execute(f"INSERT INTO ext_point_hist(point_id, source, ext_id, {', '.join(HIST_FIELDS)}, fetched_at, replaced_at) "
+                f"SELECT p.id, p.source, p.ext_id, {', '.join('p.' + f for f in HIST_FIELDS)}, p.fetched_at, ? "
+                f"FROM _incoming i JOIN ext_point p ON p.source = i.source AND p.ext_id = i.ext_id "
+                f"WHERE {' OR '.join(f'p.{f} IS NOT i.{f}' for f in cmp)}", (now,))
     con.executemany(
         """INSERT INTO ext_point(source,layer,ext_id,lat,lon,kind,label,freq_mhz,freq_in_mhz,dbm,mode,sig_type,
            first_seen,last_seen,details,fetched_at,attribution) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(source,ext_id) DO UPDATE SET lat=excluded.lat, lon=excluded.lon, label=excluded.label,
            freq_mhz=excluded.freq_mhz, dbm=excluded.dbm, mode=excluded.mode, sig_type=excluded.sig_type,
            last_seen=excluded.last_seen, details=excluded.details, fetched_at=excluded.fetched_at""", rows)
+    for (src,) in {(r[0],) for r in rows}:
+        p = provenance.tag(src)
+        con.execute("UPDATE ext_point SET origin_group=?, method=?, licence=?, precision_m=?, as_of=last_seen "
+                    "WHERE source=? AND (origin_group IS NULL OR as_of IS NOT last_seen)",
+                    (p["origin_group"], p["method"], p["licence"], p["precision_m"], src))
     con.commit()
 
 

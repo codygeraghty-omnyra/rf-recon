@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ET
 
 import connectors
 import geo
+import provenance
 
 UA = {"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"}
 MAX_BYTES = 12_000_000
@@ -175,7 +176,8 @@ def identity(r):
 
 def merge(rows):
     """Crowd records that are the same emitter become one row: the most trusted source leads, every source is named
-    (also_in), fields the others add are filled in, and where sources disagree both values are kept (conflicts)."""
+    (also_in), fields the others add are filled in, and where sources disagree both values are kept (conflicts).
+    origins / independent count independent origin groups (provenance.py), which is what corroboration means."""
     groups, out = {}, []
     for r in rows:
         k = identity(r)
@@ -207,6 +209,9 @@ def merge(rows):
         d = geo.haversine_km(rs[0]["lat"], rs[0]["lon"], rs[-1]["lat"], rs[-1]["lon"]) if len(rs) > 1 else 0
         lead["also_in"] = names[1:]
         lead["merged_from"] = len(rs)
+        # independent origins, not rows: ten copies of one crowd report are one origin (provenance.py)
+        lead["origins"] = sorted({provenance.origin(x["layer"])[0] for x in rs})
+        lead["independent"] = len(lead["origins"])
         lead["conflicts"] = {f: v for f, v in conflicts.items() if len(v) > 1}
         if d > 0.05:
             lead["conflicts"]["position"] = [[x.get("category") or x["layer"], f"{x['lat']:.5f}, {x['lon']:.5f}"] for x in rs]

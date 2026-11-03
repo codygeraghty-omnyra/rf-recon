@@ -13,6 +13,8 @@ import struct
 import threading
 import time
 
+import build
+
 URL_HOST, URL_PATH = "stream.aisstream.io", "/v0/stream"
 IDLE_STOP_S = 180       # no map has asked for ships this long: disconnect
 KEEP_S = 30 * 60        # ships not heard from in this long drop off
@@ -171,6 +173,9 @@ def known(s, n, w, e):
 
 def ships(s, n, w, e, key):
     """Ask for the ships in a box: (re)starts or retargets the stream, returns what is known there."""
+    if not build.allowed("aisstream"):
+        return {"ships": [], "status": "not in this build", "error": "Ships are in the personal build only: "
+                + build.PERSONAL_ONLY["aisstream"]}
     if not key:
         return {"ships": [], "status": "no key", "error": "Add your aisstream key (Data & updates, Your API keys)."}
     pad_lat, pad_lon = (n - s) * 0.25, (e - w) * 0.25

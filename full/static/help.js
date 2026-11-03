@@ -96,12 +96,20 @@ const HELP = [
     <ul><li><b>FCC ULS</b> licences (land mobile, paging, broadcast auxiliary, marine and aviation ground) and <b>FCC ASR</b> towers: authoritative, updated weekly by the FCC.</li>
     <li><b>Broadcast</b> AM, FM and TV stations (FCC Media Bureau), <b>NOAA Weather Radio</b> transmitters with the counties each warns, and
       <b>FAA aviation</b> frequencies: towers, ATIS, approach, CTAF, navaids and ILS (new FAA cycle every 28 days).</li>
-    <li><b>Signal Identification Wiki</b> (sigidwiki.com): what a signal could be. Kept on this PC; open its pages for audio and decoding notes.</li>
-    <li><b>Your captures</b>, and crowd layers with your own keys: <b>WiGLE</b> (non-commercial), <b>OpenCelliD</b> (CC BY-SA), <b>RepeaterBook</b> (personal use).</li>
+    <li><b>Signal Identification Wiki</b> (sigidwiki.com): what a signal could be. Personal build only; kept on this PC; open its pages for audio and decoding notes.</li>
+    <li><b>Your captures</b>, and crowd layers with your own keys: <b>OpenCelliD</b> (CC BY-SA) in every build; <b>WiGLE</b> (non-commercial) and <b>RepeaterBook</b> (personal use) in the personal build only.</li>
     <li><b>RadioReference</b>: every licence's detail window links to its RadioReference call-sign page and the FCC's own record, and the Area report links to the state.
       Its data isn't copied in: its terms forbid that and its API needs Premium. Import its CSV exports as labels instead.</li>
     <li><b>Not in any public list</b>: federal users (NTIA's records aren't public) and cellular sites (licensed by market area, not by site).</li>
     <li>Predicted levels are <b>free-space</b>: best case, no terrain or buildings. Licensed doesn't mean on the air: mark what you hear.</li></ul>`],
+  ["credits", "Data credits and this build", () => {
+    const b = S.build || {}, out = Object.entries(b.left_out || {});
+    if (!b.build) return `<p class="hint">This copy didn't say which build it is (restart RF Recon to load it).</p>`;
+    return `<p>This is the <b>${b.build === "personal" ? "personal" : "sold"} build</b>.
+      ${b.build === "personal" ? "It carries every source, including ones whose terms allow personal use only. Don't sell or share what it shows from them."
+        : "It leaves out every source whose terms bar commercial use or sharing:"}</p>
+    ${out.length ? `<ul>${out.map(([k, why]) => `<li><b>${esc(k)}</b>: ${esc(why)}</li>`).join("")}</ul>` : ""}
+    <ul>${Object.values(b.notices || {}).map(n => `<li>${esc(n)}</li>`).join("")}</ul>`; }],
   ["glossary", "Glossary", `
     <table><tbody>
     <tr><td><b>ERP</b></td><td>Effective radiated power: transmitter power times antenna gain, in watts.</td></tr>
@@ -135,7 +143,7 @@ function openHelp(section) {
   $("#dlgBody").innerHTML = `<p style="margin:0 0 8px"><a href="static/release-notes.html" target="_blank" rel="noopener"><b>What's new:</b> release notes, every change since RF Recon began</a></p>
     <input id="helpQ" placeholder="Search help…" style="width:100%;margin-bottom:8px">
     <div class="chips" style="margin-bottom:8px">${HELP.map(([id, t]) => `<span class="chip" data-hjump="${id}">${t}</span>`).join("")}</div>
-    <div id="helpBody">${HELP.map(([id, t, body]) => `<div class="sec" id="help-${id}" data-text="${esc((t + " " + body.replace(/<[^>]+>/g, " ")).toLowerCase())}"><h3>${t}</h3>${body}</div>`).join("")}</div>`;
+    <div id="helpBody">${HELP.map(([id, t, body]) => (body = typeof body === "function" ? body() : body, `<div class="sec" id="help-${id}" data-text="${esc((t + " " + body.replace(/<[^>]+>/g, " ")).toLowerCase())}"><h3>${t}</h3>${body}</div>`)).join("")}</div>`;
   $("#dlgBody").querySelectorAll("[data-hjump]").forEach(c => c.onclick = () => $("#help-" + c.dataset.hjump)?.scrollIntoView({behavior: "smooth", block: "start"}));
   $("#helpQ").oninput = e => {
     const q = e.target.value.trim().toLowerCase();

@@ -435,6 +435,7 @@ window.dasSubmittal = async (el, j) => {
       <table><thead><tr><th>Floor</th><th class="n">Squares to test</th></tr></thead><tbody>${floors.map(f=>`<tr><td>${esc(f.name)}</td><td class="n">${(f.grids||DAS.grids)-(f.skip||[]).length}</td></tr>`).join("")}</tbody></table>
       <h3>8. Licensee consent (47 CFR 90.219(b)(1))</h3><p>${[...new Set(plan.map(p=>p.system))].map(esc).join("; ")||"–"}: written consent requested from each licensee before activation (NFPA 1225 18.7.2).</p>
       <h3>9. Sign-off</h3><p>Designer: ______________________ FCC GROL / certification: ${esc(T.grol||"__________")} Date: ________</p><p>AHJ review: ______________________ Date: ________</p>
+      ${window.dasCredits?dasCredits(d):""}
     </div>`;
   $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
   $("#dsPrint").onclick=()=>{ document.body.classList.add("print-das"); window.print(); setTimeout(()=>document.body.classList.remove("print-das"),500); };

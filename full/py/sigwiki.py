@@ -13,6 +13,8 @@ import time
 import urllib.parse
 import urllib.request
 
+import build
+
 API = "https://www.sigidwiki.com/api.php"
 UA = {"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"}
 PROPS = ["Title", "Frequencies", "Frequency_min", "Frequency_max", "Bandwidth", "Bandwidth_min", "Bandwidth_max",
@@ -62,6 +64,8 @@ def ranges_from(freqs_hz, fmin_hz, fmax_hz):
 
 def fetch(con, log=print):
     """Download the whole catalog (a few requests) and replace the local copy. Returns the row count."""
+    if not build.allowed("sigwiki"):
+        return 0
     con.executescript(SCHEMA)
     rows, offset = [], 0
     while offset is not None:
@@ -89,7 +93,7 @@ def fetch(con, log=print):
 
 def match(con, f, bw_khz=None, sig_type=None, limit=5):
     """Catalog entries whose frequencies cover f (MHz), best first, each with the reasons it scored."""
-    if not f:
+    if not f or not build.allowed("sigwiki"):
         return []
     try:
         cand = con.execute("SELECT * FROM sigwiki WHERE fmin <= ? AND fmax >= ?", (f + 0.05, f - 0.05)).fetchall()
@@ -130,6 +134,8 @@ def match(con, f, bw_khz=None, sig_type=None, limit=5):
 
 def in_range(con, lo, hi, limit=400):
     """Catalog entries overlapping lo..hi MHz, for drawing on the spectrum."""
+    if not build.allowed("sigwiki"):
+        return []
     try:
         rows = con.execute("SELECT name, title, url, ranges, mode, modulation FROM sigwiki WHERE fmin <= ? AND fmax >= ? "
                            "ORDER BY (fmax - fmin) LIMIT ?", (hi, lo, limit)).fetchall()

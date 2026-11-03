@@ -358,6 +358,32 @@
    ]
   },
   {
+   "name": "FCC Protected FSS Earth Station Registration",
+   "url": "https://opendata.fcc.gov/d/acbv-jbb4",
+   "what": "C-band satellite earth stations (3.6 to 4.2 GHz receive sites): position, pointing, gain, height",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "Bulk",
+   "status": "In RF Recon from 2026-11-02: about 470 sites, updated daily by the FCC",
+   "updater": [
+    "fss"
+   ]
+  },
+  {
+   "name": "FCC ULS microwave applications (a_micro.zip)",
+   "url": "https://www.fcc.gov/uls/transactions/daily-weekly",
+   "what": "Microwave links filed but not yet granted (application status 2, pending)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "Bulk",
+   "status": "In RF Recon from 2026-11-02, off by default (about 445 MB): about 2,300 pending links, drawn dashed on the Microwave backhaul layer",
+   "updater": [
+    "mw_pending"
+   ]
+  },
+  {
    "name": "OpenStreetMap map tiles",
    "url": "https://operations.osmfoundation.org/policies/tiles/",
    "what": "The Street base map",

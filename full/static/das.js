@@ -204,7 +204,7 @@ async function dasData(el){
       <p class="hint">For terrain paths and coverage with no signal in the field. ${esc(ter.attribution||"")}</p>
       <p style="margin:10px 0 6px">Building outlines: <b>${outlined}</b> of ${jobs.length} jobs have one.</p>
       <div class="row"><button id="ddOut" ${jobs.length>outlined?"":"disabled"}>⌂ Get the missing outlines</button><span class="hint" id="ddOutMsg"></span></div>
-      <p class="hint">From OpenStreetMap (ODbL): footprint, floors and height, for the floor area, sector split and donor height.</p></div></div>
+      <p class="hint">From OpenStreetMap (ODbL), with Overture Maps (ODbL) where OpenStreetMap has no outline or height: footprint, floors and height, for the floor area, sector split and donor height.</p></div></div>
     <div class="panel"><h3>Codes, rules, lookups and downloads</h3>
       ${DAS_LINKS.map(([g,ls])=>`<h4 style="margin:10px 0 4px">${esc(g)}</h4>${ls.map(([t,u,w])=>`<div style="padding:2px 0"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a> <span class="hint">· ${esc(w)}</span></div>`).join("")}`).join("")}
       <h4 style="margin:10px 0 4px">Research</h4><div>${DAS_SOURCES}</div>
@@ -289,7 +289,7 @@ function dasOverview(el, j, save){
         <label>Area (sq ft)<input data-k="area_sqft" type="number" value="${d.area_sqft??""}" style="width:110px"></label>
         <label>Construction <select data-k="construction">${Object.keys(DAS.loss).map(c=>`<option ${c===d.construction?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
       <div class="row" style="margin-top:6px;align-items:center"><button id="doOutline" title="Footprint, floors and height from OpenStreetMap, for the floor area, sector split, roof height and map">⌂ Get the building's outline</button>
-        <span class="hint" id="doOutMsg">${d.building?dasBuildingLine(d.building):"From OpenStreetMap: footprint, floors and height."}</span></div>
+        <span class="hint" id="doOutMsg">${d.building?dasBuildingLine(d.building):"From OpenStreetMap (Overture Maps where it has none): footprint, floors and height."}</span></div>
       <div class="row" style="margin-top:6px"><label class="grow">AHJ (jurisdiction)<input data-k="ahj" value="${esc(d.ahj||"")}" placeholder="e.g. Arlington County Fire Marshal"></label>
         <label class="grow">Code basis<input data-k="code" value="${esc(d.code||"IFC 510 + NFPA 1225")}" placeholder="IFC 2024 510, NFPA 1225 2022, local amendments"></label></div>
       <div class="row" style="margin-top:6px"><label class="grow">Next step<input data-k="next_step" value="${esc(d.next_step||"")}"></label><label>Due<input data-k="due" type="date" value="${esc(d.due||"")}"></label>
@@ -336,8 +336,9 @@ function dasTerrainCell(s, t){
   return `<span style="color:${word[1]}" title="${esc(`${t.status}; clearance ${t.clearance_f1} of the first Fresnel zone${t.worst_at_km!=null?`; worst point ${num(t.worst_at_km/1.609344,1)} mi from the site, ${t.worst_above_los_m} m above the line`:""}`)}">${word[0]}</span>`
     + `${t.loss_db?` −${num(t.loss_db,0)} dB`:""}${s.best_in!=null?`<div class="hint">${num(s.best_in-(t.loss_db||0),0)} dBm inside</div>`:""}`;
 }
-const dasBuildingLine = b => `${esc(b.name||"Building")} · ${(b.footprint_sqft||0).toLocaleString()} sq ft footprint${b.levels?` · ${b.levels} floors`:""}${b.height_m?` · ${Math.round(b.height_m)} m tall`:""}`
-  + `${b.contains_pin?"":` · nearest outline, ${b.dist_m} m from the pin`} · ${esc(b.source)} ${esc(b.osm)}`
+const dasBuildingLine = b => `${esc(b.name||"Building")} · ${(b.footprint_sqft||0).toLocaleString()} sq ft footprint${b.levels?` · ${b.levels} floors`:""}${b.height_m?` · ${Math.round(b.height_m)} m tall${b.height_est?` <span class="hint" title="${esc(b.height_source||"")}: machine-learned heights read low on tall buildings">(estimate)</span>`:""}`:""}`
+  + `${b.contains_pin?"":` · nearest outline, ${b.dist_m} m from the pin`} · ${esc(b.source)} ${esc(b.osm||"")}${b.gers_id?` <span class="hint mono" title="Overture GERS id, release ${esc(b.release||b.overture_release||"")}">${esc(b.gers_id.slice(0,8))}</span>`:""}`
+  + `${b.note?` · <i>${esc(b.note)}</i>`:""}`
   + `${b.footprint_sqft>DAS.sector_sqft?` · <b style="color:var(--warn)">over ${DAS.sector_sqft.toLocaleString()} sq ft a floor: NFPA 1225 splits each floor into sectors of ${DAS.grids} grids</b>`:""}`;
 // the donor antenna's height: the building's height (or floors x 3.5 m) plus a 3 m mast
 const dasRoof = d => (d.building?.height_m || ((d.building?.levels || (Array.isArray(d.floors)?d.floors.length:0) || 3) * 3.5)) + 3;
@@ -809,6 +810,14 @@ function dasLog(el, j){
   $("#dlAdd").onclick=async()=>{ const t=$("#dlNote").value.trim(); if(!t) return; await post(`/api/das/jobs/${j.id}/note`,{text:t}); render(); };
 }
 
+// the data notices a printed report must carry (build.py NOTICES): the FCC's always (the systems come from ULS);
+// the ODbL one when the job has a building outline (OpenStreetMap, or Overture when OpenStreetMap had none)
+function dasCredits(d){
+  const n=(S.build||{}).notices||{}, b=d.building;
+  const lines=[n.fcc, b&&(/Overture/.test(b.source||"")||b.gers_id?n.overture:n.osm)].filter(Boolean);
+  return lines.length?`<p class="hint" style="margin-top:16px;font-size:11px">${lines.map(esc).join(" ")}</p>`:"";
+}
+
 /* ---------- report for the AHJ (print to PDF): summary, then each floor's plan and readings ---------- */
 function dasReport(el, j){
   if(S.das.rview==="submittal"&&window.dasSubmittal) return window.dasSubmittal(el, j);  // the design submittal (dasdesign.js)
@@ -849,6 +858,7 @@ function dasReport(el, j){
         ${dasFlat(d).filter(r=>r.floor===f.name).map(r=>`<tr><td>${esc(r.grid)}</td><td>${r.critical?"★":""}</td><td>${esc(r.channel)}${r.channels>1?` <span class="hint">(worst of ${r.channels})</span>`:""}</td><td class="n">${r.dl_dbm}</td><td class="n">${r.dl_daq}</td><td class="n">${[r.sinr_db,r.ber_pct!==""?r.ber_pct+"%":""].filter(x=>x!=="").join(" / ")}</td><td class="n">${r.ul_dbm}</td><td class="n">${r.ul_daq}</td>${d.baseline?`<td class="n">${r.change_db!==""?(r.change_db>=0?"+":"")+r.change_db+" dB":""}</td>`:""}<td>${esc(r.instrument)}</td><td>${r.pass||"untested"}</td><td>${esc(r.note)}</td></tr>`).join("")}</tbody></table></div>`; }).join("")}
     ${crit.length?`<div style="margin-top:16px"><h3>Named critical areas</h3><table><thead><tr><th>Area</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">UL dBm</th><th class="n">UL DAQ</th><th>Instrument</th><th>Result</th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r); return `<tr><td>${esc(a)}</td><td class="n">${r.dl??""}</td><td class="n">${r.daq??""}</td><td class="n">${r.ul??""}</td><td class="n">${r.ul_daq??""}</td><td>${esc(cal?cal.name:"")}</td><td>${cal&&!cal.ok?"not counted":p==null?"untested":p?"pass":"fail"}</td></tr>`; }).join("")}</tbody></table></div>`:""}
     ${window.dasCellReport?dasCellReport(d):""}
+    ${dasCredits(d)}
   </div>`;
   // each floor's plan under its grid; a plan that won't open leaves the grid at its own shape
   el.querySelectorAll("img[data-plan]").forEach(async im=>{ const s=await jobFileSrc(j.id, im.dataset.plan);

@@ -21,6 +21,7 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
+import build
 import uls_import
 
 SOURCES = {
@@ -31,6 +32,7 @@ SOURCES = {
     "uls:paging": ("FCC ULS: Paging", "fcc", 168, "Paging and radiotelephone"),
     "uls:coast": ("FCC ULS: Marine & aviation ground", "fcc", 168, "Coast and ground stations"),
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
+    "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
     "bcast": ("FCC broadcast stations (AM / FM / TV)", "fcc", 168, "AM, FM, TV, low-power and translators"),
     "nwr": ("NOAA Weather Radio transmitters", "reference", 168, "~1,000 transmitters and the counties each one warns"),
@@ -39,6 +41,7 @@ SOURCES = {
     "opencellid": ("OpenCelliD (cell towers)", "crowd", 336, "Needs your OpenCelliD key"),
     "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs your RepeaterBook token"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
+    "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
     "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,600 call centres at town level; the FCC last updated its rows in 2017"),
     "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the RF Recon site (FCC open data of March 2021 if the site can't be reached)"),
     "artemis": ("Artemis signal database (waterfalls and audio)", "reference", 720, "A waterfall picture and an audio clip for each Signal ID Wiki signal, shown beside its matches (Ares Valley; about 300 MB; checked monthly, downloaded only when there's a new release)"),
@@ -49,7 +52,7 @@ SOURCES = {
     "pskreporter": ("PSKReporter monitors", "crowd", 24, "Digital-mode monitors and stations heard in the last hour (no key)"),
 }
 DEFAULT_ENABLED = {"uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
-                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee"}
+                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss"}
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
 LINK_NAMES = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "cellular": "cellular / phone tether"}
@@ -190,8 +193,10 @@ class Updater:
         for sid, (label, kind, hours, desc) in SOURCES.items():
             c = cfg.get(sid, {})
             out[sid] = {"label": label, "kind": kind, "description": desc,
-                        "enabled": c.get("enabled", sid in DEFAULT_ENABLED),
+                        "enabled": build.allowed(sid) and c.get("enabled", sid in DEFAULT_ENABLED),
                         "interval_h": c.get("interval_h", hours)}
+            if not build.allowed(sid):
+                out[sid]["personal_only"] = build.PERSONAL_ONLY[sid]
         return out
 
     def links(self):
@@ -245,7 +250,8 @@ class Updater:
             loaded = meta.get("sources") or ""
             out = {sid: meta.get("built_at") for sid in SOURCES if sid.startswith("uls:") and f"l_{sid[4:]}.zip" in loaded}
             out.update(asr=meta.get("towers_built_at"), bcast=meta.get("bcast_built_at"), nwr=meta.get("nwr_built_at"),
-                       faa=meta.get("faa_built_at"), psap=meta.get("psap_built_at"))
+                       faa=meta.get("faa_built_at"), psap=meta.get("psap_built_at"),
+                       fss=meta.get("fss_built_at"), mw_pending=meta.get("mw_pending_built_at"))
             con = sqlite3.connect(self.crowd, timeout=5)
             out["sigwiki"] = con.execute("SELECT MAX(fetched_at) FROM sigwiki").fetchone()[0]
             con.close()
@@ -285,6 +291,8 @@ class Updater:
         """Why a source isn't downloading right now, in a sentence; empty when nothing is in its way."""
         if s["running"]:
             return "Downloading now."
+        if s.get("personal_only"):
+            return "Not in this build: " + s["personal_only"]
         if not s["enabled"]:
             return "Off: switch it on to download it."
         if need and not all(creds.get(k) for k in need):
@@ -314,7 +322,7 @@ class Updater:
 
     def run_sources(self, ids, force=False):
         """Run several sources in parallel (background). Returns ids started."""
-        ids = [i for i in ids if i in SOURCES and i not in self.running]
+        ids = [i for i in ids if i in SOURCES and i not in self.running and build.allowed(i)]
         if not ids:
             return []
         with self.lock:
@@ -442,6 +450,22 @@ class Updater:
                 finally:
                     con.close()
                 self._mark(ids, state="ok", message=f"{n:,} call centres (FCC rows of {psap.SOURCE_DATE})", last_checked=now(), last_updated=now(), rows=n)
+            elif job == "mw_pending":  # microwave links filed, not yet granted (mw_pending.py)
+                import mw_pending
+                con = sqlite3.connect(self.db, timeout=60)
+                try:
+                    n = mw_pending.run(con, log=lambda m: self._mark(ids, message=m.strip()))
+                finally:
+                    con.close()
+                self._mark(ids, state="ok", message=f"{n:,} pending links", last_checked=now(), last_updated=now(), rows=n)
+            elif job == "fss":  # the FCC's protected C-band earth stations (fss.py)
+                import fss
+                con = sqlite3.connect(self.db, timeout=60)
+                try:
+                    n = fss.run(con)
+                finally:
+                    con.close()
+                self._mark(ids, state="ok", message=f"{n:,} earth stations", last_checked=now(), last_updated=now(), rows=n)
             elif job == "artemis":  # waterfalls and audio for the Signal ID Wiki signals (artemis.py)
                 import artemis
                 st = artemis.fetch(log=lambda m: self._mark(ids, message=m))
@@ -508,7 +532,7 @@ class Updater:
         if re.fullmatch(r"\d{1,2}-\d{1,2}", win):
             a, b = (int(x) for x in win.split("-"))
             if not (a <= time.localtime().tm_hour < b):
-                for sid in [s for s in due if s.startswith("uls:") or s == "bdc"]:
+                for sid in [s for s in due if s.startswith("uls:") or s in ("bdc", "mw_pending")]:
                     due.remove(sid)
                     if self.status[sid].get("state") != "running":  # one already running (Run now) keeps its progress line
                         self.status[sid]["message"] = f"due: runs in the night window ({a}:00 to {b}:00)"

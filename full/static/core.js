@@ -22,10 +22,10 @@ const LAYERS = {
   repeaterbook:{label:"RepeaterBook", color:"#1f6feb"}, custom:{label:"Imported layers", color:"#bf8700"},
   ttn:{label:"LoRaWAN gateways (TTN)", color:"#0a7c66"}, satnogs:{label:"SatNOGS ground stations", color:"#6639ba"},
   wspr:{label:"WSPR stations", color:"#b35900"}, pskreporter:{label:"PSKReporter", color:"#a40e26"},
-  psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}};
+  psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}, fss:{label:"Satellite earth stations (FCC)", color:"#0b6e99"}};
 
 const S = { mode:"point", rows:[], center:null, radius:5, tab:"map",
-  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter","psap"]),
+  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter","psap","fss"]),
   chips:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set()},
   sort:{k:"dist_mi", dir:1}, shown:600, lib:{}, mission:null, missionId:null, heat:{kind:"off", opacity:.75},
   sel:null, filterExpr:"", views:{} };
@@ -269,9 +269,12 @@ const MwLinks=L.LayerGroup.extend({
   async load(){ const m=this._map; if(!m) return; const b=m.getBounds();
     if(m.getZoom()<8){ this.clearLayers(); $("#status").textContent="Microwave backhaul: zoom in closer to load the links."; return; }
     try{ const r=await api(`/api/mwlinks?s=${b.getSouth()}&n=${b.getNorth()}&w=${b.getWest()}&e=${b.getEast()}`); this.clearLayers();
+      if(r.loaded && /^Microwave backhaul/.test($("#status").textContent)) $("#status").textContent="";  // an earlier view's note no longer holds
       if(!r.loaded){ $("#status").textContent="Microwave backhaul isn't loaded: switch on FCC ULS: Microwave in Data & updates and update it."; return; }
       for(const k of r.links) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:S.dotsR, color:"#8250df", weight:1.8, opacity:.75, bubblingMouseEvents:false})
         .bindTooltip(`${esc(k.licensee||"")} ${esc(k.call_sign)}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
+      for(const k of r.pending||[]) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:S.dotsR, color:"#d4a017", weight:1.8, opacity:.85, dashArray:"6 5", bubblingMouseEvents:false})
+        .bindTooltip(`<b>Pending application</b> ${esc(k.file_number)} (${esc(k.purpose)}, filed ${esc(k.received)})<br>${esc(k.licensee||"")} ${esc(k.call_sign||"")}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
       if(r.truncated) $("#status").textContent="Microwave backhaul: showing the first links here; zoom in for all of them."; }catch(e){}
   }});
 // live ships (AIS via aisstream on the PC): asks every 10 s while the layer is on; the PC stops streaming when nobody asks
@@ -531,7 +534,10 @@ function openDetail(fid){
   $("#dlgBody").innerHTML=html;
   if(r.also_in?.length){  // the same emitter from several sources: who reported it, and where they disagree
     const box=document.createElement("div"); box.className="sec"; const cf=Object.entries(r.conflicts||{});
-    box.innerHTML=`<h3>Sources (${r.merged_from})</h3><p style="margin:0 0 6px">${esc([r.category||LAYERS[r.layer]?.label, ...r.also_in].join(" · "))}</p>
+    const ind=r.independent||1;  // independent origins, not rows (provenance.py): copies of one source count once
+    box.innerHTML=`<h3>Sources (${r.merged_from} record${r.merged_from===1?"":"s"}, ${ind} independent origin${ind===1?"":"s"})</h3><p style="margin:0 0 6px">${esc([r.category||LAYERS[r.layer]?.label, ...r.also_in].join(" · "))}</p>
+      ${ind===1?`<p style="margin:0 0 6px"><span class="tag" title="Every record here comes from one origin group">single source</span> <span class="hint">${esc((r.origins||[]).join(""))}: these records share an origin, so they don't confirm each other.</span></p>`
+        :`<p class="hint" style="margin:0 0 6px">Origins: ${esc((r.origins||[]).join(", "))}</p>`}
       ${cf.length?`<p class="hint" style="margin:0 0 4px">Where they disagree, each source's value:</p>${kvg(cf.map(([f,vals])=>[esc(f.replace(/_/g," ")), vals.map(([s,v])=>`${esc(v)} <span class="hint">(${esc(s)})</span>`).join("<br>")]))}`
         :'<p class="hint" style="margin:0">They agree on everything they both report.</p>'}`;
     $("#dlgBody").prepend(box); }
@@ -591,7 +597,8 @@ try{ const t=localStorage.getItem("theme"); if(t) document.documentElement.datas
 
 async function boot(){
   try{
-    const [meta, states, lib] = await Promise.all([api("/api/meta"), api("/api/states"), api("/api/sigid")]);
+    const [meta, states, lib, bld] = await Promise.all([api("/api/meta"), api("/api/states"), api("/api/sigid"), api("/api/build").catch(()=>null)]);
+    S.build=bld;  // personal or sold, what the sold build leaves out, the data notices (build.py)
     S.lib=lib.library; S.bandplan=lib.bandplan; S.meta=meta;
     $("#meta").textContent = meta.built_at ? `FCC data ${meta.built_at} · ${Number(meta.tx_rows||0).toLocaleString()} entries${meta.towers_rows?` · ${Number(meta.towers_rows).toLocaleString()} towers`:""}` : "No FCC data yet — see Data & updates";
     $("#state").innerHTML='<option value="">—</option>'+states.map(s=>`<option>${esc(s.state)}</option>`).join("");

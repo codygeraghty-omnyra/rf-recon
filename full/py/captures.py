@@ -35,6 +35,27 @@ CREATE TABLE IF NOT EXISTS track_point(capture_id INTEGER, mission_id INTEGER, t
 CREATE INDEX IF NOT EXISTS tp_capture ON track_point(capture_id);
 """
 
+# the instrument behind a capture (provenance.py grades its levels: calibrated A, uncalibrated C), added 2026-11-02
+RECEIVER_COLS = (("receiver", "TEXT"), ("calibrated", "INTEGER"), ("cal_date", "TEXT"))
+
+
+def migrate(con):
+    """Give a capture table made before 11/2 the receiver and calibration columns."""
+    have = {r[1] for r in con.execute("PRAGMA table_info(capture)")}
+    for c, t in RECEIVER_COLS:
+        if c not in have:
+            con.execute(f"ALTER TABLE capture ADD COLUMN {c} {t}")
+    con.commit()
+
+
+def set_receiver(con, cid, receiver=None, calibrated=None, cal_date=None):
+    """Record what took a capture: the receiver's model, whether it was calibrated (1, 0, or None for unknown) and when."""
+    cal = None if calibrated in (None, "") else (1 if str(calibrated).lower() in ("1", "true", "yes") else 0)
+    con.execute("UPDATE capture SET receiver=?, calibrated=?, cal_date=? WHERE id=?",
+                ((receiver or "").strip() or None, cal, (cal_date or "").strip() or None, cid))
+    con.commit()
+
+
 KML_NS = {"k": "http://www.opengis.net/kml/2.2", "gx": "http://www.google.com/kml/ext/2.2"}
 
 
@@ -333,9 +354,10 @@ def parse_any(name, data, settings):
     return fmt, pts, track
 
 
-def store(con, mission_id, name, fmt, pts, track, settings, uls_lookup, extra_track=None, fixed_point=None):
-    """Classify, filter by mission settings and save. Returns summary dict."""
+def store(con, mission_id, name, fmt, pts, track, settings, uls_lookup, extra_track=None, fixed_point=None, receiver=None):
+    """Classify, filter by mission settings and save. Returns summary dict. receiver: {receiver, calibrated, cal_date}."""
     con.executescript(SCHEMA)
+    migrate(con)
     track = list(track)  # this file's own GPS track (stored)
     located = position_by_track(pts, track + list(extra_track or []), int(settings.get("track_match_s", 30)))
     if fixed_point:
@@ -368,6 +390,8 @@ def store(con, mission_id, name, fmt, pts, track, settings, uls_lookup, extra_tr
     cur = con.execute("INSERT INTO capture(mission_id,name,fmt,imported_at,points,track_points,notes) VALUES(?,?,?,?,?,?,?)",
                       (mission_id, name, fmt, iso(datetime.now(timezone.utc)), len(kept), len(track), ""))
     cid = cur.lastrowid
+    if receiver:
+        set_receiver(con, cid, **receiver)
     con.executemany(
         "INSERT INTO capture_point(capture_id,mission_id,ts,lat,lon,alt,acc,kind,ident,label,freq_mhz,channel,dbm,"
         "bw_khz,auth,sig_type,sig_conf,sig_basis,extra) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
