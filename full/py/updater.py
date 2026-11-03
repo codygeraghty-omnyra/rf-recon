@@ -185,7 +185,12 @@ class Updater:
                 self.status[sid].update({k: v for k, v in st.items() if k != "state"})
 
     def _save(self):
-        self.set("update.status", {sid: {k: v for k, v in st.items() if k != "state"} for sid, st in self.status.items()})
+        """Keep the status across restarts. Best effort: while a rebuild holds the database's write lock this can fail,
+        and on 11/2 that failure escaped a job's error handler and stopped the server's whole update queue."""
+        try:
+            self.set("update.status", {sid: {k: v for k, v in st.items() if k != "state"} for sid, st in self.status.items()})
+        except sqlite3.Error:
+            pass  # the in-memory status is current; the next save writes it
 
     def config(self):
         cfg = self.get("update.sources", {}) or {}
@@ -338,10 +343,18 @@ class Updater:
         later = [i for i in ids if i in AFTER_ULS] if uls_ids else []
         others = [i for i in ids if not i.startswith("uls:") and i not in later]
         jobs = ([("uls", uls_ids)] if uls_ids else []) + [(i, [i]) for i in others]
-        with ThreadPoolExecutor(max_workers=4) as ex:
-            list(ex.map(lambda j: self._run_job(j[0], j[1], force), jobs))
-        for i in later:  # these need the town list the licence import builds (a new copy has none until then)
-            self._run_job(i, [i], force)
+        try:
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                for f in [ex.submit(self._run_job, j[0], j[1], force) for j in jobs]:
+                    try:
+                        f.result()
+                    except Exception:
+                        pass  # one job's failure never stops the others (its own status says what went wrong)
+            for i in later:  # these need the town list the licence import builds (a new copy has none until then)
+                self._run_job(i, [i], force)
+        finally:  # nothing stays "running" after the batch ends (11/2: 911 centres showed running for good)
+            with self.lock:
+                self.running.difference_update(ids)
 
     def _mark(self, ids, **kw):
         if kw.get("state") in ("error", "ok", "skipped"):
