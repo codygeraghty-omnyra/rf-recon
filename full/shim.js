@@ -863,6 +863,7 @@ async function route(path, p, method, body) {
   if (path === "/sigwiki/match") return {candidates: await sigwikiMatch(fnum(p, "freq"), fnum(p, "bw"), fstr(p, "type"), fnum(p, "limit", 5))};
   if (path === "/sigwiki/range") return {signals: await sigwikiRange(fnum(p, "lo", 0), fnum(p, "hi", 1e6))};
   if (path === "/update/status") return {...STUB_STATUS(), catalog: await catalog()};
+  if (path === "/build") { const r = await realFetch("build.json"); return r.ok ? r.json() : null; }  // publish.py writes it from build.py: the sold build
   if (path === "/net/hint") return STUB_STATUS();
   if (path === "/fieldpacks") return {packs: [], folder: "", phone_url: "../", job: {running: false, log: []}};  // packs are made on the PC
   const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;

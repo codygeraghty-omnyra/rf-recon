@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RF Recon release notes</title>
 <link rel="stylesheet" data-dash-font href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="theme/glass.css">
-<script src="theme/skins.js"></script>
-<script src="theme/look.js"></script>
+<link rel="stylesheet" href="/static/theme/glass.css">
+<script src="/static/theme/skins.js"></script>
+<script src="/static/theme/look.js"></script>
 <script>
 // the main page's light / dark choice carries over (index.html keeps it as "theme")
 try { var t = localStorage.getItem("theme");
@@ -127,7 +127,7 @@ li b{font-weight:650}
 <header>
   <h1>RF Recon release notes</h1>
   <span class="spacer"></span>
-  <a class="hbtn" href="../">&larr; Back to RF Recon</a>
+  <a class="hbtn" href="/">&larr; Back to RF Recon</a>
   <span id="lookSlot"></span>
 </header>
 <main>
@@ -139,11 +139,11 @@ li b{font-weight:650}
       <button id="openAll" type="button">Open all</button>
       <button id="closeAll" type="button">Close all</button>
     </div>
-    <div class="hint" id="count" style="margin-top:8px">158 changes, October 27 to November 2, 2026. Newest first.</div>
+    <div class="hint" id="count" style="margin-top:8px">170 changes, October 27 to November 2, 2026. Newest first.</div>
     <h3 style="margin-top:14px">Contents</h3>
     <nav class="chips" aria-label="Days"><a class="chip" href="#d-2026-11-02">November 2, 2026</a><a class="chip" href="#d-2026-10-31">October 31, 2026</a><a class="chip" href="#d-2026-10-29">October 29, 2026</a><a class="chip" href="#d-2026-10-28">October 28, 2026</a><a class="chip" href="#d-2026-10-27">October 27, 2026</a></nav>
   </section>
-  <details class="panel day" id="d-2026-11-02" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, and your keys leave the database.</span></span><span class="tag n">30 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+  <details class="panel day" id="d-2026-11-02" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, your keys leave the database, and RF Recon now says how far to trust each finding.</span></span><span class="tag n">42 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
 <li><b>Online 24/7.</b> RF Recon now runs around the clock for invited people, at its own web address. Each person has their own login with a role: View (look, search, leave notes), Full (also DAS jobs, missions and notes) or Admin (also keys, updates and people). Eight wrong passwords lock a name for 15 minutes.</li>
 <li><b>Install it as an app.</b> RF Recon installs as an app on a PC (the install icon in Chrome or Edge&#x27;s address bar) or on a phone (Add to Home Screen).</li>
 <li><b>DAS Screening step.</b> A new step after Grid test judges each Grid test reading with its instrument&#x27;s published accuracy: likely pass, too close to call or likely fail. It lists market instruments only: PCTEL IBflex, Anritsu S412E, Epiq PRiSM and Nextivity COMPASS XR. Readings marked not calibrated are listed but not judged. The Grid test score and the Report don&#x27;t change.</li>
@@ -157,6 +157,15 @@ li b{font-weight:650}
 <li><b>Ways in.</b> Data &amp; updates lists every way to reach RF Recon or its data, and which ones work with Cody&#x27;s PC off. Used live as you work lists the services the maps and searches call, with their terms.</li>
 <li><b>Full-copy install kit.</b> A second install kit carries the whole-US FCC data, carrier coverage, and the maps and terrain kept for no signal, so a new PC opens with everything and downloads nothing. It leaves out keys, logins, anyone&#x27;s own work, crowd data, the Signal ID Wiki catalog and Artemis.</li>
 <li><b>More looks.</b> Display settings add nine colour skins (Ember, Moss, Tide, Midnight, Rosé, Graphite, Sand, Mint, Lilac), seven textures, five kinds of light and shadow, and six more accents.</li>
+<li><b>How far to trust it.</b> The Area report&#x27;s signal list grades every finding in words (Confirmed, Probably true, Possibly true, Doubtful, Can&#x27;t judge), with each source&#x27;s own letter A to F and a one-line why, for example: ULS WQB268 (filing, as of 10/28) + capture (measured, as of 11/2). Confirmed: call sign decoded. Confirmed needs two independent sources agreeing on something that pins it down: a decoded call sign, or a level and a bearing that both fit the licensed site. Old rows fade.</li>
+<li><b>Single source.</b> A finding only one source backs carries a single source badge. Copies of one source count once: ten copies of one crowd report are one source, not ten confirmations.</li>
+<li><b>Licensed, not heard.</b> With captures that swept a band, the Area report lists FCC licences loud enough there that the sweep should have heard them, with nothing on their frequency: possibly silent, discontinued, blocked, or not keyed while you listened. A few spot readings don&#x27;t count as a sweep.</li>
+<li><b>New warning flags.</b> A reading louder than its licence allows at that distance, a decoded call sign that isn&#x27;t the licence&#x27;s, and a bearing that points away from the licensed site are each flagged.</li>
+<li><b>Receiver on each capture.</b> Mission › Import field captures asks which receiver took them and whether it was calibrated; each capture&#x27;s row shows it and can be edited. Calibrated levels grade A, uncalibrated C.</li>
+<li><b>Satellite earth stations.</b> A new map layer: the FCC&#x27;s protected C-band earth stations (about 470), with where each dish points, its gain and height. On by default.</li>
+<li><b>Pending microwave links.</b> Microwave links filed with the FCC but not yet granted (about 2,300) draw dashed on the Microwave backhaul layer, with the filing number, purpose and date. Off by default: a 445 MB download.</li>
+<li><b>Building outlines from Overture.</b> When OpenStreetMap has no outline for a DAS building, or its servers don&#x27;t answer, the outline comes from Overture Maps for areas with an Overture extract (Jacksonville NC, Wilmington NC and Shakopee MN so far). Overture also fills a building height OpenStreetMap lacks, marked as an estimate.</li>
+<li><b>Sold build.</b> The copy Josh sells (the install kit and the online server) leaves out every source whose terms bar selling or sharing: WiGLE, RepeaterBook, wspr.live, the Signal ID Wiki, Artemis and live ships. Cody&#x27;s PC keeps them all. Help › Data credits and this build says which build you&#x27;re on and what it leaves out.</li>
 </ul></section>
 <section class="grp g-improved"><h3><span class="gtag improved">Improved</span></h3><ul>
 <li><b>Every channel counts.</b> A Grid test square keeps every reading, one per channel or system. The worst calibrated reading decides, so a square passes only when every channel does. Imports keep channel, position and cellular fields and merge by channel. All readings CSV exports and imports back.</li>
@@ -167,6 +176,7 @@ li b{font-weight:650}
 <li><b>Maps with no signal.</b> Only the USGS maps and county lines are kept for use with no signal. Street and Esri satellite maps need signal, per their terms. With no signal the map switches to USGS Topo and goes back to your pick when signal returns. On the PC, online, web and lite.</li>
 <li><b>Keys sealed.</b> API keys are no longer stored in any database file. On the PC they&#x27;re sealed to your Windows account. On first start, older keys move over and the old copy is wiped from the file.</li>
 <li><b>Saves during a data refresh.</b> Saves no longer fail for minutes while the FCC data refreshes. If one still can&#x27;t go through, RF Recon says so plainly. On the online server, heavy data refreshes run at night, 2 to 5 AM Eastern.</li>
+<li><b>Crowd history kept.</b> When a crowd source changes a row on a later download, the old version is kept instead of overwritten.</li>
 </ul></section>
 <section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
 <li><b>Second request failed.</b> A second request in a row, such as a second DAS delete, could fail with error 501. Proven fixed on live.</li>
@@ -180,10 +190,13 @@ li b{font-weight:650}
 <section class="grp g-data"><h3><span class="gtag data">Data</span></h3><ul>
 <li><b>DAS cellular research.</b> Cellular presets, consent steps and the booster band rules come from new research, checked against the current FCC rule (47 CFR 20.21(e)(3), unchanged since 2018) and the FCC&#x27;s own grant list.</li>
 <li><b>Esri imagery credit.</b> Esri&#x27;s satellite imagery is now credited to Vantor.</li>
+<li><b>Data notices.</b> Reports carry the FCC&#x27;s notice (this product uses the FCC Data API but is not endorsed or certified by the FCC), the OpenCelliD credit where its towers appear, and the OpenStreetMap or Overture credit with a building outline.</li>
+<li><b>Signal ID Wiki terms.</b> The wiki grants no licence to reuse its content, so the web version no longer carries its copy. Cody or Josh settles it with the wiki&#x27;s owners.</li>
 </ul></section>
 <section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
-<li><b>PC app and online server.</b> Both run today&#x27;s version. They are separate copies: a DAS job made on one isn&#x27;t on the other.</li>
-<li><b>Web version.</b> Has the DAS changes, the example jobs and the fixes.</li>
+<li><b>PC app.</b> Runs today&#x27;s version, as the personal build.</li>
+<li><b>Online server.</b> Runs the morning&#x27;s version; it gets the trust grades, the new layers and the sold build after its first full-US download finishes. It is a separate copy: a DAS job made on one isn&#x27;t on the other.</li>
+<li><b>Web version.</b> Has the DAS changes, the example jobs, the fixes and the trust grades, as the sold build.</li>
 <li><b>Install kits.</b> Installed copies offer the update in Data &amp; updates.</li>
 </ul></section></div></details><details class="panel day" id="d-2026-10-31" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 31, 2026</h2><span class="sum">The web version becomes the PC app in a browser and fits phones; notes, booster grants and calibrated grid scoring arrive.</span></span><span class="tag n">24 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
 <li><b>Web version fits phones.</b> The full app and the web version fit a phone, upright or on its side: one column, the header scrolls away, the tab bar sticks to the top, tabs scroll sideways and the filters start folded.</li>

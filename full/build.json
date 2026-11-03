@@ -1,0 +1,17 @@
+{
+ "build": "sold",
+ "left_out": {
+  "wigle": "WiGLE's terms allow personal, research or educational use only, and no redistribution.",
+  "repeaterbook": "RepeaterBook is for personal use, and its policy discourages tools that mix it with other data.",
+  "wspr": "wspr.live is non-commercial.",
+  "sigwiki": "The Signal Identification Wiki grants no licence to reuse its content (its Copyrights page, read 2026-11-02). Cody or Josh settles it with the wiki's owners first.",
+  "artemis": "Artemis's database is Signal Identification Wiki content.",
+  "aisstream": "aisstream.io publishes no terms."
+ },
+ "notices": {
+  "fcc": "This product uses the FCC Data API but is not endorsed or certified by the FCC.",
+  "opencellid": "Cell tower data: OpenCelliD Project, licensed under CC BY-SA 4.0 (opencellid.org).",
+  "osm": "Building outlines and street maps: \u00a9 OpenStreetMap contributors (ODbL, openstreetmap.org/copyright).",
+  "overture": "Building outlines: \u00a9 OpenStreetMap contributors, Overture Maps Foundation (ODbL)."
+ }
+}
