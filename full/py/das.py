@@ -328,13 +328,14 @@ def job_row(con, jid):
 
 
 def list_jobs(con):
+    import dasx  # licence changes and the existing-system audit, as "Needs you" lines
     out = []
-    for r in con.execute("SELECT * FROM das_job ORDER BY updated_at DESC"):
+    for r in con.execute("SELECT * FROM das_job ORDER BY updated_at DESC").fetchall():  # read whole: the licence watch writes as it goes
         d = json.loads(r["data"] or "{}")
         out.append({"id": r["id"], "name": r["name"], "stage": r["stage"], "updated_at": r["updated_at"],
                     **{k: d.get(k) for k in ("address", "lat", "lon", "ahj", "due", "next_step", "floors", "accepted_on",
                                              "retest_due", "checks", "value", "client")},
-                    "lifecycle": lifecycle(d, r["stage"])})
+                    "lifecycle": lifecycle(d, r["stage"]), "watch": dasx.board(con, r["id"], d, r["stage"])})
     return out
 
 
@@ -652,11 +653,12 @@ GRID_ALIASES = {
     "mhz": ["dlmhz", "dlcenterfreqmhz", "centerfreqmhz", "dlfrequencymhz", "downlinkmhz", "dlcentermhz"],
 }
 CONTACT_ALIASES = {
-    "name": ["name", "fullname", "contact", "contactname", "person"],
-    "org": ["org", "organization", "organisation", "company", "agency", "employer"],
-    "role": ["role", "title", "jobtitle", "position", "type"],
-    "phone": ["phone", "phonenumber", "mobile", "cell", "tel", "telephone"],
-    "email": ["email", "emailaddress", "mail"],
+    "name": ["name", "fullname", "displayname", "contact", "contactname", "person"],
+    # Google Contacts ("Organization Name", "Organization 1 - Name") and Outlook ("Company") exports too
+    "org": ["org", "organization", "organisation", "organizationname", "organization1name", "company", "agency", "employer"],
+    "role": ["role", "title", "jobtitle", "organizationtitle", "organization1title", "position", "type"],
+    "phone": ["phone", "phonenumber", "phone1value", "mobilephone", "businessphone", "mobile", "cell", "tel", "telephone"],
+    "email": ["email", "emailaddress", "email1value", "e-mailaddress", "mail"],
     "notes": ["notes", "note", "comments"],
 }
 
@@ -722,17 +724,37 @@ def import_contacts(con, name, data):
     else:
         _, head, rows = read_table(name, data)
         m = guess_mapping(head, CONTACT_ALIASES)
-        if "name" not in m and "org" not in m:
-            raise ValueError("No name or organisation column found.")
-        found = [{f: r.get(h, "") for f, h in m.items()} for r in rows]
-    have = {((c["name"] or "").lower(), (c["org"] or "").lower()) for c in list_contacts(con)}
+        norm = {re.sub(r"[^a-z0-9]", "", h.lower()): h for h in head}
+        first = next((norm[k] for k in ("firstname", "givenname") if k in norm), None)
+        last = next((norm[k] for k in ("lastname", "familyname", "surname") if k in norm), None)
+        if "name" not in m and "org" not in m and "email" not in m and not first:
+            raise ValueError("No name, organisation or email column found.")
+        found = []
+        for r in rows:
+            c = {f: r.get(h, "") for f, h in m.items()}
+            if not (c.get("name") or "").strip() and (first or last):  # Google's export: First Name + Last Name, no Name
+                c["name"] = " ".join(x for x in ((r.get(first) or "").strip() if first else "", (r.get(last) or "").strip() if last else "") if x)
+            for f in ("email", "phone"):  # Google puts several in one cell: "a@x.com ::: b@y.com"
+                if c.get(f):
+                    c[f] = str(c[f]).split(":::")[0].strip()
+            found.append(c)
+    cs = list_contacts(con)
+    have = {((c["name"] or "").lower(), (c["org"] or "").lower()) for c in cs}
+    emails = {(c["email"] or "").strip().lower() for c in cs if c["email"]}
     added = 0
     for c in found:
+        em = (c.get("email") or "").strip().lower()
         key = ((c.get("name") or "").lower(), (c.get("org") or "").lower())
-        if key in have or not any(key):
+        if not any(key) and not em:
             continue
+        if (any(key) and key in have) or (em and em in emails):
+            continue
+        if not any(key):  # an email-only contact: named from its address until you rename it
+            c["name"] = em.split("@")[0].replace(".", " ").replace("_", " ").title()
         save_contact(con, c)
-        have.add(key)
+        have.add(((c.get("name") or "").lower(), (c.get("org") or "").lower()))
+        if em:
+            emails.add(em)
         added += 1
     return {"found": len(found), "added": added}
 
@@ -1388,7 +1410,7 @@ def migrate(con):
     """Columns added after a table was first made (CREATE TABLE IF NOT EXISTS leaves an old table as it was)."""
     add = {"das_supplier": (("price_url", "TEXT"), ("price_checked", "TEXT"), ("price_result", "TEXT"), ("ship_from", "TEXT")),
            "das_part": (("weight_lb", "REAL"),), "das_rfq_supplier": (("ship_est", "TEXT"),),
-           "das_prospect": (("email", "TEXT"), ("email_source", "TEXT"))}
+           "das_prospect": (("email", "TEXT"), ("email_source", "TEXT")), "das_mail": (("counterpart_name", "TEXT"),)}
     for table, cols in add.items():
         have = {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
         for c, typ in cols:
@@ -1593,7 +1615,7 @@ KIND_TYPE = {"school_k12": "K-12 schools", "school_private": "K-12 schools", "co
              "high_rise": "High-rise office and residential", "warehouse": "Warehouses and distribution centers",
              "parking": "Parking garages (below grade)", "mall": "Malls and retail centers", "stadium": "Stadiums and arenas",
              "venue": "Convention centers", "airport": "Airports", "hotel": "Hotels", "casino": "Casinos and resorts",
-             "government": "Government buildings", "transit": "Transit stations (below grade)"}
+             "government": "Government buildings", "transit": "Transit stations (below grade)", "tunnel": "Tunnels"}
 
 
 def prospect_types():

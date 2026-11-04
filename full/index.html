@@ -350,7 +350,11 @@ select{max-width:100%}  /* a menu with a long option (Parts' cables) never runs 
   .tabs{scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
 }
+/* touch screens: a link out (sources, "Get a key ↗") gets a finger-sized target without changing the line it sits on (11/4) */
+@media (pointer:coarse){ #view a[target="_blank"]{display:inline-block;padding:8px 0;margin:-8px 0} }
 @media (max-width:600px){
+  /* a long folder path or address wraps instead of pushing the page sideways (DAS, Data & updates, 11/4) */
+  #view .mono, #view .hint, #view .status{overflow-wrap:anywhere}
   header{margin:8px 8px 0;padding:8px 10px;gap:8px}
   header h1{font-size:16px;margin-right:0}
   header h1::before{width:32px;height:32px;border-radius:10px;background-size:18px}
@@ -536,6 +540,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/search.js"></script>
 <script src="static/spectrum.js"></script>
 <script src="static/keys.js"></script>
+<script src="static/checklists.js"></script>
 <script src="static/help.js"></script>
 <script src="static/tak.js"></script>
 <script src="static/mapstyle.js"></script>
@@ -549,6 +554,8 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/planlines.js"></script>
 <script src="static/dswalls.js"></script>
 <script src="static/dascell.js"></script>
+<script src="static/dasx.js"></script>
+<script src="static/daswalk.js"></script>
 <script src="static/dasscreen.js"></script>
 <script src="static/dasexample.js"></script>
 <script src="static/welcome.js"></script>

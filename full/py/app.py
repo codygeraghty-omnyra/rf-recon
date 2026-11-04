@@ -157,6 +157,8 @@ def init():
     threading.Thread(target=ensure_places, daemon=True).start()
     threading.Thread(target=ensure_sigwiki, daemon=True).start()
     threading.Thread(target=mail_loop, daemon=True).start()
+    import ulscontacts  # licences' own contacts for a database built before they were kept (once, from the saved files)
+    threading.Thread(target=ulscontacts.ensure_quiet, args=(DB_PATH, uls_import.DATA_DIR), daemon=True).start()
     if BACKUP_DIR:
         threading.Thread(target=backup_loop, daemon=True).start()
 
@@ -1469,6 +1471,29 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True, "account": dasmail.account(uls_import.DATA_DIR, login), "folders": t["folders"]})
         if p == "/api/mail/guess":
             return self.send(200, mailbox.guess(fstr(qs, "address")))
+        if p.startswith("/api/mail/queue") or p in ("/api/mail/template", "/api/mail/templates"):
+            # Ready to send (mailqueue.py): written for you, lined up, sent only on a click; and the job emails' texts
+            import mailqueue
+            firm = get_setting("das.firm", {}) or {}
+            acct = dasmail.account(uls_import.DATA_DIR, login) or {}
+            if p == "/api/mail/templates":
+                return self.send(200, {"templates": [{"id": t[0], "label": t[1]} for t in mailqueue.TEMPLATES]})
+            if p == "/api/mail/template":
+                return self.send(200, mailqueue.template(con, int(fnum(qs, "job")), fstr(qs, "t") or "blank", firm, acct.get("name") or ""))
+            if p == "/api/mail/queue":
+                its = mailqueue.items(con, login, firm, acct.get("name") or "")
+                return self.send(200, {"items": its, "ready": sum(1 for x in its if not x["blocked"]), "per_hour": mailqueue.SEND_PER_HOUR,
+                                       "sent_last_hour": mailqueue.sent_last_hour(con, login)})
+            if method != "POST":
+                raise ValueError("Use POST.")
+            d = self.body_json()
+            if p == "/api/mail/queue/prospects":
+                return self.send(200, mailqueue.queue_prospects(con, login, d.get("rows") or []))
+            if p == "/api/mail/queue/later":
+                return self.send(200, mailqueue.put_off(con, login, str(d.get("key") or ""), d.get("days")))
+            raise LookupError("No such mail queue action.")
+        if p == "/api/mail/people":  # the To picker: the job's people, contacts, suppliers, anyone who replied
+            return self.send(200, {"people": dasmail.people(con, login, int(fnum(qs, "job")) if fnum(qs, "job") is not None else None)})
         if p == "/api/mail/account/delete" and method == "POST":
             dasmail.delete_account(uls_import.DATA_DIR, login)
             return self.send(200, {"ok": True})
@@ -1503,6 +1528,10 @@ class H(BaseHTTPRequestHandler):
         acct = dasmail.account(uls_import.DATA_DIR, login, with_password=True)
         if not acct:
             raise ValueError("Connect your mailbox first (Mail › Your mailbox).")
+        import mailqueue
+        if mailqueue.sent_last_hour(con, login) >= mailqueue.SEND_PER_HOUR:  # Gmail / Workspace cap a mailbox's sending per day
+            raise ValueError(f"{mailqueue.SEND_PER_HOUR} emails sent in the last hour: RF Recon waits before sending more, so your "
+                             "mailbox stays under its provider's limits. Try again later.")
         to = (d.get("to") or "").strip()
         if not re.fullmatch(r"[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24}(\s*[,;]\s*[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24})*", to):
             raise ValueError("Enter who it goes to (an email address).")
@@ -1773,6 +1802,9 @@ class H(BaseHTTPRequestHandler):
         caller's handler: LookupError -> 404, anything else -> 500 (ValueError messages are shown as they are)."""
         con = db()
         try:
+            if p.startswith("/api/das/x/"):  # licence watch, consent contacts, passband licensees, audit, AHJ, tunnels (dasx.py)
+                import dasx
+                return self.send(*dasx.handle(con, method, p, qs, self.body_json))
             m = re.match(r"^/api/das/jobs(?:/(\d+))?(?:/(\w+))?(?:/(\w+))?$", p)
             if m:
                 jid, action, sub = (int(m.group(1)) if m.group(1) else None), m.group(2), m.group(3)

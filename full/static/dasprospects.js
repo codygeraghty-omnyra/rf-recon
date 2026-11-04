@@ -12,7 +12,7 @@
 // two groups: the government lists (NCES, IPEDS, CMS) and Overture Maps (places; high-rises from its buildings, per area)
 const PR_GROUPS = [["Schools and hospitals", [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"], ["nursing_home", "Nursing homes"]]],
   ["Large and high-traffic", [["high_rise", "High-rises"], ["mall", "Malls"], ["stadium", "Stadiums and arenas"], ["hotel", "Hotels"], ["venue", "Convention centres and venues"],
-    ["casino", "Casinos"], ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"]]]];
+    ["casino", "Casinos"], ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"], ["tunnel", "Tunnels"]]]];
 const PR_KINDS = PR_GROUPS.flatMap(g => g[1]);
 const PR_STATUS = ["new", "contacted", "replied", "meeting", "won", "not interested", "do not contact"];
 const PR_KIND = Object.fromEntries(PR_KINDS);
@@ -34,7 +34,8 @@ window.dasProspects = async el => {
         <label>Within<select id="prRadius">${[2, 5, 10, 25, 50].map(r => `<option value="${r}" ${+P.radius === r ? "selected" : ""}>${r} mi</option>`).join("")}</select></label>
       </div>
       <div id="prKinds">${PR_GROUPS.map(([g, ks]) => `<div class="row" style="flex-wrap:wrap;gap:4px 14px;margin-top:8px;align-items:center"><b style="min-width:160px">${g}</b>${ks.map(([k, l]) => `<label style="display:inline-flex;gap:6px;align-items:center;flex-direction:row"><input type="checkbox" style="width:auto;margin:0" data-k="${k}" ${P.kinds.includes(k) ? "checked" : ""}> ${l} <span class="hint" data-n="${k}"></span></label>`).join("")}</div>`).join("")}
-        <div class="row" style="gap:8px;margin-top:6px;align-items:center"><button id="prHigh" title="Overture Maps buildings 75 ft or 7 floors and up, within the radius (at most 10 mi)">Find high-rises here</button><span class="hint" id="prHighMsg">High-rises come from building heights near a spot: kept for each mission area, or found here on a press.</span></div></div>
+        <div class="row" style="gap:8px;margin-top:6px;align-items:center"><button id="prHigh" title="Overture Maps buildings 75 ft or 7 floors and up, within the radius (at most 10 mi)">Find high-rises here</button><span class="hint" id="prHighMsg">High-rises come from building heights near a spot: kept for each mission area, or found here on a press.</span></div>
+        ${window.dasFindTunnels ? `<div class="row" style="gap:8px;margin-top:6px;align-items:center"><button id="prTun" title="Road and rail tunnels from OpenStreetMap within the radius (at most 10 mi)">Find tunnels here</button><span class="hint" id="prTunMsg">Road tunnels (NFPA 502) and rail and transit tunnels (NFPA 130), from OpenStreetMap on a press.</span></div>` : ""}</div>
       <p class="hint" id="prSrc" style="margin:8px 0 0"></p>
     </div>
     ${firm.address ? "" : `<p class="status pr-warn" id="prNoAddr">Add your firm's mailing address before emailing anyone: US law (CAN-SPAM) requires it in every commercial email. <a href="#" id="prFirm">Firm details</a></p>`}
@@ -81,6 +82,7 @@ window.dasProspects = async el => {
         <input id="prQ" placeholder="Filter by name or town" value="${esc(P.q)}" style="min-width:180px">
         <select id="prStatus"><option value="">Every status</option>${PR_STATUS.map(s => `<option value="${s}" ${P.status === s ? "selected" : ""}>${s} (${by(s)})</option>`).join("")}</select>
         <button id="prCsv" title="The rows shown, as a call list">⇩ Call list (CSV)</button>
+        ${window.rfMail ? `<button id="prQueue" title="Write a first email to each building shown that has an email and hasn't been written to: they wait in DAS › Mail › Ready to send for your click">✉ Queue first emails</button>` : ""}
       </div>
       <div id="prMap" style="height:340px;border-radius:12px;margin-bottom:10px"></div>
       <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
@@ -101,6 +103,14 @@ window.dasProspects = async el => {
     prMap(rows);
     $("#prQ").oninput = e => { P.q = e.target.value; clearTimeout(P.qt); P.qt = setTimeout(() => { const pos = e.target.selectionStart; paint(); const q = $("#prQ"); q.focus(); q.setSelectionRange(pos, pos); }, 250); };
     $("#prStatus").onchange = e => { P.status = e.target.value; paint(); };
+    $("#prQueue") && ($("#prQueue").onclick = async e => {  // first emails, lined up in Mail › Ready to send (nothing sent here)
+      const pick = rows.filter(x => x.email && (x.status || "new") === "new");
+      if (!pick.length) { dasSay("None of the buildings shown has an email and status new. Find email first, or widen the list."); return; }
+      const b = e.currentTarget; b.disabled = true;
+      try { const r = await post("/api/mail/queue/prospects", { rows: pick.map(x => ({ ...x, kind_label: PR_KIND[x.kind] || x.kind })) });
+        dasSay(`${r.queued} first email${r.queued === 1 ? "" : "s"} written and waiting in DAS › Mail › Ready to send${pick.length > r.max ? ` (the first ${r.max} of ${pick.length})` : ""}. Nothing is sent until you click.`);
+        window.rfMail?.badge?.();
+      } catch (err) { dasSay(err.message); } b.disabled = false; });
     $("#prCsv").onclick = () => {
       const cols = ["name", "kind", "priority", "address", "city", "state", "zip", "phone", "email", "website", "approach", "dist_mi", "status", "contacted_at"];
       const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -186,6 +196,7 @@ window.dasProspects = async el => {
   $("#prPin") && ($("#prPin").onclick = () => { P.where = [S.center[0], S.center[1]]; P.label = "the search pin"; $("#prWhere").value = ""; load(); });
   $("#prJob") && ($("#prJob").onchange = e => { const j = jobs.find(x => x.id === +e.target.value); if (!j) return; P.where = [j.lat ?? j.data?.lat, j.lon ?? j.data?.lon]; P.label = j.name; $("#prWhere").value = ""; load(); });
   $("#prRadius").onchange = e => { P.radius = +e.target.value; load(); };
+  $("#prTun") && ($("#prTun").onclick = e => window.dasFindTunnels(e, P, load, el));  // OpenStreetMap tunnels (dasx.js)
   $("#prHigh").onclick = async e => {
     if (!P.where) { dasSay("Pick where to look first."); return; }
     const r = Math.min(10, P.radius), msg = $("#prHighMsg");
@@ -196,6 +207,11 @@ window.dasProspects = async el => {
       load(); }
     catch (x) { msg.textContent = x.message; } finally { e.target.disabled = false; }
   };
+  // All / None on each group of building types: one search (at least one type stays on)
+  $("#prKinds").querySelectorAll(":scope > .row").forEach(row => window.rfChecks?.(row, { sel: "[data-k]", fold: false, word: "shown", head: row.querySelector("b"),
+    commit: () => { P.kinds = [...$("#prKinds").querySelectorAll("[data-k]:checked")].map(c => c.dataset.k);
+      if (!P.kinds.length) { const first = $("#prKinds").querySelector("[data-k]"); first.checked = true; P.kinds = [first.dataset.k]; }
+      load(); } }));
   $("#prKinds").onchange = e => { const k = e.target.dataset.k; if (!k) return; P.kinds = e.target.checked ? [...new Set([...P.kinds, k])] : P.kinds.filter(x => x !== k); if (!P.kinds.length) { P.kinds = [k]; e.target.checked = true; } load(); };
   $("#prFirm") && ($("#prFirm").onclick = e => { e.preventDefault(); S.das.view = "pitch"; S.views.das($("#view")); });
   load();

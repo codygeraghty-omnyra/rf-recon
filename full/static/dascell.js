@@ -67,7 +67,7 @@ window.dasCellRequire = (el, j, save) => {
       <label title="5G at 3.3 GHz and up: C-band, 3.45 GHz, CBRS">From 3.3 GHz ≥ dBm<input id="cp_rsrp_hi" type="number" value="${P.rsrp_hi??""}" placeholder="same" style="width:72px"></label>
       <label>SINR ≥ dB<input id="cp_sinr" type="number" step="0.5" value="${P.sinr??""}" placeholder="not judged" style="width:84px"></label>
       <label>Coverage %<input id="cp_pct" type="number" value="${P.pct}" style="width:64px"></label></div>
-    <div style="margin-top:6px"><span class="hint">Carriers that must pass (none ticked: every carrier found):</span> ${carriers.map(c=>`<label class="inl" style="margin-right:10px"><input type="checkbox" data-cc="${esc(c)}" ${req.has(c)?"checked":""}> ${esc(c)}</label>`).join("")}</div>
+    <div style="margin-top:6px" id="cpCarriers"><span class="hint">Carriers that must pass (none ticked: every carrier found):</span> ${carriers.map(c=>`<label class="inl" style="margin-right:10px"><input type="checkbox" data-cc="${esc(c)}" ${req.has(c)?"checked":""}> ${esc(c)}</label>`).join("")}</div>
     <p class="hint" style="margin-bottom:0">${esc(P.preset==="custom"?"Your own numbers.":P.src)}${P.hi_by?` Per carrier from 3.3 GHz: ${esc(Object.entries(P.hi_by).map(([c,v])=>`${c} ${v} dBm`).join(", "))}.`:""}
       No US carrier publishes an in-building spec: when a carrier gives you its numbers, enter them here; they win. RSRP is one reference signal (a 15 or 30 kHz subcarrier); an older spec's “RSL” or “signal strength” is a different measure, so don't enter it as RSRP.
       A square passes for a carrier when its best cell meets the target; a square with cellular readings but none from that carrier fails for it. Research: docs › research › DAS-Cellular (checked 2026-11-02).</p></div>`;
@@ -77,6 +77,8 @@ window.dasCellRequire = (el, j, save) => {
   for(const id of ["#cp_rsrp","#cp_rsrp_hi","#cp_sinr","#cp_pct"]) $(id).onchange=()=>keep({...mine, preset:"custom", rsrp:num2("#cp_rsrp")??-95, rsrp_hi:num2("#cp_rsrp_hi"), sinr:num2("#cp_sinr"), pct:num2("#cp_pct")??95,
     hi_by:id==="#cp_rsrp_hi"?null:(mine.hi_by??P.hi_by??null), carriers:P.carriers||null});
   el.querySelectorAll("[data-cc]").forEach(c=>c.onchange=()=>{ const s=new Set(P.carriers||[]); c.checked?s.add(c.dataset.cc):s.delete(c.dataset.cc); keep({...P, preset:P.preset, carriers:[...s]}); });
+  window.rfChecks?.($("#cpCarriers"), {sel:"[data-cc]", fold:false, word:"must pass", head:$("#cpCarriers > .hint"),
+    commit:boxes=>keep({...P, preset:P.preset, carriers:boxes.filter(c=>c.checked).map(c=>c.dataset.cc)})});
 };
 
 /* ---------- Pre-survey: the carriers at the building, the rooftop donor, approvals ---------- */

@@ -116,7 +116,7 @@ const DAS_CHECKS = [  // the dates a job is tracked by; a date means done
   ["consent", "Licensee / agency consent to retransmit (47 CFR 90.219(b)(1))"], ["fcc_reg", "FCC signal booster registration (Class B: 47 CFR 90.219(d)(5))"],
   ["permit", "AHJ permit"], ["design_ok", "Design approved"], ["monitoring", "Monitoring connected to the fire alarm panel"],
   ["accepted_on", "Acceptance test passed"], ["battery", "Battery test"]];
-const DAS_ROLES = [["ahj", "AHJ / fire marshal"], ["owner", "Building owner"], ["agency", "Radio system owner"], ["gc", "General contractor"], ["tech", "Our technician"]];
+const DAS_ROLES = [["ahj", "AHJ / fire marshal"], ["owner", "Building owner"], ["agency", "Radio system owner"], ["gc", "General contractor"], ["sub", "Subcontractor"], ["tech", "Our technician"]];
 
 // the AHJ report prints on its own (the rest of the page is hidden while it prints)
 document.head.insertAdjacentHTML("beforeend", `<style>@media print{body.print-das *{visibility:hidden}body.print-das #dasPrint,body.print-das #dasPrint *{visibility:visible}
@@ -170,11 +170,12 @@ S.views.das = async v => {
     else if(rd!=null&&rd<=60) need.push([j, rd<0?`annual retest overdue by ${-rd} days`:`annual retest due in ${rd} days`, rd]);
     if(dd!=null&&dd<0&&!["In service","Closed"].includes(j.stage)) need.push([j, `${j.next_step||"next step"} overdue by ${-dd} days`, dd]);
     if(["Install","Commission","Acceptance"].includes(j.stage)&&!ck.consent) need.push([j, "no licensee consent on file", 0]);
-    if(["Commission","Acceptance","In service"].includes(j.stage)&&!ck.fcc_reg) need.push([j, "no FCC booster registration on file", 0]); }
+    if(["Commission","Acceptance","In service"].includes(j.stage)&&!ck.fcc_reg) need.push([j, "no FCC booster registration on file", 0]);
+    for(const x of j.watch||[]) need.push([j, x.text, 0, x]); }  // FCC licence changes, existing-system problems (dasx.py)
   need.sort((a,b)=>a[2]-b[2]);
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <button class="primary" id="dsNew">+ New job</button>
-      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["prospects","Prospects"],["pitch","Pitch"],["mail","Mail"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["prospects","Prospects"],["pitch","Pitch"],["mail",window.rfMail?.ready_n?`Mail · ${rfMail.ready_n}`:"Mail"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
       <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
       <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>
@@ -358,14 +359,15 @@ async function dasJob(v, id){
   DASJ=dasProfile((j.data||{}).profile);
   // a refused save says so on screen and leaves the job as it was (11/3: it failed silently, only an unhandled rejection)
   const d=j.data||{}, save=async(patch,extra)=>{ try{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); }catch(e){ dasSay("Not saved: "+e.message); } return j; };
-  const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["screen","Screening"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
+  const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],...(window.dasAudit?[["audit","Existing system"]]:[]),["design","Design"],["materials","Materials"],["grid","Grid test"],["screen","Screening"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px"><button id="djBack">← All jobs</button>
       <input id="djName" value="${esc(j.name)}" style="font-size:18px;font-weight:700;min-width:260px">
       <label class="inl">Stage <select id="djStage">${D.stages.map(s=>`<option ${s===j.stage?"selected":""}>${esc(s)}</option>`).join("")}</select></label>
       <div class="seg" id="djSub">${subs.map(([k,l])=>`<button data-s="${k}" class="${D.sub===k?"on":""}">${l}</button>`).join("")}</div>
       <span style="margin-left:auto" class="row"><button id="djExp">⇩ Job JSON</button><button id="djDel">Delete job</button></span></div>
-    <div id="djGuide"></div><div id="djBody"></div>`;
+    <div id="djGuide"></div><div id="djX"></div><div id="djBody"></div>`;
   window.dasJobGuide?.($("#djGuide"), j, D.sub);  // an example job explains each step (dasexample.js)
+  window.dasXBanner?.($("#djX"), j);  // open FCC licence changes and existing-system problems (dasx.js)
   $("#djBack").onclick=()=>{ D.job=null; render(); };
   $("#djName").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{name:e.target.value}); };
   $("#djStage").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{stage:e.target.value}); };
@@ -374,7 +376,7 @@ async function dasJob(v, id){
   $("#djDel").onclick=async()=>{ if(!confirm(`Delete “${j.name}”? Its files stay in the Drive folder.`)) return; await post(`/api/das/jobs/${id}/delete`); D.job=null; render(); };
   const body=$("#djBody");
   ({overview:dasOverview, presurvey:dasPresurvey, require:dasRequire, grid:dasGrid, files:dasFiles, log:dasLog, report:dasReport,
-    pim:window.dasPim, screen:window.dasScreen, materials:window.dasMaterials, plans:window.dasPlans, design:window.dasDesign}[D.sub]||dasOverview)(body, j, save);  // fieldref.js, plans.js, dasdesign.js, dasscreen.js
+    pim:window.dasPim, screen:window.dasScreen, materials:window.dasMaterials, plans:window.dasPlans, design:window.dasDesign, audit:window.dasAudit}[D.sub]||dasOverview)(body, j, save);  // fieldref.js, plans.js, dasdesign.js, dasscreen.js, dasx.js
 }
 
 function dasOverview(el, j, save){
@@ -394,6 +396,7 @@ function dasOverview(el, j, save){
         <span class="hint" id="doNsiMsg">${d.nsi?dasNsiLine(d.nsi):"USACE National Structure Inventory: modelled occupancy, stories, sq ft, basement, year built and people inside, as estimates."}</span></div>
       <div class="row" style="margin-top:6px"><label class="grow">AHJ (jurisdiction)<input data-k="ahj" value="${esc(d.ahj||"")}" placeholder="e.g. Arlington County Fire Marshal"></label>
         <label class="grow">Code basis<input data-k="code" value="${esc(d.code||"IFC 510 + NFPA 1225")}" placeholder="IFC 2024 510, NFPA 1225 2022, local amendments"></label></div>
+      <div id="doAhjX"></div>
       <div class="row" style="margin-top:6px"><label class="grow">Next step<input data-k="next_step" value="${esc(d.next_step||"")}"></label><label>Due<input data-k="due" type="date" value="${esc(d.due||"")}"></label>
         <label>Value ($)<input data-k="value" type="number" value="${d.value??""}" style="width:110px"></label></div></div>
     <div class="panel"><h3>Compliance <span class="hint">· a date means done</span></h3>
@@ -435,6 +438,7 @@ function dasOverview(el, j, save){
       j=await save(patch); render(); }catch(e){ b.disabled=false; $("#doNsiMsg").textContent=e.message; } };
   $("#doPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ alert("Drop a pin or type the address in the search panel first."); return; } j=await save({lat:p[0],lon:p[1]}); render(); };
   dasLifeWire(el, () => j, async patch => { j = await save(patch); render(); });
+  window.dasAhjGuess?.($("#doAhjX"), j, save);  // fire departments covering the address (dasx.js, USFA registry)
   dasJobMail(el, j);
   $("#doRetestMail")&&($("#doRetestMail").onclick=()=>{ const cs2=S.das.contacts||[], ro=d.contacts||{}, own=cs2.find(c=>String(c.id)===String(ro.owner)), me=cs2.find(c=>String(c.id)===String(ro.tech));
     $("#doMailPanel")?.scrollIntoView({behavior:"smooth", block:"nearest"});
@@ -650,18 +654,23 @@ async function dasPresurvey(el, j, save){
         <td class="n hint">${num(s.best_out,0)}</td><td class="n hint">${num(s.best_in,0)}</td><td class="n" style="color:${mc(s.margin_db)}">${num(s.margin_db,0)}</td>
         <td>${dasTerrainCell(s, (ps.terrain||{})[s.call_sign])}</td></tr>`; }).join("")}</tbody></table></div>
       <p class="hint">Downlink: what the agency's sites transmit (the building's donor antenna hears it). Uplink: what the radios transmit, from each licence's mobile entries, or the fixed 800 MHz (−45 MHz) and 700 MHz (+30 MHz) offsets. Bearing is from the building to the site (magnetic from NOAA's WMM2025): point the donor antenna there. The donor site is the strongest on the realistic estimate; ~ marks a level outside Hata's tested range (below 150 MHz, or under 1 km), so rougher.</p></div>
+    <div id="psX" style="margin-top:10px"></div>
     <div id="psCell" style="margin-top:10px"></div>`;
   window.dasCellPresurvey?.($("#psCell"), j, save);  // the commercial carriers here (dascell.js)
+  window.dasPresurveyX?.($("#psX"), j, save, r, chosen);  // passband licensees and consent, licence watch, tunnels (dasx.js)
   // the chosen systems' channel plan is saved with the job, so the AHJ report and exports have it without the FCC data
   const store=async patch=>{ const incl=new Set(patch.include??[...inc]);
     j=await save({presurvey:{...(j.data.presurvey||{}),...P,...patch, plan:planOf(r.systems.filter(s=>incl.has(s.call_sign)))}}); dasPresurvey(el, j, save); };
-  $("#psLet").onclick=()=>dasConsent(j, chosen);
+  $("#psLet").onclick=async()=>{ await window.dasConsentPrefetch?.(chosen); dasConsent(j, chosen); };  // addressed from each licence's FCC contact
   $("#psAim").onclick=()=>dasDonorSheet(j, (any?chosen:r.systems.slice(0,10)).filter(s=>s.sites[0]), r, ps);
   el.querySelectorAll("[data-aim]").forEach(b=>b.onclick=e=>{ e.preventDefault(); dasDonorSheet(j, r.systems.filter(s=>s.call_sign===b.dataset.aim), r, ps); });
   $("#psEnv").onchange=e=>{ P.env=e.target.value; store({}); };
-  $("#psLetMail")&&($("#psLetMail").onclick=()=>dasConsentMail($("#psLetMailBox"), j, chosen));
+  $("#psLetMail")&&($("#psLetMail").onclick=async()=>{ await window.dasConsentPrefetch?.(chosen); dasConsentMail($("#psLetMailBox"), j, chosen); });
   el.querySelectorAll("[data-flag-cs]").forEach(b=>b.onclick=()=>dasFlagPop(b, r.systems.find(s=>s.call_sign===b.dataset.flagCs)));
   el.querySelectorAll("[data-cs]").forEach(c=>c.onchange=()=>{ c.checked?inc.add(c.dataset.cs):inc.delete(c.dataset.cs); store({include:[...inc]}); });
+  { const t=el.querySelector("[data-cs]")?.closest("table");  // All / None in the table's first column: one save
+    if(t) window.rfChecks?.(t, {sel:"[data-cs]", fold:false, word:"chosen", head:t.querySelector("thead th"),
+      commit:boxes=>{ boxes.forEach(c=>c.checked?inc.add(c.dataset.cs):inc.delete(c.dataset.cs)); store({include:[...inc]}); }}); }
   // the agencies an ERCES is for: fire, EMS, police, 911 and emergency management (not every government radio user)
   // whole words in the licensee's name (the importer's categories also match "Firebird" and "Marshall Academy"), plus
   // the county / city / state trunked systems most fire departments actually talk on
@@ -768,7 +777,7 @@ function dasRequire(el, j, save){
     <div class="panel"><h3>What the code asks <span class="hint">· ${esc(d.code||"IFC 510 + NFPA 1225")}; your AHJ's amendments win</span></h3>
       <div class="kvg">${rows.map(([k,v2])=>`<div>${esc(k)}</div><div>${esc(v2)}</div>`).join("")}</div>
       <p class="hint" id="drSrc" style="margin-top:8px"></p></div>
-    <div class="panel"><h3>Critical areas in this building</h3>${DAS.critical_areas.map(a=>`<label class="inl" style="display:flex;padding:3px 0"><input type="checkbox" data-ca="${esc(a)}" ${(req.critical||[]).includes(a)?"checked":""}> ${esc(a)}</label>`).join("")}
+    <div class="panel" id="drCrit"><h3>Critical areas in this building</h3>${DAS.critical_areas.map(a=>`<label class="inl" style="display:flex;padding:3px 0"><input type="checkbox" data-ca="${esc(a)}" ${(req.critical||[]).includes(a)?"checked":""}> ${esc(a)}</label>`).join("")}
       <label style="margin-top:8px">Other critical areas (one per line)<textarea id="drOther" rows="3" style="width:100%">${esc((req.other||[]).join("\n"))}</textarea></label>
       <p class="hint">These become rows in the Grid test, each tested on its own.</p></div>
     <div class="panel" id="drLic"><h3>Licensee consent: known processes <span class="hint">· from the research; the licensee's current form wins</span></h3>
@@ -786,6 +795,8 @@ function dasRequire(el, j, save){
   for(const k of DAS_PROFILE_NUMS) $(`#pf_${k}`).onchange=e=>edit({[k]:e.target.value===""?null:+e.target.value});
   $("#pf_grid_rule").onchange=e=>edit({grid_rule:e.target.value});
   el.querySelectorAll("[data-ca]").forEach(c=>c.onchange=async()=>{ const set=new Set((j.data.require||{}).critical||[]); c.checked?set.add(c.dataset.ca):set.delete(c.dataset.ca); j=await save({require:{...(j.data.require||{}),critical:[...set]}}); });
+  window.rfChecks?.($("#drCrit"), {key:"das.critical", sel:"[data-ca]", word:"in this building", commit:async boxes=>{  // All / None: one save
+    const set=new Set((j.data.require||{}).critical||[]); boxes.forEach(c=>c.checked?set.add(c.dataset.ca):set.delete(c.dataset.ca)); j=await save({require:{...(j.data.require||{}),critical:[...set]}}); }});
   $("#drOther").onchange=async e=>{ j=await save({require:{...(j.data.require||{}),other:e.target.value.split("\n").map(s=>s.trim()).filter(Boolean)}}); };
 }
 
@@ -919,7 +930,7 @@ async function dasGrid(el, j, save){
       <label class="inl">Columns <input id="dgC" type="number" min="1" max="20" value="${cols}" style="width:56px"></label>
       <label class="inl">Floor plan <select id="dgPlan"><option value="">— none —</option>${files.map(x=>`<option ${x.name===f.plan?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
       ${hasPlan?`<label class="inl" title="The plan's real width in feet, from the drawing's scale or dimensions. The Design tab uses the same number">Plan width <input id="dgW" type="number" step="any" min="1" value="${wft??""}" placeholder="ft" style="width:72px"> ft</label>`:""}
-      <div class="seg" id="dgMark" title="What a click on a square does">${[["read","Enter readings"],["skip","Do not test"],["crit","Critical"],...(hasPlan?[["place","Place grid"]]:[])].map(([k,l])=>`<button data-m="${k}" class="${D.mark===k?"on":""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="dgMark" title="What a click on a square does">${[["read","Enter readings"],["skip","Do not test"],["crit","Critical"],...(hasPlan?[["place","Place grid"]]:[]),...(window.dasWalkHook?[["walk","Walk"]]:[])].map(([k,l])=>`<button data-m="${k}" class="${D.mark===k?"on":""}">${l}</button>`).join("")}</div>
       ${place?`<label class="inl" title="Turn the grid to line up with the building on the plan">Rotate <input id="dgRot" type="number" step="0.5" min="-180" max="180" value="${box.rot}" style="width:64px">°</label><button id="dgFit" title="The grid covers the whole plan again, square to it">Fit to plan</button>`:""}
       ${cl.length?`<label class="inl" title="The public-safety score, or one carrier's coverage against the cellular target (Requirements)">Show <select id="dgView"><option value="">Public safety</option>${cl.map(x=>`<option value="${esc(x.key)}" ${x.key===cv?"selected":""}>${esc(x.label)}${x.required?"":" (not required)"}</option>`).join("")}</select></label>`:""}
       <label class="inl" title="What takes the readings you enter or import here. Only an instrument calibrated within ${DAS.cal_months} months counts toward pass / fail; add instruments on the Overview (model | serial | calibration date)">Taken with
@@ -1074,6 +1085,8 @@ async function dasGrid(el, j, save){
       paint(); };
     gd.onpointerup=gd.onpointercancel=()=>{ if(!drag) return; drag=null;
       setFloor({gridbox:{cx:+b.cx.toFixed(2), cy:+b.cy.toFixed(2), w:+b.w.toFixed(2), h:+b.h.toFixed(2), rot:b.rot}}); }; }
+  // Walk (daswalk.js): the walk view in Walk mode; in every mode, the walk's points rolled up into these squares
+  window.dasWalkHook?.(el, j, save, {f, hasPlan, planSrc, insts, inst, instOpts});
 }
 // where a floor's grid sits on its plan, in percent of the plan (centre, size) and degrees; the whole plan by default
 const boxOf = f => ({cx:50, cy:50, w:100, h:100, rot:0, ...(f.gridbox||{})});
@@ -1155,7 +1168,7 @@ async function dasFiles(el, j){
   $("#dfIn").onchange=e=>up([...e.target.files]);
   const dz=$("#dfDrop"); dz.ondragover=e=>{ e.preventDefault(); dz.style.borderColor="var(--accent)"; }; dz.ondragleave=()=>{ dz.style.borderColor=""; };
   dz.ondrop=e=>{ e.preventDefault(); dz.style.borderColor=""; up([...e.dataTransfer.files]); };
-  el.querySelectorAll("[data-rm]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Delete ${b.dataset.rm}? Drive keeps it in the bin for 30 days.`)) return; await post(`/api/das/jobs/${j.id}/files/delete?name=${encodeURIComponent(b.dataset.rm)}`); render(); });
+  el.querySelectorAll("[data-rm]").forEach(b=>b.onclick=async()=>{ if(!confirm(`Delete ${b.dataset.rm}?${S.me||(S.das?.folder||"").startsWith("/rfr/")?" It can't be brought back.":" Drive keeps it in its bin for 30 days."}`)) return; await post(`/api/das/jobs/${j.id}/files/delete?name=${encodeURIComponent(b.dataset.rm)}`); render(); });
 }
 
 function dasLog(el, j){
@@ -1201,8 +1214,10 @@ function dasReport(el, j){
     <h3>Tester and instruments</h3><div class="kvg"><div>Tester</div><div>${esc(T.tester||"not set")}</div><div>FCC GROL</div><div>${esc(T.grol||"–")}</div><div>NICET</div><div>${esc(T.nicet||"–")}</div><div>Test date${T.date2?"s":""}</div><div>${esc([T.date,T.date2].filter(Boolean).join(" to ")||"–")}</div></div>
       ${(T.instruments||[]).length?`<table style="margin-top:6px"><thead><tr><th>Instrument</th><th>Serial</th><th>Calibrated</th><th>Status</th></tr></thead><tbody>${T.instruments.map(i=>{ const s=instState(i); return `<tr><td>${esc(i.model)}</td><td class="mono">${esc(i.serial)}</td><td class="mono">${esc(i.cal)}</td><td style="color:${s.ok?"#1a7f37":"#cf222e"}">${s.ok?"current":esc(s.why)}</td></tr>`; }).join("")}</tbody></table>`:'<p class="hint" style="color:#cf222e">No test instruments listed: no reading can be scored.</p>'}
     <h3>Compliance</h3><div class="kvg">${DAS_CHECKS.map(([k,l])=>`<div>${esc(l)}</div><div>${esc((d.checks||{})[k]||"not on file")}</div>`).join("")}<div>Annual retest due</div><div>${esc(d.retest_due||"–")}</div>
-      ${d.baseline?`<div>Compared with</div><div>the acceptance test of ${esc(d.baseline.date)}</div>`:""}</div>
+      ${d.baseline?`<div>Compared with</div><div>the acceptance test of ${esc(d.baseline.date)}</div>`:""}
+      ${(()=>{ const mk=Object.keys(d.material_checks||{}).filter(k=>d.material_checks[k]); return `<div>Material rules confirmed</div><div>${mk.length?`${mk.length}: ${esc(mk.map(k=>k.split("|")[0]).join("; "))}`:"none ticked (Materials)"}</div>`; })()}</div>
     <h3>Systems covered</h3>${plan.length?`<table><thead><tr><th>Agency</th><th>Call sign</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Type</th></tr></thead><tbody>${plan.map(p=>`<tr><td>${esc(p.system)}</td><td class="mono">${esc(p.call_sign)}</td><td class="mono">${esc(p.downlink_mhz)}</td><td class="mono">${esc(p.uplink_mhz)}</td><td>${esc(p.technology)}</td></tr>`).join("")}</tbody></table>`:'<p class="hint">None chosen in the pre-survey.</p>'}
+    <div id="drX"></div>
     <h3>System diagram: signal path, start to finish</h3><div id="drDiagram"><p class="hint">Drawing the diagram…</p></div>
     <h3>Summary by floor</h3><table><thead><tr><th>Floor</th><th class="n">General pass</th><th class="n">Critical pass</th><th class="n">Untested</th><th class="n">Not counted</th><th>Result</th><th>Rule and reason</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.f.name)}</td><td class="n">${x.genPass}/${x.gen} (${x.genPct}%)</td><td class="n">${x.crit?`${x.critPass}/${x.crit} (${x.critPct}%)`:"–"}</td><td class="n">${x.untested}</td><td class="n">${x.notCounted||""}</td><td>${x.untested?"incomplete":x.ok?"pass":"<b>fail</b>"}</td><td>${esc(x.rule)}: ${esc(x.why)}</td></tr>`).join("")}
       ${crit.length?`<tr><td>Named critical areas</td><td></td><td class="n">${crit.filter(a=>scored(d,cr[a])).length}/${crit.length}</td><td class="n">${crit.filter(a=>scored(d,cr[a])==null).length}</td><td class="n">${crit.filter(a=>notCounted(d,cr[a])).length||""}</td><td></td><td>each must pass</td></tr>`:""}</tbody></table>
@@ -1215,11 +1230,13 @@ function dasReport(el, j){
         ${dasFlat(d).filter(r=>r.floor===f.name).map(r=>`<tr><td>${esc(r.grid)}</td><td>${r.critical?"★":""}</td><td>${esc(r.channel)}${r.channels>1?` <span class="hint">(worst of ${r.channels})</span>`:""}</td><td class="n">${r.dl_dbm}</td><td class="n">${r.dl_daq}</td><td class="n">${[r.sinr_db,r.ber_pct!==""?r.ber_pct+"%":""].filter(x=>x!=="").join(" / ")}</td><td class="n">${r.ul_dbm}</td><td class="n">${r.ul_daq}</td>${d.baseline?`<td class="n">${r.change_db!==""?(r.change_db>=0?"+":"")+r.change_db+" dB":""}</td>`:""}<td>${esc(r.instrument)}</td><td>${r.pass||"untested"}</td><td>${esc(r.note)}</td></tr>`).join("")}</tbody></table></div>`; }).join("")}
     ${crit.length?`<div style="margin-top:16px"><h3>Named critical areas</h3><table><thead><tr><th>Area</th><th class="n">DL dBm</th><th class="n">DL DAQ</th><th class="n">UL dBm</th><th class="n">UL DAQ</th><th>Instrument</th><th>Result</th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r); return `<tr><td>${esc(a)}</td><td class="n">${r.dl??""}</td><td class="n">${r.daq??""}</td><td class="n">${r.ul??""}</td><td class="n">${r.ul_daq??""}</td><td>${esc(cal?cal.name:"")}</td><td>${cal&&!cal.ok?"not counted":p==null?"untested":p?"pass":"fail"}</td></tr>`; }).join("")}</tbody></table></div>`:""}
     ${window.dasCellReport?dasCellReport(d):""}
+    <div id="drWalk"></div>
     ${dasCredits(d)}
   </div>`;
   // each floor's plan under its grid; a plan that won't open leaves the grid at its own shape
   el.querySelectorAll("img[data-plan]").forEach(async im=>{ const s=await jobFileSrc(j.id, im.dataset.plan);
     if(s){ im.src=s; im.style.minHeight=""; } else { const box=im.parentElement, g=box.querySelector("div"); box.style.aspectRatio=im.dataset.ar; if(g) g.style.cssText=g.style.cssText.replace(/left:[^;]+;top:[^;]+;width:[^;]+;height:[^;]+;transform:[^;]+/,"inset:0"); im.remove(); } });
+  window.dasWalkReport?.(el.querySelector("#drWalk"), j);  // the walk's heat maps (daswalk.js)
   $("#drPrint").onclick=()=>dasPrintCopy($("#dasPrint"));
   $("#drMail")&&($("#drMail").onclick=async()=>{ const cs=S.das.contacts||[], ahj=cs.find(c=>String(c.id)===String((d.contacts||{}).ahj)), me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech));
     const fl=((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files||[]).map(f=>f.name);
@@ -1232,6 +1249,7 @@ function dasReport(el, j){
   if(window.dasSchematic&&window.frLoad) Promise.all([frLoad("budget"), frLoad("parts")])
     .then(()=>{ const x=el.querySelector("#drDiagram"); if(x&&x.isConnected) x.innerHTML=window.dasSchematic(d); })
     .catch(e=>{ const x=el.querySelector("#drDiagram"); if(x) x.innerHTML=`<p class="hint">The diagram couldn't be drawn: ${esc(e.message)}</p>`; });
+  window.dasXReport?.(el.querySelector("#drX"), j);  // licensee consent, FCC licence changes, the existing-system audit (dasx.js)
   $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
 }
 
@@ -1249,7 +1267,7 @@ function dasJobMail(el, j){
   const to=(...rs)=>{ for(const r of rs){ const p=people.find(([role])=>role===r); if(p) return p[1].email; } return ""; };
   const sig=me?["", me.name, me.org, me.phone].filter(Boolean).join("\n"):"";
   $("#doMail").onclick=async()=>rfMail.compose($("#doMailBox"), {kind:"job", refs:{job_id:j.id, topic:"MAIL"}, title:`Email about ${j.name}`, to:to("owner","gc","ahj"),
-    subject:`${j.name}${d.address?`, ${d.address}`:""}`, body:`Hello,\n\n\n${sig}`, files:await files(), onSent:()=>rfMail.thread($("#doMailThread"), {job:j.id})});
+    subject:`${j.name}${d.address?`, ${d.address}`:""}`, body:`Hello,\n\n\n${sig}`, write:true, templates:true, files:await files(), onSent:()=>rfMail.thread($("#doMailThread"), {job:j.id})});  // free-form: opens on the message
   $("#doPlansMail").onclick=async()=>rfMail.compose($("#doMailBox"), {kind:"job", refs:{job_id:j.id, topic:"PLANS"}, title:"Ask for the floor plans", to:to("owner","gc"),
     subject:`Floor plans for ${j.name}${d.address?`, ${d.address}`:""}`,
     body:`Hello,\n\nWe're designing the emergency responder radio coverage (ERCES) for ${j.name}${d.address?` at ${d.address}`:""}. Could you send the floor plans for every floor, as PDFs (architectural plans with walls, ideally the CAD-exported PDFs rather than scans), and the roof plan if there is one?\n\nA reply to this email with the files attached is all we need.\n\nThank you,${sig?"\n"+sig:""}`,
@@ -1260,7 +1278,8 @@ function dasJobMail(el, j){
 /* ---------- consent letters: 47 CFR 90.219(b)(1) asks for the licensee's consent before a booster retransmits its signal ---------- */
 function dasConsentText(j, lic, ss){
   const d=j.data||{}, cs=S.das.contacts, me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech)), cls=(d.booster_class||"Class A (channelized)");
-  return `${lic}\nRadio system manager\n\nRe: Consent to retransmit under 47 CFR 90.219(b)(1): ${j.name}, ${d.address||""}\n\n`
+  const A=window.dasConsentAddr?.(ss);  // the licence's own FCC contact record (dasx.js); never a made-up address
+  return `${A&&A.lines.length?A.lines.join("\n"):`${lic}\nRadio system manager`}\n\nRe: Consent to retransmit under 47 CFR 90.219(b)(1): ${j.name}, ${d.address||""}\n\n`
     +`We are installing an emergency responder communication enhancement system (${cls} signal booster) at the building above so that responders' radios work inside it, as ${d.ahj||"the authority having jurisdiction"} requires under ${d.code||"IFC 510 and NFPA 1225"}.\n\n`
     +`The booster will retransmit only these channels licensed to you:\n`+ss.map(s=>`  ${s.call_sign}: downlink ${s.down.map(c=>fmtF(c.freq)).join(", ")} MHz; uplink ${s.up.map(fmtF).join(", ")||"to be confirmed"} MHz`).join("\n")
     +`\n\nWe ask for your written consent to retransmit these channels, and for any conditions you set (gain limits, donor site, filtering, monitoring, or contact for interference).${cls.startsWith("Class B")?" As a Class B booster it will also be registered with the FCC before it is switched on.":""}\n\n`
@@ -1270,14 +1289,16 @@ function dasConsentMail(box, j, systems){
   if(!window.rfMail) return;
   const by=new Map(); for(const s of systems){ if(!by.has(s.licensee)) by.set(s.licensee, []); by.get(s.licensee).push(s); }
   box.innerHTML=`<div class="panel" style="margin:8px 0"><div class="row" style="justify-content:space-between"><b>Email the consent requests</b><button class="sm" id="psLmX">✕</button></div>
-    <p class="hint">One email per licensee from your own mailbox. Their email isn't in the FCC records RF Recon keeps: their radio shop's address usually is on the agency's site. The signed reply lands in the job's Files and is noted here.</p>
-    ${[...by].map(([lic,ss],i)=>`<div style="border-top:1px solid var(--line);padding:6px 0"><b>${esc(lic)}</b> <span class="hint">${ss.map(s=>esc(s.call_sign)).join(", ")}</span>
+    <p class="hint">One email per licensee from your own mailbox, to the email on the licence's own FCC record where it has one (often the radio shop or a consulting engineer: check it's the radio system manager). The signed reply lands in the job's Files and is noted here.</p>
+    ${[...by].map(([lic,ss],i)=>{ const A=window.dasConsentAddr?.(ss); return `<div style="border-top:1px solid var(--line);padding:6px 0"><b>${esc(lic)}</b> <span class="hint">${ss.map(s=>esc(s.call_sign)).join(", ")}</span>
+      <div class="hint">${A?`To: ${esc(A.email||"no email on the FCC record")} · ${esc(A.lines.join(", "))} · from the FCC licence record for ${esc(A.call)} (${esc(A.who)})`:"No FCC contact record kept for these licences"}</div>
       ${(j.data.consent_replies||{})[ss[0].call_sign]?`<span class="tag" style="background:var(--good);color:#fff">reply ${esc(j.data.consent_replies[ss[0].call_sign].at)}</span>`:""}
-      <button class="sm" data-lmail="${i}">✉ Write</button><div data-lbox="${i}"></div></div>`).join("")}</div>`;
+      <button class="sm" data-lmail="${i}">✉ Write</button><div data-lbox="${i}"></div></div>`; }).join("")}</div>`;
   $("#psLmX").onclick=()=>{ box.innerHTML=""; };
   const list=[...by];
   box.querySelectorAll("[data-lmail]").forEach(b=>b.onclick=()=>{ const [lic,ss]=list[+b.dataset.lmail];
     rfMail.compose(box.querySelector(`[data-lbox="${b.dataset.lmail}"]`), {kind:"job", refs:{job_id:j.id, topic:"CONSENT", extra:ss[0].call_sign}, title:`Consent request to ${lic}`,
+      to:window.dasConsentAddr?.(ss)?.email||"", onSent:()=>window.dasConsentSent?.(j, lic, ss),
       subject:`Consent to retransmit ${ss.map(s=>s.call_sign).join(", ")}: ${j.name}`, body:dasConsentText(j, lic, ss)}); });
 }
 
@@ -1286,8 +1307,8 @@ function dasConsent(j, systems){
   const d=j.data||{}, cs=S.das.contacts, me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech)), cls=(d.booster_class||"Class A (channelized)");
   const by=new Map(); for(const s of systems){ if(!by.has(s.licensee)) by.set(s.licensee, []); by.get(s.licensee).push(s); }
   const box=document.createElement("div"); box.id="dasPrint"; box.className="panel";
-  box.innerHTML=[...by].map(([lic,ss],i)=>`<div style="${i?"break-before:page;":""}padding:24px 8px;font-size:14px;line-height:1.5">
-    <p>${esc(today())}</p><p><b>${esc(lic)}</b><br>Radio system manager</p>
+  box.innerHTML=[...by].map(([lic,ss],i)=>{ const A=window.dasConsentAddr?.(ss); return `<div style="${i?"break-before:page;":""}padding:24px 8px;font-size:14px;line-height:1.5">
+    <p>${esc(today())}</p><p>${A&&A.lines.length?`${A.lines.map((l,k)=>k?esc(l):`<b>${esc(l)}</b>`).join("<br>")}<br><span class="hint" style="font-size:11px">Address from the FCC licence record for ${esc(A.call)} (${esc(A.who)})</span>`:`<b>${esc(lic)}</b><br>Radio system manager`}</p>
     <p><b>Re: Consent to retransmit under 47 CFR 90.219(b)(1): ${esc(j.name)}, ${esc(d.address||"")}</b></p>
     <p>We are installing an emergency responder communication enhancement system (${esc(cls)} signal booster) at the building above so that responders' radios work inside it, as ${esc(d.ahj||"the authority having jurisdiction")} requires under ${esc(d.code||"IFC 510 and NFPA 1225")}.</p>
     <p>The booster will retransmit only the following channels licensed to you:</p>
@@ -1295,7 +1316,7 @@ function dasConsent(j, systems){
       ${ss.map(s=>`<tr><td>${esc(s.call_sign)}</td><td>${s.down.map(c=>fmtF(c.freq)).join(", ")}</td><td>${s.up.map(fmtF).join(", ")||"to be confirmed"}</td></tr>`).join("")}</tbody></table>
     <p>We ask for your written consent to retransmit these channels, and for any conditions you set (gain limits, donor site, filtering, monitoring, or contact for interference). ${cls.startsWith("Class B")?"As a Class B booster it will also be registered with the FCC under 47 CFR 90.219(d)(5).":""}</p>
     <p>Consent given by: ______________________________ Title: ____________________ Date: ____________</p>
-    <p>Thank you,<br>${me?[me.name, me.org, me.phone, me.email].filter(Boolean).map(esc).join("<br>"):""}</p></div>`).join("");
+    <p>Thank you,<br>${me?[me.name, me.org, me.phone, me.email].filter(Boolean).map(esc).join("<br>"):""}</p></div>`; }).join("");
   document.body.appendChild(box); document.body.classList.add("print-das"); window.print();
   setTimeout(()=>{ document.body.classList.remove("print-das"); box.remove(); },500);
 }

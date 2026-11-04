@@ -694,6 +694,27 @@
    "url": "https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu",
    "kind": "research",
    "checked": "2026-11-04"
+  },
+  {
+   "key": "nfpa_502",
+   "title": "NFPA 502, Standard for Road Tunnels, Bridges, and Other Limited Access Highways",
+   "url": "https://www.nfpa.org/codes-and-standards/nfpa-502-standard-development/502",
+   "kind": "code",
+   "checked": "2026-11-04 (title page)"
+  },
+  {
+   "key": "nfpa_130",
+   "title": "NFPA 130, Standard for Fixed Guideway Transit and Passenger Rail Systems",
+   "url": "https://www.nfpa.org/codes-and-standards/nfpa-130-standard-development/130",
+   "kind": "code",
+   "checked": "2026-11-04 (title page)"
+  },
+  {
+   "key": "rfr_scout_2026_11_04_tunnels",
+   "title": "DAS data sources research (2026-11-04), item 9: tunnels (NFPA 502 tunnel emergency communications; NTAD National Tunnel Inventory)",
+   "url": "https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu",
+   "kind": "research",
+   "checked": "2026-11-04"
   }
  ],
  "code_triggers_common": {
@@ -1761,6 +1782,17 @@
    "sources": [
     "cms_nh_provider",
     "rfr_scout_2026_11_04"
+   ]
+  },
+  {
+   "type": "Tunnels",
+   "why": "Road tunnels (NFPA 502) and rail and transit tunnels (NFPA 130) call for emergency responder radio inside; the owner is a public agency or a railroad, so one owner can have several. Found from OpenStreetMap per area (ODbL).",
+   "priority": "medium",
+   "decision_maker": "The owner's tunnel or systems engineer: state DOT, toll or transit authority, railroad (estimate: not in the research)",
+   "sources": [
+    "nfpa_502",
+    "nfpa_130",
+    "rfr_scout_2026_11_04_tunnels"
    ]
   }
  ],

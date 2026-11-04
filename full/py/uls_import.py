@@ -28,6 +28,8 @@ import urllib.error
 import urllib.request
 import zipfile
 
+import ulscontacts
+
 BASE_URL = "https://data.fcc.gov/download/pub/uls/complete/l_{}.zip"
 DEFAULT_SERVICES = ["LMpriv", "LMcomm", "LMbcast", "paging", "coast"]
 OPTIONAL_SERVICES = ["micro", "cell", "market"]
@@ -233,6 +235,7 @@ RAW_TABLES = {
     "raw_emission": "usi INTEGER, loc_num INTEGER, ant_num INTEGER, freq_mhz REAL, code TEXT, mod_rate TEXT, mod_type TEXT",
     "raw_path": "usi INTEGER, path_num INTEGER, tx_loc INTEGER, tx_ant INTEGER, rx_loc INTEGER, rx_ant INTEGER, "
                 "path_type TEXT, passive TEXT, rx_call TEXT",
+    "raw_contact": ulscontacts.RAW_COLS,  # EN licensee + contact: name, address, phone, email (consent letters, R1 #3)
 }
 
 
@@ -391,12 +394,18 @@ def load_zip(con, path, states, include_inactive, log):
 
     m = find_member(zf, "EN")
     if m:
-        names = {}
+        names, contacts = {}, []
         for f in iter_records(zf, m, "EN"):
             usi = int(g(f, 1) or 0)
             if usi in keep and g(f, 5) in ("L", "") and usi not in names:
                 nm = g(f, 7) or " ".join(x for x in (g(f, 8), g(f, 10)) if x)
                 names[usi] = nm
+            if usi in keep and (c := ulscontacts.row(f, usi)):  # licensee and contact, kept whole (ulscontacts.py)
+                contacts.append(c)
+                if len(contacts) >= batch:
+                    con.executemany(ulscontacts.INSERT_RAW, contacts)
+                    contacts.clear()
+        con.executemany(ulscontacts.INSERT_RAW, contacts)
         con.executemany("UPDATE raw_license SET licensee=? WHERE usi=?", [(v, k) for k, v in names.items()])
         log(f"  {src}: {len(names):,} licensee names")
 
@@ -729,6 +738,7 @@ def run_import(db_path, paths, states=(), active_only=False, log=print):
                 log(f"Importing {p}")
                 load_zip(con, p, states, not active_only, log)
             build_tx(con, log)
+            ulscontacts.build(con, log)  # the licences' own contacts, for consent letters
             build_links(con, log)
             con.execute("INSERT OR REPLACE INTO meta VALUES('sources', ?)", (",".join(os.path.basename(p) for p in paths),))
             con.execute("INSERT OR REPLACE INTO meta VALUES('states', ?)", (",".join(sorted(states)) or "ALL",))

@@ -56,8 +56,9 @@ SOURCES = {
     "das_prospects": ("DAS prospect lists (schools, colleges, hospitals, malls, arenas, hotels, high-rises and more)", "reference", 720, "Buildings that often need emergency responder radio coverage, with phones, websites and emails where published: NCES schools, IPEDS colleges, CMS hospitals (US government, public domain); malls, stadiums and arenas, hotels, venues, casinos, airports, transit, government buildings, warehouses and parking garages from Overture Maps places (CDLA-Permissive-2.0 / Apache-2.0 / CC0); high-rises around each mission area from Overture buildings (ODbL)"),
     "part_prices": ("DAS part prices (price list links, Mouser, Digi-Key)", "reference", 168, "Each supplier's price list re-read from its link, and the online prices of the parts on open requests for quote (Mouser and Digi-Key, with your keys)"),
     "helium": ("Helium IoT hotspots", "crowd", 168, "Active LoRaWAN hotspots (no key; reads the whole network, about 190 MB a pass)"),
+    "usfa_fd": ("USFA fire department registry (DAS AHJ guess)", "reference", 720, "27,117 fire departments and 8,092 stations with addresses, phones and websites, for a DAS job's AHJ guess (US government; about 12 MB; frozen since June 2026)"),
 }
-DEFAULT_ENABLED = {"part_prices", "das_prospects", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
+DEFAULT_ENABLED = {"usfa_fd", "part_prices", "das_prospects","uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
                    "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic"}
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
@@ -417,6 +418,11 @@ class Updater:
                            message=f"{n:,} rows", last_checked=now(), last_updated=now(), rows=n)
                 import finder  # the licensee name index for Search is rebuilt for the new data
                 finder.build_index(self.db)
+                try:  # each DAS job's licences against the new data (daswatch.py): changes go to the job and the board
+                    import daswatch
+                    daswatch.run_all(self.db, log=lambda m: None)
+                except Exception as e:
+                    print(f"DAS licence watch after the FCC update: {type(e).__name__}: {str(e)[:200]}", flush=True)
             elif job == "asr":
                 import towers
                 rm = remote_modified(towers.URL)
@@ -525,6 +531,11 @@ class Updater:
                         bad.append(f"high-rises ({str(e)[:80]})")
                 self._mark(ids, state="error" if bad and not n else "ok", last_checked=now(), last_updated=now(), rows=n,
                            message=f"{n:,} buildings" + (f"; failed: {', '.join(bad)}" if bad else ""))
+            elif job == "usfa_fd":  # fire departments for a DAS job's AHJ guess (ahj.py)
+                import ahj
+                r = ahj.refresh(uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m)[:200]))
+                self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=r["departments"],
+                           message=f"{r['departments']:,} departments, {r['stations']:,} stations")
             elif job == "part_prices":  # DAS part prices: price list links and online prices on open requests (das.py, prices.py)
                 import das as dasmod
                 con = sqlite3.connect(self.db, timeout=60)

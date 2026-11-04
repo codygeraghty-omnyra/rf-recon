@@ -101,20 +101,27 @@ def logins(data_dir):
 
 def account_from(d, old=None):
     """A mailbox account from the form: the address picks the provider's settings, anything typed wins."""
-    addr = (d.get("address") or "").strip()
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,24}", addr):
+    addr = mailbox.clean_address(d.get("address"))  # a paste's invisible characters made a good address "not an address" (11/4)
+    if not addr:
         raise ValueError("Enter your email address.")
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,24}", addr):
+        raise ValueError(f"“{addr}” isn't an email address RF Recon can use: check it, or type it in rather than paste it.")
     g = mailbox.guess(addr)
     if g["provider"] == "microsoft" and not d.get("imap_host"):
         raise ValueError(g["how"])
-    a = {"address": addr, "name": (d.get("name") or "").strip()[:80], "user": (d.get("user") or addr).strip(),
+    a = {"address": addr, "name": (d.get("name") or "").strip()[:80], "user": (mailbox.clean_address(d.get("user")) if "@" in (d.get("user") or "") else (d.get("user") or "").strip()) or addr,
          "password": (d.get("password") or "").strip(), "provider": g["provider"],
          "imap_host": (d.get("imap_host") or g["imap_host"] or "").strip(), "imap_port": int(d.get("imap_port") or g["imap_port"] or 993),
          "smtp_host": (d.get("smtp_host") or g["smtp_host"] or "").strip(), "smtp_port": int(d.get("smtp_port") or g["smtp_port"] or 465),
          "smtp_mode": d.get("smtp_mode") or g["smtp_mode"] or "ssl", "saves_sent": bool(g["saves_sent"]),
          "folder": (d.get("folder") or "INBOX").strip() or "INBOX"}
+    # Google and Yahoo show an app password as four groups of four ("abcd efgh ijkl mnop"): sign in with it joined
+    if re.fullmatch(r"[A-Za-z0-9]{4}( [A-Za-z0-9]{4}){3}", a["password"]):
+        a["password"] = a["password"].replace(" ", "")
     if old and not a["password"]:
         a["password"] = old.get("password") or ""
+    if not a["password"]:
+        raise ValueError("Paste the app password from your provider (for Google: myaccount.google.com/apppasswords), then press Connect and test.")
     return a
 
 
@@ -228,6 +235,12 @@ def _store_in(con, login, msg, tag, kind, status, result, refs=None, proposal=No
                  json.dumps([{"name": a["name"], "type": a["type"], "size": len(a["data"]), "saved": a.get("saved")} for a in msg["attachments"]]),
                  msg.get("message_id") or f"<uid{msg.get('uid')}@{login}>", msg.get("in_reply_to"), status, result,
                  json.dumps(proposal) if proposal else None, now()))
+    if msg.get("from_name"):  # "Jane Smith <jane@...>": the name, for saving the sender as a contact
+        try:
+            con.execute("UPDATE das_mail SET counterpart_name=? WHERE login=? AND message_id=? AND counterpart_name IS NULL",
+                        (msg["from_name"][:120], login, msg.get("message_id") or f"<uid{msg.get('uid')}@{login}>"))
+        except Exception:
+            pass  # a table older than the column
     con.commit()
 
 
@@ -397,6 +410,50 @@ def check(con, data_dir, login, imap_factory=None):
 def state(con, login):
     r = con.execute("SELECT * FROM das_mail_state WHERE login=? ORDER BY last_check DESC", (login,)).fetchone()
     return dict(r) if r else None
+
+
+ROLE_LABEL = {"ahj": "AHJ / fire marshal", "owner": "Building owner", "agency": "Radio system owner", "gc": "General contractor",
+              "sub": "Subcontractor", "tech": "Our technician"}
+
+
+def people(con, login, job_id=None):
+    """Who can be picked as a recipient (Cody 11/4: pick from RF Recon's contacts, not type addresses): the job's people
+    by role first, then every contact and supplier with an email, then anyone who replied by mail and isn't saved yet."""
+    out, seen = [], set()
+
+    def add(email, name, org="", role="", source=""):
+        e = mailbox.clean_address(email).lower()
+        if not e or "@" not in e or e in seen:
+            return
+        seen.add(e)
+        out.append({"email": e, "name": (name or "").strip(), "org": (org or "").strip(), "role": role, "source": source})
+
+    contacts = {str(c["id"]): c for c in das.list_contacts(con)}
+    if job_id is not None:
+        j = das.job_row(con, int(job_id))
+        for role, cid in (((j or {}).get("data") or {}).get("contacts") or {}).items():
+            c = contacts.get(str(cid))
+            if c and c.get("email"):
+                add(c["email"], c["name"], c["org"], ROLE_LABEL.get(role, role), "job")
+    for c in contacts.values():
+        if c.get("email"):
+            add(c["email"], c["name"], c["org"], c.get("role") or "", "contact")
+    try:
+        for s in con.execute("SELECT name, email FROM das_supplier WHERE email IS NOT NULL AND email <> '' ORDER BY name"):
+            add(s["email"], "", s["name"], "Supplier", "supplier")
+    except Exception:
+        pass  # a copy without the supplier table yet
+    q = "SELECT counterpart, MAX(COALESCE(counterpart_name, '')) n, MAX(job_id) j FROM das_mail WHERE login=? AND direction='in'"
+    args = [login]
+    if job_id is not None:
+        q += " AND job_id=?"
+        args.append(int(job_id))
+    try:
+        for r in con.execute(q + " GROUP BY counterpart ORDER BY MAX(ts) DESC LIMIT 50", args):
+            add(r["counterpart"], r["n"], "", "Replied by email", "replied")
+    except Exception:
+        pass  # before the counterpart_name column (das.migrate adds it)
+    return out
 
 
 def threads(con, login, tag=None, job_id=None, rfq_id=None, prospect_id=None, limit=200):

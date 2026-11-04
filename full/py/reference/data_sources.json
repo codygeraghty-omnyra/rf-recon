@@ -458,8 +458,8 @@
    "key": "none",
    "cost": "Free",
    "terms": "US government public data",
-   "area": "Map tiles",
-   "status": "In RF Recon: the County + state lines layer"
+   "area": "Map tiles; one point query per DAS job",
+   "status": "In RF Recon: the County + state lines layer; a DAS job's county and city (the AHJ guess)"
   },
   {
    "name": "Terrain Tiles on AWS (Tilezen)",
@@ -484,12 +484,12 @@
   {
    "name": "Overpass API (OpenStreetMap)",
    "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
-   "what": "Building outlines",
+   "what": "Building outlines; road and rail tunnels",
    "key": "none",
    "cost": "Free",
-   "terms": "Main server: under 10,000 queries and 1 GB a day; OpenStreetMap data, credit OpenStreetMap",
+   "terms": "Main server: under 10,000 queries and 1 GB a day; OpenStreetMap data (ODbL), credit OpenStreetMap; tunnel prospects kept off the public packs",
    "area": "Yes (box)",
-   "status": "In RF Recon: DAS jobs' building outlines (a second public server if the first is busy)"
+   "status": "In RF Recon: DAS jobs' building outlines, tunnels near a job and tunnel prospects (public servers asked at once)"
   },
   {
    "name": "Iowa Environmental Mesonet: NEXRAD",
@@ -500,6 +500,19 @@
    "terms": "No terms published for the tile service",
    "area": "Map tiles",
    "status": "In RF Recon: the map's Weather radar (NEXRAD, live) layer"
+  },
+  {
+   "name": "USFA National Fire Department Registry",
+   "updater": [
+    "usfa_fd"
+   ],
+   "url": "https://apps.usfa.fema.gov/registry/download",
+   "what": "27,117 fire departments (HQ and mail address, phone, website, county, type, stations) and 8,092 station addresses; no coordinates (placed by ZIP centre)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government work: the registry says the general public can use the data; FEMA: free of copyright, may be copied and distributed (read 2026-11-04). Frozen: no updates after June 2026 (NERIS is the current list)",
+   "area": "Whole US (about 12 MB)",
+   "status": "In RF Recon from 2026-11-04: a DAS job's AHJ guess (the fire departments covering the address)"
   }
  ]
 }

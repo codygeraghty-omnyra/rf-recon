@@ -82,7 +82,7 @@ CREATE INDEX prospect_ll ON prospect(lat, lon);
 # every kind prospects.db has for the area goes in (Cody 11/4). Packs go on the public site: the US government lists are
 # public domain, Overture places permissive with attribution, and the high-rises (prospects.highrises, Overture
 # buildings) ODbL, share-alike; a source named here would be left out
-PROSPECT_SKIP_SOURCES = ("overture_highrises",)  # ODbL share-alike, per mission area: kept off the public packs
+PROSPECT_SKIP_SOURCES = ("overture_highrises", "osm_tunnels")  # ODbL share-alike, per area: kept off the public packs (tunnels.py)
 
 
 def prospects_db(src_path):

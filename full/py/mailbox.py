@@ -54,18 +54,37 @@ MX_HINTS = [("google.com", "gmail"), ("googlemail.com", "gmail"), ("outlook.com"
 
 def mx_hosts(domain, fetch=None):
     """The domain's mail servers, by DNS over HTTPS (the standard library has no MX lookup)."""
-    url = f"https://dns.google/resolve?name={urllib.parse.quote(domain)}&type=MX"
-    try:
-        raw = fetch(url) if fetch else urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "RF-Recon/2.0"}), timeout=10).read()
-        return [a.get("data", "").split()[-1].rstrip(".").lower() for a in json.loads(raw).get("Answer") or [] if a.get("type") == 15]
-    except Exception:
-        return []
+    # Google's resolver, then Cloudflare's: one lookup that failed once left a Workspace address on imap.<domain> (11/4)
+    for url in (f"https://dns.google/resolve?name={urllib.parse.quote(domain)}&type=MX",
+                f"https://cloudflare-dns.com/dns-query?name={urllib.parse.quote(domain)}&type=MX"):
+        try:
+            raw = fetch(url) if fetch else urllib.request.urlopen(urllib.request.Request(
+                url, headers={"User-Agent": "RF-Recon/2.0", "Accept": "application/dns-json"}), timeout=8).read()
+            hosts = [a.get("data", "").split()[-1].rstrip(".").lower() for a in json.loads(raw).get("Answer") or [] if a.get("type") == 15]
+            if hosts:
+                return hosts
+        except Exception:
+            continue
+    return []
+
+
+_INVISIBLE = re.compile(r"[\s\u00ad\u200b-\u200f\u2028-\u202f\u2060-\u2064\ufeff<>\"']")
+
+
+def clean_address(address):
+    """An address as typed or pasted, without the spaces, zero-width and direction marks a paste can carry (Cody 11/4:
+    a pasted address looked right, guessed imap.<domain> and was refused as 'not an address'), or <> and quotes."""
+    a = address or ""
+    m = re.search(r"<([^<>]*@[^<>]*)>", a)  # "Cody Geraghty <cody@...>" copied from a mail app: the part in <>
+    a = _INVISIBLE.sub("", m.group(1) if m else a)
+    local, at, dom = a.rpartition("@")
+    return f"{local}@{dom.lower()}" if at else a
 
 
 def guess(address, fetch=None):
     """{provider, imap_host, imap_port, smtp_host, smtp_port, smtp_mode, saves_sent, how} for an address; a custom
     domain (a company's own) is recognised by its MX records (Google Workspace, Microsoft 365, Zoho...)."""
-    dom = (address or "").rsplit("@", 1)[-1].strip().lower()
+    dom = clean_address(address).rsplit("@", 1)[-1]
     key = DOMAINS.get(dom)
     if not key and dom:
         for host in mx_hosts(dom, fetch):
@@ -75,7 +94,8 @@ def guess(address, fetch=None):
     if not key:
         return {"provider": "other", "imap_host": f"imap.{dom}" if dom else "", "imap_port": 993, "smtp_host": f"smtp.{dom}" if dom else "",
                 "smtp_port": 465, "smtp_mode": "ssl", "saves_sent": False,
-                "how": "Your provider's IMAP and SMTP settings and an app password (or your mail password if it allows IMAP)."}
+                "how": f"RF Recon couldn't tell who runs mail for {dom or 'this address'}, so these are a guess: check your provider's IMAP and "
+                       "SMTP settings. Google Workspace uses imap.gmail.com and smtp.gmail.com with an app password."}
     ih, ip, sh, sp, mode, saves, how = PRESETS[key]
     return {"provider": key, "imap_host": ih, "imap_port": ip, "smtp_host": sh, "smtp_port": sp, "smtp_mode": mode,
             "saves_sent": saves, "how": how}
@@ -125,8 +145,21 @@ def smtp_connect(acct, factory=None):
 def friendly(e):
     """A connection error in words a person can act on."""
     t = str(e)
-    if isinstance(e, (imaplib.IMAP4.error, smtplib.SMTPAuthenticationError)) or re.search(r"AUTHENTICATIONFAILED|Invalid credentials|535|534|authentication", t, re.I):
-        return "The mailbox refused the sign-in: check the address and use an app password (your normal password usually won't work)."
+    if isinstance(e, smtplib.SMTPResponseException):
+        t = f"{e.smtp_code} {e.smtp_error.decode('utf-8', 'replace') if isinstance(e.smtp_error, bytes) else e.smtp_error}"
+    said = re.sub(r"\s+", " ", re.sub(r"^b['\"]|['\"]$", "", t)).strip()[:220]  # the provider's own words (never holds the password)
+    # what Gmail / Google Workspace says, in words to act on (Cody 11/4: "refused" alone didn't say which of these it was)
+    if re.search(r"Application-specific password required|InvalidSecondFactor", t, re.I):
+        return f"Google wants an app password here, not your normal password: make one at myaccount.google.com/apppasswords. (Google said: {said})"
+    if re.search(r"IMAP access is disabled|IMAP is disabled|not enabled for IMAP", t, re.I):
+        return f"IMAP is turned off for this mailbox. On Google Workspace the admin switches it (Admin console › Apps › Gmail › End user access). (Google said: {said})"
+    if re.search(r"WEBALERT|Web login required|log in via your web browser|5\.7\.9|534", t, re.I):
+        return f"Google blocked this sign-in until you confirm it: sign in at mail.google.com, approve the alert, then press Connect again. (Google said: {said})"
+    if isinstance(e, (imaplib.IMAP4.error, smtplib.SMTPAuthenticationError)) or re.search(r"AUTHENTICATIONFAILED|Invalid credentials|535|authentication", t, re.I):
+        return ("The mailbox refused the sign-in: check the address and paste the app password (your normal password usually won't work)."
+                + (f" (It said: {said})" if said else ""))
+    if isinstance(e, smtplib.SMTPServerDisconnected):
+        return "The mail server hung up during sign-in, which usually follows a refused password: check the app password."
     if re.search(r"getaddrinfo|Name or service|nodename", t):
         return "That mail server name doesn't exist: check the IMAP/SMTP host."
     if re.search(r"timed out|timeout", t, re.I):

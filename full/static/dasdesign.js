@@ -198,9 +198,10 @@ window.dasDesign = async (el, j, save) => {
   await Promise.all([frLoad("budget"), frLoad("parts"), frLoad("plans")]);
   if(!el.isConnected) return;  // a newer draw took over while this one waited
   const D=S.das; D.dview=D.dview||"budget";
-  el.innerHTML=`<div class="seg no-print" id="dsSeg" style="margin-bottom:10px">${DS_VIEWS.map(([k,l])=>`<button data-v="${k}" class="${D.dview===k?"on":""}">${l}</button>`).join("")}</div><div id="dsBody"></div>`;
+  el.innerHTML=`<div class="seg no-print" id="dsSeg" style="margin-bottom:10px">${DS_VIEWS.map(([k,l])=>`<button data-v="${k}" class="${D.dview===k?"on":""}">${l}</button>`).join("")}</div><div id="dsBody"></div><div id="dsIm" style="margin-top:10px"></div>`;
   $("#dsSeg").onclick=e=>{ const b=e.target.closest("[data-v]"); if(b){ D.dview=b.dataset.v; render(); } };
   ({budget:dsBudget, floors:dsFloors, battery:dsBattery}[D.dview]||dsBudget)($("#dsBody"), j, save);
+  if(D.dview==="budget") window.dasIntermod?.($("#dsIm"), j, save, "design");  // intermod frequencies to watch (dasx.js)
 };
 
 /* ---------- link budget ---------- */
@@ -534,7 +535,7 @@ window.dasSubmittal = async (el, j) => {
 
 /* ---------- battery (NFPA 1225 18.13.2: 12 h at 100% operation; many AHJs ask 24 h) ---------- */
 async function dsBattery(el, j, save){
-  const d=j.data||{}, B={volts:24, hours:12, margin_pct:20, items:[], ...((d.design||{}).battery||{})};
+  const d=j.data||{}, B={volts:24, hours:(typeof dasProfile==="function"?+dasProfile(d.profile).battery_h||12:12), margin_pct:20, items:[], ...((d.design||{}).battery||{})};  // hours: the job's AHJ requirement until typed (11/4)
   const keep=async patch=>{ await save({design:{...(d.design||{}), battery:{...B, ...patch}}}); render(); };
   const amps=x=>(+x.amps||0)||((+x.watts||0)/(+B.volts||1));
   const load=B.items.reduce((a,x)=>a+(+x.qty||1)*amps(x),0), ah=load*(+B.hours||0)*(1+(+B.margin_pct||0)/100);
@@ -558,5 +559,5 @@ async function dsBattery(el, j, save){
   $("#btAdd").onclick=()=>{ if(!$("#btN").value.trim()) return; keep({items:[...B.items, {name:$("#btN").value.trim(), qty:+$("#btQ").value||1, amps:$("#btA").value===""?null:+$("#btA").value, watts:$("#btW").value===""?null:+$("#btW").value}]}); };
   el.querySelectorAll("[data-rmb]").forEach(x=>x.onclick=()=>keep({items:B.items.filter((_,i)=>i!==+x.dataset.rmb)}));
 }
-function dsBatteryTotals(d){ const B={volts:24, hours:12, margin_pct:20, items:[], ...((d.design||{}).battery||{})}, amps=x=>(+x.amps||0)||((+x.watts||0)/(+B.volts||1));
+function dsBatteryTotals(d){ const B={volts:24, hours:(typeof dasProfile==="function"?+dasProfile(d.profile).battery_h||12:12), margin_pct:20, items:[], ...((d.design||{}).battery||{})}, amps=x=>(+x.amps||0)||((+x.watts||0)/(+B.volts||1));
   const load=B.items.reduce((a,x)=>a+(+x.qty||1)*amps(x),0); return {B, load, ah:load*(+B.hours||0)*(1+(+B.margin_pct||0)/100)}; }

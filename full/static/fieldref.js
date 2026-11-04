@@ -25,11 +25,16 @@ function frTable(r, rows, cols, opt={}){
   return `<div class="tw" style="${opt.max?`max-height:${opt.max}px`:""}"><table><thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}<th>Sources</th></tr></thead><tbody>
     ${rows.map(x=>`<tr>${cols.map(([k],i)=>`<td${i?"":' style="font-weight:600"'}>${esc(frVal(x[k]))}</td>`).join("")}<td style="white-space:nowrap">${frCite(r,x.sources)}</td></tr>`).join("")}</tbody></table></div>`;
 }
+// every checklist panel in el: All / None, "x of y done", folded until opened (checklists.js); commit saves once
+function frChecksWire(el, commit){
+  if(!window.rfChecks) return;
+  el.querySelectorAll("[data-cl]").forEach(p=>rfChecks(p, {key:"cl."+p.dataset.cl, sel:"[data-ck]", commit}));
+}
 // a checklist; done(key) / toggle(key, on) keep the ticks (a DAS job keeps them; the tabs keep them in this browser)
 function frChecklist(r, cl, done, prefix){
-  return `<div class="panel" style="margin:0 0 10px"><h3 style="margin:0 0 2px">${esc(cl.name)}</h3>${cl.when?`<p class="hint" style="margin:0 0 6px">${esc(cl.when)}</p>`:""}
-    ${(cl.items||[]).map(it=>{ const k=`${prefix}${cl.name}|${it.step}`; return `<label style="display:flex;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
-      <input type="checkbox" data-ck="${esc(k)}" ${done(k)?"checked":""} style="margin-top:4px"><span><b>${esc(it.step)}</b>${it.detail?` <span class="hint">· ${esc(it.detail)}</span>`:""} ${frCite(r,it.sources)}</span></label>`; }).join("")}</div>`;
+  return `<div class="panel" style="margin:0 0 10px" data-cl="${esc(prefix+cl.name)}"><h3 style="margin:0 0 2px">${esc(cl.name)}</h3>${cl.when?`<p class="hint" style="margin:0 0 6px">${esc(cl.when)}</p>`:""}
+    ${(cl.items||[]).map(it=>{ const k=`${prefix}${cl.name}|${it.step}`; return `<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
+      <input type="checkbox" data-ck="${esc(k)}" ${done(k)?"checked":""} style="margin-top:4px;width:auto;flex:none"><span><b>${esc(it.step)}</b>${it.detail?` <span class="hint">· ${esc(it.detail)}</span>`:""} ${frCite(r,it.sources)}</span></label>`; }).join("")}</div>`;
 }
 function frSop(r, s){
   return `<details class="panel" style="margin:0 0 10px"><summary style="cursor:pointer"><b>${esc(s.name)}</b>${s.purpose?` <span class="hint">· ${esc(s.purpose)}</span>`:""} ${frCite(r,s.sources)}</summary>
@@ -177,6 +182,7 @@ S.views.pim = async v => {
     ${frSources(r)}`;
   frPimCalcWire();
   v.querySelectorAll("[data-ck]").forEach(c=>c.onchange=()=>{ ticks[c.dataset.ck]=c.checked||undefined; frLocal.set("pimticks",ticks); });
+  frChecksWire(v, boxes=>{ boxes.forEach(c=>{ ticks[c.dataset.ck]=c.checked||undefined; }); frLocal.set("pimticks",ticks); });
 };
 
 /* ---------- Parts tab ---------- */
@@ -213,6 +219,7 @@ S.views.parts = async v => {
   let t; $("#psQ").oninput=e=>{ clearTimeout(t); t=setTimeout(()=>{ P.q=e.target.value; render(); const i=$("#psQ"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },300); };
   $("#psKind").onclick=e=>{ const b=e.target.closest("[data-k]"); if(b){ P.kind=b.dataset.k; render(); } };
   v.querySelectorAll("[data-ck]").forEach(c=>c.onchange=()=>{ ticks[c.dataset.ck]=c.checked||undefined; frLocal.set("partsticks",ticks); });
+  frChecksWire(v, boxes=>{ boxes.forEach(c=>{ ticks[c.dataset.ck]=c.checked||undefined; }); frLocal.set("partsticks",ticks); });
 };
 
 /* ---------- in a DAS job: PIM ---------- */
@@ -239,13 +246,16 @@ window.dasPim = async (el, j, save) => {
         <label>PIM dBm<input id="dpRes" type="number" step="any" style="width:90px"></label><label>DTP ft<input id="dpDtp" type="number" step="any" style="width:80px"></label>
         <label class="grow">Note<input id="dpNote"></label><button class="primary" id="dpAdd">Add run</button></div></div>
     ${r.empty?frEmpty("PIM"):`<div><h3 style="margin:0 2px 6px">Checklists for this job</h3>${lists.map(cl=>frChecklist(r, cl, k=>!!checks[k], "")).join("")||'<p class="hint">No DAS checklists in the research.</p>'}
-      <p class="hint">Everything else (limits, SOPs, torque, analysers): the PIM tab.</p></div>`}</div>`;
+      <p class="hint">Everything else (limits, SOPs, torque, analysers): the PIM tab.</p></div>`}</div>
+    <div id="dpIm" style="margin-top:10px"></div>`;
+  window.dasIntermod?.($("#dpIm"), j, save, "pim");  // IM3 / IM5 of the job's channels into its uplinks, and a test plan (dasx.js)
   const keep=async patch=>{ await save({pim:{...pim, ...patch}}); render(); };
   $("#dpLimit").onchange=e=>keep({limit_dbc:+e.target.value});
   $("#dpAdd").onclick=()=>{ const g=s=>$(s).value.trim(); if(!g("#dpRes")&&!g("#dpWhere")) return;
     keep({runs:[...runs, {where:g("#dpWhere"), band:g("#dpBand"), f1:g("#dpF1"), f2:g("#dpF2"), tone_dbm:g("#dpTone"), order:+g("#dpOrd"), result_dbm:g("#dpRes"), dtp_ft:g("#dpDtp"), note:g("#dpNote"), at:new Date().toISOString().slice(0,16)}]}); };
   el.querySelectorAll("[data-rmrun]").forEach(b=>b.onclick=()=>keep({runs:runs.filter((_,i)=>i!==+b.dataset.rmrun)}));
   el.querySelectorAll("[data-ck]").forEach(c=>c.onchange=()=>{ checks[c.dataset.ck]=c.checked||undefined; save({pim:{...pim, checks}}); });
+  frChecksWire(el, boxes=>{ boxes.forEach(c=>{ checks[c.dataset.ck]=c.checked||undefined; }); save({pim:{...pim, checks}}); });  // All / None: one save
 };
 
 /* ---------- in a DAS job: Materials (bill of materials) ---------- */
@@ -299,8 +309,8 @@ window.dasMaterials = async (el, j, save) => {
       <p class="hint" id="dmCatMsg" style="margin:6px 0">Star the parts you use on every job: they're your standard parts, added in one go with their default quantity. Keep a spec sheet on each (a PDF, or a link to one) and Build spec sheets puts them in the job's Files for the AHJ.</p>
       <div id="dmCatList"></div></div>
     <div class="grid2"><div>${r.empty?frEmpty("RF parts"):frCableCalc(r, "dmcc")}</div><div>
-      ${r.empty?"":`<div class="panel"><h3>Material rules for ERCES / DAS</h3>${(r.das||[]).map(x=>{ const k=`${x.topic}|${x.requirement}`; return `<label style="display:flex;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
-        <input type="checkbox" data-mck="${esc(k)}" ${mchecks[k]?"checked":""} style="margin-top:4px"><span><b>${esc(x.topic)}</b>: ${esc(x.requirement||"")}${x.code?` <span class="tag">${esc(x.code)}</span>`:""}${x.detail?` <span class="hint">· ${esc(x.detail)}</span>`:""} ${frCite(r,x.sources)}</span></label>`; }).join("")}</div>`}</div></div>`;
+      ${r.empty?"":`<div class="panel" id="dmRules"><h3>Material rules for ERCES / DAS</h3>${(r.das||[]).map(x=>{ const k=`${x.topic}|${x.requirement}`; return `<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
+        <input type="checkbox" data-mck="${esc(k)}" ${mchecks[k]?"checked":""} style="margin-top:4px;width:auto;flex:none"><span><b>${esc(x.topic)}</b>: ${esc(x.requirement||"")}${x.code?` <span class="tag">${esc(x.code)}</span>`:""}${x.detail?` <span class="hint">· ${esc(x.detail)}</span>`:""} ${frCite(r,x.sources)}</span></label>`; }).join("")}</div>`}</div></div>`;
   // the catalogue: a search, and each part's star, default quantity, spec sheet and Add
   const catList=async()=>{ const box=$("#dmCatList"); if(!box) return; const q=($("#dmCatQ")?.value||"").trim();
     const res=await api(`/api/das/parts?limit=60${q?`&q=${encodeURIComponent(q)}`:"&standard=1"}`).catch(e=>({parts:[], err:e.message}));
@@ -360,7 +370,8 @@ window.dasMaterials = async (el, j, save) => {
           <label>Needed by<input id="qNeed" type="date"></label><label class="grow">Ship to<input id="qShip" value="${esc(d.address||"")}"></label>
           <label class="grow">Note to suppliers<input id="qNote" placeholder="e.g. plenum-rated cable only; partial quotes welcome"></label>
           <button class="primary" id="qMake" ${bom.length?"":"disabled"}>Make the request</button></div>
-        <p class="hint" id="qMsg" style="margin:4px 0 0">${bom.length?"Each supplier gets the same list. Nothing is sent from here: each email opens in your own mail to send.":"Add parts to the bill of materials first."}</p></details>`;
+        <p class="hint" id="qMsg" style="margin:4px 0 0">${bom.length?"Each supplier gets the same list. Each email goes from your mailbox when you press Send on it (or opens in your own mail).":"Add parts to the bill of materials first."}</p></details>`;
+    { const row=box.querySelector("[data-qs]")?.closest(".row"); if(row) window.rfChecks?.(row, {sel:"[data-qs]", fold:false, word:"asked"}); }  // All / None suppliers
     box.querySelectorAll("[data-qse]").forEach(i=>i.onchange=()=>post("/api/das/suppliers",{name:i.dataset.qse, email:i.value}).catch(e=>alert(e.message)));
     box.querySelectorAll("[data-qsu]").forEach(i=>i.onchange=()=>post("/api/das/suppliers",{name:i.dataset.qsu, price_url:i.value}).catch(e=>alert(e.message)));
     box.querySelectorAll("[data-qsf]").forEach(i=>i.onchange=()=>post("/api/das/suppliers",{name:i.dataset.qsf, ship_from:i.value}).catch(e=>alert(e.message)));
@@ -444,4 +455,6 @@ window.dasMaterials = async (el, j, save) => {
   el.querySelectorAll("[data-rmb]").forEach(b=>b.onclick=()=>keep(bom.filter((_,i)=>i!==+b.dataset.rmb)));
   $("#dmCsv").onclick=()=>dasDl(`${fileSafe(j.name)} materials.csv`, csvOf(bom.map(x=>({category:x.cat,item:x.item,part:x.part,supplier:x.supplier,qty:x.qty,unit:x.unit,price:x.price??"",line_total:lineTotal(x)==null?"":lineTotal(x).toFixed(2),note:x.note}))), "text/csv");
   el.querySelectorAll("[data-mck]").forEach(c=>c.onchange=()=>{ mchecks[c.dataset.mck]=c.checked||undefined; save({material_checks:mchecks}); });
+  window.rfChecks?.($("#dmRules"), {key:"das.materialrules", sel:"[data-mck]", word:"confirmed",  // All / None: one save
+    commit:boxes=>{ boxes.forEach(c=>{ mchecks[c.dataset.mck]=c.checked||undefined; }); save({material_checks:mchecks}); }});
 };
