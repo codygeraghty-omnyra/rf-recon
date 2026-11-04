@@ -384,8 +384,9 @@ window.dasMaterials = async (el, j, save) => {
         <td>${s.received&&!s.missing.length?`<button class="sm" data-quse="${esc(s.supplier)}" title="Its prices and name onto the bill of materials">Use</button>`:s.missing.length&&s.received?`<span class="hint">${s.missing.length} missing</span>`:""}</td></tr>`).join("")}
       ${C.split.lines.length?`<tr><td><b>Best split</b> <span class="hint">each line from its cheapest</span></td><td class="hint">${esc(C.split.suppliers.join(" + "))}</td><td class="n">${C.split.lines.length} of ${q.lines.length}</td><td></td><td></td><td class="n"><b>${cur(C.split.total)}</b></td><td></td><td></td>
         <td>${C.split.complete?`<button class="sm" data-quse="__split">Use</button>`:""}</td></tr>`:""}</tbody></table></div>
-      <div id="qEnter"></div>`; };
+      <div id="qEnter"></div><div id="qMailThread"></div>`; };
   const wireQuote=(q, sup)=>{ const box=$("#dmQuotes");
+    if(window.rfMail) rfMail.thread($("#qMailThread"), {rfq:q.id}, ()=>quotes());  // the suppliers' replies, filed; Apply for typed prices
     $("#qFreight").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; $("#qOnMsg").textContent="Asking Shippo for rates…";
       try{ const r=await post(`/api/das/rfq/${q.id}/freight`); const f=r.freight;
         const say=`${f.total_lb} lb in ${f.boxes} box${f.boxes===1?"":"es"}${f.missing_weight.length?` (no weight yet: ${f.missing_weight.slice(0,4).join(", ")}${f.missing_weight.length>4?"…":""})`:""}. `+f.results.map(x=>`${x.supplier}: ${x.result}`).join(" · ");
@@ -399,6 +400,9 @@ window.dasMaterials = async (el, j, save) => {
       catch(err){ $("#qOnMsg").textContent=err.message; b.disabled=false; } };
     box.querySelectorAll("[data-qmail]").forEach(b=>b.onclick=async()=>{ const s=b.dataset.qmail, to=(sup.find(x=>x.name===s)||{}).email||"";
       const e=await api(`/api/das/rfq/${q.id}/email?supplier=${encodeURIComponent(s)}&sender=${encodeURIComponent(S.me?.name||"")}`);
+      if(window.rfMail&&await rfMail.ready()){  // from your own mailbox: the quote sheet attached, their reply read straight into the comparison
+        return rfMail.compose($("#qEnter"), {kind:"rfq", refs:{rfq_id:q.id, supplier:s}, title:`Request for quote to ${s}`, to, subject:e.subject,
+          body:e.body, rfqSheet:true, onSent:()=>quotes()}); }
       await post(`/api/das/rfq/${q.id}/quote`,{supplier:s, terms:{sent_at:new Date().toISOString().slice(0,16).replace("T"," ")}}).catch(()=>{});
       const href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(e.subject)}&body=${encodeURIComponent(e.body+"\n\n(Attach the quote sheet: Materials, Quotes, quote sheet CSV.)")}`;
       // where no mail app is set up the link does nothing: say so, with the link and a copy of the email (11/3)

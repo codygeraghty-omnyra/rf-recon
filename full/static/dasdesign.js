@@ -288,7 +288,8 @@ const DS_WALLS=[  // [label, measured material, measured thickness, P.2040 mater
   ["Reinforced concrete 8 in (1% steel)", "Reinforced concrete, 1% steel", "203", "concrete", 20.3], ["CMU block wall 8 in", "Masonry block (CMU) wall, 1 block", "203", null, null],
   ["Brick, single wythe", "Brick wall, single wythe", "89", "brick", 8.9], ["Brick veneer on CMU", "Brick veneer on masonry block", "", null, null],
   ["Clear glass 6 mm", "Clear float glass", "6 mm", "glass", 0.6], ["Low-E coated glass", "Cardinal low-e coated glass sample E272", "", null, null],
-  ["Wood framing 1.5 in", "Lumber (spruce-pine-fir), dry", "38 mm", "wood", 3.8]];
+  ["Wood framing 1.5 in", "Lumber (spruce-pine-fir), dry", "38 mm", "wood", 3.8],
+  ["Elevator shaft (concrete 8 in)", "Plain concrete (mix 1)", "203 mm (C18L)", "concrete", 20.3]];  // append only: walls keep their type by name
 function dsWallInfo(w, fMHz){
   if(w.db!=null&&w.db!=="") return {db:+w.db, how:"entered"};
   const P=DS_WALLS.find(x=>x[0]===w.label)  // a wall from an older list: the same material at the nearest thickness
@@ -328,21 +329,30 @@ async function dsFloors(el, j, save){
   const f=floors.find(x=>x.name===D.dsFloor), b=bands.find(x=>x.band===D.dsBand), I=dsInputs(d,b), R=lbCompute(I);
   const all=(d.design||{}).floors||{}, fl={width_ft:null, antennas:[], walls:[], ...(all[f.name]||{})};
   const keep=async patch=>{ const nf={...all, [f.name]:{...fl, ...patch}}; await save({design:{...(d.design||{}), floors:nf}}); render(); };
-  const target=(+I.dl_min_dbm)+(+I.margin_db||0);
+  const target=(+I.dl_min_dbm)+(+I.margin_db||0), DWon=!!(window.DW&&window.PlanLines&&window.RFKeys);
+  // the wall tools (dswalls.js): Add (antennas, walls, snip, lasso) and Remove, a key for each (the title says which)
+  const TOOLS=DWon?[["antenna","Place antennas","A"],["wall","Draw walls","W"],["snip","Snip","S"],["lasso","Lasso","L"],["erase","Remove","E"]]:[["antenna","Place antennas"],["wall","Draw walls"],["erase","Remove"]];
+  const toolTip={antenna:"Click to place a server antenna", wall:"Drag along a wall, or click its start and its end; snaps to walls and the plan's lines", snip:"Drag a box: the walls inside are found (Shift+S: Smart, each wall's own material)",
+    lasso:"Draw a loop: the walls inside are found (Shift+L: Smart)", erase:"Click or drag a box to remove; or hold Shift in any other tool"};
   el.innerHTML=`<div class="maptools no-print" style="gap:10px;flex-wrap:wrap">
       <label class="inl">Floor <select id="dfF">${floors.map(x=>`<option ${x.name===f.name?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
       <label class="inl">Band <select id="dfB">${bands.map(x=>`<option ${x.band===b.band?"selected":""}>${esc(x.band)}</option>`).join("")}</select></label>
       <label class="inl">Plan width <input id="dfW" type="number" step="any" value="${fl.width_ft??""}" placeholder="ft" style="width:80px"> ft</label>
-      <div class="seg" id="dfTool">${[["antenna","Place antennas"],["wall","Draw walls"],["erase","Remove"]].map(([k,l])=>`<button data-t="${k}" class="${D.dsTool===k?"on":""}">${l}</button>`).join("")}</div>
-      <label class="inl" ${D.dsTool==="wall"?"":'style="display:none"'}>Wall <select id="dfWall">${DS_WALLS.map(([l],i)=>`<option value="${i}" ${+D.dsWall===i?"selected":""}>${esc(l)}</option>`).join("")}</select></label>
+      <div class="seg" id="dfTool">${TOOLS.map(([k,l,key])=>`<button data-t="${k}" class="${D.dsTool===k?"on":""}" title="${esc((toolTip[k]||l)+(key?` (${key})`:""))}">${l}</button>`).join("")}</div>
+      <label class="inl" ${["wall","snip","lasso"].includes(D.dsTool)?"":'style="display:none"'} title="${DWon?"M / Shift+M: next / previous; 1-9 and 0: the first ten":""}">Wall <select id="dfWall">${DS_WALLS.map(([l],i)=>`<option value="${i}" ${(+D.dsWall||0)===i?"selected":""}>${DWon&&i<10?`${(i+1)%10} · `:""}${esc(l)}</option>`).join("")}</select></label>
+      ${DWon?`<label class="inl" ${["snip","lasso"].includes(D.dsTool)?"":'style="display:none"'} title="Smart: each wall's material from the plan's words, fills and hatching, the job's other floors and its construction (Shift+S / Shift+L)"><input type="checkbox" id="dfSmart" ${D.dsSmart?"checked":""}> Smart materials</label>
+      <button id="dfSnap" class="${D.dsSnap!==false?"on":""}" aria-pressed="${D.dsSnap!==false}" title="Snap to walls, the plan's line ends, crossings and lines, and square to the plan (X). Hold Ctrl for one wall without snap.">Snap</button>
+      <button id="dfUndo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button><button id="dfRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+      <button id="dfBest" title="The best tool for this plan">Reading the plan's lines…</button>`:""}
       <span class="hint">Antenna EIRP ${R.eirp.toFixed(1)} dBm per channel (Link budget) · pass at ≥ ${target} dBm</span></div>
+    ${DWon?`<div id="dfKeys" class="no-print"></div><div id="dfReview" class="no-print" hidden></div>`:""}
     ${!f.plan?'<p class="status">This floor has no plan yet: add one under Plans (a PDF page) or pick an image under Grid test.</p>'
-      :!fl.width_ft?'<p class="status">Enter the plan\'s real width in feet (from the drawing\'s scale or dimensions) so distances are right.</p>':""}
+      :!fl.width_ft?`<p class="status">Enter the plan's real width in feet (from the drawing's scale or dimensions) so distances are right.${DWon?' <button id="dfScaleW" hidden></button>':""}</p>`:""}
     <div class="grid2" style="margin-top:0;grid-template-columns:minmax(360px,2fr) minmax(240px,1fr)">
       <div class="panel" style="padding:8px"><div id="dfWrap" style="position:relative;width:100%;line-height:0">
         ${f.plan?`<img id="dfImg" style="width:100%;display:block;border-radius:8px;background:#fff" alt="Floor ${esc(f.name)} plan">`:'<div style="aspect-ratio:4/3;border-radius:8px;border:1px dashed var(--line)"></div>'}
         <canvas id="dfHeat" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.5;border-radius:8px"></canvas>
-        <svg id="dfSvg" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair"></svg></div>
+        <svg id="dfSvg" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;user-select:none;-webkit-user-select:none"></svg>${DWon?'<div id="dfToast" role="status" aria-live="polite" hidden></div>':""}</div>
         <p class="hint" id="dfHint" style="margin:6px 2px 0"></p></div>
       <div class="panel"><h3>Predicted</h3><div id="dfStats"><p class="hint">Place antennas to see the prediction.</p></div>
         <h3 style="margin-top:12px">Antennas on this floor</h3>${(fl.antennas||[]).map((a,i)=>`<div class="row" style="gap:6px;align-items:center;margin:3px 0"><b>${esc(a.label||`A${i+1}`)}</b>
@@ -354,16 +364,17 @@ async function dsFloors(el, j, save){
   $("#dfF").onchange=e=>{ D.dsFloor=e.target.value; render(); }; $("#dfB").onchange=e=>{ D.dsBand=e.target.value; render(); };
   $("#dfW").onchange=e=>keep({width_ft:+e.target.value||null});
   $("#dfTool").onclick=e=>{ const x=e.target.closest("[data-t]"); if(x){ D.dsTool=x.dataset.t; render(); } };
-  if($("#dfWall")) $("#dfWall").onchange=e=>{ D.dsWall=+e.target.value; };
+  if($("#dfWall")) $("#dfWall").onchange=e=>{ D.dsWall=+e.target.value; e.target.blur(); if(DWon) DW.paint(); };  // blurred: the editor's keys work again
   el.querySelectorAll("[data-ag]").forEach(i=>i.onchange=()=>keep({antennas:fl.antennas.map((a,k)=>k===+i.dataset.ag?{...a, gain:i.value===""?null:+i.value}:a)}));
   el.querySelectorAll("[data-af]").forEach(i=>i.onchange=()=>keep({antennas:fl.antennas.map((a,k)=>k===+i.dataset.af?{...a, feed_db:i.value===""?null:+i.value}:a)}));
   const img=$("#dfImg"), svg=$("#dfSvg"), cv=$("#dfHeat");
   const draw=()=>{
     const W=svg.clientWidth, H=svg.clientHeight; if(!W||!H) return;
-    svg.innerHTML=(fl.walls||[]).map(w=>`<line x1="${w.x1*W}" y1="${w.y1*H}" x2="${w.x2*W}" y2="${w.y2*H}" stroke="#e5534b" stroke-width="3" stroke-linecap="round"/>`).join("")
+    svg.innerHTML=(fl.walls||[]).map(w=>`<line x1="${w.x1*W}" y1="${w.y1*H}" x2="${w.x2*W}" y2="${w.y2*H}" stroke="#e5534b" stroke-width="3" stroke-linecap="round"><title>${esc(w.label||w.mat||"Wall")}${w.src?` · found in the ${w.src==="vector"?"PDF":"plan image"}${w.conf!=null?`, ${Math.round(w.conf*100)}% sure`:""}`:""}</title></line>`).join("")
       +(fl.antennas||[]).map((a,i)=>`<g><circle cx="${a.x*W}" cy="${a.y*H}" r="9" fill="#f0a37a" stroke="#2a160c" stroke-width="2"/><text x="${a.x*W+12}" y="${a.y*H+4}" font-size="12" fill="#2a160c" style="paint-order:stroke;stroke:#fff;stroke-width:3px">${esc(a.label||`A${i+1}`)}</text></g>`).join("")
       +(D.dsWallStart?`<circle cx="${D.dsWallStart[0]*W}" cy="${D.dsWallStart[1]*H}" r="5" fill="#e5534b"/>`:"");
-    if(!fl.width_ft||!(fl.antennas||[]).length||!img){ cv.width=1; cv.height=1; $("#dfHint").textContent=D.dsTool==="wall"?"Click a wall's start, then its end.":D.dsTool==="erase"?"Click an antenna or a wall to remove it.":"Click to place a server antenna."; return; }
+    if(DWon) DW.paint();  // the tools' marks: snap, preview, what a snip found
+    if(!fl.width_ft||!(fl.antennas||[]).length||!img){ cv.width=1; cv.height=1; $("#dfHint").textContent=DWon?DW.hint():D.dsTool==="wall"?"Click a wall's start, then its end.":D.dsTool==="erase"?"Click an antenna or a wall to remove it.":"Click to place a server antenna."; return; }
     const wFt=+fl.width_ft, hFt=wFt*(img.naturalHeight/img.naturalWidth||0.75), P=dsPredict(fl, I, R, wFt, hFt, 140);
     cv.width=P.cols; cv.height=P.rows; const cx2=cv.getContext("2d"), id=cx2.createImageData(P.cols,P.rows);
     let ok=0, warn=0;
@@ -376,9 +387,10 @@ async function dsFloors(el, j, save){
     $("#dfStats").innerHTML=`<div class="kvg"><div>Floor area at or above ${target} dBm</div><div><b>${Math.round(ok/P.out.length*100)}%</b> <span class="hint">(${Math.round(warn/P.out.length*100)}% within 5 dB of it)</span></div>
       <div>Grid squares predicted to pass</div><div><b>${sqPass}/${sq}</b> <span class="hint">at their centres</span></div><div>Antennas</div><div>${fl.antennas.length}</div><div>Walls drawn</div><div>${(fl.walls||[]).length}</div></div>
       <p class="hint" style="margin:6px 0 0">Green ≥ ${target+5} dBm, amber within 5 dB of the requirement, red below it. A prediction: the grid test decides.</p>`;
-    $("#dfHint").textContent=D.dsTool==="wall"?"Click a wall's start, then its end.":D.dsTool==="erase"?"Click an antenna or a wall to remove it.":"Click to place another antenna.";
+    $("#dfHint").textContent=DWon?DW.hint():D.dsTool==="wall"?"Click a wall's start, then its end.":D.dsTool==="erase"?"Click an antenna or a wall to remove it.":"Click to place another antenna.";
   };
-  svg.onclick=e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height;
+  if(DWon) DW.mount({el, j, d, f, fl, D, I, R, save, keep, svg, img});  // pointer, keys, snap, snip / lasso, review, undo (dswalls.js)
+  else svg.onclick=e=>{ const r=svg.getBoundingClientRect(), x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height;
     if(D.dsTool==="antenna") keep({antennas:[...(fl.antennas||[]), {x, y, label:`A${(fl.antennas||[]).length+1}`}]});
     else if(D.dsTool==="wall"){ if(!D.dsWallStart){ D.dsWallStart=[x,y]; draw(); return; }
       const P=DS_WALLS[+D.dsWall||0], s=D.dsWallStart; D.dsWallStart=null; keep({walls:[...(fl.walls||[]), {x1:s[0],y1:s[1],x2:x,y2:y,label:P[0],mat:P[3],cm:P[4]}]}); }

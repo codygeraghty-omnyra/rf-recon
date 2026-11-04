@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS das_part(id INTEGER PRIMARY KEY, supplier TEXT NOT NU
     item TEXT, maker TEXT, cat TEXT, unit TEXT, price REAL, spec_url TEXT, spec_file TEXT, standard INTEGER DEFAULT 0,
     std_qty REAL, updated_at TEXT, weight_lb REAL, UNIQUE(supplier, key));
 """
-TABLES = ("das_job", "das_log", "das_contact", "das_part", "das_supplier", "das_rfq", "das_quote", "das_rfq_supplier", "das_prospect")
+TABLES = ("das_job", "das_log", "das_contact", "das_part", "das_supplier", "das_rfq", "das_quote", "das_rfq_supplier", "das_prospect",
+          "das_mail", "das_mail_state")
 STAGES = ["Lead", "Pre-survey", "Design", "Install", "Commission", "Acceptance", "In service", "Closed"]
 
 # Public safety: the FCC's public safety radio services, and licensees the importer classed as public safety
@@ -129,7 +130,7 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=15.0, threshold_dbm=-95.0, 
             if 862.0 <= c["freq"] <= 869.0:
                 flags.append("ESMR (commercial): keep out of the booster")
             if 758.0 <= c["freq"] <= 768.0:
-                flags.append("FirstNet Band 14: needs FirstNet / AT&T authorization")
+                flags.append("FirstNet Band 14: needs the FirstNet Authority's written retransmission authorization (AT&T runs the network)")
             if sites_per.get(c["freq"], 0) > 1:
                 flags.append(f"simulcast from {sites_per[c['freq']]} sites: delay / TDI risk")
             c["flags"], c["sites_n"] = flags, sites_per.get(c["freq"], 0)
@@ -322,6 +323,7 @@ def job_row(con, jid):
     j = dict(r)
     j["data"] = json.loads(j["data"] or "{}")
     j["log"] = [dict(x) for x in con.execute("SELECT ts, kind, detail FROM das_log WHERE job_id=? ORDER BY id DESC LIMIT 200", (jid,))]
+    j["lifecycle"] = lifecycle(j["data"], j["stage"])  # computed each time, never saved (das lifecycle helpers)
     return j
 
 
@@ -331,7 +333,8 @@ def list_jobs(con):
         d = json.loads(r["data"] or "{}")
         out.append({"id": r["id"], "name": r["name"], "stage": r["stage"], "updated_at": r["updated_at"],
                     **{k: d.get(k) for k in ("address", "lat", "lon", "ahj", "due", "next_step", "floors", "accepted_on",
-                                             "retest_due", "checks", "value", "client")}})
+                                             "retest_due", "checks", "value", "client")},
+                    "lifecycle": lifecycle(d, r["stage"])})
     return out
 
 
@@ -348,9 +351,9 @@ def _flat(d, prefix=""):
 def save_job(con, d, jid=None):
     name, stage, data = d.get("name"), d.get("stage"), d.get("data") or {}
     if jid is None:
-        cur = con.execute("INSERT INTO das_job(name, stage, data, created_at, updated_at) VALUES(?,?,?,?,?)",
-                          (name or "New job", stage if stage in STAGES else "Lead", json.dumps(data), now(), now()))
-        jid = cur.lastrowid
+        jid = next_job_id(con)
+        con.execute("INSERT INTO das_job(id, name, stage, data, created_at, updated_at) VALUES(?,?,?,?,?,?)",
+                    (jid, name or "New job", stage if stage in STAGES else "Lead", json.dumps(data), now(), now()))
         con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "created", name or ""))
     else:
         old = job_row(con, jid)
@@ -384,9 +387,40 @@ def note(con, jid, text):
 
 
 def delete_job(con, jid):
+    """The job goes; its folder stays (files are never thrown away) but is renamed "_deleted <date> 0007 Name", so a
+    later job can't pick it up by number (11/4: a new job showed a deleted job's spec sheet)."""
+    d = job_dir(jid, "", create=False)
+    if os.path.isdir(d):
+        base = os.path.basename(d)
+        dest = os.path.join(DAS_DIR, f"_deleted {time.strftime('%Y-%m-%d')} {base}")
+        i = 2
+        while os.path.exists(dest):
+            dest = os.path.join(DAS_DIR, f"_deleted {time.strftime('%Y-%m-%d')} {base} ({i})")
+            i += 1
+        try:
+            os.rename(d, dest)
+        except OSError:
+            pass  # a file open elsewhere: the folder keeps its name; ids still aren't reused (next_job_id)
     con.execute("DELETE FROM das_log WHERE job_id=?", (jid,))
     con.execute("DELETE FROM das_job WHERE id=?", (jid,))
     con.commit()
+
+
+def next_job_id(con):
+    """A number no job has had: above every job, every job folder (deleted ones too) and anything filed under a job
+    id (quotes, mail), so a new job never inherits an old one's files, requests or mail."""
+    hi = con.execute("SELECT COALESCE(MAX(id), 0) FROM das_job").fetchone()[0]
+    for t in ("das_rfq", "das_mail", "das_log"):
+        try:
+            hi = max(hi, con.execute(f"SELECT COALESCE(MAX(job_id), 0) FROM {t}").fetchone()[0] or 0)
+        except Exception:
+            pass  # a table this copy doesn't have yet
+    if os.path.isdir(DAS_DIR):
+        for n in os.listdir(DAS_DIR):
+            m = re.match(r"^(?:_deleted \d{4}-\d\d-\d\d )?(\d{4}) ", n)
+            if m:
+                hi = max(hi, int(m.group(1)))
+    return hi + 1
 
 
 CONTACT_FIELDS = ("name", "org", "role", "phone", "email", "notes")
@@ -1138,6 +1172,16 @@ CREATE TABLE IF NOT EXISTS das_rfq_supplier(id INTEGER PRIMARY KEY, rfq_id INTEG
     valid_until TEXT, terms TEXT, quote_ref TEXT, sent_at TEXT, received_at TEXT, ship_est TEXT, UNIQUE(rfq_id, supplier));
 """
 SCHEMA += RFQ_SCHEMA  # created with the other DAS tables at start-up
+# mail threads: RF Recon emails sent from a person's own mailbox and the tagged replies (dasmail.py, mailbox.py)
+MAIL_SCHEMA = """
+CREATE TABLE IF NOT EXISTS das_mail(id INTEGER PRIMARY KEY, login TEXT, direction TEXT, tag TEXT, kind TEXT, job_id INTEGER,
+    rfq_id INTEGER, supplier TEXT, prospect_id TEXT, counterpart TEXT, subject TEXT, body TEXT, attachments TEXT,
+    message_id TEXT, in_reply_to TEXT, status TEXT, result TEXT, proposal TEXT, ts TEXT, UNIQUE(login, message_id));
+CREATE INDEX IF NOT EXISTS das_mail_tag ON das_mail(tag);
+CREATE TABLE IF NOT EXISTS das_mail_state(login TEXT, folder TEXT, uidvalidity TEXT, last_uid INTEGER, last_check TEXT,
+    last_error TEXT, PRIMARY KEY(login, folder));
+"""
+SCHEMA += MAIL_SCHEMA
 SCHEMA += """
 CREATE TABLE IF NOT EXISTS das_prospect(id TEXT PRIMARY KEY, status TEXT, notes TEXT, contacted_at TEXT, job_id INTEGER, updated_at TEXT,
     email TEXT, email_source TEXT);
@@ -1446,9 +1490,106 @@ def refresh_price_lists(con, fetch=None):
     return done
 
 
+# ---------------------------------------------------------------- lifecycle dates (R2 K-3, C-4, C-9; 11/4)
+# What an accepted system owes after acceptance, each with the source that sets it. A date is only computed where the
+# source gives a term (annual, five-year); renewals and permits take the date the licensee or AHJ wrote on the paper,
+# entered by the person (the Overview offers the researched terms). Kept in the job's data under "life".
+LIFE_SOURCES = {
+    "annual": ("IFC 510.6.1 / NFPA 1225 20.3.10: tested and signed at acceptance and every 12 months",
+               "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
+    "quant5": ("NFPA 1225 20.3.10.2.3.3: a full quantitative retest at least every five years (per the SBC ERCES Primer; the "
+               "IFC has no five-year rule; NYC ARCS: 5-year recertification)", "https://saferbuildings.org/erces-primer/"),
+    "auth": ("Licensee authorization: IFC 2024 510.5.2.1 / NFPA 1225 18.7.2; the term is the licensee's (Requirements, "
+             "Licensee consent)", "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
+    "op_permit": ("Operational permit where the fire code official requires one, renewable: IFC 2024 510.3.2 / NFPA 1225 "
+                  "18.7.3 (the code sets no term)", "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
+    "ul2524": ("UL 2524 3rd edition (22 Mar 2024): listings not updated by 22 Mar 2026 are withdrawn (Intertek SUN, 10 Feb 2025)",
+               "https://www.intertek.com/siteassets/resources/sun/2025/ul-2524-sun-rev-3-22-2024-ed-3-22-2026.pdf"),
+    "remodel": ("IFC 2024 510.6.1: retest after structural changes (additions, remodels); the code gives no deadline",
+                "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
+}
+LIFE_SOON_DAYS = 60
+UL2524_WITHDRAWN = "2026-03-22"
+_POST_DESIGN = ("Install", "Commission", "Acceptance", "In service")
+
+
+def _day(s):
+    try:
+        return datetime.strptime(str(s or "")[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _add_months(d, months):
+    y, m = divmod(d.month - 1 + months, 12)
+    y, m = d.year + y, m + 1
+    for day in (d.day, 30, 29, 28):  # 29 Feb + 1 year is 28 Feb
+        try:
+            return d.replace(year=y, month=m, day=day)
+        except ValueError:
+            continue
+
+
+def lifecycle(d, stage=None, today=None):
+    """A job's lifecycle items: [{key, label, due, done, state, days, source, url}]. state: "overdue", "due" (within
+    60 days), "ok", "open" (to do, no date in the code), "done", or "n/a" (not reached yet). d is the job's data;
+    d["life"] holds what the person entered: annual_last, quant5_last, op_permit_expires, ul2524_checked, remodel,
+    auths [{who, granted, renews, term}]."""
+    d = d or {}
+    life = d.get("life") or {}
+    today = today or datetime.now().date()
+    accepted = _day(d.get("accepted_on") or (d.get("checks") or {}).get("accepted_on"))
+    out = []
+
+    def item(key, label, due=None, done=None, state=None, src_key=None, note=""):
+        days = (due - today).days if due else None
+        if state is None:
+            state = "n/a" if due is None else "overdue" if days < 0 else "due" if days <= LIFE_SOON_DAYS else "ok"
+        text, url = LIFE_SOURCES[src_key or key]
+        out.append({"key": key, "label": label, "due": due.isoformat() if due else None,
+                    "done": done.isoformat() if done else None, "state": state, "days": days, "source": text, "url": url,
+                    "note": note})
+
+    annual_last = _day(life.get("annual_last"))
+    base = max([x for x in (accepted, annual_last) if x], default=None)
+    if base:
+        item("annual", "Annual test", due=_add_months(base, 12), done=annual_last or accepted,
+             note="from the last annual test" if annual_last and annual_last >= (accepted or annual_last) else "from acceptance")
+    elif _day(d.get("retest_due")):  # a job imported with a retest date and no acceptance date
+        item("annual", "Annual test", due=_day(d.get("retest_due")), note="the retest date on file")
+    else:
+        item("annual", "Annual test", note="starts at acceptance")
+    q_last = _day(life.get("quant5_last"))
+    q_base = max([x for x in (accepted, q_last) if x], default=None)
+    item("quant5", "Five-year full quantitative retest", due=_add_months(q_base, 60) if q_base else None, done=q_last,
+         note="where NFPA 1225 applies" if q_base else "starts at acceptance")
+    for a in life.get("auths") or []:
+        renews = _day(a.get("renews"))
+        item("auth", f"Licensee authorization renewal: {a.get('who') or 'licensee'}", due=renews, done=_day(a.get("granted")),
+             state=None if renews else "open", note=a.get("term") or ("" if renews else "no renewal date entered"))
+    op = _day(life.get("op_permit_expires"))
+    if op or life.get("op_permit"):
+        item("op_permit", "Operational permit renewal", due=op, state=None if op else "open",
+             note="" if op else "no expiry date entered")
+    ul = _day(life.get("ul2524_checked"))
+    if ul:
+        item("ul2524", "Active equipment listed to UL 2524 3rd edition", done=ul, state="done")
+    else:
+        item("ul2524", "Active equipment listed to UL 2524 3rd edition",
+             state="open" if stage in ("Design",) + _POST_DESIGN else "n/a",
+             note=f"2nd-edition listings not updated by {UL2524_WITHDRAWN} are withdrawn: check each booster's listing")
+    rem = _day(life.get("remodel"))
+    if rem:
+        tests = [x for x in (accepted, annual_last, q_last) if x and x >= rem]
+        item("remodel", f"Retest after the addition or remodel of {rem.isoformat()}", done=min(tests) if tests else None,
+             state="done" if tests else "open")
+    return out
+
+
 # ---------------------------------------------------------------- prospects (Cody 11/3): who to approach, and where each stands
 PROSPECT_STATUS = ("new", "contacted", "replied", "meeting", "won", "not interested", "do not contact")
 KIND_TYPE = {"school_k12": "K-12 schools", "school_private": "K-12 schools", "college": "Colleges and universities", "hospital": "Hospitals",
+             "nursing_home": "Nursing homes",
              "high_rise": "High-rise office and residential", "warehouse": "Warehouses and distribution centers",
              "parking": "Parking garages (below grade)", "mall": "Malls and retail centers", "stadium": "Stadiums and arenas",
              "venue": "Convention centers", "airport": "Airports", "hotel": "Hotels", "casino": "Casinos and resorts",

@@ -272,7 +272,8 @@ function mount(o) {
   if (o.z) document.documentElement.style.setProperty("--rfn-z", o.z);
   document.addEventListener("keydown", e => {
     if (e.key !== "n" && e.key !== "N" || e.ctrlKey || e.metaKey || e.altKey || dlg.open) return;
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable) return;
+    // typing somewhere: keys.js says where (one rule for every shortcut); the phone app, without keys.js, asks here
+    if (window.RFKeys ? RFKeys.typing() : /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable) return;
     if (document.querySelector("dialog[open]")) return;
     e.preventDefault(); open();
   });

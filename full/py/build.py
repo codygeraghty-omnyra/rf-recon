@@ -54,4 +54,13 @@ def allowed(source_id):
 
 def info():
     """What the page needs: the build's name, what it leaves out and why, and the notices."""
-    return {"build": name(), "left_out": {} if personal_now() else PERSONAL_ONLY, "notices": NOTICES}
+    return {"build": name(), "left_out": {} if personal_now() else PERSONAL_ONLY, "notices": NOTICES, "commit": commit()}
+
+
+def commit():
+    """The deployed commit (deploy_server.sh writes COMMIT beside the code), so a check can see what's running."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "COMMIT"), encoding="utf-8") as fh:
+            return fh.read().strip()[:40] or None
+    except OSError:
+        return None

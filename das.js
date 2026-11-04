@@ -18,7 +18,7 @@ const DAS_RX = [["B71 600 UL", 663, 698], ["B12/17 700 UL", 699, 716], ["B13 700
   ["B30 WCS UL", 2305, 2315], ["n41 2.5 GHz (TDD)", 2496, 2690]];
 const DAS = {tests: null, cur: null, floor: null, view: "grid", pkinds: null};
 // the kinds prospects.db carries (prospects.py: the US government lists, then Overture places and high-rises), in this order
-const DAS_PKINDS = [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"],
+const DAS_PKINDS = [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"], ["nursing_home", "Nursing homes"],
   ["high_rise", "High-rises"], ["mall", "Malls"], ["stadium", "Stadiums and arenas"], ["hotel", "Hotels"], ["venue", "Venues"], ["casino", "Casinos"],
   ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"]];
 const DAS_PCOLOR = {hospital: "#e5534b", college: "#a78bfa", school_k12: "#3d8bfd", school_private: "#3d8bfd", high_rise: "#fab219"};

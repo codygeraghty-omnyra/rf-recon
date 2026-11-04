@@ -17,13 +17,15 @@ import os
 _WIN = os.name == "nt"
 
 
-def path(data_dir):
+def path(data_dir, kind="keys"):
+    """kind: "keys" (API keys and logins) or another sealed file beside it, e.g. "mail" (each login's mailbox)."""
+    sfx = "" if kind == "keys" else "-" + kind
     if os.environ.get("RF_RECON_KEYS"):
-        return os.environ["RF_RECON_KEYS"]
+        return os.environ["RF_RECON_KEYS"] + ("" if kind == "keys" else "." + kind)
     tag = hashlib.sha256(os.path.normcase(os.path.abspath(data_dir)).encode()).hexdigest()[:12]
     if _WIN:
-        return os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RF Recon", "keys", tag + ".bin")
-    return os.path.join(os.path.expanduser("~"), ".config", "rf-recon", "keys", tag + ".json")
+        return os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RF Recon", "keys", tag + sfx + ".bin")
+    return os.path.join(os.path.expanduser("~"), ".config", "rf-recon", "keys", tag + sfx + ".json")
 
 
 def _dpapi(data, seal):
@@ -43,22 +45,22 @@ def _dpapi(data, seal):
         ctypes.windll.kernel32.LocalFree(out.pbData)
 
 
-def exists(data_dir):
-    return os.path.exists(path(data_dir))
+def exists(data_dir, kind="keys"):
+    return os.path.exists(path(data_dir, kind))
 
 
-def load(data_dir):
+def load(data_dir, kind="keys"):
     """The saved keys; {} when there are none, or the file won't open (sealed by another Windows user or PC)."""
     try:
-        with open(path(data_dir), "rb") as fh:
+        with open(path(data_dir, kind), "rb") as fh:
             raw = fh.read()
         return json.loads(_dpapi(raw, False) if _WIN else raw)
     except (OSError, ValueError):
         return {}
 
 
-def save(data_dir, creds):
-    p = path(data_dir)
+def save(data_dir, creds, kind="keys"):
+    p = path(data_dir, kind)
     os.makedirs(os.path.dirname(p), exist_ok=True)
     raw = json.dumps(creds).encode()
     tmp = p + ".tmp"

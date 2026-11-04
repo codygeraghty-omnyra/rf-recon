@@ -91,7 +91,30 @@ const HELP = [
     <tr><td><b>Ctrl + wheel</b></td><td>Zoom the spectrum or topology at the cursor (the plain wheel scrolls the page)</td></tr>
     <tr><td><b>Drag</b> / <b>Shift + drag</b></td><td>Spectrum: zoom into a range / pan</td></tr>
     <tr><td><b>↑ / ↓</b></td><td>Analyzer: previous / next record</td></tr>
-    <tr><td><b>Esc</b></td><td>Close a window or the suggestions</td></tr></tbody></table>`],
+    <tr><td><b>Esc</b></td><td>Close a window or the suggestions</td></tr>
+    <tr><td><b>[</b> / <b>]</b></td><td>DAS: the previous / next floor (Design, Grid test, Screening)</td></tr>
+    <tr><td colspan="2">On a DAS floor plan (Design, Antennas and coverage): see <i>Walls on floor plans</i> below.</td></tr></tbody></table>`],
+  ["walls", "Walls on floor plans", `
+    <p>DAS › a job › Design › <i>Antennas and coverage</i>. Walls change the predicted coverage by their measured loss.</p>
+    <ul><li><b>Draw walls</b> (<b>W</b>): drag along a wall, or click its start and then its end. The pointer snaps to drawn walls' ends,
+      the plan's own line ends and crossings, onto a plan line, and square to the plan; the marker says which. A drag that runs along one
+      plan line locks onto it (blue preview), ending on a double-line wall puts the wall on its centre. <b>Shift</b> while drawing: square
+      to the plan. <b>Ctrl</b> held: no snap for that wall. <b>X</b> turns snap off and on.</li>
+    <li><b>Snip</b> (<b>S</b>): drag a box; the walls inside the plan are found at once, all as the wall type picked. <b>Smart</b>
+      (<b>Shift+S</b>): each wall gets its own type from what RF Recon knows: a word beside it on the plan (CMU, CONC, GYP, CURTAIN WALL),
+      a stair, elevator or shaft box, glazing drawn as three thin lines, a hatched (block) or solid (concrete) fill and the wall's thickness,
+      outside walls from the job's other floors, its construction and the building type.</li>
+    <li><b>Lasso</b> (<b>L</b>, <b>Shift+L</b> Smart): draw any loop, a circle too; it closes where you started.</li>
+    <li>What's found is shown dashed: green sure (0.75 or more), amber check it, grey probably not a wall. Hover one for how sure and why.
+      <b>Enter</b> adds the sure ones, <b>Shift+Enter</b> all, <b>Esc</b> discards; click one to leave it out; <b>M</b> or <b>1</b>-<b>9</b>
+      over one changes its type. From a PDF whose every find is sure, the walls go straight in ("Added 14 walls · Ctrl+Z").</li>
+    <li><b>Remove</b> (<b>E</b>): click a wall or antenna, or drag a box around several. In any other tool, hold <b>Shift</b> to remove;
+      in Remove, hold Shift to draw. <b>Delete</b> removes what's under the pointer.</li>
+    <li><b>Ctrl+Z</b> / <b>Ctrl+Shift+Z</b>: undo / redo, 30 steps per floor; a snip's walls are one step. <b>A</b> antennas, <b>M</b> /
+      <b>Shift+M</b> next / previous wall type, <b>1</b>-<b>9</b>, <b>0</b> the first ten, <b>B</b> / <b>F</b> next band / floor (Shift: back).</li>
+    <li>The 💡 button names the best tool for this plan: <i>Smart snip</i> for a PDF with clean lines or a wall layer, <i>Snip, then review</i>
+      for a mixed PDF, <i>Snip (detected): confirm</i> for a clear plan image, <i>Draw with snap</i> for a hard one, <i>Draw by hand</i>
+      when no lines could be read (a photo). Click it to switch. Plans saved from a PDF (Plans) are read from the PDF itself: the best case.</li></ul>`],
   ["sources", "Where the data comes from", `
     <ul><li><b>FCC ULS</b> licences (land mobile, paging, broadcast auxiliary, marine and aviation ground) and <b>FCC ASR</b> towers: authoritative, updated weekly by the FCC.</li>
     <li><b>Broadcast</b> AM, FM and TV stations (FCC Media Bureau), <b>NOAA Weather Radio</b> transmitters with the counties each warns, and
@@ -133,7 +156,7 @@ const HELP = [
   hdrBtn.parentNode.insertBefore(b, hdrBtn);
   b.onclick = () => openHelp(S.tab);
   document.addEventListener("keydown", e => {
-    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "");
+    const typing = window.RFKeys ? RFKeys.typing() : /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "");  // keys.js: one rule for every shortcut
     if (e.key === "F1" || (e.key === "?" && !typing)) { e.preventDefault(); openHelp(S.tab); }
   });
 })();

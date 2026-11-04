@@ -91,8 +91,10 @@ window.dasPlans = async (el, j, save) => {
         const n=+b.dataset.save, fl=$(`[data-pg="${n}"]`).value; if(!fl){ $("#plMsg").textContent=`Pick a floor for page ${n} first.`; return; }
         b.disabled=true; $("#plMsg").textContent=`Saving page ${n} as floor ${fl}'s plan…`;
         const png=await pdfPagePng(pdf, n), out=`${name.replace(/\.pdf$/i,"")} p${n} (floor ${fl}).png`.replace(/[\\/:*?"<>|]+/g,"-");
-        await api(`/api/das/jobs/${j.id}/files?name=${encodeURIComponent(out)}`, {method:"POST", body:await png.arrayBuffer()});
-        cur=cur.map(x=>x.name===fl?{...x, plan:out}:x); await save({floors:cur});
+        // the name the server kept (it never overwrites: a page saved again comes back as "... (2).png"), and where the
+        // image came from, so the Design's wall tools can read the PDF's own lines (dswalls.js)
+        const r=await api(`/api/das/jobs/${j.id}/files?name=${encodeURIComponent(out)}`, {method:"POST", body:await png.arrayBuffer()}), kept=r.saved||out;
+        cur=cur.map(x=>x.name===fl?{...x, plan:kept, plan_src:{pdf:name, page:n, png:kept}}:x); await save({floors:cur});
         $("#plMsg").textContent=`Saved: page ${n} is floor ${fl}'s plan (Grid test). ${Math.round(png.size/1024)} KB.`; b.textContent="Saved";
       });
     }catch(e){ $("#plMsg").textContent=`Couldn't open it: ${e.message}`; }

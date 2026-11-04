@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-03",
+ "updated": "2026-11-04",
  "note": "Facts were read on the cited page on the checked date. 'estimate' marks our judgement. Code text is model code; the local AHJ's adopted edition and amendments govern.",
  "sources": [
   {
@@ -519,15 +519,195 @@
    "url": "https://support.google.com/a/answer/81126",
    "kind": "vendor",
    "checked": "2026-11-03"
+  },
+  {
+   "key": "intertek_ul2524_sun",
+   "title": "Intertek Standard Update Notice: UL 2524 3rd edition (22 Mar 2024), listings to be updated by 22 Mar 2026 (10 Feb 2025)",
+   "url": "https://www.intertek.com/siteassets/resources/sun/2025/ul-2524-sun-rev-3-22-2024-ed-3-22-2026.pdf",
+   "kind": "standard",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "metrowireless_ps_das",
+   "title": "MetroWireless, public safety DAS solutions (cost per sq ft; vendor figures)",
+   "url": "https://www.metrowireless.com/blog/public-safety-das-solutions",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "networkinstallers_errcs",
+   "title": "The Network Installers, ERRCS guide 2026 (vendor figures)",
+   "url": "https://thenetworkinstallers.com/blog/errcs/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "dassystems_cost_2025",
+   "title": "DAS Systems, ERCES installation cost per square foot 2025 (vendor figures)",
+   "url": "https://dassystems.com/erces-installation-cost-per-square-foot-2025/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "ercesco_cost",
+   "title": "ERCES.co, ERCES system cost (vendor figures)",
+   "url": "https://erces.co/erces-resources/erces-blog/erces-system-cost/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "jb_errcs_annual",
+   "title": "JB Tecknologies, ERRCS annual recertification (vendor figures)",
+   "url": "https://errcs.jbtecknologies.com/errcs-annual-recertification/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "dcso_derces",
+   "title": "Douglas County (CO) Sheriff, DERCES implementation guidelines (search excerpt: not opened by the 11/4 research)",
+   "url": "https://dcsheriff.net/documents/derces-implementation-guidelines.pdf/",
+   "kind": "code",
+   "checked": "2026-11-04 (search excerpt)"
+  },
+  {
+   "key": "md_first_boosters",
+   "title": "Maryland DoIT, MD FiRST signal booster registration requirements",
+   "url": "https://doit.maryland.gov/About-DoIT/Offices/Office-of-Infrastructure/Pages/signal-booster-registration-requirements.aspx",
+   "kind": "code",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "broward_bda",
+   "title": "Broward County ORCAT, BDA information (ERCES Guidelines 2025-05-06)",
+   "url": "https://bcresc.org/bda-info",
+   "kind": "code",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "psern_das",
+   "title": "PSERN (King County WA), DAS requirements (search excerpt)",
+   "url": "https://psern.org/das-requirements/",
+   "kind": "code",
+   "checked": "2026-11-04 (search excerpt)"
+  },
+  {
+   "key": "sbc_fcc_petition_2025",
+   "title": "Safer Buildings Coalition, petition to the FCC on signal boosters (RM-12009), 22 Jul 2025",
+   "url": "https://sbc.memberclicks.net/assets/FCC/SBC_FCC_Signal_Booster_Petition_July_22_2025_FINAL.pdf",
+   "kind": "regulation",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "ifc2024_510_upcodes",
+   "title": "2024 International Fire Code chapter 5 (UpCodes, GSA copy): section 510",
+   "url": "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features",
+   "kind": "code",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "lowvoltage_ny_arcs",
+   "title": "Low Voltage New York, FDNY ARCS in-building radio requirement (vendor, updated 6 Oct 2026)",
+   "url": "https://lowvoltagenewyork.com/news/fdny-arcs-in-building-radio-requirement/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "fl_633_202",
+   "title": "Florida Statutes 633.202(18), emergency responder radio coverage (Miami-Dade Fire Rescue copy)",
+   "url": "https://sbc.memberclicks.net/assets/Useful_Links/2024/5-mdfr-bda-fl-st-statute-633.202(18)new-existing-.pdf",
+   "kind": "code",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "fl_nfpa1_2024",
+   "title": "Florida Fire Prevention Code 9th edition: NFPA 1 (2024) Florida-specific edits (6-15-2026)",
+   "url": "https://myfloridacfo.com/docs-sf/state-fire-marshal-libraries/sfm-documents/bfp/florida-fire-prevention-code/florida-fire-prevention-code-9th-edition-nfpa1-fl-specific-edits-6-15-2026.pdf",
+   "kind": "code",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "nc_sl_2025_50",
+   "title": "North Carolina Session Law 2025-50 (HB 768)",
+   "url": "https://www3.ncleg.gov/Sessions/2025/Bills/House/PDF/H768v6.pdf",
+   "kind": "code",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "mn_7511",
+   "title": "Minnesota Rules 7511 (State Fire Code; IFC 510 deleted, Appendix P) (search excerpt)",
+   "url": "https://www.revisor.mn.gov/rules/7511.7900/",
+   "kind": "code",
+   "checked": "2026-11-04 (search excerpt)"
+  },
+  {
+   "key": "va_ibc_2021_ch9",
+   "title": "Virginia Construction Code 2021 chapter 9 (UpCodes) (search excerpt)",
+   "url": "https://up.codes/viewer/virginia/ibc-2021/chapter/9/fire-protection-and-life-safety-systems",
+   "kind": "code",
+   "checked": "2026-11-04 (search excerpt)"
+  },
+  {
+   "key": "fcc_doc_411377",
+   "title": "FCC Region Two, Notification of Harmful Interference to Beachwalk Condominium Association, Hallandale FL (13 May 2025)",
+   "url": "https://docs.fcc.gov/public/attachments/DOC-411377A1.pdf",
+   "kind": "regulation",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "pillsbury_fcc_apr2025",
+   "title": "Pillsbury, FCC Enforcement Monitor, April 2025",
+   "url": "https://www.pillsburylaw.com/en/news-and-insights/fcc-enforcement-monitor-apr-2025.html",
+   "kind": "trade",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "pctel_seehawk_central_2022",
+   "title": "PCTEL, SeeHawk Central cloud platform for in-building coverage testing (2022 release)",
+   "url": "https://pctel.com/news/pctel-helps-public-safety-officials-manage-in-building-communications-coverage-testing-with-cloud-platform/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "ibwave_mobile_survey_ps",
+   "title": "iBwave store, Mobile Survey for Public Safety",
+   "url": "https://store.ibwave.com/product/ibwave-mobile-survey-for-public-safety/",
+   "kind": "vendor",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "crs_r48923",
+   "title": "Congressional Research Service R48923, FirstNet (29 Apr 2026)",
+   "url": "https://www.everycrsreport.com/reports/R48923.html",
+   "kind": "regulation",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "cms_nh_provider",
+   "title": "CMS Provider Data Catalog, Nursing Home Provider Information (dataset 4pq5-n9py)",
+   "url": "https://data.cms.gov/provider-data/dataset/4pq5-n9py",
+   "kind": "data",
+   "checked": "2026-11-04"
+  },
+  {
+   "key": "rfr_scout_2026_11_04",
+   "title": "DAS data sources research (2026-11-04), item 6: CMS nursing homes",
+   "url": "https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu",
+   "kind": "research",
+   "checked": "2026-11-04"
   }
  ],
  "code_triggers_common": {
-  "text": "Model IFC: approved coverage in all new buildings (IFC 2018 510.1), with exceptions; IFC 2024 adds Exception 4 for one-story buildings up to 12,000 sq ft with no below-ground area. Existing buildings: when a wired system cannot be repaired or is replaced, or within a time frame the adopting authority sets (1103.2).",
+  "text": "Model IFC: approved coverage in all new buildings (IFC 2018 510.1), with exceptions; IFC 2024 adds Exception 4 for one-story buildings up to 12,000 sq ft with no below-ground area. Existing buildings: when a wired system cannot be repaired or is replaced, or within a time frame the adopting authority sets (1103.2). State carve-outs: Florida exempts 1-2 family, townhouses, buildings under 12,000 sq ft with no below-grade area, apartments/lodging under 3 storeys with exterior egress, and wood-frame apartments of 75 ft or less with under 150 units; and from 12/31/2026 requires no ERCES where exterior DAQ is below 3.4. North Carolina (SL 2025-50, 2 Jul 2025) exempts R-2 Type V apartments and apartments/hotels of 2 storeys or less with exterior egress, and lets existing systems there be disconnected. Minnesota requires coverage only where a city adopts Appendix P (Q in the 2024-based code) (search excerpt). Virginia makes the locality responsible for the acceptance test (search excerpt).",
   "sources": [
    "ifc2018_510",
    "sbc_ifc_codes_2022",
    "efs_ifc2021_vs_2024",
-   "wac_51_54a_1103"
+   "wac_51_54a_1103",
+   "fl_633_202",
+   "fl_nfpa1_2024",
+   "nc_sl_2025_50",
+   "mn_7511",
+   "va_ibc_2021_ch9"
   ]
  },
  "value_beyond_code": [
@@ -603,19 +783,22 @@
   },
   {
    "item": "Responder broadband (FirstNet Band 14) and code scope",
-   "claim": "Public safety names in-building coverage a top FirstNet priority; NFPA 1225 (2022) and IFC 2024 bring cellular services into ERCES scope where local agencies use them.",
+   "claim": "Public safety names in-building coverage a top FirstNet priority; IFC 2024 510.4.1.1 measures DAQ on 'narrowband analog, digital or wideband LTE signals'; NFPA 1225 A.18.6.1 says carrying a commercial broadband signal needs that licensee's prior approval. FirstNet's authority lapses 22 Feb 2027 unless reauthorized.",
    "who_cares": [
     "fire marshal",
     "owner"
    ],
    "sources": [
     "firstnet_res113",
-    "saferbuildings_erces"
+    "saferbuildings_erces",
+    "ifc2024_510_upcodes",
+    "nfpa1225_ch18",
+    "crs_r48923"
    ]
   },
   {
    "item": "Owner liability and schedule",
-   "claim": "ERCES compliance falls on the owner; FCC forfeitures can exceed $100,000 per continuing violation; late discovery can move the ribbon-cutting months; San Diego holds the TCO until the ERCES is permitted, installed and tested.",
+   "claim": "ERCES compliance falls on the owner; FCC forfeitures can exceed $100,000 per continuing violation; late discovery can move the ribbon-cutting months; San Diego holds the TCO until the ERCES is permitted, installed and tested. The FCC finds rogue boosters by direction finding and sends Notifications of Harmful Interference with a 10-day reply: Hallandale Beach FL, 13 May 2025 (a Class A Axell booster in 799-805 MHz hitting Broward's 800 MHz system), and a Texas apartment, April 2025 (858-859 MHz, no consent). APCO's 2024 survey: 53.7% of 41 licensees have had booster noise or interference.",
    "who_cares": [
     "owner",
     "developer",
@@ -623,7 +806,10 @@
    ],
    "sources": [
     "saferbuildings_erces",
-    "sdfd_c1"
+    "sdfd_c1",
+    "fcc_doc_411377",
+    "pillsbury_fcc_apr2025",
+    "sbc_fcc_petition_2025"
    ]
   },
   {
@@ -745,12 +931,17 @@
   {
    "phase": "Licensee review and consent (public safety)",
    "what": "Design goes to the frequency license holder (often the county radio shop) with a retransmission authorization; non-licensee operation needs the licensee's express consent kept in a recordable form.",
-   "duration": "Varies by licensee; not published by the AHJs read (no source)",
+   "duration": "Not published. Terms are: Douglas Co. provisional 6 months then 5 years (search excerpt); MD FiRST provisional 1 year, then final after a de-sense test; Broward and Fairfax renew annually; PSERN validates the uplink before activation (search excerpt). Proposed FCC framework (RM-12009): 3-year terms.",
    "customer_provides": "Owner signature on retransmission authorization / agreement.",
    "sources": [
     "nfpa1225_ch18",
     "cfr_90_219",
-    "fairfax_erces"
+    "fairfax_erces",
+    "dcso_derces",
+    "md_first_boosters",
+    "broward_bda",
+    "psern_das",
+    "sbc_fcc_petition_2025"
    ]
   },
   {
@@ -776,12 +967,14 @@
   },
   {
    "phase": "Procurement",
-   "what": "UL 2524-listed active equipment (IFC 2024), NEMA 4 cabinets for boosters and NEMA 3R battery cabinets, cable and passives.",
+   "what": "UL 2524-listed active equipment (IFC 2021 and 2024; NFPA 1225 18.12.1.3); prefer 3rd-edition listings (UL 2524:2024; Intertek withdraws un-updated listings after 2026-03-22). NEMA Type 4 cabinets for boosters, NEMA 3R battery cabinets, cable and passives.",
    "duration": "Weeks (estimate; lead times not published)",
    "customer_provides": "PO / deposit approval.",
    "sources": [
     "nfpa1225_ch18",
-    "ifc2018_510"
+    "ifc2018_510",
+    "saferbuildings_erces",
+    "intertek_ul2524_sun"
    ]
   },
   {
@@ -851,7 +1044,7 @@
   },
   {
    "phase": "Annual retest and maintenance",
-   "what": "Test, document and sign by an AHJ-approved person at acceptance and every 12 months: coverage test, gain check, 1-hour battery load test, active components; report to the fire code official. SBC: full quantitative retest at least every five years. San Diego adds semiannual visual inspections; Fairfax requires annual re-submission of retransmission authorization.",
+   "what": "Test, document and sign by an AHJ-approved person at acceptance and every 12 months: coverage test, gain check, 1-hour battery load test, active components; report to the fire code official. NFPA 1225 20.3.10.2.3.3 (per SBC): full quantitative retest at least every five years; the IFC has no 5-year rule (vendors who cite IFC 510.6 for it are wrong). IFC 2024 510.6.1 also requires a retest after additions or remodels. NYC ARCS: daily console check, annual certification, 5-year recertification. San Diego adds semiannual visual inspections; Fairfax requires annual re-submission of retransmission authorization.",
    "duration": "Annually; 1-2 days per building (estimate)",
    "customer_provides": "Maintenance agreement, access, prior test report and gain values.",
    "sources": [
@@ -859,7 +1052,9 @@
     "ifc2018_510",
     "saferbuildings_erces",
     "sdfd_c1",
-    "fairfax_erces"
+    "fairfax_erces",
+    "ifc2024_510_upcodes",
+    "lowvoltage_ny_arcs"
    ]
   }
  ],
@@ -1015,10 +1210,16 @@
    },
    {
     "objection": "What will it cost?",
-    "answer": "No cost figures in the code bodies or SBC; integrators price after a site assessment. Early pathways are the cheapest lever.",
+    "answer": "Codes and SBC give none. Integrators publish $0.50-2.50 per sq ft installed (retrofit 2-3x; small buildings cost more per foot because the BDA and donor are fixed), roughly $50k to over $500k a job, and $2,500-15,000 a year for the annual test. All vendor figures, not independent surveys. Early pathways and a sprinklered building (no 2-h backbone, NFPA 1225 18.12.3.3) are the cheapest levers.",
     "sources": [
      "saferbuildings_erces",
-     "cts_ps_das"
+     "cts_ps_das",
+     "metrowireless_ps_das",
+     "networkinstallers_errcs",
+     "dassystems_cost_2025",
+     "ercesco_cost",
+     "jb_errcs_annual",
+     "nfpa1225_ch18"
     ]
    }
   ]
@@ -1265,11 +1466,12 @@
    {
     "name": "iBwave",
     "url": "https://www.ibwave.com/",
-    "offers": "Design, Mobile Survey (incl. Public Safety), Public Safety (P25/TETRA surveys, grid tests, design), Unity cloud, Viewer+.",
+    "offers": "Design, Mobile Survey (incl. Public Safety), Public Safety (P25/TETRA surveys, grid tests, design), Unity cloud, Viewer+. Mobile Survey for Public Safety: $2,678 a year, 1 user, needs an Epiq PRiSM; on-site pass/fail and AHJ report.",
     "scale": "3,000+ customers in 100 countries; 500,000+ networks designed; 40,000+ part database.",
     "differentiators": "Industry-standard design software; vendor-neutral component database.",
     "sources": [
-     "ibwave_home"
+     "ibwave_home",
+     "ibwave_mobile_survey_ps"
     ]
    },
    {
@@ -1277,9 +1479,11 @@
     "url": "https://pctel.com/products/test-measurement/public-safety-network-testing-solution/",
     "offers": "Grid testing and BDA commissioning suite; SeeHawk Central cloud approvals; P25, DMR, TETRA, analog FM, LTE/FirstNet, 5G.",
     "scale": "Not stated.",
-    "differentiators": "Reports to NFPA 72/1221/1225, IFC 510 and local codes in minutes; synced uplink testing.",
+    "differentiators": "Reports to NFPA 72/1221/1225, IFC 510 and local codes in minutes; synced uplink testing. SeeHawk Central: free for AHJs (uploaders pay), jurisdiction test plans, before/after compare, automatic retest reminders; AHJs standardize on it (Douglas Co., search excerpt).",
     "sources": [
-     "pctel_ps_kit"
+     "pctel_ps_kit",
+     "pctel_seehawk_central_2022",
+     "dcso_derces"
     ]
    },
    {
@@ -1548,6 +1752,16 @@
     "nac_477_283",
     "boldyn_us"
    ]
+  },
+  {
+   "type": "Nursing homes",
+   "why": "I-2 healthcare occupancy with life-safety-sensitive owners; CMS lists 14,686 facilities with their own coordinates, certified beds, ownership, chain and whether automatic sprinklers cover all required areas (2026-11-04 data scout).",
+   "priority": "medium",
+   "decision_maker": "Facility administrator or director of maintenance; the chain's facilities lead where one owns it (estimate: not in the research)",
+   "sources": [
+    "cms_nh_provider",
+    "rfr_scout_2026_11_04"
+   ]
   }
  ],
  "prospect_sources": [
@@ -1751,6 +1965,22 @@
    "flag": "TERMS NOT READ",
    "sources": [
     "chicago_permits_meta"
+   ]
+  },
+  {
+   "name": "CMS Nursing Home Provider Information",
+   "url": "https://data.cms.gov/provider-data/dataset/4pq5-n9py",
+   "download": "Named by the metastore (https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items/4pq5-n9py); Oct 2026: NH_ProviderInfo_Oct2026.csv",
+   "format": "CSV; JSON datastore API",
+   "coverage": "14,686 Medicare and Medicaid nursing homes (datastore count, 2026-11-04)",
+   "fields": "CCN, provider name, address, city, state, ZIP, phone, ownership type, certified beds, chain, in-hospital flag, automatic sprinklers in all required areas, latitude, longitude",
+   "update": "Monthly with Care Compare (metastore modified 2026-10-01)",
+   "terms": "The same CMS public data terms as the hospital list: the metastore carries no licence field and access level public; CMS says its public data products are freely available; US government work (17 USC 105).",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "cms_nh_provider",
+    "cms_data_everyone",
+    "datagov_open_licenses"
    ]
   }
  ],

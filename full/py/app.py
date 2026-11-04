@@ -19,7 +19,16 @@ import sys
 import threading
 import time
 import urllib.request
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as _ThreadingHTTPServer
+
+
+class ThreadingHTTPServer(_ThreadingHTTPServer):
+    """A browser that leaves (a map scrolled on, a tab closed) mid-answer isn't an error: no traceback for it.
+    The nightly QA counted 256 a day, all map tiles (11/4)."""
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return
+        super().handle_error(request, client_address)
 from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 
@@ -104,6 +113,28 @@ def cdb():
     return con
 
 
+MAIL_EVERY_S = int(os.environ.get("RF_RECON_MAIL_EVERY_S") or 300)
+
+
+def mail_loop():
+    """Each login's tagged replies, read every 5 minutes (dasmail.check); quiet when nobody has connected a mailbox."""
+    import dasmail
+    while True:
+        time.sleep(MAIL_EVERY_S)
+        try:
+            people = dasmail.logins(uls_import.DATA_DIR)
+        except Exception:
+            people = []
+        for login in people:
+            con = db()
+            try:
+                dasmail.check(con, uls_import.DATA_DIR, login)
+            except Exception as e:  # one mailbox failing never stops the rest
+                print(f"mail check for {login}: {type(e).__name__}: {str(e)[:200]}", flush=True)
+            finally:
+                con.close()
+
+
 def init():
     remote.setup(uls_import.DATA_DIR)
     if not os.path.exists(DB_PATH):
@@ -125,6 +156,7 @@ def init():
     cdb().close()
     threading.Thread(target=ensure_places, daemon=True).start()
     threading.Thread(target=ensure_sigwiki, daemon=True).start()
+    threading.Thread(target=mail_loop, daemon=True).start()
     if BACKUP_DIR:
         threading.Thread(target=backup_loop, daemon=True).start()
 
@@ -1413,6 +1445,100 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def mail_route(self, p, method, qs, con):
+        if sys.platform == "emscripten":  # the web version: a browser can't reach a mail server (checked before the mail modules load)
+            return self.send(200, {"available": False, "why": "Mail from your own mailbox works in RF Recon on the server or the PC; here, Open in my mail."}) \
+                if p == "/api/mail/account" else self.send(400, {"error": "Mail works in RF Recon on the server or the PC."})
+        import dasmail
+        import mailbox
+        login = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"  # the PC's own window: "local"
+        if p == "/api/mail/account":
+            if method == "GET":
+                return self.send(200, {"available": True, "login": login, "account": dasmail.account(uls_import.DATA_DIR, login),
+                                       "state": dasmail.state(con, login)})
+            d = self.body_json()
+            old = dasmail.account(uls_import.DATA_DIR, login, with_password=True)
+            acct = dasmail.account_from(d, old)
+            t = mailbox.test(acct)
+            if t["imap"] or t["smtp"]:
+                return self.send(400, {"error": " · ".join(x for x in (t["imap"] and f"Reading: {t['imap']}", t["smtp"] and f"Sending: {t['smtp']}") if x),
+                                       "test": t, "guess": mailbox.guess(acct["address"])})
+            if acct["folder"] not in [f["name"] for f in t["folders"]] and acct["folder"] != "INBOX":
+                return self.send(400, {"error": f"No folder called {acct['folder']!r}: pick one of the mailbox's folders.", "test": t})
+            dasmail.save_account(uls_import.DATA_DIR, login, acct)
+            return self.send(200, {"ok": True, "account": dasmail.account(uls_import.DATA_DIR, login), "folders": t["folders"]})
+        if p == "/api/mail/guess":
+            return self.send(200, mailbox.guess(fstr(qs, "address")))
+        if p == "/api/mail/account/delete" and method == "POST":
+            dasmail.delete_account(uls_import.DATA_DIR, login)
+            return self.send(200, {"ok": True})
+        if p == "/api/mail/check" and method == "POST":
+            return self.send(200, dasmail.check(con, uls_import.DATA_DIR, login))
+        if p == "/api/mail/threads":
+            fi = lambda k: int(qs[k][0]) if qs.get(k) and qs[k][0].isdigit() else None  # noqa: E731
+            return self.send(200, {"mail": dasmail.threads(con, login, tag=fstr(qs, "tag") or None, job_id=fi("job"), rfq_id=fi("rfq"),
+                                                           prospect_id=fstr(qs, "prospect") or None),
+                                   "state": dasmail.state(con, login)})
+        if p == "/api/mail/send" and method == "POST":
+            return self.send(200, self.mail_send(con, login, self.body_json()))
+        m = re.match(r"^/api/mail/(\d+)/apply$", p)
+        if m and method == "POST":
+            return self.send(200, dasmail.apply_proposal(con, int(m.group(1))))
+        m = re.match(r"^/api/mail/(\d+)/attachment$", p)
+        if m:
+            r = con.execute("SELECT job_id, attachments FROM das_mail WHERE id=? AND login=?", (int(m.group(1)), login)).fetchone()
+            name = fstr(qs, "name")
+            if not r or not r["job_id"] or name not in [x.get("saved") for x in json.loads(r["attachments"] or "[]")]:
+                raise LookupError("That attachment isn't kept.")
+            j = das.job_row(con, r["job_id"])
+            with open(das.file_path(r["job_id"], j["name"], name), "rb") as fh:
+                return self.send(200, fh.read(), mimetypes.guess_type(name)[0] or "application/octet-stream",
+                                 {"Content-Disposition": disposition("attachment", name)})
+        raise LookupError("No such mail route.")
+
+    def mail_send(self, con, login, d):
+        """Send one email from the login's own mailbox, tagged from what it's about (the page never sets the tag)."""
+        import dasmail
+        import mailbox
+        acct = dasmail.account(uls_import.DATA_DIR, login, with_password=True)
+        if not acct:
+            raise ValueError("Connect your mailbox first (Mail › Your mailbox).")
+        to = (d.get("to") or "").strip()
+        if not re.fullmatch(r"[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24}(\s*[,;]\s*[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24})*", to):
+            raise ValueError("Enter who it goes to (an email address).")
+        refs, kind = d.get("refs") or {}, d.get("kind")
+        atts = []
+        if kind == "rfq":
+            q = das.get_rfq(con, int(refs["rfq_id"]))
+            idx = q["suppliers"].index(refs["supplier"]) + 1
+            tag = dasmail.rfq_tag(q["id"], idx)
+            refs["job_id"] = q.get("job_id")
+            if d.get("rfq_sheet", True):
+                atts.append((f"Quote sheet - {q['title']}.csv".replace("/", "-")[:120], das.rfq_sheet(q).encode("utf-8"), "text/csv"))
+        elif kind == "prospect":
+            tag = dasmail.prospect_tag(refs["prospect_id"])
+            st = con.execute("SELECT status FROM das_prospect WHERE id=?", (refs["prospect_id"],)).fetchone()
+            if st and st["status"] == "do not contact":
+                raise ValueError("They asked not to be contacted.")
+        elif kind == "job":
+            tag = dasmail.job_tag(int(refs["job_id"]), refs.get("topic") or "MAIL", refs.get("extra") or "")
+        else:
+            raise ValueError("What is this email about?")
+        jid = refs.get("job_id")
+        if d.get("files") and jid:
+            j = das.job_row(con, int(jid))
+            for name in d["files"][:10]:
+                with open(das.file_path(int(jid), j["name"], name), "rb") as fh:
+                    atts.append((name, fh.read(), mimetypes.guess_type(name)[0] or "application/octet-stream"))
+        subject = dasmail.subject_with(tag, d.get("subject") or "")
+        msg = mailbox.build(acct, to, subject, d.get("body") or "", cc=(d.get("cc") or "").strip() or None, attachments=atts,
+                            in_reply_to=d.get("in_reply_to"))
+        r = mailbox.send(acct, msg)
+        refs["to"] = to
+        dasmail.record_out(con, login, tag, to, subject, d.get("body") or "", r["message_id"], refs, [x[0] for x in atts])
+        dasmail.after_send(con, tag, refs)
+        return {"ok": True, "tag": tag, "subject": subject, "attached": [x[0] for x in atts], "sent_copy": r["sent_copy"]}
+
     def raw_body(self):
         """What was sent, read once: the header then says 0, so do_POST's drain finds nothing left."""
         n = int(self.headers.get("Content-Length") or 0)
@@ -1756,6 +1882,9 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, job)
             if p == "/api/das/suppliers/refresh" and method == "POST":  # every supplier's price list link, now
                 return self.send(200, {"refreshed": das.refresh_price_lists(con), "suppliers": das.list_suppliers(con)})
+            # mail from the person's own mailbox (Cody 11/4: send and receive without leaving RF Recon): dasmail.py, mailbox.py
+            if p.startswith("/api/mail/"):
+                return self.mail_route(p, method, qs, con)
             if p == "/api/das/firm":  # the firm's own details for the DAS Pitch deck, kept for every login (11/3)
                 if method == "GET":
                     return self.send(200, get_setting("das.firm", {}) or {})
@@ -1825,7 +1954,20 @@ class H(BaseHTTPRequestHandler):
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None:
                     raise ValueError("The pre-survey needs the building's location.")
-                return self.send(200, das.presurvey(con, lat, lon, fnum(qs, "radius", 15), fnum(qs, "loss", 15), fnum(qs, "threshold", -95)))
+                res = das.presurvey(con, lat, lon, fnum(qs, "radius", 15), fnum(qs, "loss", 15), fnum(qs, "threshold", -95))
+                # beside the free-space levels, the realistic ones: Hata + terrain where cached (coverage.py, 11/4)
+                return self.send(200, coverage.presurvey_realistic(con, res, lat, lon, fstr(qs, "env") or "suburban"))
+            if p == "/api/das/nsi":  # the USACE National Structure Inventory for the job's building (nsi.py; a small box, never bulk)
+                import nsi
+                lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
+                if lat is None or lon is None:
+                    raise ValueError("Set the building's location first.")
+                jid = fnum(qs, "job")
+                job = das.job_row(con, int(jid)) if jid is not None else None
+                try:
+                    return self.send(200, nsi.lookup(lat, lon, outline=(((job or {}).get("data") or {}).get("building") or {}).get("outline")))
+                except LookupError as e:
+                    return self.send(404, {"error": str(e)})
             if p == "/api/das/parse" and method == "POST":  # any tool's results file -> rows + a guess at its columns
                 fmt, head, rows = das.read_table(fstr(qs, "name"), self.raw_body())
                 return self.send(200, {"format": fmt, "headers": head, "rows": rows[:20000], "total": len(rows), "guess": das.guess_for(fmt, head)})
@@ -1863,7 +2005,7 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(u.query)
         p = u.path
         try:
-            if p.startswith("/api/das/"):
+            if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("GET", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
                 return self.notes_route("GET", p, qs)
@@ -2097,7 +2239,7 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(u.query)
         p = u.path
         try:
-            if p.startswith("/api/das/"):
+            if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("POST", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
                 return self.notes_route("POST", p, qs)
@@ -2364,6 +2506,7 @@ class RemoteH(H):
     def answer(self, method, handler):
         p = urlparse(self.path).path
         remote.ON.user = None
+        remote.ON.login = None
         user = remote.user_of(self.headers.get("Cookie"))
         role = remote.role_of(user) if user else None
         # what the handler itself reads: a note's words and files (anyone signed in), and every change by a full or admin login
@@ -2401,10 +2544,12 @@ class RemoteH(H):
         if why:
             return self.send(403, {"error": why})
         remote.ON.user = None if role == "admin" else user  # an admin is the owner: the parts held back from remote people work
+        remote.ON.login = user  # who is signed in, admin included: each login's own mailbox (dasmail)
         try:
             return handler()
         finally:
             remote.ON.user = None
+            remote.ON.login = None
 
     def do_GET(self):
         return self.answer("GET", super().do_GET)

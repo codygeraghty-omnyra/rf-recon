@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-29",
+ "updated": "2026-11-04",
  "sources": [
   {
    "key": "cfr_90_219",
@@ -294,6 +294,18 @@
    "title": "Sinclair SY307R-HF2SNF 10 dBd UHF Yagi spec sheet Issue 8",
    "url": "https://cdn.shopify.com/s/files/1/0531/8970/5898/files/SY307R-HF2SNF-2I.pdf?v=1787149592",
    "kind": "datasheet"
+  },
+  {
+   "key": "intertek_ul2524_sun",
+   "title": "Intertek Standard Update Notice: UL 2524 3rd edition (22 Mar 2024), listings to be updated by 22 Mar 2026 (10 Feb 2025)",
+   "url": "https://www.intertek.com/siteassets/resources/sun/2025/ul-2524-sun-rev-3-22-2024-ed-3-22-2026.pdf",
+   "kind": "standard"
+  },
+  {
+   "key": "fl_nfpa1_2024",
+   "title": "Florida Fire Prevention Code 9th edition: NFPA 1 (2024) Florida-specific edits (6-15-2026)",
+   "url": "https://myfloridacfo.com/docs-sf/state-fire-marshal-libraries/sfm-documents/bfp/florida-fire-prevention-code/florida-fire-prevention-code-9th-edition-nfpa1-fl-specific-edits-6-15-2026.pdf",
+   "kind": "code"
   }
  ],
  "parameters": [
@@ -574,7 +586,7 @@
   },
   {
    "id": "sinr_min_db",
-   "name": "Minimum SINR for DAQ (P25 C4FM)",
+   "name": "SINR for DAQ 3.4, P25 Phase 1 C4FM (TSB-88.1)",
    "unit": "dB",
    "default": 17.7,
    "range": [
@@ -582,7 +594,7 @@
     20
    ],
    "applies_to": "downlink measurement with a P25 decoder",
-   "why": "TSB-88.1-C draft Table A-1, C4FM narrow IF: 16.5 dB for DAQ 3.0, 17.7 dB for DAQ 3.4. Durham requires 17.7 dB; NFPA 1225 A.20.3.10 cites 18 dB; San Diego C-1 requires 20 dB.",
+   "why": "TSB-88.1-C draft Table A-1, C4FM narrow IF: 16.5 dB for DAQ 3.0, 17.7 dB for DAQ 3.4. Durham requires 17.7 dB; NFPA 1225 A.20.3.10 cites 18 dB; San Diego C-1 requires 20 dB. The code-equivalent for DAQ 3.0 is 18 dB with 2.5% BER (NFPA 1225 A.20.3.10), which the grid test uses; Phase 2 H-DQPSK/H-CPM values are not held.",
    "sources": [
     "tsb881c_draft",
     "durham_bda",
@@ -592,7 +604,7 @@
   },
   {
    "id": "ber_max_pct",
-   "name": "Maximum BER for DAQ (P25 C4FM)",
+   "name": "BER for DAQ 3.4, P25 Phase 1 C4FM (TSB-88.1)",
    "unit": "%",
    "default": 2.0,
    "range": [
@@ -600,7 +612,7 @@
     2.6
    ],
    "applies_to": "downlink measurement with a P25 decoder",
-   "why": "TSB-88.1-C draft Table A-1, C4FM: 2.6% BER for DAQ 3.0, 2.0% for DAQ 3.4. Durham and San Diego require <= 2.0%; NFPA 1225 A.20.3.10 cites 2.5%.",
+   "why": "TSB-88.1-C draft Table A-1, C4FM: 2.6% BER for DAQ 3.0, 2.0% for DAQ 3.4. Durham and San Diego require <= 2.0%; NFPA 1225 A.20.3.10 cites 2.5%. Phase 2 H-DQPSK/H-CPM values are not held.",
    "sources": [
     "tsb881c_draft",
     "durham_bda",
@@ -2792,6 +2804,42 @@
    "section": "Items 3, 6, 10, 11; RF Requirements 9; 800 MHz commissioning",
    "sources": [
     "durham_bda"
+   ]
+  },
+  {
+   "item": "Acceptance test, additions",
+   "value": "Retest after structural changes (additions, remodels); test 'or by a method approved by the fire code official'; written licensee authorization before first activation; licensee approves design",
+   "code": "IFC 2024",
+   "section": "510.6.1, 510.5.4, 510.5.2.1",
+   "sources": [
+    "ifc2024_510"
+   ]
+  },
+  {
+   "item": "Survivability",
+   "value": "Sprinklered (NFPA 13): no backbone rating. Non-sprinklered/partial/high-rise: 2 h if the primary structural frame is 2 h or more or heavy timber, 1 h if less than 2 h, none if unrated",
+   "code": "NFPA 1225-2022",
+   "section": "18.12.3.3, 18.12.3.4",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Propagation delay",
+   "value": "Max rated configuration's propagation delay must comply with P25 Phase 2 requirements",
+   "code": "UL 2524 3rd ed. (2024)",
+   "section": "34.4",
+   "sources": [
+    "intertek_ul2524_sun"
+   ]
+  },
+  {
+   "item": "AHJ example: FL exemption",
+   "value": "No ERCES required where exterior coverage is below DAQ 3.4",
+   "code": "FFPC 9th ed. (NFPA 1-2024 FL)",
+   "section": "11.10.2.1",
+   "sources": [
+    "fl_nfpa1_2024"
    ]
   }
  ],

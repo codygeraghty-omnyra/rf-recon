@@ -10,7 +10,7 @@
    Needs core.js (api, post, esc, $, S, parseLoc, num), das.js (dasSay). */
 
 // two groups: the government lists (NCES, IPEDS, CMS) and Overture Maps (places; high-rises from its buildings, per area)
-const PR_GROUPS = [["Schools and hospitals", [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"]]],
+const PR_GROUPS = [["Schools and hospitals", [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"], ["nursing_home", "Nursing homes"]]],
   ["Large and high-traffic", [["high_rise", "High-rises"], ["mall", "Malls"], ["stadium", "Stadiums and arenas"], ["hotel", "Hotels"], ["venue", "Convention centres and venues"],
     ["casino", "Casinos"], ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"]]]];
 const PR_KINDS = PR_GROUPS.flatMap(g => g[1]);
@@ -147,11 +147,18 @@ window.dasProspects = async el => {
     box.innerHTML = `<div class="panel" style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>First email to ${esc(x.name)}</b><button id="prMailX" title="Close">✕</button></div>
       <p class="hint">Opens in your own mail; RF Recon never sends it. ${m.to ? "" : "The public list has no email address for them: call the number above for the right person, then add their address. "}Set the status to contacted once it's sent. If they reply "no thanks", set Do not contact.</p>
       <label>Subject<input id="prMs" value="${esc(m.subject)}"></label><label>Message<textarea id="prMb" rows="12">${esc(m.body)}</textarea></label>
-      <div class="row" style="gap:8px"><a class="btn primary" id="prMailGo" href="${esc(href)}">Open in my mail</a><button id="prMailCopy">Copy the text</button></div></div>`;
+      <div class="row" style="gap:8px">${window.rfMail ? `<button class="primary" id="prMailSend" title="From your own mailbox; their reply sets the status (a no-thanks marks Do not contact)">✉ Send from my mail</button>` : ""}<a class="btn ${window.rfMail ? "" : "primary"}" id="prMailGo" href="${esc(href)}">Open in my mail</a><button id="prMailCopy">Copy the text</button></div>
+      <div id="prMailSent"></div></div><div id="prMailThread"></div>`;
     const re = () => { $("#prMailGo").href = `mailto:${encodeURIComponent(m.to || "")}?subject=${encodeURIComponent($("#prMs").value)}&body=${encodeURIComponent($("#prMb").value)}`; };
     $("#prMs").oninput = re; $("#prMb").oninput = re;
     $("#prMailCopy").onclick = async () => { try { await navigator.clipboard.writeText(`Subject: ${$("#prMs").value}\n\n${$("#prMb").value}`); dasSay("Copied."); } catch (e) { $("#prMb").select(); dasSay("Press Ctrl+C to copy."); } };
     $("#prMailX").onclick = () => { box.innerHTML = ""; };
+    if (window.rfMail) {
+      rfMail.thread($("#prMailThread"), { prospect: x.id });
+      $("#prMailSend").onclick = () => rfMail.compose($("#prMailSent"), { kind: "prospect", refs: { prospect_id: x.id }, title: `First email to ${x.name}`,
+        to: $("#prMailTo")?.value || m.to || x.email || "", subject: $("#prMs").value, body: $("#prMb").value,
+        onSent: () => { if (x.status === "new") x.status = "contacted"; rfMail.thread($("#prMailThread"), { prospect: x.id }); } });
+    }
     box.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
   const prMap = rows => {

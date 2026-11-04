@@ -94,7 +94,8 @@ const CARRIER_ASK = {
   "T-Mobile": "Industrial: T-Mobile's “In-Building Telecommunications Agreement” (Rebroadcast Agreement) with Exhibit A (site: county and FIPS code, address, coordinates; booster: FCC ID, bands, UARFCN, EIRP, gain, noise, antenna height, protections), emailed to rebroadcastagreements@t-mobile.com; review takes several weeks. Found only on reseller and Wilson pages (form saved 2020): confirm with T-Mobile before relying on it.",
   "AT&T": "No public industrial consent form: att.com/das or your AT&T representative, usually for a carrier-fed DAS (an AT&T signal source took 9+ months in 2022). AT&T has said it won't consent to industrial boosters in WCS.",
   "Verizon": "No public industrial consent form: your Verizon account manager.",
-  "FirstNet": "No public consent form: your AT&T / FirstNet representative. Band 14 is Part 90 spectrum: FirstNet / AT&T written authorization (90.219); a Class B booster is registered with the FCC.",
+  // R2 C-12 (2026-11-04): the FirstNet Authority holds the licence (CRS R48923); the request address is from a maker's manual
+  "FirstNet": "Band 14 is licensed to the FirstNet Authority (FCC renewal May 2023; the Authority's statutory term ends 22 Feb 2027 unless Congress extends it); AT&T runs the network. Band 14 is Part 90 spectrum: ask for written retransmission authorization (90.219). Makers route the 'FirstNet Band 14 Retransmit Request Form' to FirstNetSpectrum.Manager@firstnet.gov, and some resellers say AT&T: get it in writing from whichever answers, and keep it. Some AHJs (Broward, Douglas County) require Band 14 filtered out. A Class B booster is registered with the FCC.",
 };
 const APPROVAL_PATHS = [["industrial","Industrial booster or off-air DAS: the carrier's express consent (47 CFR 20.21(c))"],["consumer","Consumer booster: register it with the carrier (20.21(a)(2), (h))"],
   ["carrier","Carrier-fed DAS (base station or small cell): carrier agreement, design review, carrier acceptance test"]];
@@ -125,7 +126,8 @@ window.dasCellPresurvey = async (el, j, save) => {
           <div class="row" style="gap:4px;margin-top:3px;flex-wrap:wrap"><label class="inl hint">asked <input data-ap="asked" type="date" value="${esc(a.asked||"")}"></label><label class="inl hint">consent <input data-ap="consent" type="date" value="${esc(a.consent||"")}"></label></div>
           <input data-ap="contact" placeholder="contact, reference or bands consented" value="${esc(a.contact||"")}" style="width:100%;margin-top:3px">
           ${CARRIER_ASK[x.carrier]?`<div class="hint" style="margin-top:3px">${esc(CARRIER_ASK[x.carrier])}</div>`:""}</td>
-        <td><button data-let="${esc(x.carrier)}" title="A letter asking this carrier's express consent to retransmit its bands (47 CFR 20.21(c)); print or save as PDF">⎙ Consent letter</button></td></tr>`; }).join("")}</tbody></table></div>
+        <td><button data-let="${esc(x.carrier)}" title="A letter asking this carrier's express consent to retransmit its bands (47 CFR 20.21(c)); print or save as PDF">⎙ Consent letter</button>${window.rfMail?` <button data-letmail="${esc(x.carrier)}" title="Email the consent request from your own mailbox; the reply and its attachments come back into this job">✉ Email</button>`:""}</td></tr>`; }).join("")}</tbody></table></div>
+    <div id="dcLetMail"></div>
     ${flagged.length?`<p class="status err" style="margin:8px 0 0">Measured here: ${esc(flagged.map(([,n])=>n).join(", "))}. A consumer booster may not carry these: 47 CFR 20.21(e)(3) lists only Cellular, PCS, AWS-1, Lower 700 A–E, Upper 700 C and SMR (current as of 29 Oct 2026, unchanged since 2018; the FCC never adopted its 2018 proposal to add 600 MHz, WCS and 2.5 GHz), and FCC KDB 935210 D02 (Nov 2024) has none of them for consumer boosters.
       Plan an industrial booster with each carrier's express consent, a carrier-fed source, or the carrier's own small cell.${flagged.filter(f=>f[2]).map(([,n,w])=>` ${esc(n)}: ${esc(w)}.`).join("")}</p>`:""}
     ${b66?'<p class="hint" style="margin:6px 0 0">B66 measured: a consumer booster may carry only its AWS-1 part (1710–1755 / 2110–2155 MHz); its AWS-3 part needs an industrial booster (KDB 935210 D02).</p>':""}
@@ -138,6 +140,14 @@ window.dasCellPresurvey = async (el, j, save) => {
   el.querySelectorAll("[data-ap]").forEach(i=>i.onchange=async()=>{ const car=i.closest("tr").dataset.car, all={...((j.data.cellular||{}).approvals||{})};
     all[car]={...(all[car]||{}), [i.dataset.ap]:i.value||null}; await keep({approvals:all}); });
   el.querySelectorAll("[data-let]").forEach(b=>b.onclick=()=>dasCellConsent(j, b.dataset.let));
+  el.querySelectorAll("[data-letmail]").forEach(b=>b.onclick=async()=>{ const carrier=b.dataset.letmail, d=j.data||{}, cs=S.das.contacts||[], me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech));
+    const bands=new Set(); for(const r of Object.values((d.grid||{}).results||{})) for(const x of readingsOf(r)) if(isCell(x)&&carrierName(x.carrier)===carrier&&has(x.band)) bands.add(String(x.band));
+    const fl=((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files||[]).map(f=>f.name);
+    rfMail.compose($("#dcLetMail"), {kind:"job", refs:{job_id:j.id, topic:"CONSENT", extra:carrier.replace(/[^A-Za-z0-9]/g,"").slice(0,20)}, title:`Consent request to ${carrier}`,
+      to:/t-?mobile/i.test(carrier)?"rebroadcastagreements@t-mobile.com":"",
+      subject:`Request for express consent (47 CFR 20.21(c)): ${j.name}${d.address?`, ${d.address}`:""}`,
+      body:`Hello,\n\nWe plan to install an industrial signal booster (distributed antenna system) at ${j.name}${d.address?`, ${d.address}`:""} to improve ${carrier} coverage inside the building. Under 47 CFR 20.21(c), an industrial booster may operate only with the carrier's express consent, so we ask for yours${bands.size?` to retransmit: ${[...bands].join(", ")}`:""}.\n\nThe attached letter has the location, bands, booster, gain, power and donor antenna details. Gain, AGC, oscillation shutdown and band settings will be set to the FCC limits and your requirements, and the booster will be shut off at your request (47 CFR 20.21(d)).\n\nA reply naming the bands you consent to, or a signed copy of the letter, is all we need.\n\nThank you,\n${me?[me.name, me.org, me.phone].filter(Boolean).join("\n"):""}`,
+      files:fl.filter(n=>/\.pdf$/i.test(n))}); });
 };
 
 /* ---------- consent letter: 47 CFR 20.21(c), what carriers ask for (Providence RFP §3.12) ---------- */

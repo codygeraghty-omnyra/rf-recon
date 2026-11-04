@@ -17,12 +17,22 @@ const DAS = {
   sector_sqft: 128000,
   battery_h: 12,             // standby hours at 100% capacity (NFPA 1225 / IFC; some AHJs 24)
   cal_months: 12,            // a test instrument's calibration counts for 12 months from its date (the usual annual cycle; check the AHJ)
-  critical_areas: ["Fire command center", "Fire pump room", "Exit stairs", "Exit passageways", "Elevator lobbies",
-    "Standpipe cabinets", "Sprinkler sectional valve locations", "Other areas the AHJ designates"],
-  // building entry loss, ITU-R P.2109-2 at 770-850 MHz, outer wall only (VHF is close: 14/26 and 37/55 dB)
+  // how a floor's grid is judged: "ifc" = IFC 510.5.4's failed-area rule (2021 and 2024 word it the same: 20 areas, more
+  // than 1 failed fails; with exactly 2 failed, 40 areas and no more than 2 non-adjacent failures); "pct" = the
+  // percentages alone (NFPA-only AHJs). The job's AHJ profile sets it (DAS_PROFILES)
+  grid_rule: "ifc",
+  // NFPA 1225-2022 18.8.3 lists elevators apart from elevator lobbies; New York's 2025 code adds fire protection equipment
+  // rooms (R2 C-1). A job's saved ticks are names from this list: append, never rename
+  critical_areas: ["Fire command center", "Fire pump room", "Exit stairs", "Exit passageways", "Elevators (cars)", "Elevator lobbies",
+    "Standpipe cabinets", "Sprinkler sectional valve locations", "Fire protection equipment rooms (NY)", "Other areas the AHJ designates"],
+  // building entry loss, ITU-R P.2109-2 at 770-850 MHz, outer wall only (VHF is close: 14/26 and 37/55 dB); the 70 and 90 dB
+  // rows are whole-building excess losses measured at 750 MHz in large buildings (NIST TN 1552, 2009: medians 25-98 dB;
+  // the 70 / 90 picks are the research's judgement, R2 C-5). A job keeps its construction by this name: never rename one
   loss: {"Traditional build, typical (14 dB)": 14, "Traditional build, worst 5% (28 dB)": 28,
     "Thermally efficient (low-E glass, foil insulation), typical (31 dB)": 31, "Thermally efficient, worst 5% (51 dB)": 51,
-    "Deep interior or below grade (50 dB)": 50},
+    "Deep interior or below grade (50 dB)": 50,
+    "Large building, deep interior (NIST TN 1552 medians, 750 MHz: 25-98 dB; use 70 dB)": 70,
+    "Subterranean / garage below grade (NIST TN 1552 upper medians: 90 dB)": 90},
 };
 // the app's bands (uls_import.BANDS), so uplinks count in their own band; 700 MHz holds 799-805 up, 800 MHz 806-824 up
 const DAS_BANDS = [[0,30,"HF"],[30,50,"VHF Low"],[50,54,"6m"],[54,72,"VHF TV low"],[72,76,"72-76 MHz"],[76,108,"FM broadcast"],[108,137,"Aviation VHF"],
@@ -33,19 +43,75 @@ const dasBand = f => (DAS_BANDS.find(([lo,hi])=>f>=lo&&f<hi)||[0,0,"Other"])[2];
 const DAS_SOURCES = `Sources: <a href="https://oci.georgia.gov/document/document/nfpa-1225-chapter-18/download" target="_blank" rel="noopener">NFPA 1225-2022 ch. 18</a>,
   <a href="https://www.oswegofire.com/wp-content/uploads/2025/11/2021_ifc_510-Comm-Coverage.pdf" target="_blank" rel="noopener">IFC 2021 §510</a>,
   <a href="https://www.law.cornell.edu/cfr/text/47/90.219" target="_blank" rel="noopener">47 CFR 90.219</a>,
+  <a href="https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features" target="_blank" rel="noopener">IFC 2024 §510</a> (UpCodes GSA copy),
   <a href="https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2109-2-202308-I!!PDF-E.pdf" target="_blank" rel="noopener">ITU-R P.2109-2</a> (entry loss),
+  <a href="https://www.nist.gov/system/files/documents/itl/antd/TN1552.pdf" target="_blank" rel="noopener">NIST TN 1552</a> (large-building loss, 750 MHz),
   <a href="https://sbc.memberclicks.net/assets/Useful_Links/2025/ocsd-errcs-deployment-guidelines-deployment-rev4-5.pdf" target="_blank" rel="noopener">OCSD ERRCS guidelines</a>,
   <a href="https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf" target="_blank" rel="noopener">San Diego FD C-1</a>.
   All of it, with every source: the <a href="https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu" target="_blank" rel="noopener">DAS research database</a>
   (<span class="mono">RF Recon\\docs\\research\\DAS-ERCES\\das_research.db</span> in Drive, with a CSV per table).`;
 // a job's AHJ profile: the defaults above, with what this AHJ changes (presets below, editable under Requirements)
 let DASJ = DAS;
+// The presets (R2, 2026-11-04 DAS deep research, section 1.3 and C-2/C-3). A job stores the numbers it uses (and, since
+// 11/4, the preset's name and grid rule), never only a preset name, so renaming one leaves saved jobs as they were;
+// DAS_PROFILE_ALIASES maps an old name to its new one. "checked" says how the research read the source: "read" = the
+// primary text; "search excerpt" = a search-result summary, not opened, so confirm with the AHJ before relying on it.
+// Numbers a source doesn't state are left out and come from the IFC defaults above (the note says which).
 const DAS_PROFILES = {
-  "IFC 2021 + NFPA 1225": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12},
-  "IFC 2024 / NFPA 1225 (DAQ only)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12},
-  "Strict (DAQ 3.4, 24 h, as OCSD)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 100, battery_h: 24},
-  "Older NFPA 72 (90% general)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12},
+  "IFC 2021 (refs NFPA 1221): −95 dBm + DAQ 3.0": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, grid_rule: "ifc",
+    note: "IFC 2021 references NFPA 1221; the 2024 edition is the first to reference NFPA 1225.",
+    source: "https://engineeredfiresystems.com/resources/international-fire-code-2021-vs-2024/", checked: "read"},
+  "IFC 2024 / NFPA 1225 (DAQ only)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, grid_rule: "ifc",
+    note: "IFC 2024 510.4.1.1/.2: DAQ 3.0 (or the BER/SINR equivalent) both ways, no dBm figure.",
+    source: "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features", checked: "read"},
+  "Strict (DAQ 3.4, 24 h, as OCSD)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 100, battery_h: 24, grid_rule: "ifc",
+    source: "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf", checked: "read"},
+  "Older NFPA 72 (90% general)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12, grid_rule: "pct",
+    note: "NFPA 72-2010/2013 24.5.2: −95 dBm, 90% general. Judged by percentage: the IFC failed-area rule isn't part of these texts."},
+  "Florida FFPC 9th ed. (from 12/31/2026)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, grid_rule: "pct",
+    note: "NFPA 1-2024 FL 11.10.2: signal per NFPA 1225 (judged by percentage). 11.10.2.1: no ERCES required where exterior coverage is below DAQ 3.4. Locals may not be stricter (F.S. 633.202(18)(i)). Coverage assessments at most every 3 years (high-rise or over 12,000 sq ft) or 5 years (others).",
+    source: "https://myfloridacfo.com/docs-sf/state-fire-marshal-libraries/sfm-documents/bfp/florida-fire-prevention-code/florida-fire-prevention-code-9th-edition-nfpa1-fl-specific-edits-6-15-2026.pdf", checked: "read"},
+  "Sacramento Metro Fire (Ord. 2025-02)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 99, battery_h: 12, grid_rule: "ifc",
+    note: "2025 CFC (IFC 2024 base) amended: −95 dBm and DAQ 3.4 inbound, DAQ 3.4 uplink. Coverage % and battery: the IFC defaults.",
+    source: "https://metrofire.ca.gov/files/fca1dc973/CERTIFIED+ORD+2025-02+2025+CALIFORNIA+FIRE+CODE,+TITLE+24,+CODE+OF+REGULATIONS,+PART+9.pdf", checked: "search excerpt"},
+  "McKinney TX": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 99, battery_h: 24, isolation_margin_db: 15, grid_rule: "ifc",
+    note: "−95 dBm, DAQ 3.4, 24 h standby, battery in NEMA 4/4X, isolation 15 dB over gain. Coverage %: the IFC defaults.",
+    source: "https://www.mckinneytexas.org/DocumentCenter/View/17102/Radio-BDA-Coverage-Systems", checked: "search excerpt"},
+  "Prosper TX (rev 05-24)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, class_a_only: true, p25_phase2: true, grid_rule: "ifc",
+    note: "−95 dBm both ways, 12 h, Class A boosters only, P25 Phase 1 and Phase 2. DAQ and coverage %: the IFC defaults.",
+    source: "https://prospertx.gov/DocumentCenter/View/3296/AHJ-Specification-for-ERRC-Systems-PDF", checked: "search excerpt"},
+  "Chandler AZ": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, class_a_only: true, p25_phase2: true, grid_rule: "ifc",
+    note: "Class A only for new installs; 700 MHz with Phase I FDMA and Phase II TDMA. The dBm, DAQ, % and battery figures are the IFC defaults: the packet's own numbers weren't read.",
+    source: "https://www.chandleraz.gov/sites/default/files/UDMDevServ/UDM_Chandler_ERCC_Information_Packet.pdf", checked: "search excerpt"},
+  "NYC FDNY ARCS (3 RCNY 510-01)": {grid_rule: "pct",
+    note: "New York City's own system (FDNY Auxiliary Radio Communication System), required in high-rises, underground and buildings over 250,000 sq ft. Its coverage numbers (R510-01(f)(1)) weren't read: the IFC defaults show; confirm with FDNY. Daily console check, annual certification, 5-year recertification; an FDNY-approved company, a tester with a B-03 certificate and an FCC GROL.",
+    source: "https://rules.cityofnewyork.us/wp-content/uploads/2023/04/Notice-of-Adoption-FDNY-Miscellaneous-Rule-Amendments-City-Record.pdf", checked: "search excerpt"},
 };
+const DAS_PROFILE_ALIASES = {"IFC 2021 + NFPA 1225": "IFC 2021 (refs NFPA 1221): −95 dBm + DAQ 3.0"};  // the name until 11/4 (R2 C-2)
+const DAS_PROFILE_NUMS = ["threshold", "daq", "general_pct", "critical_pct", "battery_h"];
+// the preset a job's saved profile came from: by its name (or an old name), else the first whose numbers it has
+// (a job saved before 11/4 has numbers only); null for a custom set
+function dasPreset(p){
+  if(!p) return null;
+  const nm=DAS_PROFILE_ALIASES[p.name]||p.name;
+  if(nm&&DAS_PROFILES[nm]) return [nm, DAS_PROFILES[nm]];
+  return Object.entries(DAS_PROFILES).find(([,x])=>DAS_PROFILE_NUMS.every(k=>(x[k]===undefined?DAS[k]:x[k])===(p[k]===undefined?DAS[k]:p[k])))||null;
+}
+// a job's working numbers: the defaults, the preset's rule and notes (when the saved profile has none), then the saved profile
+const dasProfile = p => { const pr=dasPreset(p); return {...DAS, ...(pr?{grid_rule:pr[1].grid_rule||DAS.grid_rule, profile_name:pr[0]}:{}), ...(p||{})}; };
+// the licensees' own consent processes (R2 section 1.3, "Statutory licensee consent processes"): who, what they ask,
+// how long it lasts, the source and how it was read. Shown under Requirements; terms feed the authorization dates
+const DAS_LICENSEES = [
+  {who: "Michigan MPSCS", what: "Policy 4.1.11: an e-form, then a letter of express consent; a Class B booster is then registered with the FCC. Contact MPSCS-BDA@michigan.gov.", source: "https://www.michigan.gov/mpscs/inside/laws-policies-and-procedures/bi-directional-amplifiers", checked: "linked in the research; not marked read"},
+  {who: "Ohio MARCS", what: "A BDA policy and a retransmission form; P25 required.", source: "https://dam.assets.ohio.gov/image/upload/siec.ohio.gov/Public%20Safety%20Communications%20System%20BDA%20Policy%20rev080421.pdf", checked: "linked in the research; not marked read"},
+  {who: "California CRIS", what: "A letter to the CRIS engineer, then a Letter of Consent.", source: "https://www.caloes.ca.gov/wp-content/uploads/PSC/Documents/Policy-SignalBoostersBDAFeb2021.pdf", checked: "linked in the research; not marked read"},
+  {who: "Maryland MD FiRST", what: "A provisional letter valid 1 year; final approval after activation and a de-sense test.", term_months: 12, term: "provisional, 1 year", source: "https://doit.maryland.gov/About-DoIT/Offices/Office-of-Infrastructure/Pages/signal-booster-registration-requirements.aspx", checked: "linked in the research; not marked read"},
+  {who: "Broward County ORCAT (FL)", what: "ERCES Guidelines 2025-05-06: an external FirstNet (Band 14) filter; an annual provisional retransmission authorization and an annual ownership acknowledgement; an installation completion form.", term_months: 12, term: "annual", source: "https://bcresc.org/bda-info", checked: "read"},
+  {who: "Douglas County (CO)", what: "Provisional authorization for 6 months, final for 5 years; Band 14 filtered out; the grid is run with the BDA on and again off.", term_months: 6, term: "provisional 6 months, final 5 years", final_months: 60, source: "https://dcsheriff.net/documents/derces-implementation-guidelines.pdf/", checked: "search excerpt"},
+  {who: "Fairfax County (VA)", what: "The retransmission authorization is re-submitted every year.", term_months: 12, term: "annual", source: "https://www.fairfaxcounty.gov/fire-ems/sites/fire-ems/files/Assets/Documents/PDF/fire%20marshal/ERCES%20Submittal%20and%20Permit%20Requirements%20Guidelines.pdf", checked: "das_market.json fairfax_erces (read 2026-11-03)"},
+  {who: "PSERN (King County, WA)", what: "PSERN is the licensee: the uplink is validated before activation, and Seattle FD signs off on a rebroadcast agreement.", source: "https://psern.org/das-requirements/", checked: "search excerpt"},
+  {who: "FirstNet Band 14", what: "Licensed to the FirstNet Authority (FCC renewal May 2023; the Authority's statutory term ends 22 Feb 2027 unless Congress extends it); AT&T runs the network. Makers route the 'FirstNet Band 14 Retransmit Request Form' to FirstNetSpectrum.Manager@firstnet.gov; some resellers say AT&T. Get it in writing and keep it.", source: "https://www.everycrsreport.com/reports/R48923.html", checked: "read (the request address: search excerpt)"},
+];
 const DAS_CHECKS = [  // the dates a job is tracked by; a date means done
   ["consent", "Licensee / agency consent to retransmit (47 CFR 90.219(b)(1))"], ["fcc_reg", "FCC signal booster registration (Class B: 47 CFR 90.219(d)(5))"],
   ["permit", "AHJ permit"], ["design_ok", "Design approved"], ["monitoring", "Monitoring connected to the fire alarm panel"],
@@ -79,6 +145,14 @@ const today = () => ymd(new Date());
 const addYear = d => { if(!d) return ""; const t=new Date(d+"T12:00:00"); t.setFullYear(t.getFullYear()+1); return ymd(t); };
 const daysTo = d => d ? Math.round((Date.parse(d+"T12:00:00")-Date.now())/864e5) : null;
 
+// a lifecycle item (das.py lifecycle) as a "needs you" line, or null when it needs nothing yet
+function dasLifeNeed(x){
+  if(!x||x.state==="ok"||x.state==="done"||x.state==="n/a") return null;
+  const what=x.label.charAt(0).toLowerCase()+x.label.slice(1);
+  if(x.state==="overdue") return `${what} overdue by ${-x.days} days`;
+  if(x.state==="due") return `${what} due in ${x.days} days`;
+  return `${what}: ${x.note||"open"}`;
+}
 S.views.das = async v => {
   const D=S.das=S.das||{view:"board", q:"", job:null, sub:"overview"};
   const gen=D.gen=(D.gen||0)+1;  // a draw overtaken by a newer one while it waited stops, instead of binding to the newer one's screen
@@ -88,16 +162,19 @@ S.views.das = async v => {
   if(D.job){ const j=D.jobs.find(x=>x.id===D.job); if(j) return dasJob(v, D.job); D.job=null; }
   const q=D.q.trim().toLowerCase(), jobs=D.jobs.filter(j=>!q||`${j.name} ${j.address||""} ${j.ahj||""} ${j.client||""}`.toLowerCase().includes(q));
   // what needs you: retests coming due, overdue next steps, open checks on jobs past design
+  // the lifecycle items (das.py lifecycle: annual and five-year retests, licensee renewals, the operational permit, the
+  // UL 2524 3rd-edition check, a retest after a remodel) come computed with each job, each with its source
   const need=[];
   for(const j of D.jobs){ const rd=daysTo(j.retest_due), dd=daysTo(j.due), ck=j.checks||{};
-    if(rd!=null&&rd<=60) need.push([j, rd<0?`annual retest overdue by ${-rd} days`:`annual retest due in ${rd} days`, rd]);
+    if(Array.isArray(j.lifecycle)){ if(j.stage!=="Closed") for(const x of j.lifecycle) { const t=dasLifeNeed(x); if(t) need.push([j, t, x.days??0, x]); } }
+    else if(rd!=null&&rd<=60) need.push([j, rd<0?`annual retest overdue by ${-rd} days`:`annual retest due in ${rd} days`, rd]);
     if(dd!=null&&dd<0&&!["In service","Closed"].includes(j.stage)) need.push([j, `${j.next_step||"next step"} overdue by ${-dd} days`, dd]);
     if(["Install","Commission","Acceptance"].includes(j.stage)&&!ck.consent) need.push([j, "no licensee consent on file", 0]);
     if(["Commission","Acceptance","In service"].includes(j.stage)&&!ck.fcc_reg) need.push([j, "no FCC booster registration on file", 0]); }
   need.sort((a,b)=>a[2]-b[2]);
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <button class="primary" id="dsNew">+ New job</button>
-      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["prospects","Prospects"],["pitch","Pitch"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["prospects","Prospects"],["pitch","Pitch"],["mail","Mail"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
       <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
       <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>
@@ -105,7 +182,7 @@ S.views.das = async v => {
         : S.me ? "Files for each job are kept on the RF Recon server: open them from the job's Files."  /* a signed-in login never sees the server's folders (11/3) */
         : `Files for each job are kept in <span class="mono">${esc(D.folder||"")}</span>.`}</span></div>
     <p style="margin:2px 2px 10px"><b>${D.jobs.length} job${D.jobs.length===1?"":"s"}</b>${need.length?` · <b style="color:var(--warn)">${need.length} need${need.length===1?"s":""} you</b>`:" · nothing waiting on you"}</p>
-    ${need.length?`<div class="panel"><h3>Needs you</h3>${need.slice(0,8).map(([j,t])=>`<div class="row" style="justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(j.name)}</b> <span class="hint">${esc(j.stage)}</span> · ${esc(t)}</span><button data-open="${j.id}">Open</button></div>`).join("")}</div>`:""}
+    ${need.length?`<div class="panel"><h3>Needs you</h3>${need.slice(0,8).map(([j,t,,x])=>`<div class="row" style="justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(j.name)}</b> <span class="hint">${esc(j.stage)}</span> · ${esc(t)}${x?.url?` <a class="hint" href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.source)}">source</a>`:""}</span><button data-open="${j.id}">Open</button></div>`).join("")}</div>`:""}
     <div id="dsFind"></div>
     <div id="dsGuide"></div>
     <div id="dsBody"></div>`;
@@ -116,7 +193,8 @@ S.views.das = async v => {
     api(`/api/das/search?q=${encodeURIComponent(D.q.trim())}`).then(res=>{ if(S.das!==D||D.q.trim().toLowerCase()!==q) return;
       box.innerHTML='<div class="panel"><h3 style="margin:0">Everything in DAS matching “'+esc(D.q.trim())+'”</h3><div id="dsFindOut"></div></div>'; findRender($("#dsFindOut"), res, D.q.trim()); })
       .catch(e=>{ box.innerHTML=`<p class="status err">${esc(e.message)}</p>`; }); }
-  if(D.view==="pitch"&&window.dasPitch) window.dasPitch(body);  // daspitch.js
+  if(D.view==="mail"&&window.rfMail) rfMail.view(body);  // dasmail.js: your mailbox and every tagged conversation
+  else if(D.view==="pitch"&&window.dasPitch) window.dasPitch(body);  // daspitch.js
   else if(D.view==="prospects") window.dasProspects?window.dasProspects(body):(body.innerHTML='<p class="hint">Prospects is loading.</p>');  // dasprospects.js
   else if(D.view==="contacts") dasContacts(body);
   else if(D.view==="data") dasData(body);
@@ -185,7 +263,7 @@ const DAS_LINKS = [
   ["Planning and agencies", [["CAPRAD", "https://caprad.org/", "700 / 800 MHz public safety regional planning and channel assignments"],
     ["NPSTC", "https://www.npstc.org/", "Channel naming, interoperability, in-building reports"],
     ["RadioReference database", "https://www.radioreference.com/db/", "Systems, sites and talk groups (look up there; RF Recon only links to it)"],
-    ["FirstNet Authority", "https://www.firstnet.gov/", "Band 14 and in-building questions go to FirstNet / AT&T"],
+    ["FirstNet Authority", "https://www.firstnet.gov/", "Holds the Band 14 licence (AT&T runs the network); the Band 14 retransmit request goes to FirstNetSpectrum.Manager@firstnet.gov (makers' manuals)"],
     ["Safer Buildings Coalition", "https://www.saferbuildings.org/", "Industry guidance, AHJ resources"]]],
   ["Bulk downloads", [["USGS National Map downloader", "https://apps.nationalmap.gov/downloader/", "3DEP elevation and building data, by area"],
     ["AWS Terrain Tiles", "https://registry.opendata.aws/terrain-tiles/", "The terrain RF Recon uses (free, no account)"],
@@ -277,7 +355,7 @@ async function dasJob(v, id){
   const D=S.das, gen=D.gen; let j;
   try{ j=await api(`/api/das/jobs/${id}`); }catch(e){ if(gen===D.gen){ D.job=null; render(); } return; }
   if(gen!==D.gen) return;  // the board or another job was drawn while this waited
-  DASJ={...DAS, ...(((j.data||{}).profile)||{})};
+  DASJ=dasProfile((j.data||{}).profile);
   // a refused save says so on screen and leaves the job as it was (11/3: it failed silently, only an unhandled rejection)
   const d=j.data||{}, save=async(patch,extra)=>{ try{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); }catch(e){ dasSay("Not saved: "+e.message); } return j; };
   const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["screen","Screening"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
@@ -309,16 +387,19 @@ function dasOverview(el, j, save){
         <button id="doPin" title="Use the pin from the search panel">Use current pin</button><button id="doGo" title="Search the area around the building">Show on map</button></div>
       <div class="row" style="margin-top:6px"><label>Floors <input id="doFloors" type="number" min="0" value="${floors.length||""}" style="width:80px"></label>
         <label>Area (sq ft)<input data-k="area_sqft" type="number" value="${d.area_sqft??""}" style="width:110px"></label>
-        <label>Construction <select data-k="construction">${Object.keys(DAS.loss).map(c=>`<option ${c===d.construction?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
+        <label>Construction <select data-k="construction" style="max-width:270px">${Object.keys(DAS.loss).map(c=>`<option ${c===d.construction?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
       <div class="row" style="margin-top:6px;align-items:center"><button id="doOutline" title="Footprint, floors and height from OpenStreetMap, for the floor area, sector split, roof height and map">⌂ Get the building's outline</button>
         <span class="hint" id="doOutMsg">${d.building?dasBuildingLine(d.building):"From OpenStreetMap (Overture Maps where it has none): footprint, floors and height."}</span></div>
+      <div class="row" style="margin-top:6px;align-items:center"><button id="doNsi" title="The USACE National Structure Inventory for this building: occupancy, stories, square feet, basement, year built, people by day. Fills only the fields that are empty">⌂ Look up building (NSI)</button>
+        <span class="hint" id="doNsiMsg">${d.nsi?dasNsiLine(d.nsi):"USACE National Structure Inventory: modelled occupancy, stories, sq ft, basement, year built and people inside, as estimates."}</span></div>
       <div class="row" style="margin-top:6px"><label class="grow">AHJ (jurisdiction)<input data-k="ahj" value="${esc(d.ahj||"")}" placeholder="e.g. Arlington County Fire Marshal"></label>
         <label class="grow">Code basis<input data-k="code" value="${esc(d.code||"IFC 510 + NFPA 1225")}" placeholder="IFC 2024 510, NFPA 1225 2022, local amendments"></label></div>
       <div class="row" style="margin-top:6px"><label class="grow">Next step<input data-k="next_step" value="${esc(d.next_step||"")}"></label><label>Due<input data-k="due" type="date" value="${esc(d.due||"")}"></label>
         <label>Value ($)<input data-k="value" type="number" value="${d.value??""}" style="width:110px"></label></div></div>
     <div class="panel"><h3>Compliance <span class="hint">· a date means done</span></h3>
       ${DAS_CHECKS.map(([k,l])=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:4px 0"><span>${ck[k]?"✅":"⬜"} ${esc(l)}</span><input type="date" data-ck="${k}" value="${esc(ck[k]||"")}"></div>`).join("")}
-      <p style="margin:8px 0 0">Annual retest due: <b class="mono">${esc(d.retest_due||"–")}</b>${d.retest_due?` <span class="hint">(${daysTo(d.retest_due)} days)</span>`:""} <span class="hint">· set from the acceptance date, one year on</span></p></div>
+      <p style="margin:8px 0 0">Annual retest due: <b class="mono">${esc(d.retest_due||"–")}</b>${d.retest_due?` <span class="hint">(${daysTo(d.retest_due)} days)</span>`:""} <span class="hint">· set from the acceptance date, one year on</span>${d.retest_due&&window.rfMail?` <button class="sm" id="doRetestMail" title="Email the owner to book the annual retest, from your own mailbox">✉ Remind the owner</button>`:""}</p></div>
+    ${dasLifePanel(d, j.lifecycle)}
     <div class="panel"><h3>People</h3>
       ${DAS_ROLES.map(([k,l])=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:4px 0"><span>${esc(l)}</span>
         <select data-role="${k}" style="max-width:60%"><option value="">—</option>${cs.map(c=>`<option value="${c.id}" ${String(roles[k])===String(c.id)?"selected":""}>${esc(c.name||c.org)}${c.org&&c.name?` · ${esc(c.org)}`:""}</option>`).join("")}</select></div>`).join("")}
@@ -346,25 +427,128 @@ function dasOverview(el, j, save){
       if(dd.area_sqft==null&&b.footprint_sqft) patch.area_sqft=b.footprint_sqft;  // only fills what's empty
       if(!(Array.isArray(dd.floors)&&dd.floors.length)&&b.levels) patch.floors=Array.from({length:Math.min(200,b.levels)},(_,i)=>({name:String(i+1),grids:DAS.grids}));
       j=await save(patch); render(); }catch(e){ $("#doOutMsg").textContent=e.message; } };
+  // NSI (R3 #1): one small box around the point, asked by the server (nsi.py); it fills only what's empty, like the outline
+  $("#doNsi").onclick=async()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } const b=$("#doNsi"); b.disabled=true; $("#doNsiMsg").textContent="Asking the National Structure Inventory…";
+    try{ const n=await api(`/api/das/nsi?lat=${dd.lat}&lon=${dd.lon}&job=${j.id}`), patch={nsi:n};
+      if(dd.area_sqft==null&&n.sqft) patch.area_sqft=n.sqft;  // the NSI's sq ft is the whole building's floor area (an estimate)
+      if(!(Array.isArray(dd.floors)&&dd.floors.length)&&n.stories) patch.floors=Array.from({length:Math.min(200,n.stories)},(_,i)=>({name:String(i+1),grids:DAS.grids}));
+      j=await save(patch); render(); }catch(e){ b.disabled=false; $("#doNsiMsg").textContent=e.message; } };
   $("#doPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ alert("Drop a pin or type the address in the search panel first."); return; } j=await save({lat:p[0],lon:p[1]}); render(); };
+  dasLifeWire(el, () => j, async patch => { j = await save(patch); render(); });
+  dasJobMail(el, j);
+  $("#doRetestMail")&&($("#doRetestMail").onclick=()=>{ const cs2=S.das.contacts||[], ro=d.contacts||{}, own=cs2.find(c=>String(c.id)===String(ro.owner)), me=cs2.find(c=>String(c.id)===String(ro.tech));
+    $("#doMailPanel")?.scrollIntoView({behavior:"smooth", block:"nearest"});
+    rfMail.compose($("#doMailBox"), {kind:"job", refs:{job_id:j.id, topic:"MAIL"}, title:"Book the annual retest", to:own?.email||"",
+      subject:`Annual emergency radio coverage retest due ${d.retest_due}: ${j.name}`,
+      body:`Hello${own?.name?` ${own.name.split(" ")[0]}`:""},\n\nThe emergency responder radio coverage system at ${j.name}${d.address?`, ${d.address}`:""} is due its annual test on ${d.retest_due}, which ${d.ahj||"the fire code official"} requires (IFC 510.6 / NFPA 1225).\n\nCould you reply with a few dates that work for access to every floor, the roof and the equipment room? The test takes about a day for most buildings, and you'll receive the report for the fire marshal afterwards.\n\nThank you,\n${me?[me.name, me.org, me.phone].filter(Boolean).join("\n"):""}`,
+      onSent:()=>rfMail.thread($("#doMailThread"), {job:j.id})}); });
   $("#doGo").onclick=()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } $("#loc").value=`${dd.lat}, ${dd.lon}`; setMode("point"); setTab("map"); runSearch(); };
 }
 
-// a system's terrain path (from Terrain paths), when it was checked against today's strongest site
+/* ---------- lifecycle (R2 K-3, C-4, C-9): after acceptance, what the system owes and when, each with its source. The
+   dates are computed in das.py lifecycle from what's entered here; nothing is a deadline unless its source gives one ---------- */
+const LIFE_STATE = {overdue:["overdue","var(--bad)"], due:["due soon","var(--warn)"], ok:["on track","var(--good)"], open:["to do","var(--warn)"], done:["done","var(--good)"], "n/a":["not yet","var(--muted)"]};
+const dasAddMonths = (d, m) => { if(!d) return ""; const t=new Date(d+"T12:00:00"), day=t.getDate(); t.setDate(1); t.setMonth(t.getMonth()+m);
+  t.setDate(Math.min(day, new Date(t.getFullYear(), t.getMonth()+1, 0).getDate())); return ymd(t); };
+function dasLifePanel(d, items){
+  const L=d.life||{}, auths=L.auths||[], lic=DAS_LICENSEES.filter(x=>x.term_months);
+  return `<div class="panel" id="doLife"><h3>Lifecycle <span class="hint">· what the system owes after acceptance; each date from its source</span></h3>
+    ${(items||[]).map(x=>{ const [w,c]=LIFE_STATE[x.state]||[x.state,""]; return `<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:4px 0;gap:8px">
+      <span>${esc(x.label)}${x.note?` <span class="hint">· ${esc(x.note)}</span>`:""}<div class="hint">${esc(x.source)} <a href="${esc(x.url)}" target="_blank" rel="noopener">source</a></div></span>
+      <span style="white-space:nowrap;text-align:right"><b style="color:${c}">${esc(w)}</b>${x.due?`<div class="mono">${esc(x.due)}${x.days!=null?` <span class="hint">(${x.days<0?`${-x.days} days ago`:`${x.days} days`})</span>`:""}</div>`:x.done?`<div class="mono hint">${esc(x.done)}</div>`:""}</span></div>`; }).join("")}
+    <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+      <label title="The date of the most recent annual test: the next one is due a year on">Last annual test<input type="date" data-life="annual_last" value="${esc(L.annual_last||"")}"></label>
+      <label title="NFPA 1225 20.3.10.2.3.3: a full quantitative retest at least every five years">Last five-year retest<input type="date" data-life="quant5_last" value="${esc(L.quant5_last||"")}"></label>
+      <label title="The date you confirmed every active component is listed to UL 2524 3rd edition (UL 2524:2024)">UL 2524 3rd ed. confirmed<input type="date" data-life="ul2524_checked" value="${esc(L.ul2524_checked||"")}"></label>
+      <label title="IFC 2024 510.6.1: a structural change (an addition, a remodel) needs a retest">Addition / remodel on<input type="date" data-life="remodel" value="${esc(L.remodel||"")}"></label>
+      <label title="Where the fire code official requires an operational permit (IFC 2024 510.3.2): the expiry date on it">Operational permit expires<input type="date" data-life="op_permit_expires" value="${esc(L.op_permit_expires||"")}"></label></div>
+    <h4 style="margin:10px 0 4px">Licensee authorizations</h4>
+    ${auths.length?`<div class="tw"><table><thead><tr><th>Licensee</th><th>Granted</th><th>Renews</th><th>Term</th><th></th></tr></thead><tbody>${auths.map((a,i)=>`<tr data-auth="${i}"><td>${esc(a.who||"")}</td><td><input type="date" data-af="granted" value="${esc(a.granted||"")}" style="width:140px"></td><td><input type="date" data-af="renews" value="${esc(a.renews||"")}" style="width:140px"></td><td class="hint" style="white-space:normal">${esc(a.term||"from the paper")}</td><td><button class="sm" data-adel="${i}" title="Remove this authorization">✕</button></td></tr>`).join("")}</tbody></table></div>`:'<p class="hint" style="margin:0">None on file.</p>'}
+    <div class="row" style="margin-top:6px;gap:8px;flex-wrap:wrap;align-items:end"><label class="grow">Add <select id="doAuthWho"><option value="">Licensee…</option>${lic.map(x=>`<option value="${esc(x.who)}">${esc(x.who)} (${esc(x.term)})</option>`).join("")}<option value="other">Another licensee (enter the renewal date from its letter)</option></select></label>
+      <input id="doAuthOther" placeholder="licensee name" style="display:none"><label>Granted<input type="date" id="doAuthDate"></label><button id="doAuthAdd">Add</button></div>
+    <p class="hint" style="margin:4px 0 0">A term picked here comes from the research (Requirements, Licensee consent); with another licensee, type the renewal date from its letter. The code itself sets no renewal term.</p></div>`;
+}
+function dasLifeWire(el, getJ, keep){
+  const life=()=>({...((getJ().data||{}).life||{})});
+  el.querySelectorAll("[data-life]").forEach(i=>i.onchange=()=>{ const d=getJ().data||{}, L={...life(), [i.dataset.life]:i.value}, patch={life:L};
+    // the annual retest rolls from the latest annual test, not from acceptance (R2 K-3); retest_due feeds the board and the owner's reminder
+    if(i.dataset.life==="annual_last"){ const base=[d.accepted_on, i.value].filter(Boolean).sort().pop(); if(base) patch.retest_due=addYear(base); }
+    keep(patch); });
+  const auths=()=>[...(life().auths||[])];
+  el.querySelectorAll("[data-auth] [data-af]").forEach(i=>i.onchange=()=>{ const k=+i.closest("[data-auth]").dataset.auth, A=auths(), a={...A[k], [i.dataset.af]:i.value};
+    const t=DAS_LICENSEES.find(x=>x.who===a.who);
+    if(i.dataset.af==="granted"&&t?.term_months) a.renews=dasAddMonths(i.value, t.term_months);
+    A[k]=a; keep({life:{...life(), auths:A}}); });
+  el.querySelectorAll("[data-adel]").forEach(b=>b.onclick=()=>{ const A=auths(); A.splice(+b.dataset.adel,1); keep({life:{...life(), auths:A}}); });
+  const who=$("#doAuthWho"); if(!who) return;
+  who.onchange=()=>{ $("#doAuthOther").style.display=who.value==="other"?"":"none"; };
+  $("#doAuthAdd").onclick=()=>{ const g=$("#doAuthDate").value, w=who.value==="other"?$("#doAuthOther").value.trim():who.value;
+    if(!w){ dasSay("Pick or name the licensee first."); return; }
+    const t=DAS_LICENSEES.find(x=>x.who===w);
+    keep({life:{...life(), auths:[...auths(), {who:w, granted:g, renews:t?.term_months&&g?dasAddMonths(g, t.term_months):"", term:t?`${t.term}, per the research`:"", source:t?.source||""}]}}); };
+}
+
+// a system's donor site: its strongest on the realistic estimate (coverage.presurvey_realistic), else its strongest on
+// free space (a pre-survey saved before 11/4, or a system with no power on file)
+const dasDonorSite = s => s.sites[s.real?.site ?? 0] || s.sites[0];
+// a system's terrain path (from Terrain paths), when it was checked against today's donor site
 function dasTerrainCell(s, t){
-  const st=s.sites[0]; if(!t||!st||t.site!==`${st.lat},${st.lon}`) return "";
+  const st=dasDonorSite(s); if(!t||!st||t.site!==`${st.lat},${st.lon}`) return "";
   if(t.error) return `<span class="hint">${esc(t.error)}</span>`;
   const word=t.status==="clear"?["clear","var(--good)"]:t.status.startsWith("Fresnel")?["partly blocked","var(--warn)"]:["blocked by terrain","var(--bad)"];
   // the detail shows under the word, not only on hover: a touch screen can't reach a hover tip (11/3)
   const why=`clearance ${t.clearance_f1} of the first Fresnel zone${t.worst_at_km!=null?`; worst point ${num(t.worst_at_km/1.609344,1)} mi from the site, ${t.worst_above_los_m} m above the line`:""}`;
   return `<span style="color:${word[1]}">${word[0]}</span>`
-    + `${t.loss_db?` −${num(t.loss_db,0)} dB`:""}${t.status!=="clear"?`<div class="hint" style="white-space:normal;max-width:240px">${esc(why)}</div>`:""}`
-    + `${s.best_in!=null?`<div class="hint">${num(s.best_in-(t.loss_db||0),0)} dBm inside</div>`:""}`;
+    + `${t.loss_db?` −${num(t.loss_db,0)} dB`:""}${t.status!=="clear"?`<div class="hint" style="white-space:normal;max-width:240px">${esc(why)}</div>`:""}`;
+}
+// Donor aiming (R1 #10): from the roof to the donor site, true and magnetic bearing (NOAA WMM2025, wmm.js), the elevation
+// angle over the earth's curve (k = 4/3), distance, and the terrain clearance when Terrain paths has checked that path.
+// Ground heights: the Terrain paths result first, else the licence's site elevation and the cached terrain at the building.
+function dasAim(d, s, r, ps){
+  const st=dasDonorSite(s); if(!st) return null;
+  const t=(ps.terrain||{})[s.call_sign], tp=t&&!t.error&&t.site===`${st.lat},${st.lon}`?t:null;
+  const roof=dasRoof(d), h=st.height_m??30, D=st.dist_mi*1609.344;
+  const gSite=tp?tp.ground1_m:s.real?.site_ground_m, gB=tp?tp.ground2_m:r.real_model?.ground_m;
+  const flat=gSite==null||gB==null, dh=flat ? h-roof : (gSite+h)-(gB+roof);  // site antenna above the roof antenna, metres
+  const elev=D>0?(Math.atan2(dh, D)-D/(2*(4/3)*6371008.8))*180/Math.PI:null;
+  const decl=window.WMM?WMM.declination(d.lat, d.lon, new Date()):null;
+  return {st, true_deg:st.bearing, mag_deg:decl==null?null:((st.bearing-decl)%360+360)%360, decl, elev, flat, roof, h,
+    ground:flat?"no ground heights: flat ground assumed (run ⛰ Terrain paths)":tp?"ground from Terrain paths (cached terrain)":"site ground from the licence, the building's from cached terrain",
+    terrain:tp, real:s.real, sim:(s.down||[]).some(c=>(c.flags||[]).some(f=>f.startsWith("simulcast"))), lobe:s.real?.pattern_db};
+}
+const dasDeg = v => v==null?"–":`${num(v,0)}°`;
+function dasDonorSheet(j, list, r, ps){
+  const d=j.data||{};
+  const rows=list.map(s=>[s, dasAim(d, s, r, ps)]).filter(([,a])=>a);
+  const box=document.createElement("div"); box.className="panel";
+  box.innerHTML=`<div style="padding:16px 8px;font-size:13px;line-height:1.45">
+    <h2 style="margin:0 0 4px">Donor antenna aiming: ${esc(j.name)}</h2>
+    <p style="margin:0 0 8px">${esc(d.address||"")} · building ${num(d.lat,5)}, ${num(d.lon,5)} · roof antenna about ${num(dasRoof(d),0)} m above ground (the building's height + a 3 m mast) · prepared ${esc(today())}</p>
+    <table style="width:100%;border-collapse:collapse" border="1" cellpadding="4"><thead><tr><th>System</th><th>Donor site</th><th>Distance</th><th>True bearing</th><th>Magnetic bearing</th><th>Elevation angle</th><th>Terrain to the roof</th><th>Expected at the roof</th><th>Watch</th></tr></thead><tbody>
+    ${rows.map(([s,a])=>`<tr><td><b>${esc(s.licensee)}</b><br><span class="mono">${esc(s.call_sign)}</span></td>
+      <td>${esc(a.st.address||"")}<br><span class="mono">${num(a.st.lat,5)}, ${num(a.st.lon,5)}</span><br>antenna ${num(a.h,0)} m up${a.st.tower_reg?` · ASR ${esc(a.st.tower_reg)}`:""}</td>
+      <td>${num(a.st.dist_mi,2)} mi<br>${num(a.st.dist_mi*1.609344,2)} km</td>
+      <td><b>${dasDeg(a.true_deg)}</b> ${esc(a.st.compass||"")}</td>
+      <td><b>${dasDeg(a.mag_deg)}</b>${a.decl!=null?`<br><span class="hint">declination ${num(Math.abs(a.decl),1)}° ${a.decl>=0?"E":"W"}</span>`:""}</td>
+      <td><b>${a.elev==null?"–":`${a.elev>=0?"+":""}${num(a.elev,1)}°`}</b><br><span class="hint">${esc(a.ground)}</span></td>
+      <td>${a.terrain?`${esc(a.terrain.status)}; clearance ${a.terrain.clearance_f1} of the first Fresnel zone${a.terrain.loss_db?`; −${num(a.terrain.loss_db,0)} dB`:""}`:"not checked: run ⛰ Terrain paths"}</td>
+      <td>${a.real?`${num(a.real.out_dbm,0)} dBm street level (${esc(r.real_model?.name||"Hata")}); free space ${num(a.st.best_out,0)} dBm`:`${num(a.st.best_out,0)} dBm free space (best case)`}</td>
+      <td>${[a.sim?"simulcast from several sites: aim at one, keep the delay low (TDI)":"", a.lobe!=null&&a.lobe<-3?`the building is ${num(-a.lobe,0)} dB off the site antenna's main beam (licensed azimuth)`:""].filter(Boolean).map(esc).join("<br>")||"–"}</td></tr>`).join("")}</tbody></table>
+    <p class="hint" style="margin-top:8px">Bearings are from the building to the site. Magnetic = true − declination (NOAA World Magnetic Model 2025, for today's date): set a compass to the magnetic figure. The elevation angle is from the roof antenna to the site antenna, over the earth's curve (k = 4/3); within a degree, aim level and peak on the signal. Levels are estimates from licensed power, not measurements: confirm on the roof with a meter before fixing the mount.</p>
+    ${dasCredits(d)}</div>`;
+  dasPrintCopy(box);  // a copy goes on <body> to print, the way the AHJ report prints (box itself is never shown)
+  return rows.length;
 }
 const dasBuildingLine = b => `${esc(b.name||"Building")} · ${(b.footprint_sqft||0).toLocaleString()} sq ft footprint${b.levels?` · ${b.levels} floors`:""}${b.height_m?` · ${Math.round(b.height_m)} m tall${b.height_est?` <span class="hint" title="${esc(b.height_source||"")}: machine-learned heights read low on tall buildings">(estimate)</span>`:""}`:""}`
   + `${b.contains_pin?"":` · nearest outline, ${b.dist_m} m from the pin`} · ${esc(b.source)} ${esc(b.osm||"")}${b.gers_id?` <span class="hint mono" title="Overture GERS id, release ${esc(b.release||b.overture_release||"")}">${esc(b.gers_id.slice(0,8))}</span>`:""}`
   + `${b.note?` · <i>${esc(b.note)}</i>`:""}`
   + `${b.footprint_sqft>DAS.sector_sqft?` · <b style="color:var(--warn)">over ${DAS.sector_sqft.toLocaleString()} sq ft a floor: NFPA 1225 splits each floor into sectors of ${DAS.grids} grids</b>`:""}`;
+// the NSI's record of the building, as estimates with its source and caveat (nsi.py)
+const dasNsiLine = n => `<b>NSI estimate</b>: ${esc([n.occupancy_label, n.stories?`${n.stories} stor${n.stories===1?"y":"ies"}`:"", n.sqft?`${Number(n.sqft).toLocaleString()} sq ft`:"",
+    n.basement?"basement":n.foundation?`no basement (${n.foundation})`:"", n.year_built?`built about ${n.year_built}`:"", n.height_m?`${Math.round(n.height_m)} m tall`:"",
+    n.people_day!=null?`about ${Number(n.people_day).toLocaleString()} people by day, ${Number(n.people_night||0).toLocaleString()} at night`:""].filter(Boolean).join(" · "))}`
+  + `${(n.occupancy||[]).length>1?` <span title="${esc(n.occupancy.map(o=>`${o.label} (${o.code}): ${Number(o.sqft).toLocaleString()} sq ft`).join("; "))}">· ${n.occupancy.length} uses</span>`:""}`
+  + `${n.inside_outline?"":` · nearest NSI structure, ${n.dist_m} m from the pin`} · ${esc(n.source)}, ${esc(n.fetched||"")}. <i>${esc(n.caveat)}</i>`;
 // the donor antenna's height: the building's height (or floors x 3.5 m) plus a 3 m mast
 const dasRoof = d => (d.building?.height_m || ((d.building?.levels || (Array.isArray(d.floors)?d.floors.length:0) || 3) * 3.5)) + 3;
 
@@ -379,8 +563,9 @@ const DAS_FLAGS = [
     means: "This channel sits in the commercial ESMR band next to public safety 800 MHz. A public safety booster must keep that band out.",
     todo: "Leave it out of the booster's passband. If the agency still needs it covered inside, raise it with them." },
   { key: "band14", test: f => f.startsWith("FirstNet"), title: () => "FirstNet Band 14 (758–768 MHz)",
-    means: "Band 14 is licensed to FirstNet (run by AT&T), not to the agency, and its sites aren't in the FCC data.",
-    todo: "Get FirstNet / AT&T's written authorization before the booster passes Band 14." },
+    means: "Band 14 is licensed to the FirstNet Authority, not to the agency (FCC renewal May 2023; the Authority's statutory term ends 22 Feb 2027 unless Congress extends it); AT&T runs the network. Its sites aren't in the FCC data.",
+    todo: "Ask for written retransmission authorization before the booster passes Band 14: makers route the 'FirstNet Band 14 Retransmit Request Form' to FirstNetSpectrum.Manager@firstnet.gov, and some resellers say AT&T. Get it in writing from whichever answers, and keep it. Some AHJs (Broward, Douglas County) require Band 14 filtered out.",
+    note: "Sources: CRS R48923 (29 Apr 2026) for the licence and its term; the request address is from a maker's manual (Nextivity), not a firstnet.gov page (R2 C-12)." },
 ];
 function dasFlagPop(btn, sys){
   const old = document.getElementById("dasFlagPop");
@@ -414,54 +599,67 @@ async function dasPresurvey(el, j, save){
   const d=j.data||{}, ps=d.presurvey||{};
   if(d.lat==null){ el.innerHTML='<p class="status">Set the building\'s location on the Overview first (Use current pin).</p>'; return; }
   // the estimate needs a level to compare with even when the AHJ judges by DAQ alone: -95 dBm is the usual design floor
-  const P={radius:ps.radius||15, loss:ps.loss??DAS.loss[d.construction]??14, threshold:ps.threshold||DASJ.threshold||-95};
+  const P={radius:ps.radius||15, loss:ps.loss??DAS.loss[d.construction]??14, threshold:ps.threshold||DASJ.threshold||-95, env:ps.env||"suburban"};
   el.innerHTML='<p class="status">Finding the public safety systems around the building…</p>';
-  let r; try{ r=await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${P.radius}&loss=${P.loss}&threshold=${P.threshold}`); }
+  let r; try{ r=await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${P.radius}&loss=${P.loss}&threshold=${P.threshold}&env=${P.env}`); }
   catch(e){ if(!el.isConnected) return; el.innerHTML=`<p class="status err">${esc(e.message)}</p><div id="psCell" style="margin-top:10px"></div>`; window.dasCellPresurvey?.($("#psCell"), j, save); return; }  // the carriers need no FCC data
   if(!el.isConnected) return;  // a newer draw took over while this one waited
   const inc=new Set(ps.include||[]), any=inc.size>0;
   const chosen=r.systems.filter(s=>inc.has(s.call_sign));
-  const need=chosen.filter(s=>s.margin_db!=null&&s.margin_db<0).length;
+  // The verdict uses the realistic estimate (R1 #1: on free space it never fired): Hata + terrain where cached, from
+  // coverage.presurvey_realistic. Free space stays beside it as the best case. A system with no power on file has neither.
+  const RM=r.real_model, realOf=s=>s.real||null, declHere=window.WMM?WMM.declination(d.lat, d.lon, new Date()):null;  // NOAA WMM2025, once for the building
+  const scoredS=chosen.filter(s=>realOf(s)), need=scoredS.filter(s=>realOf(s).margin_db<0).length, needFs=chosen.filter(s=>s.margin_db!=null&&s.margin_db<0).length;
   const verdict=!any?"Tick the systems the AHJ requires (usually fire, police and EMS) to build the channel plan."
-    : need?`${need} of ${chosen.length} chosen system${chosen.length===1?"":"s"} likely below ${P.threshold} dBm inside (best case): an ERCES is likely needed.`
-    : `All ${chosen.length} chosen systems clear ${P.threshold} dBm inside on the free-space estimate. Free space is best case: a walk test decides.`;
+    : !RM?(needFs?`${needFs} of ${chosen.length} chosen systems likely below ${P.threshold} dBm inside (free space, best case): an ERCES is likely needed.`:`All ${chosen.length} chosen systems clear ${P.threshold} dBm inside on the free-space estimate (best case): a walk test decides.`)
+    : need?`${need} of ${scoredS.length} chosen system${scoredS.length===1?"":"s"} likely below ${P.threshold} dBm inside on the realistic estimate (${RM.name}, ${P.loss} dB building loss): an ERCES is likely needed. It is an estimate: a walk test decides. On free space (best case) ${needFs||"none"} would be.`
+    : `All ${scoredS.length} chosen systems clear ${P.threshold} dBm inside on the realistic estimate (${RM.name}, ${P.loss} dB building loss). An estimate, pessimistic for upper floors: a walk test decides.`;
   const planOf=list=>{ const out=[]; for(const s of list) for(const c of s.down) out.push({system:s.licensee, call_sign:s.call_sign, service:s.service_name, trunked:s.trunked?"yes":"no",
-    technology:s.tech.join(" / "), downlink_mhz:c.freq, uplink_mhz:(c.up||[]).join(" "), band:c.band, emission:c.emission||"", bandwidth_khz:c.bw_khz??"", best_outdoor_dbm:c.best_out??""}); return out; };
+    technology:s.tech.join(" / "), downlink_mhz:c.freq, uplink_mhz:(c.up||[]).join(" "), band:c.band, emission:c.emission||"", bandwidth_khz:c.bw_khz??"", best_outdoor_dbm:c.best_out??"", realistic_outdoor_dbm:s.real?.out_dbm??""}); return out; };
   const plan=planOf(chosen);
   const bands=new Map(); for(const p of plan){ for(const f of [p.downlink_mhz, ...String(p.uplink_mhz).split(" ").filter(Boolean).map(Number)]){ const b=dasBand(f); const x=bands.get(b)||{lo:1e9,hi:0,set:new Set()}; x.lo=Math.min(x.lo,f); x.hi=Math.max(x.hi,f); x.set.add(f); x.n=x.set.size; bands.set(b,x); } }
   el.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <label class="inl">Within <input id="psR" type="number" value="${P.radius}" min="1" max="60" style="width:70px"> mi</label>
-      <label class="inl" title="Building entry loss, ITU-R P.2109-2 (outer wall only)">Building loss <select id="psLp"><option value="">custom</option>${Object.entries(DAS.loss).map(([k,v2])=>`<option value="${v2}" ${+P.loss===v2?"selected":""}>${esc(k)}</option>`).join("")}</select>
-        <input id="psL" type="number" value="${P.loss}" min="0" max="80" style="width:64px"> dB</label>
+      <label class="inl" title="Building entry loss: ITU-R P.2109-2 (outer wall only), or a whole large building measured at 750 MHz (NIST TN 1552)">Building loss <select id="psLp" style="max-width:270px"><option value="">custom</option>${Object.entries(DAS.loss).map(([k,v2])=>`<option value="${v2}" ${+P.loss===v2?"selected":""}>${esc(k)}</option>`).join("")}</select>
+        <input id="psL" type="number" value="${P.loss}" min="0" max="120" style="width:64px"> dB</label>
+      <label class="inl" title="The realistic estimate's land type (Okumura-Hata): urban is the most loss, open land the least">Realistic as <select id="psEnv">${[["urban","Hata urban"],["suburban","Hata suburban"],["open","Hata open land"]].map(([k,l])=>`<option value="${k}" ${P.env===k?"selected":""}>${l}</option>`).join("")}</select></label>
       <label class="inl">Needs at least <input id="psT" type="number" value="${P.threshold}" style="width:80px"> dBm inside</label>
       <button id="psPick">Tick fire, police, EMS, 911</button><button id="psNone">Untick all</button>
-      <button id="psTer" title="Line of sight from each system's strongest site to the roof, with the loss over hills (terrain data, cached on this PC). Ticked systems, or the 20 strongest.">⛰ Terrain paths</button>
+      <button id="psTer" title="Line of sight from each system's donor site to the roof, with the loss over hills (terrain data, cached on this PC once fetched). Ticked systems, or the 20 strongest.">⛰ Terrain paths</button>
+      <button id="psAim" ${(any?chosen:r.systems).length?"":"disabled"} title="For each chosen system's donor site: true and magnetic bearing, elevation angle, distance and terrain clearance; print or save as PDF">⎙ Donor aiming sheet</button>
       <button id="psPlan" ${plan.length?"":"disabled"}>⇩ Channel plan CSV</button><button id="psCsv">⇩ Systems CSV</button><button id="psKml">⇩ KML</button><button id="psTak">⇩ ATAK</button>
-      <button id="psLet" ${chosen.length?"":"disabled"} title="One letter per licensee asking consent to retransmit (47 CFR 90.219(b)(1)); print or save as PDF">⎙ Consent letters</button></div>
+      <button id="psLet" ${chosen.length?"":"disabled"} title="One letter per licensee asking consent to retransmit (47 CFR 90.219(b)(1)); print or save as PDF">⎙ Consent letters</button>${window.rfMail?`<button id="psLetMail" ${chosen.length?"":"disabled"} title="Email each licensee the consent request from your own mailbox; the reply files itself">✉ Email them</button>`:""}</div><div id="psLetMailBox"></div>
     <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi. ${esc(verdict)}</p>
     <div class="grid2" style="margin-top:0;align-items:stretch">
       <div class="panel"><h3>Bands a booster must pass <span class="hint">· chosen systems, downlink and uplink</span></h3>${bands.size?`<table><thead><tr><th>Band</th><th>From MHz</th><th>To MHz</th><th class="n">Channels</th></tr></thead><tbody>${[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([b,x])=>`<tr><td>${esc(b)}</td><td class="mono">${fmtF(x.lo)}</td><td class="mono">${fmtF(x.hi)}</td><td class="n">${x.n}</td></tr>`).join("")}</tbody></table>
-        <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) needs FirstNet / AT&amp;T authorization and isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI). Click one for what it means.</p>
+        <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) is licensed to the FirstNet Authority (AT&amp;T runs it): its written retransmission authorization is needed, and it isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI). Click one for what it means.</p>
         <div id="psBoost"></div>`:'<p class="hint">Tick systems below.</p>'}</div>
       <div class="panel" style="padding:0;overflow:hidden;display:flex;min-height:300px"><div id="psMap" style="flex:1;min-height:300px"></div></div></div>
-    <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· strongest first · levels are free-space estimates from licensed power: best case, no terrain</span></h3>
-      <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Best site</th><th class="n">Outside dBm</th><th class="n">Inside dBm</th><th class="n">Margin dB</th><th>Terrain to the roof</th></tr></thead><tbody>
-      ${r.systems.map(s=>{ const st=s.sites[0]; return `<tr><td><input type="checkbox" data-cs="${esc(s.call_sign)}" ${inc.has(s.call_sign)?"checked":""}></td><td><b>${esc(s.licensee)}</b><div class="hint">${esc(s.category||"")}</div></td>
+    <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· strongest first on free space · each level is an estimate from licensed power, not a measurement</span></h3>
+      ${RM?`<p class="hint" style="margin:0 0 6px"><b>Realistic</b>: ${esc(RM.desc)} <b>Free space</b>: the best case, no terrain, no clutter.</p>`:""}
+      <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Donor site</th><th class="n" title="${esc(RM?.desc||"")}">Outside dBm<div class="hint">realistic</div></th><th class="n">Inside dBm<div class="hint">realistic</div></th><th class="n">Margin dB<div class="hint">realistic</div></th><th class="n" title="Free space, best case">Outside dBm<div class="hint">free space</div></th><th class="n">Inside dBm<div class="hint">free space</div></th><th class="n">Margin dB<div class="hint">free space</div></th><th>Terrain to the roof</th></tr></thead><tbody>
+      ${r.systems.map(s=>{ const st=dasDonorSite(s), rl=realOf(s), mc=m=>m==null?"":m<0?"var(--bad)":m<10?"var(--warn)":"var(--good)", decl=st?declHere:null; return `<tr><td><input type="checkbox" data-cs="${esc(s.call_sign)}" ${inc.has(s.call_sign)?"checked":""}></td><td style="white-space:normal;min-width:170px;max-width:260px"><b>${esc(s.licensee)}</b><div class="hint">${esc(s.category||"")}</div></td>
         <td class="mono">${s.usi?`<a href="https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${s.usi}" target="_blank" rel="noopener">${esc(s.call_sign)}</a>`:esc(s.call_sign)}</td>
         <td>${esc(s.trunked?"Trunked":"Conventional")} · ${esc(s.tech.join(", "))}<div class="hint">${esc(s.service_name||"")}</div></td>
         <td class="mono">${s.down.slice(0,6).map((c,i)=>`${fmtF(c.freq)}${(c.flags||[]).length?` <button type="button" class="das-flag" data-flag-cs="${esc(s.call_sign)}" data-i="${i}" title="${esc(c.flags.join("; "))} (click for what it means)" aria-haspopup="dialog" aria-expanded="false">⚠</button>`:""}`).join("<br>")}${s.down.length>6?`<br><span class="hint">+${s.down.length-6}</span>`:""}</td>
         <td class="mono">${s.up.slice(0,6).map(fmtF).join("<br>")||'<span class="hint">ask licensee</span>'}${s.up.length>6?`<br><span class="hint">+${s.up.length-6}</span>`:""}
           <div class="hint" style="font-family:var(--font)">${esc([...new Set(s.down.map(c=>c.up_src).filter(Boolean))].join(", "))}</div></td>
-        <td>${st?`${num(st.dist_mi,2)} mi ${esc(st.compass)} (${st.bearing}°)<div class="hint">${s.n_sites} site${s.n_sites===1?"":"s"}</div>`:""}</td>
-        <td class="n">${num(s.best_out,0)}</td><td class="n">${num(s.best_in,0)}</td><td class="n" style="color:${s.margin_db==null?"":s.margin_db<0?"var(--bad)":s.margin_db<10?"var(--warn)":"var(--good)"}">${num(s.margin_db,0)}</td>
+        <td>${st?`${num(st.dist_mi,2)} mi ${esc(st.compass)} (${st.bearing}° true${decl!=null?`, ${num(((st.bearing-decl)%360+360)%360,0)}° magnetic`:""})<div class="hint">${s.n_sites} site${s.n_sites===1?"":"s"}${rl&&rl.site?" · strongest realistic, not on free space":""} · <a href="#" data-aim="${esc(s.call_sign)}" title="Print this system's donor aiming sheet: true and magnetic bearing, elevation angle, terrain">⎙ aim</a></div>`:""}</td>
+        <td class="n" title="${rl?esc(`${rl.freq} MHz · Hata ${rl.hata_db} dB path loss, effective height ${rl.hb_m} m (${rl.hb_src})${rl.pattern_db?`, ${rl.pattern_db} dB off the antenna's beam`:""}; terrain ${rl.terrain}${rl.terrain_db?` −${rl.terrain_db} dB`:""}${rl.note?`; ${rl.note}`:""}`):"no power on file"}">${rl?num(rl.out_dbm,0):"–"}${rl?.note?' <span class="hint">~</span>':""}</td>
+        <td class="n">${rl?num(rl.in_dbm,0):"–"}</td><td class="n" style="color:${mc(rl?.margin_db)}"><b>${rl?num(rl.margin_db,0):"–"}</b></td>
+        <td class="n hint">${num(s.best_out,0)}</td><td class="n hint">${num(s.best_in,0)}</td><td class="n" style="color:${mc(s.margin_db)}">${num(s.margin_db,0)}</td>
         <td>${dasTerrainCell(s, (ps.terrain||{})[s.call_sign])}</td></tr>`; }).join("")}</tbody></table></div>
-      <p class="hint">Downlink: what the agency's sites transmit (the building's donor antenna hears it). Uplink: what the radios transmit, from each licence's mobile entries, or the fixed 800 MHz (−45 MHz) and 700 MHz (+30 MHz) offsets. Bearing is from the building to the site: point the donor antenna there.</p></div>
+      <p class="hint">Downlink: what the agency's sites transmit (the building's donor antenna hears it). Uplink: what the radios transmit, from each licence's mobile entries, or the fixed 800 MHz (−45 MHz) and 700 MHz (+30 MHz) offsets. Bearing is from the building to the site (magnetic from NOAA's WMM2025): point the donor antenna there. The donor site is the strongest on the realistic estimate; ~ marks a level outside Hata's tested range (below 150 MHz, or under 1 km), so rougher.</p></div>
     <div id="psCell" style="margin-top:10px"></div>`;
   window.dasCellPresurvey?.($("#psCell"), j, save);  // the commercial carriers here (dascell.js)
   // the chosen systems' channel plan is saved with the job, so the AHJ report and exports have it without the FCC data
   const store=async patch=>{ const incl=new Set(patch.include??[...inc]);
     j=await save({presurvey:{...(j.data.presurvey||{}),...P,...patch, plan:planOf(r.systems.filter(s=>incl.has(s.call_sign)))}}); dasPresurvey(el, j, save); };
   $("#psLet").onclick=()=>dasConsent(j, chosen);
+  $("#psAim").onclick=()=>dasDonorSheet(j, (any?chosen:r.systems.slice(0,10)).filter(s=>s.sites[0]), r, ps);
+  el.querySelectorAll("[data-aim]").forEach(b=>b.onclick=e=>{ e.preventDefault(); dasDonorSheet(j, r.systems.filter(s=>s.call_sign===b.dataset.aim), r, ps); });
+  $("#psEnv").onchange=e=>{ P.env=e.target.value; store({}); };
+  $("#psLetMail")&&($("#psLetMail").onclick=()=>dasConsentMail($("#psLetMailBox"), j, chosen));
   el.querySelectorAll("[data-flag-cs]").forEach(b=>b.onclick=()=>dasFlagPop(b, r.systems.find(s=>s.call_sign===b.dataset.flagCs)));
   el.querySelectorAll("[data-cs]").forEach(c=>c.onchange=()=>{ c.checked?inc.add(c.dataset.cs):inc.delete(c.dataset.cs); store({include:[...inc]}); });
   // the agencies an ERCES is for: fire, EMS, police, 911 and emergency management (not every government radio user)
@@ -472,12 +670,12 @@ async function dasPresurvey(el, j, save){
         ||(s.trunked&&/\b(COUNTY|CITY|STATE|COMMONWEALTH|TOWN|DISTRICT OF COLUMBIA|PARISH|BOROUGH)\b/i.test(n))) inc.add(s.call_sign); }
     store({include:[...inc]}); };
   $("#psNone").onclick=()=>store({include:[]});
-  $("#psTer").onclick=async()=>{ const list=(inc.size?chosen:r.systems.slice(0,20)).filter(s=>s.sites[0]);
+  $("#psTer").onclick=async()=>{ const list=(inc.size?chosen:r.systems.slice(0,20)).filter(s=>dasDonorSite(s));
     const b=$("#psTer"); b.disabled=true; b.textContent="⛰ Checking paths…";
-    try{ const res=await post("/api/das/terrain",{lat:d.lat, lon:d.lon, roof_m:dasRoof(d), sites:list.map(s=>({key:s.call_sign, lat:s.sites[0].lat, lon:s.sites[0].lon,
-        height_m:s.sites[0].height_m, freq:s.down[0]?.freq}))});
+    try{ const res=await post("/api/das/terrain",{lat:d.lat, lon:d.lon, roof_m:dasRoof(d), sites:list.map(s=>({key:s.call_sign, lat:dasDonorSite(s).lat, lon:dasDonorSite(s).lon,
+        height_m:dasDonorSite(s).height_m, freq:s.real?.freq||s.down[0]?.freq}))});
       const terrain={...(ps.terrain||{})};
-      for(const s of list){ const x=res.paths[s.call_sign]; if(x) terrain[s.call_sign]={...x, site:`${s.sites[0].lat},${s.sites[0].lon}`, roof_m:dasRoof(d)}; }
+      for(const s of list){ const x=res.paths[s.call_sign], st=dasDonorSite(s); if(x) terrain[s.call_sign]={...x, site:`${st.lat},${st.lon}`, roof_m:dasRoof(d)}; }
       store({terrain}); }catch(e){ b.disabled=false; b.textContent="⛰ Terrain paths"; alert(e.message); } };
   for(const [id,k] of [["#psR","radius"],["#psL","loss"],["#psT","threshold"]]) $(id).onchange=e=>{ P[k]=+e.target.value; store({}); };
   $("#psLp").onchange=e=>{ if(e.target.value!==""){ P.loss=+e.target.value; store({}); } };
@@ -505,7 +703,9 @@ async function dasPresurvey(el, j, save){
   if(byBand.length) boost();
   const sysRows=()=>r.systems.map(s=>({included:inc.has(s.call_sign)?"yes":"", agency:s.licensee, call_sign:s.call_sign, service:s.service_name, category:s.category, trunked:s.trunked?"yes":"no",
     technology:s.tech.join(" / "), downlink_mhz:s.down.map(c=>c.freq).join(" "), uplink_mhz:s.up.join(" "), best_site_mi:s.sites[0]?.dist_mi, bearing_deg:s.sites[0]?.bearing,
-    outdoor_dbm:s.best_out, indoor_dbm:s.best_in, margin_db:s.margin_db}));
+    outdoor_dbm:s.best_out, indoor_dbm:s.best_in, margin_db:s.margin_db,
+    realistic_site_mi:s.real?dasDonorSite(s)?.dist_mi:"", realistic_outdoor_dbm:s.real?.out_dbm??"", realistic_indoor_dbm:s.real?.in_dbm??"", realistic_margin_db:s.real?.margin_db??"",
+    realistic_model:s.real?`${RM?.name||""}; terrain ${s.real.terrain}`:""}));
   $("#psCsv").onclick=()=>dasDl(`${fileSafe(j.name)} pre-survey.csv`, csvOf(sysRows()), "text/csv");
   const siteRows=()=>{ const out=[]; for(const s of (inc.size?chosen:r.systems)) for(const st of s.sites) out.push({layer:"uls", lat:st.lat, lon:st.lon, dist_mi:st.dist_mi, compass:st.compass, freq_mhz:st.freqs[0],
     licensee:s.licensee, call_sign:s.call_sign, label:s.licensee, sig_type:s.tech[0]||"Unknown", est_rx_dbm:st.best_out}); return out; };
@@ -514,7 +714,11 @@ async function dasPresurvey(el, j, save){
       +`<Placemark><name>Donor bearing to ${x(s.call_sign)}</name><LineString><coordinates>${d.lon},${d.lat},0 ${s.lon},${s.lat},0</coordinates></LineString></Placemark>`).join("");
     const ol=d.building?.outline?`<Placemark><name>${x(j.name)} outline</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${d.building.outline.map(([a,b])=>`${b},${a},0`).join(" ")}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`:"";
     dasDl(`${fileSafe(j.name)} pre-survey.kml`, `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x(j.name)} pre-survey</name><Placemark><name>${x(j.name)}</name><Point><coordinates>${d.lon},${d.lat},0</coordinates></Point></Placemark>${ol}${pm}</Document></kml>`, "application/vnd.google-earth.kml+xml"); };
-  $("#psTak").onclick=()=>RFTak.save({rows:siteRows(), center:[d.lat,d.lon], radius:P.radius, name:`RF Recon - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
+  // ATAK: each donor site's marker says where to aim (true / magnetic bearing and elevation from the roof)
+  const takRows=()=>{ const aims=new Map(); for(const s of (inc.size?chosen:r.systems)){ const a=dasAim(d, s, r, ps); if(a) aims.set(`${s.call_sign}|${a.st.lat},${a.st.lon}`, a); }
+    return siteRows().map(x=>{ const a=aims.get(`${x.call_sign}|${x.lat},${x.lon}`);
+      return a?{...x, licensee:`${x.licensee} · donor: aim ${dasDeg(a.true_deg)} true${a.mag_deg!=null?` / ${dasDeg(a.mag_deg)} magnetic`:""}${a.elev!=null?`, ${a.elev>=0?"+":""}${num(a.elev,1)}° up`:""} from the roof`}:x; }); };
+  $("#psTak").onclick=()=>RFTak.save({rows:takRows(), center:[d.lat,d.lon], radius:P.radius, name:`RF Recon - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
     outline:d.building?.outline?{name:`${j.name} outline`, points:d.building.outline}:null});
   if(typeof L!=="undefined"){ const map=L.map("psMap",{preferCanvas:true}); addMapLayers(map); L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name}).addTo(map);
     if(d.building?.outline) L.polygon(d.building.outline,{color:"#f0a020", weight:2, fillOpacity:.15}).bindTooltip(dasBuildingLine(d.building)).addTo(map);
@@ -530,41 +734,57 @@ async function dasPresurvey(el, j, save){
 }
 
 /* ---------- requirements ---------- */
+// what a grid rule says, for the Requirements panel and the report's pass criteria
+const dasRuleText = rule => rule==="pct"
+  ? `judged by percentage: ${DASJ.general_pct}% of general and ${DASJ.critical_pct}% of critical squares pass on each floor, exact (94.7% is not 95%)`
+  : `IFC 510.5.4: ${DAS.grids} areas per floor; more than 1 failed area fails the floor. With exactly 2 failed, the floor may be re-divided into 40 areas and then passes with no more than 2 failed areas, none sharing an edge with another; failing that, the system is altered to reach 95%. Critical squares and named critical areas also meet ${DASJ.critical_pct}%`;
 function dasRequire(el, j, save){
-  const d=j.data||{}, req=d.require||{}, prof=d.profile||{};
+  const d=j.data||{}, req=d.require||{}, prof=d.profile||{}, pre=dasPreset(prof), P=pre?pre[1]:null;
   const rows=[["Signal at each test location", DASJ.threshold==null?"No dBm floor (DAQ decides)":`≥ ${DASJ.threshold} dBm downlink (uplink too where the AHJ asks)`],
     ["Audio quality", `DAQ ≥ ${DASJ.daq} downlink and uplink; design to 3.4. Measured equivalent: SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%`],
     ["Coverage", `${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas, each floor`],
-    ["Grid test", `${DAS.grids} roughly equal areas per floor, one test point near each centre; more than 1 failed area fails the floor. With exactly 2 failed, the floor may be re-divided into 40 and passes with no more than 2 non-adjacent failures. Areas 20–80 ft across; floors over 128,000 sq ft split into sectors`],
-    ["Test radio", "A calibrated portable of the agency's current model, through the agency's system; two radios keyed at once on different channels (one within 10 ft of an indoor antenna, one at the farthest point)"],
-    ["Isolation", "Donor to server antennas at least the system gain + 20 dB"],
+    ["Grid test", `${dasRuleText(DASJ.grid_rule)}. One test point near each area's centre; areas 20–80 ft across; floors over 128,000 sq ft split into sectors`],
+    ["Test radio", "A calibrated portable of the agency's current model, through the agency's system (or a method the fire code official approves, IFC 2024); two radios keyed at once on different channels (one within 10 ft of an indoor antenna, one at the farthest point)"],
+    ["Isolation", `Donor to server antennas at least the system gain + ${DASJ.isolation_margin_db??20} dB`],
     ["Standby power", `${DASJ.battery_h} h at 100% load (or 2 h battery plus a generator); low-battery signal at 70% depletion`],
-    ["Equipment", "UL 2524 listed; amplifiers in NEMA 4 / 4X enclosures, batteries in NEMA 3R"],
+    ["Equipment", `UL 2524 listed (prefer 3rd-edition listings: Intertek withdraws listings not updated by 2026-03-22); amplifiers in NEMA 4 / 4X enclosures, batteries in NEMA 3R${DASJ.class_a_only?"; Class A (channelized) boosters only":""}${DASJ.p25_phase2?"; P25 Phase 1 and Phase 2":""}`],
     ["Supervision", "To a listed fire alarm panel: AC loss, charger failure, donor antenna / signal source, active RF device, battery at 70%, critical component, the panel link, oscillation; an annunciator in the fire command center"],
     ["Noise at the agency site", "Rise under 1 dB with the booster on (10 kHz RBW, 5 min average), then 3 dB more margin"],
-    ["Annual", "Grid retest, gain checked against acceptance, 1 h battery load test, oscillation check, report to the fire code official"],
+    ["Annual", "Grid retest, gain checked against acceptance, 1 h battery load test, oscillation check, report to the fire code official; also a retest after additions or remodels (IFC 2024 510.6.1)"],
+    ["Five-year", "A full quantitative retest at least every five years where NFPA 1225 applies (20.3.10.2.3.3, per the SBC ERCES Primer); the IFC itself has no five-year rule"],
     ["FCC", "Licensee's written consent before activation (47 CFR 90.219(b)(1)); Class B registered with the FCC; 5 W ERP per channel; in-band noise −43 dBm ERP / 10 kHz"],
     ["People", "Tester holds an FCC GROL plus in-building or manufacturer training; many AHJs also ask NICET"]];
+  const src=x=>x?.source?` <a href="${esc(x.source)}" target="_blank" rel="noopener">source</a> <span class="hint">(${esc(x.checked||"")})</span>`:"";
   el.innerHTML=`<div class="grid2" style="margin-top:0">
     <div class="panel"><h3>This AHJ's numbers <span class="hint">· pass / fail on the grid test and report use these</span></h3>
-      <div class="row" style="margin-bottom:6px">${Object.keys(DAS_PROFILES).map(k=>`<button data-pf="${esc(k)}">${esc(k)}</button>`).join("")}</div>
+      <div class="row" style="margin-bottom:6px;align-items:end"><label class="grow">Preset <select id="pfPick"><option value="">${Object.keys(prof).length?(pre?"":"custom"):"— defaults —"}</option>${Object.keys(DAS_PROFILES).map(k=>`<option ${pre&&pre[0]===k&&Object.keys(prof).length?"selected":""}>${esc(k)}</option>`).join("")}</select></label></div>
       <div class="row"><label>Downlink ≥ dBm<input id="pf_threshold" type="number" value="${DASJ.threshold??""}" placeholder="none" style="width:80px"></label><label>DAQ ≥<input id="pf_daq" type="number" step="0.1" value="${DASJ.daq}" style="width:64px"></label>
         <label>General %<input id="pf_general_pct" type="number" value="${DASJ.general_pct}" style="width:64px"></label><label>Critical %<input id="pf_critical_pct" type="number" value="${DASJ.critical_pct}" style="width:64px"></label>
-        <label>Battery h<input id="pf_battery_h" type="number" value="${DASJ.battery_h}" style="width:64px"></label></div>
-      <p class="hint">${Object.keys(prof).length?"Set for this job.":"Defaults (IFC 2021 + NFPA 1225)."} Local amendments differ: some AHJs ask DAQ 3.4 (Orange County Sheriff, Burbank, Pierce County), −95 dBm both ways, 24 h batteries, or Class A boosters only.</p></div>
+        <label>Battery h<input id="pf_battery_h" type="number" value="${DASJ.battery_h}" style="width:64px"></label>
+        <label title="How each floor's grid is judged">Grid rule <select id="pf_grid_rule"><option value="ifc" ${DASJ.grid_rule!=="pct"?"selected":""}>IFC 510.5.4 failed areas</option><option value="pct" ${DASJ.grid_rule==="pct"?"selected":""}>Percentages only (NFPA)</option></select></label></div>
+      <p class="hint" id="pfNote">${!Object.keys(prof).length?"Defaults: IFC 2021 numbers with the IFC 510.5.4 grid rule.":pre?`<b>${esc(pre[0])}${prof.edited?", edited":""}</b>. ${esc(P.note||"")}${src(P)}`:"Custom numbers for this job."}
+        ${pre&&Object.keys(prof).length&&P.checked==="search excerpt"?'<br><b style="color:var(--warn)">From a search excerpt: the research did not open this document. Confirm the numbers with the AHJ.</b>':""}</p>
+      <p class="hint">Local amendments differ: some AHJs ask DAQ 3.4 (Orange County Sheriff, Burbank, Pierce County), −95 dBm both ways, 24 h batteries, or Class A boosters only.</p></div>
     <div class="panel"><h3>What the code asks <span class="hint">· ${esc(d.code||"IFC 510 + NFPA 1225")}; your AHJ's amendments win</span></h3>
       <div class="kvg">${rows.map(([k,v2])=>`<div>${esc(k)}</div><div>${esc(v2)}</div>`).join("")}</div>
       <p class="hint" id="drSrc" style="margin-top:8px"></p></div>
     <div class="panel"><h3>Critical areas in this building</h3>${DAS.critical_areas.map(a=>`<label class="inl" style="display:flex;padding:3px 0"><input type="checkbox" data-ca="${esc(a)}" ${(req.critical||[]).includes(a)?"checked":""}> ${esc(a)}</label>`).join("")}
       <label style="margin-top:8px">Other critical areas (one per line)<textarea id="drOther" rows="3" style="width:100%">${esc((req.other||[]).join("\n"))}</textarea></label>
-      <p class="hint">These become rows in the Grid test, each tested on its own.</p></div></div>
+      <p class="hint">These become rows in the Grid test, each tested on its own.</p></div>
+    <div class="panel" id="drLic"><h3>Licensee consent: known processes <span class="hint">· from the research; the licensee's current form wins</span></h3>
+      ${DAS_LICENSEES.map(x=>`<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(x.who)}</b>${x.term?` <span class="tag">${esc(x.term)}</span>`:""}<div>${esc(x.what)}${src(x)}</div></div>`).join("")}
+      <p class="hint">A term here is offered when you add an authorization under Overview, Lifecycle, so its renewal date comes from the source.</p></div></div>
     <div id="drCell" style="margin-top:10px"></div>`;
   $("#drSrc").innerHTML=DAS_SOURCES;
   window.dasCellRequire?.($("#drCell"), j, save);  // commercial cellular targets (dascell.js)
-  const setProf=async p=>{ j=await save({profile:p}); DASJ={...DAS,...p}; render(); };
-  el.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>setProf({...DAS_PROFILES[b.dataset.pf]}));
-  const PK=["threshold","daq","general_pct","critical_pct","battery_h"];
-  for(const k of PK) $(`#pf_${k}`).onchange=e=>setProf({...Object.fromEntries(PK.map(x=>[x,DASJ[x]])), [k]:e.target.value===""?null:+e.target.value});
+  const setProf=async p=>{ j=await save({profile:p}); DASJ=dasProfile(p); render(); };
+  // a preset is kept by its numbers, name and rule (the notes are looked up by name); editing a number keeps the name, marked edited
+  const KEEP=[...DAS_PROFILE_NUMS, "grid_rule", "isolation_margin_db", "class_a_only", "p25_phase2"];
+  $("#pfPick").onchange=e=>{ const k=e.target.value, x=DAS_PROFILES[k]; if(!x) return;
+    setProf({name:k, ...Object.fromEntries(KEEP.filter(f=>x[f]!==undefined).map(f=>[f,x[f]]))}); };
+  const edit=patch=>setProf({...prof, ...Object.fromEntries(DAS_PROFILE_NUMS.map(x=>[x,DASJ[x]])), grid_rule:DASJ.grid_rule, ...(pre?{name:pre[0], edited:true}:{}), ...patch});
+  for(const k of DAS_PROFILE_NUMS) $(`#pf_${k}`).onchange=e=>edit({[k]:e.target.value===""?null:+e.target.value});
+  $("#pf_grid_rule").onchange=e=>edit({grid_rule:e.target.value});
   el.querySelectorAll("[data-ca]").forEach(c=>c.onchange=async()=>{ const set=new Set((j.data.require||{}).critical||[]); c.checked?set.add(c.dataset.ca):set.delete(c.dataset.ca); j=await save({require:{...(j.data.require||{}),critical:[...set]}}); });
   $("#drOther").onchange=async e=>{ j=await save({require:{...(j.data.require||{}),other:e.target.value.split("\n").map(s=>s.trim()).filter(Boolean)}}); };
 }
@@ -612,15 +832,49 @@ function eff(d, r){ const rs=r&&Array.isArray(r.readings)?r.readings:null; if(!r
 // pass / fail for the score: null when untested or not counted
 const scored = (d, r) => { const c=calOf(d, r); return c&&c.ok ? gridPass(r) : null; };
 const notCounted = (d, r) => { const c=calOf(d, r); return !!c && !c.ok; };
-// per floor: do-not-test squares leave the count; squares marked critical are judged against the critical percentage
+/// per floor: do-not-test squares leave the count; squares marked critical are judged against the critical percentage.
+// Percentages are compared exactly, never rounded to a pass: 18 of 19 is 94.7%, not 95% (R2 K-1). Shown to one decimal,
+// cut rather than rounded, so a fail never reads as 95.0%.
+const dasPct = (a, b) => b ? Math.floor(1000*a/b+1e-9)/10 : 100;
+const dasCols = f => { const n=f.grids||DAS.grids; return f.cols||(n===20?5:Math.ceil(Math.sqrt(n))); };
+// two squares share an edge on the floor's grid (numbered row by row, `cols` across); a corner touch isn't adjacent
+const gridAdjacent = (a, b, cols) => { const ra=Math.floor((a-1)/cols), ca=(a-1)%cols, rb=Math.floor((b-1)/cols), cb=(b-1)%cols;
+  return Math.abs(ra-rb)+Math.abs(ca-cb)===1; };
+// The grid rule (DASJ.grid_rule, from the AHJ profile). "ifc", IFC 510.5.4 as the 2024 text (and 2021's) words it: each
+// floor is 20 areas and more than 1 failed area fails the test; with exactly 2 failed, the floor may be re-divided into
+// 40 areas, and then passes with no more than 2 failed areas that are not adjacent; failing that, the system is altered
+// to reach 95%. A floor with another count of squares (sectors, or a count the AHJ set) is judged by the percentages,
+// and says so. "pct": the percentages alone (NFPA-only AHJs). Critical squares meet the critical percentage either way.
 function floorStats(d, f){ const res=(d.grid||{}).results||{}, n=(f.grids||DAS.grids), skip=new Set(f.skip||[]), crit=new Set(f.critical||[]);
-  const o={n, tested:0, pass:0, gen:0, genPass:0, crit:0, critPass:0, untested:0, notCounted:0};
+  const o={n, tested:0, pass:0, gen:0, genPass:0, crit:0, critPass:0, untested:0, notCounted:0, fails:[], adjacent:[]};
   for(let g=1; g<=n; g++){ if(skip.has(g)) continue; const r=eff(d, res[`${f.name}|${g}`]), p=scored(d, r), c=crit.has(g);
     if(notCounted(d, r)) o.notCounted++;
-    c?o.crit++:o.gen++; if(p==null){ o.untested++; continue; } o.tested++; if(p){ o.pass++; c?o.critPass++:o.genPass++; } }
-  o.counted=o.gen+o.crit; o.pct=o.counted?Math.round(100*o.pass/o.counted):0;
-  o.genPct=o.gen?Math.round(100*o.genPass/o.gen):100; o.critPct=o.crit?Math.round(100*o.critPass/o.crit):100;
-  o.ok=o.untested===0 && o.genPct>=DASJ.general_pct && o.critPct>=DASJ.critical_pct; return o; }
+    c?o.crit++:o.gen++; if(p==null){ o.untested++; continue; } o.tested++; if(p){ o.pass++; c?o.critPass++:o.genPass++; } else o.fails.push(g); }
+  o.counted=o.gen+o.crit; o.pct=dasPct(o.pass, o.counted);
+  o.genPct=dasPct(o.genPass, o.gen); o.critPct=dasPct(o.critPass, o.crit);
+  const genOk = !o.gen || o.genPass/o.gen >= DASJ.general_pct/100, critOk = !o.crit || o.critPass/o.crit >= DASJ.critical_pct/100;
+  const cols=dasCols(f), nf=o.fails.length, sq=o.fails.join(", ");
+  for(let i=0;i<nf;i++) for(let k=i+1;k<nf;k++) if(gridAdjacent(o.fails[i], o.fails[k], cols)) o.adjacent.push([o.fails[i], o.fails[k]]);
+  const critWhy = critOk ? "" : ` Critical squares: ${o.critPass} of ${o.crit} pass (${o.critPct}%), under the ${DASJ.critical_pct}% required.`;
+  let areaOk;
+  if(DASJ.grid_rule!=="pct" && (n===20||n===40)){
+    o.rule=`IFC 510.5.4, ${n} areas`;
+    if(n===20){ areaOk = nf<=1; o.redivide = nf===2;
+      o.why = nf===0 ? "No area failed." : nf===1 ? `1 of 20 areas failed (square ${sq}): one is allowed.`
+        : nf===2 ? `2 of 20 areas failed (squares ${sq}): more than 1 fails the floor. The floor may be re-divided into 40 areas and tested again; it then passes with no more than 2 non-adjacent failures.`
+        : `${nf} of 20 areas failed (squares ${sq}): more than 1 fails the floor.`; }
+    else { areaOk = nf<=2 && !o.adjacent.length;
+      o.why = nf===0 ? "No area failed." : areaOk ? `${nf} of 40 areas failed (square${nf===1?"":"s"} ${sq}), not adjacent: up to 2 non-adjacent are allowed.`
+        : nf>2 ? `${nf} of 40 areas failed (squares ${sq}): more than 2 fails the floor, and the system must be altered to reach 95%.`
+        : `2 of 40 areas failed and they share an edge (squares ${sq}): the 2 allowed must be non-adjacent, so the system must be altered to reach 95%.`; }
+  } else {
+    o.rule = DASJ.grid_rule==="pct" ? "percentages" : `percentages (${n} squares: the IFC area rule is worded for 20 or 40)`;
+    areaOk = genOk;
+    o.why = `${o.genPass} of ${o.gen} general squares pass (${o.genPct}%)${genOk?`, at least the ${DASJ.general_pct}% required`:`: under the ${DASJ.general_pct}% required`}.`;
+  }
+  o.why += critWhy;
+  if(o.untested) o.why = `${o.untested} square${o.untested===1?"":"s"} not tested yet. `+o.why;
+  o.ok = o.untested===0 && areaOk && critOk; return o; }
 async function dasGrid(el, j, save){
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[], G=d.grid||{}, res=G.results||{}, base=d.baseline||null;
   if(!floors.length){ el.innerHTML='<p class="status">Set the number of floors on the Overview first.</p>'; return; }
@@ -679,9 +933,11 @@ async function dasGrid(el, j, save){
     ${!inst?`<p class="status" style="margin:0 2px 8px">Pick what's taking the readings (<b>Taken with</b>) before you enter or import any.${insts.length?"":" Add your instruments on the Overview first: model | serial | calibration date."}</p>`:""}
     ${unnamed?`<p class="status err" style="margin:0 2px 8px">${unnamed} reading${unnamed===1?" doesn't":"s don't"} say what took ${unnamed===1?"it":"them"}, so ${unnamed===1?"it doesn't":"they don't"} count.
       Taken with <select id="dgFix"><option value="">— pick —</option>${instOpts("",false)}</select> <button id="dgFixGo">Apply to ${unnamed===1?"it":`these ${unnamed}`}</button></p>`:""}
-    <div class="cards" style="margin-bottom:10px">${cv?cellCards():""}${(cv?[]:st).map(x=>`<div class="card" data-fl="${esc(x.f.name)}" style="cursor:pointer;${x.f.name===D.floor?"outline:2px solid var(--accent)":""}" title="General ${x.genPass}/${x.gen}, critical ${x.critPass}/${x.crit}, ${x.untested} untested${x.notCounted?`, ${x.notCounted} not counted (no calibrated instrument)`:""}">
-        <div class="v" style="color:${x.untested?"var(--muted)":x.ok?"var(--good)":"var(--bad)"}">${x.genPct}%</div><div class="k">Floor ${esc(x.f.name)} · ${x.genPass}/${x.gen} general${x.crit?` · ${x.critPass}/${x.crit} critical`:""}${x.untested?` · ${x.untested} untested`:""}${x.notCounted?` · ${x.notCounted} not counted`:""}</div></div>`).join("")}
+    <div class="cards" style="margin-bottom:10px">${cv?cellCards():""}${(cv?[]:st).map(x=>`<div class="card" data-fl="${esc(x.f.name)}" style="cursor:pointer;${x.f.name===D.floor?"outline:2px solid var(--accent)":""}" title="General ${x.genPass}/${x.gen}, critical ${x.critPass}/${x.crit}, ${x.untested} untested${x.notCounted?`, ${x.notCounted} not counted (no calibrated instrument)`:""}. Judged by ${esc(x.rule)}: ${esc(x.why)}">
+        <div class="v" style="color:${x.untested?"var(--muted)":x.ok?"var(--good)":"var(--bad)"}">${x.genPct}%</div><div class="k">Floor ${esc(x.f.name)} · ${x.genPass}/${x.gen} general${x.crit?` · ${x.critPass}/${x.crit} critical`:""}${x.untested?` · ${x.untested} untested`:""}${x.notCounted?` · ${x.notCounted} not counted`:""}${!x.untested?` · <b>${x.ok?"pass":"fail"}</b>`:""}${x.fails.length?` · ${x.fails.length} failed`:""}</div></div>`).join("")}
       ${crit.length&&!cv?`<div class="card"><div class="v" style="color:${critTested.length<crit.length?"var(--muted)":critPass.length===crit.length?"var(--good)":"var(--bad)"}">${critPass.length}/${crit.length}</div><div class="k">Named critical areas pass</div></div>`:""}</div>
+    ${!cv?(()=>{ const x=st.find(y=>y.f.name===f.name); return x&&x.tested?`<p class="status${x.untested||x.ok?"":" err"}" id="dgRule" style="margin:0 2px 8px">Floor ${esc(f.name)}, judged by ${esc(x.rule)}: ${esc(x.why)}
+      ${x.redivide?` <button id="dgRedivide" title="IFC 510.5.4: with exactly 2 of 20 areas failed, the floor may be divided into 40 equal areas and tested again. This floor's 20-area readings are kept with the job, dated; the 40 squares start empty, so mark the critical and do-not-test squares again">Re-divide into 40 areas</button>`:""}</p>`:""; })():""}
     <div class="grid2" style="margin-top:0;grid-template-columns:minmax(320px,2fr) minmax(260px,1fr)">
       <div class="panel"><h3>Floor ${esc(f.name)} <span class="hint">· ${place?"drag the grid to move it, the corner dot to size it, the top dot to turn it":D.mark==="read"?"click a square to enter its readings":D.mark==="skip"?"click squares that aren't tested (shafts, closets the AHJ excludes)":"click squares that are critical areas"} · ${cv?`${esc(cvL.carrier)}, ${esc(LAYER_NAME[cvL.layer])}: pass = its best cell ≥ ${cellThr(cvP, cvL.carrier, cvL.layer)} dBm RSRP${cvP.sinr!=null?` and SINR ≥ ${cvP.sinr} dB`:""}; ${cvP.pct}% of tested squares (${esc(cvP.name)})`:`pass = ≥ ${DASJ.threshold} dBm and DAQ ≥ ${DASJ.daq} (or SINR ≥ ${daqEq().sinr} dB, BER ≤ ${daqEq().ber}%) on every channel, from a calibrated instrument; grey = not counted`}</span></h3>
         <div id="dgWrap" style="position:relative;width:100%;${hasPlan?"":`aspect-ratio:${cols}/${rows};`}border-radius:10px;overflow:${place?"visible":"hidden"}">
@@ -707,8 +963,15 @@ async function dasGrid(el, j, save){
   $("#dgMark").onclick=e=>{ const b=e.target.closest("button"); if(b){ D.mark=b.dataset.m; render(); } };
   const setFloor=async patch=>{ const fl=(j.data.floors||[]).map(x=>x.name===f.name?{...x,...patch}:x); j=await save({floors:fl}); render(); };
   $("#dgN").onchange=e=>setFloor({grids:Math.max(1,Math.min(100,+e.target.value||DAS.grids))});
+  // the 40-area retest (IFC 510.5.4): the 20-area readings move to grid.redivided[floor], dated, so the new squares 1-20
+  // don't inherit readings taken at other places on the floor; 8 across x 5 down (Columns can change it)
+  $("#dgRedivide")&&($("#dgRedivide").onclick=async()=>{ const G2=j.data.grid||{}, R2={...(G2.results||{})}, old={};
+    for(const k of Object.keys(R2)) if(k.startsWith(`${f.name}|`)){ old[k]=R2[k]; delete R2[k]; }
+    const keep={...(G2.redivided||{}), [f.name]:{date:today(), grids:n, cols, results:old}};
+    j=await save({grid:{...G2, results:R2, redivided:keep}, floors:(j.data.floors||[]).map(x=>x.name===f.name?{...x, grids:40, cols:8, skip:[], critical:[]}:x)});
+    render(); });
   $("#dgC").onchange=e=>setFloor({cols:Math.max(1,Math.min(20,+e.target.value||5))});
-  $("#dgPlan").onchange=e=>setFloor({plan:e.target.value||null});
+  $("#dgPlan").onchange=e=>setFloor({plan:e.target.value||null, plan_src:null});  // another image: the PDF it came from no longer applies (dswalls.js)
   $("#dgInst").onchange=async e=>{ const v=e.target.value;
     if(v.startsWith("add:")){  // a new instrument: its serial and calibration date, then it's the one taking readings
       const rx=(typeof SCREEN_RX!=="undefined"?SCREEN_RX:[]).find(x=>"add:"+x.id===v), box=$("#dgAddInst");
@@ -925,12 +1188,13 @@ function dasReport(el, j){
       background:${sk?"repeating-linear-gradient(45deg,#ddd 0 5px,transparent 5px 10px)":n2?"rgba(140,149,159,.45)":p==null?"rgba(255,255,255,.55)":p?"rgba(60,207,122,.55)":"rgba(229,83,75,.6)"}">
       <b>${esc(f.name)}-${g}${c?" ★":""}</b>${sk?"not tested":r&&has(r.dl)?`${r.dl} dBm`:""}${n2?"<span>not counted</span>":""}</div>`; };
   el.innerHTML=`<div class="maptools no-print"><div class="seg" id="drView"><button data-rv="test" class="on">Test report</button><button data-rv="submittal">Design submittal</button></div>
-    <button class="primary" id="drPrint">⎙ Print / save as PDF</button><span class="hint">Prints the report only. Choose “Save as PDF”, then add the PDF to the job's Files.</span></div>
+    <button class="primary" id="drPrint">⎙ Print / save as PDF</button>${window.rfMail?`<button id="drMail" title="Email the AHJ from your own mailbox with the report PDF from the job's Files; their reply comes back into the job">✉ Email the AHJ</button>`:""}<span class="hint">Prints the report only. Choose “Save as PDF”, then add the PDF to the job's Files.</span></div>
+  <div id="drMailBox" class="no-print"></div>
   <div class="panel" id="dasPrint">
     <h2 style="margin:0 0 4px">Emergency responder radio coverage test: ${esc(j.name)}</h2>
     <p style="margin:0 0 10px">${esc(d.address||"")} · ${esc(d.ahj||"AHJ not set")} · ${esc(d.code||"IFC 510 + NFPA 1225")} · prepared ${esc(today())}</p>
     <p style="font-size:18px;margin:6px 0"><b>Result: ${allTested?(ok?'<span class="res-pass">PASS</span>':'<span class="res-fail">FAIL</span>'):st.length?"Not complete (untested areas below)":"Not complete (no floors tested yet: add them under Grid test)"}</b></p>
-    <p class="hint">Pass criteria: each test location ≥ ${DASJ.threshold} dBm downlink and uplink, DAQ ≥ ${DASJ.daq} both ways (or SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%), on every channel tested there (the worst channel is shown); ${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas on each floor; ${DAS.grids} grid squares per floor. Only readings taken with an instrument calibrated within ${DAS.cal_months} months of the reading are scored.</p>
+    <p class="hint">Pass criteria: each test location ≥ ${DASJ.threshold} dBm downlink and uplink, DAQ ≥ ${DASJ.daq} both ways (or SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%), on every channel tested there (the worst channel is shown); ${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas on each floor. Each floor's grid: ${esc(dasRuleText(DASJ.grid_rule))}${DASJ.profile_name?` (profile: ${esc(DASJ.profile_name)})`:""}. Only readings taken with an instrument calibrated within ${DAS.cal_months} months of the reading are scored.</p>
     ${nc?`<p style="margin:4px 0"><b>${nc} reading${nc===1?" was":"s were"} not scored</b>: taken without a calibrated instrument, or with no instrument recorded. They are shown grey (“not counted”) as pre-survey information only.</p>`:""}
     <h3>Building and people</h3><div class="kvg"><div>Building</div><div>${esc([j.name, d.address, d.floors?.length?`${d.floors.length} floors`:"", d.area_sqft?`${Number(d.area_sqft).toLocaleString()} sq ft`:"", d.construction].filter(Boolean).join(" · "))}</div>
       ${DAS_ROLES.map(([k,l])=>{ const c=who(k); return c?`<div>${esc(l)}</div><div>${esc([c.name,c.org,c.phone,c.email].filter(Boolean).join(" · "))}</div>`:""; }).join("")}</div>
@@ -940,10 +1204,10 @@ function dasReport(el, j){
       ${d.baseline?`<div>Compared with</div><div>the acceptance test of ${esc(d.baseline.date)}</div>`:""}</div>
     <h3>Systems covered</h3>${plan.length?`<table><thead><tr><th>Agency</th><th>Call sign</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Type</th></tr></thead><tbody>${plan.map(p=>`<tr><td>${esc(p.system)}</td><td class="mono">${esc(p.call_sign)}</td><td class="mono">${esc(p.downlink_mhz)}</td><td class="mono">${esc(p.uplink_mhz)}</td><td>${esc(p.technology)}</td></tr>`).join("")}</tbody></table>`:'<p class="hint">None chosen in the pre-survey.</p>'}
     <h3>System diagram: signal path, start to finish</h3><div id="drDiagram"><p class="hint">Drawing the diagram…</p></div>
-    <h3>Summary by floor</h3><table><thead><tr><th>Floor</th><th class="n">General pass</th><th class="n">Critical pass</th><th class="n">Untested</th><th class="n">Not counted</th><th>Result</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.f.name)}</td><td class="n">${x.genPass}/${x.gen} (${x.genPct}%)</td><td class="n">${x.crit?`${x.critPass}/${x.crit} (${x.critPct}%)`:"–"}</td><td class="n">${x.untested}</td><td class="n">${x.notCounted||""}</td><td>${x.untested?"incomplete":x.ok?"pass":"fail"}</td></tr>`).join("")}
-      ${crit.length?`<tr><td>Named critical areas</td><td></td><td class="n">${crit.filter(a=>scored(d,cr[a])).length}/${crit.length}</td><td class="n">${crit.filter(a=>scored(d,cr[a])==null).length}</td><td class="n">${crit.filter(a=>notCounted(d,cr[a])).length||""}</td><td></td></tr>`:""}</tbody></table>
+    <h3>Summary by floor</h3><table><thead><tr><th>Floor</th><th class="n">General pass</th><th class="n">Critical pass</th><th class="n">Untested</th><th class="n">Not counted</th><th>Result</th><th>Rule and reason</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.f.name)}</td><td class="n">${x.genPass}/${x.gen} (${x.genPct}%)</td><td class="n">${x.crit?`${x.critPass}/${x.crit} (${x.critPct}%)`:"–"}</td><td class="n">${x.untested}</td><td class="n">${x.notCounted||""}</td><td>${x.untested?"incomplete":x.ok?"pass":"<b>fail</b>"}</td><td>${esc(x.rule)}: ${esc(x.why)}</td></tr>`).join("")}
+      ${crit.length?`<tr><td>Named critical areas</td><td></td><td class="n">${crit.filter(a=>scored(d,cr[a])).length}/${crit.length}</td><td class="n">${crit.filter(a=>scored(d,cr[a])==null).length}</td><td class="n">${crit.filter(a=>notCounted(d,cr[a])).length||""}</td><td></td><td>each must pass</td></tr>`:""}</tbody></table>
     ${st.map(x=>{ const f=x.f, n=f.grids||DAS.grids, cols=f.cols||(n===20?5:Math.ceil(Math.sqrt(n))), rows=Math.ceil(n/cols);
-      return `<div style="break-before:page;margin-top:16px"><h3>Floor ${esc(f.name)}: ${x.genPass}/${x.gen} general${x.crit?`, ${x.critPass}/${x.crit} critical`:""} pass</h3>
+      return `<div style="break-before:page;margin-top:16px"><h3>Floor ${esc(f.name)}: ${x.genPass}/${x.gen} general${x.crit?`, ${x.critPass}/${x.crit} critical`:""} pass · ${x.untested?"incomplete":x.ok?"PASS":"FAIL"}</h3><p style="margin:0 0 6px">${esc(x.rule)}: ${esc(x.why)}</p>
         <div style="position:relative;width:100%;max-width:720px;${f.plan?"":`aspect-ratio:${cols}/${rows};`}border:1px solid #999;overflow:hidden">
           ${f.plan?`<img data-plan="${esc(f.plan)}" data-ar="${cols}/${rows}" alt="Floor ${esc(f.name)} plan" style="display:block;width:100%;height:auto;min-height:120px">`:""}
           <div style="position:absolute;${boxCss(f)};display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${Array.from({length:n},(_,i)=>cell(f,i+1)).join("")}</div></div>
@@ -957,12 +1221,64 @@ function dasReport(el, j){
   el.querySelectorAll("img[data-plan]").forEach(async im=>{ const s=await jobFileSrc(j.id, im.dataset.plan);
     if(s){ im.src=s; im.style.minHeight=""; } else { const box=im.parentElement, g=box.querySelector("div"); box.style.aspectRatio=im.dataset.ar; if(g) g.style.cssText=g.style.cssText.replace(/left:[^;]+;top:[^;]+;width:[^;]+;height:[^;]+;transform:[^;]+/,"inset:0"); im.remove(); } });
   $("#drPrint").onclick=()=>dasPrintCopy($("#dasPrint"));
+  $("#drMail")&&($("#drMail").onclick=async()=>{ const cs=S.das.contacts||[], ahj=cs.find(c=>String(c.id)===String((d.contacts||{}).ahj)), me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech));
+    const fl=((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files||[]).map(f=>f.name);
+    rfMail.compose($("#drMailBox"), {kind:"job", refs:{job_id:j.id, topic:"AHJ"}, title:"Email the AHJ", to:ahj?.email||"",
+      subject:`ERCES ${S.das.rview==="submittal"?"design submittal":"acceptance test report"}: ${j.name}${d.address?`, ${d.address}`:""}`,
+      body:`Hello${ahj?.name?` ${ahj.name.split(" ")[0]}`:""},\n\nPlease find attached the ${S.das.rview==="submittal"?"design submittal":"acceptance test report"} for the emergency responder radio coverage system at ${j.name}${d.address?`, ${d.address}`:""}.\n\nPlease let us know if you need anything else or would like to schedule a witness test.\n\nThank you,\n${me?[me.name, me.org, me.phone].filter(Boolean).join("\n"):""}`,
+      files:fl.filter(n=>/\.pdf$/i.test(n)).concat(fl.filter(n=>!/\.pdf$/i.test(n)))}); });
   // the diagram needs the link budget defaults and the cable tables loaded first: drawn before them, it showed a 0 dBm
   // radio and lossless cables (11/3)
   if(window.dasSchematic&&window.frLoad) Promise.all([frLoad("budget"), frLoad("parts")])
     .then(()=>{ const x=el.querySelector("#drDiagram"); if(x&&x.isConnected) x.innerHTML=window.dasSchematic(d); })
     .catch(e=>{ const x=el.querySelector("#drDiagram"); if(x) x.innerHTML=`<p class="hint">The diagram couldn't be drawn: ${esc(e.message)}</p>`; });
   $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
+}
+
+/* ---------- a job's mail (Cody 11/4): email anyone on the job from your own mailbox, ask for the plans; replies and their
+   attachments come back into the job (dasmail.js) ---------- */
+function dasJobMail(el, j){
+  if(!window.rfMail) return;
+  const d=j.data||{}, cs=S.das.contacts||[], roles=d.contacts||{};
+  const people=Object.entries(roles).map(([role,id])=>[role, cs.find(c=>String(c.id)===String(id))]).filter(([,c])=>c&&c.email);
+  const me=cs.find(c=>String(c.id)===String(roles.tech));
+  el.insertAdjacentHTML("beforeend", `<div class="panel" style="margin-top:12px" id="doMailPanel"><h3 style="margin-top:0">Mail <span class="hint">· from your own mailbox; replies and their attachments come back into this job</span></h3>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button id="doMail">✉ Email about this job</button><button id="doPlansMail" title="Ask the owner, GC or architect for the floor plans; the PDFs they send back land in Files">✉ Ask for the plans</button></div>
+    <div id="doMailBox"></div><div id="doMailThread"></div></div>`);
+  const files=async()=>((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files||[]).map(f=>f.name);
+  const to=(...rs)=>{ for(const r of rs){ const p=people.find(([role])=>role===r); if(p) return p[1].email; } return ""; };
+  const sig=me?["", me.name, me.org, me.phone].filter(Boolean).join("\n"):"";
+  $("#doMail").onclick=async()=>rfMail.compose($("#doMailBox"), {kind:"job", refs:{job_id:j.id, topic:"MAIL"}, title:`Email about ${j.name}`, to:to("owner","gc","ahj"),
+    subject:`${j.name}${d.address?`, ${d.address}`:""}`, body:`Hello,\n\n\n${sig}`, files:await files(), onSent:()=>rfMail.thread($("#doMailThread"), {job:j.id})});
+  $("#doPlansMail").onclick=async()=>rfMail.compose($("#doMailBox"), {kind:"job", refs:{job_id:j.id, topic:"PLANS"}, title:"Ask for the floor plans", to:to("owner","gc"),
+    subject:`Floor plans for ${j.name}${d.address?`, ${d.address}`:""}`,
+    body:`Hello,\n\nWe're designing the emergency responder radio coverage (ERCES) for ${j.name}${d.address?` at ${d.address}`:""}. Could you send the floor plans for every floor, as PDFs (architectural plans with walls, ideally the CAD-exported PDFs rather than scans), and the roof plan if there is one?\n\nA reply to this email with the files attached is all we need.\n\nThank you,${sig?"\n"+sig:""}`,
+    onSent:()=>rfMail.thread($("#doMailThread"), {job:j.id})});
+  rfMail.thread($("#doMailThread"), {job:j.id});
+}
+
+/* ---------- consent letters: 47 CFR 90.219(b)(1) asks for the licensee's consent before a booster retransmits its signal ---------- */
+function dasConsentText(j, lic, ss){
+  const d=j.data||{}, cs=S.das.contacts, me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech)), cls=(d.booster_class||"Class A (channelized)");
+  return `${lic}\nRadio system manager\n\nRe: Consent to retransmit under 47 CFR 90.219(b)(1): ${j.name}, ${d.address||""}\n\n`
+    +`We are installing an emergency responder communication enhancement system (${cls} signal booster) at the building above so that responders' radios work inside it, as ${d.ahj||"the authority having jurisdiction"} requires under ${d.code||"IFC 510 and NFPA 1225"}.\n\n`
+    +`The booster will retransmit only these channels licensed to you:\n`+ss.map(s=>`  ${s.call_sign}: downlink ${s.down.map(c=>fmtF(c.freq)).join(", ")} MHz; uplink ${s.up.map(fmtF).join(", ")||"to be confirmed"} MHz`).join("\n")
+    +`\n\nWe ask for your written consent to retransmit these channels, and for any conditions you set (gain limits, donor site, filtering, monitoring, or contact for interference).${cls.startsWith("Class B")?" As a Class B booster it will also be registered with the FCC before it is switched on.":""}\n\n`
+    +`A reply to this email with your consent (or a signed copy of the attached letter) is all we need.\n\nThank you,\n${me?[me.name, me.org, me.phone, me.email].filter(Boolean).join("\n"):""}`;
+}
+function dasConsentMail(box, j, systems){
+  if(!window.rfMail) return;
+  const by=new Map(); for(const s of systems){ if(!by.has(s.licensee)) by.set(s.licensee, []); by.get(s.licensee).push(s); }
+  box.innerHTML=`<div class="panel" style="margin:8px 0"><div class="row" style="justify-content:space-between"><b>Email the consent requests</b><button class="sm" id="psLmX">✕</button></div>
+    <p class="hint">One email per licensee from your own mailbox. Their email isn't in the FCC records RF Recon keeps: their radio shop's address usually is on the agency's site. The signed reply lands in the job's Files and is noted here.</p>
+    ${[...by].map(([lic,ss],i)=>`<div style="border-top:1px solid var(--line);padding:6px 0"><b>${esc(lic)}</b> <span class="hint">${ss.map(s=>esc(s.call_sign)).join(", ")}</span>
+      ${(j.data.consent_replies||{})[ss[0].call_sign]?`<span class="tag" style="background:var(--good);color:#fff">reply ${esc(j.data.consent_replies[ss[0].call_sign].at)}</span>`:""}
+      <button class="sm" data-lmail="${i}">✉ Write</button><div data-lbox="${i}"></div></div>`).join("")}</div>`;
+  $("#psLmX").onclick=()=>{ box.innerHTML=""; };
+  const list=[...by];
+  box.querySelectorAll("[data-lmail]").forEach(b=>b.onclick=()=>{ const [lic,ss]=list[+b.dataset.lmail];
+    rfMail.compose(box.querySelector(`[data-lbox="${b.dataset.lmail}"]`), {kind:"job", refs:{job_id:j.id, topic:"CONSENT", extra:ss[0].call_sign}, title:`Consent request to ${lic}`,
+      subject:`Consent to retransmit ${ss.map(s=>s.call_sign).join(", ")}: ${j.name}`, body:dasConsentText(j, lic, ss)}); });
 }
 
 /* ---------- consent letters: 47 CFR 90.219(b)(1) asks for the licensee's consent before a booster retransmits its signal ---------- */

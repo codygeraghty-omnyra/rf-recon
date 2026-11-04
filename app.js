@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "f31c206d0d";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "5a2e7bcd8d";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -280,6 +280,7 @@ const pinIcon = () => L.divIcon({className: "pin", iconSize: [30, 40], iconAncho
   html: `<svg width="30" height="40" viewBox="0 0 30 40"><path d="M15 39s13-13.6 13-24A13 13 0 0 0 2 15c0 10.4 13 24 13 24z" fill="${getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#f0a07a"}" stroke="#000c" stroke-width="2"/><circle cx="15" cy="15" r="5" fill="#111"/></svg>`});
 function initMap() {
   map = L.map("map", {preferCanvas: true, zoomControl: false, renderer: canvas, worldCopyJump: true}).setView([39.5, -98.35], 4);
+  if (window.rfZoomBar) rfZoomBar(map);  // − / + and the wheel-zoom lock (zoombar.js), for the phone app on a computer
   setBase(S.base);
   dots = L.layerGroup().addTo(map);
   map.on("click", e => { closeSuggest(); setCenter([e.latlng.lat, e.latlng.lng], false); });

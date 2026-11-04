@@ -13,5 +13,6 @@
   "opencellid": "Cell tower data: OpenCelliD Project, licensed under CC BY-SA 4.0 (opencellid.org).",
   "osm": "Building outlines and street maps: \u00a9 OpenStreetMap contributors (ODbL, openstreetmap.org/copyright).",
   "overture": "Building outlines: \u00a9 OpenStreetMap contributors, Overture Maps Foundation (ODbL)."
- }
+ },
+ "commit": null
 }

@@ -260,6 +260,91 @@ def compute(lat, lon, f_mhz, eirp, h_tx=30.0, haat=None, az=None, bw=None, model
     return res, grid, rgba
 
 
+# ---------------------------------------------------------------- the DAS pre-survey's realistic levels (R1 #1, 11/4)
+# das.presurvey gives free-space levels (best case): on real data they never fall below -95 dBm inside, so "an ERCES is
+# likely needed" could not fire (R1 measured 0 of 200 systems in Arlington VA on free space, 170 of 200 on Hata urban).
+# This adds, beside them, the same licensed power through the area model the coverage map uses: Okumura-Hata (COST-231
+# above 1500 MHz, never stronger than free space) with the licence's antenna pattern, and the knife-edge loss over the
+# highest ridge where terrain is already cached on this PC (never fetched here). It is a street-level median (1.5 m
+# receiver), so it is pessimistic for upper floors: an estimate to bracket the answer, not a measurement.
+REAL_ENVS = ("urban", "suburban", "open")
+
+
+def _real_rows(con, calls):
+    rows = {}
+    for i in range(0, len(calls), 900):
+        part = calls[i:i + 900]
+        for r in con.execute(
+                "SELECT call_sign, lat, lon, freq_mhz, erp_w, power_out_w, haat_m, height_tip_m, azimuth, beamwidth, ground_elev_m "
+                f"FROM tx WHERE status='A' AND freq_mhz IS NOT NULL AND lat IS NOT NULL AND lon IS NOT NULL AND call_sign IN ({','.join('?' * len(part))}) "
+                "AND (station_class LIKE 'FB%' OR station_class LIKE 'FX%')", part):
+            rows.setdefault((r[0], f"{r[1]:.5f},{r[2]:.5f}"), []).append(r)
+    return rows
+
+
+def presurvey_realistic(con, res, lat, lon, env="suburban", h_rx=1.5, use_terrain=True):
+    """Adds `real` to each system of a das.presurvey result: the strongest of its listed sites on Hata (+ terrain where
+    cached), {site (index into sites), out_dbm, in_dbm, margin_db, freq, hata_db, terrain_db, terrain, hb_m, hb_src,
+    note}, and `real_model` describing the model. Free-space numbers are left as they were."""
+    env = env if env in REAL_ENVS else "suburban"
+    loss_db, thr = res.get("loss_db") or 0.0, res.get("threshold_dbm") or -95.0
+    systems = res.get("systems") or []
+    rows = _real_rows(con, [s["call_sign"] for s in systems])
+    counts = {"systems": 0, "terrain": 0, "below": 0}
+    for s in systems:
+        best = None
+        for i, st in enumerate(s.get("sites") or []):
+            key = (s["call_sign"], f"{st['lat']:.5f},{st['lon']:.5f}")
+            d = geo.haversine_km(st["lat"], st["lon"], lat, lon)
+            brg = geo.bearing_deg(st["lat"], st["lon"], lat, lon)
+            for r in rows.get(key, []):
+                f, erp = r[3], r[4] or r[5]
+                if not erp or not 25 <= f <= 1000:
+                    continue
+                eirp = 10 * math.log10(erp * 1000) + 2.15
+                hb = r[6] if r[6] is not None else (r[7] if r[7] is not None else 30.0)
+                hb_src = "licensed HAAT" if r[6] is not None else "antenna height above ground" if r[7] is not None else "30 m assumed"
+                pl = fspl_db(max(d, 0.05), f) if f < 30 else hata_db(max(d, 0.05), f, hb, h_rx, env)
+                lvl = eirp - pl + pattern_db(brg, r[8], r[9])
+                if best is None or lvl > best["lvl"]:
+                    best = {"lvl": lvl, "site": i, "freq": round(f, 5), "hata_db": round(pl, 1), "hb_m": round(max(10.0, min(hb, 300.0)), 1),
+                            "hb_src": hb_src, "d_km": d, "h_tip": r[7] if r[7] is not None else 30.0, "site_ground_m": r[10],
+                            "pattern_db": round(pattern_db(brg, r[8], r[9]), 1)}
+        if best is None:
+            s["real"] = None
+            continue
+        counts["systems"] += 1
+        st = s["sites"][best["site"]]
+        terr, tstate = 0.0, "not cached"
+        if use_terrain and best["d_km"] > 0.05:
+            try:
+                prof = terrain.profile(st["lat"], st["lon"], best["h_tip"], lat, lon, h_rx, best["freq"],
+                                       z=12 if best["d_km"] <= 15 else 11, fetch=False, skip_end_m=1000 if best["d_km"] > 2 else 0)
+                terr, tstate = prof["loss_db"], prof["status"]
+                counts["terrain"] += 1
+            except LookupError:
+                pass
+        out = best["lvl"] - terr
+        notes = []
+        if not 150 <= best["freq"] <= 1500:
+            notes.append(f"{best['freq']:g} MHz is outside Hata's tested 150-1500 MHz: rough")
+        if best["d_km"] < 1:
+            notes.append("under 1 km from the site: Hata is rough this close")
+        s["real"] = {"site": best["site"], "out_dbm": round(out, 1), "in_dbm": round(out - loss_db, 1),
+                     "margin_db": round(out - loss_db - thr, 1), "freq": best["freq"], "hata_db": best["hata_db"],
+                     "pattern_db": best["pattern_db"], "terrain_db": round(terr, 1), "terrain": tstate, "hb_m": best["hb_m"],
+                     "hb_src": best["hb_src"], "site_ground_m": best["site_ground_m"], "note": "; ".join(notes)}
+        if s["real"]["margin_db"] < 0:
+            counts["below"] += 1
+    ground = terrain.elevation(lat, lon, 12, fetch=False) if use_terrain else None
+    res["real_model"] = {"name": f"Okumura-Hata, {env}", "env": env, "h_rx_m": h_rx, "ground_m": ground, **counts,
+                         "desc": (f"Okumura-Hata {env} (COST-231 above 1500 MHz, never stronger than free space) from the "
+                                  f"licensed ERP, with the licence's antenna pattern where on file, and the loss over the highest "
+                                  f"ridge where terrain is cached on this PC ({counts['terrain']} of {counts['systems']} paths). "
+                                  f"A {h_rx:g} m street-level median: pessimistic for upper floors. An estimate, not a measurement.")}
+    return res
+
+
 def kml(res, grid, name, lat, lon):
     """The coverage as a KMZ document: the heatmap, its edge and the transmitter."""
     x = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

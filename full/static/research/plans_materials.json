@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-29",
+ "updated": "2026-11-04",
  "sources": [
   {
    "key": "itu_p2040_4",
@@ -312,6 +312,24 @@
    "title": "ATTOM API home (developer portal)",
    "url": "https://api.developer.attomdata.com/home",
    "kind": "vendor"
+  },
+  {
+   "key": "nist_tn1552",
+   "title": "NIST Technical Note 1552 (Aug 2009): measured radio propagation into large buildings, 750 MHz",
+   "url": "https://www.nist.gov/system/files/documents/itl/antd/TN1552.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "ursi2019_mesh",
+   "title": "URSI 2019 (Asp), effect of iron plastering mesh on wall attenuation (search excerpt: not opened)",
+   "url": "https://www.ursi.fi/2019/Papers/Asp.pdf",
+   "kind": "study"
+  },
+  {
+   "key": "magis2002",
+   "title": "Magis, propagation losses at 2 and 5 GHz (search excerpt: not opened)",
+   "url": "https://www.am1.us/wp-content/uploads/Documents/E10589_Propagation_Losses_2_and_5GHz.pdf",
+   "kind": "study"
   }
  ],
  "plan_sources": [
@@ -3121,6 +3139,17 @@
    "sources": [
     "itu_p1238_13"
    ]
+  },
+  {
+   "material": "Whole building, large structures (convention center, high-rise office, apartment, lab/office)",
+   "thickness": "n/a",
+   "frequency_mhz": 750,
+   "loss_db": "25.1-98.5 (median excess loss vs LOS reference; sigma 6.8-30.1 dB)",
+   "study": "NIST TN 1552 (2009)",
+   "note": "Transmitter carried inside, receiver outside; RMS delay spread 15-450 ns. The 70 and 90 dB building-loss presets are picks from this range (our judgement).",
+   "sources": [
+    "nist_tn1552"
+   ]
   }
  ],
  "assemblies": [
@@ -3263,6 +3292,17 @@
     "itu_p2109_2",
     "nist_tn1545",
     "tr38901_v19_2"
+   ]
+  },
+  {
+   "assembly": "Stucco on wire / diamond-mesh lath",
+   "typical_loss": "UNVERIFIED (search excerpts only): iron plaster mesh roughly doubles total wall attenuation and hurts most at low frequency (0.7-6 GHz study); about 13-21 dB at 2.3-5 GHz. No 700/850 MHz figure found: measure on site.",
+   "bands": "700-5000 MHz",
+   "basis": "Measured, URSI 2019 (Asp) and Magis 2002; search excerpts, neither paper opened",
+   "unverified": true,
+   "sources": [
+    "ursi2019_mesh",
+    "magis2002"
    ]
   }
  ],

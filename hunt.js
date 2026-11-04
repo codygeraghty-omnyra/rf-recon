@@ -170,6 +170,7 @@ function hMap(r) {
   if (!HUNT.map || HUNT.map.getContainer() !== el) {
     HUNT.map?.remove();
     HUNT.map = L.map(el, {preferCanvas: true, zoomControl: true, attributionControl: true});
+    if (window.rfZoomBar) rfZoomBar(HUNT.map);
     const b = BASES[navigator.onLine === false && !BASES[S.base]?.save ? "topo" : S.base] || BASES.topo;
     L.tileLayer(b.url, {maxNativeZoom: b.max, maxZoom: 19, crossOrigin: "anonymous", attribution: b.attr}).addTo(HUNT.map);
     HUNT.layer = L.layerGroup().addTo(HUNT.map);

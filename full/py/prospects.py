@@ -7,6 +7,8 @@ directories (static/research/das_market.json, prospect_sources, has the terms be
   ipeds           colleges (IPEDS HD), own coordinates, chief administrator's name and title
   cms_hospitals   hospitals (CMS Hospital General Information); no coordinates, so placed at the ZIP's centroid
                   (Census Gazetteer ZCTA) and marked precision 'zip'
+  cms_nursing_homes  nursing homes (CMS Nursing Home Provider Information, dataset 4pq5-n9py), own coordinates,
+                  certified beds, ownership, chain and sprinkler status (R3 #6, 2026-11-04 data scout)
 
 Every source is a US government work (public domain, 17 USC 105) with no bar on commercial or marketing use. Kept
 in its own sqlite file (data/prospects.db, WAL) so a refresh never locks the FCC data and the map can call near()
@@ -78,6 +80,21 @@ SOURCES = {
                        "ZIP centroids from the U.S. Census Bureau Gazetteer (ZCTA)",
         "fields": "Facility ID, Facility Name, Address, City/Town, State, ZIP Code, Telephone Number, Hospital Type, "
                   "Hospital Ownership, Emergency Services; lat/lon = ZIP centroid",
+    },
+    # I-2 healthcare occupancy (R3 #6): 14,686 facilities with their own coordinates (datastore count, 2026-11-04); the same
+    # CMS host, agent and public-data terms as the hospitals. The metastore names each month's file (NH_ProviderInfo_<Mon><Year>.csv)
+    "cms_nursing_homes": {
+        "name": "CMS Nursing Home Provider Information (Care Compare)",
+        "kind": "nursing_home",
+        "meta": "https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items/4pq5-n9py",
+        "url": "https://data.cms.gov/provider-data/sites/default/files/resources/0970c657767e40f8521187d02ba8d0ed_1792181744/NH_ProviderInfo_Oct2026.csv",
+        "ua": UA_CMS,
+        "license": "Public: US government work (17 USC 105); CMS public data are freely available; no commercial or "
+                   "marketing restriction (das_market.json; the same terms as the hospital list)",
+        "attribution": "Centers for Medicare & Medicaid Services, Provider Data Catalog: Nursing Home Provider Information",
+        "fields": "CMS Certification Number (CCN), Provider Name, Provider Address, City/Town, State, ZIP Code, Telephone Number, "
+                  "Ownership Type, Number of Certified Beds, Chain Name, Provider Resides in Hospital, "
+                  "Automatic Sprinkler Systems in All Required Areas, Latitude, Longitude",
     },
 }
 SOURCES["overture_places"] = {
@@ -340,6 +357,12 @@ COLMAP = {
                        "street": ["address"], "city": ["citytown", "city"], "state": ["state"], "zip": ["zipcode", "zip"],
                        "phone": ["telephonenumber", "phonenumber"], "type": ["hospitaltype"],
                        "owner": ["hospitalownership"], "er": ["emergencyservices"]}, ("id", "name", "zip")),
+    "cms_nursing_homes": ({"id": ["cmscertificationnumberccn", "federalprovidernumber", "ccn"], "name": ["providername"],
+                           "street": ["provideraddress"], "city": ["citytown", "providercity"], "state": ["state", "providerstate"],
+                           "zip": ["zipcode", "providerzipcode"], "phone": ["telephonenumber", "providerphonenumber"],
+                           "beds": ["numberofcertifiedbeds"], "owner": ["ownershiptype"], "chain": ["chainname"],
+                           "inhosp": ["providerresidesinhospital"], "sprinkler": ["automaticsprinklersystemsinallrequiredareas"],
+                           "lat": ["latitude"], "lon": ["longitude"]}, ("id", "name", "lat", "lon")),
 }
 
 
@@ -384,6 +407,18 @@ def _row_cms(get, r):
                 detail="; ".join(x for x in (get(r, "type"), get(r, "owner"), er and f"Emergency services: {er}") if x))
 
 
+def _row_nh(get, r):
+    lat, lon = _ll(get(r, "lat"), get(r, "lon"))
+    beds = _float(get(r, "beds"))
+    sp = get(r, "sprinkler")
+    detail = "; ".join(x for x in (get(r, "owner"), get(r, "chain") and f"Chain: {_title(get(r, 'chain'))}",
+                                   get(r, "inhosp") == "Y" and "Inside a hospital",
+                                   sp and f"Automatic sprinklers in all required areas: {sp}") if x)
+    return dict(name=_title(get(r, "name")), address=get(r, "street"), city=_title(get(r, "city")), state=get(r, "state"),
+                zip=_zip5(get(r, "zip")), lat=lat, lon=lon, precision="exact" if lat is not None else "",
+                phone=_phone(get(r, "phone")), size=beds, size_label=f"{int(beds):,} certified beds" if beds else "", detail=detail)
+
+
 def _row_overture(get, r):
     kind = get(r, "kind")
     if kind not in OV_KIND_LABEL:
@@ -416,7 +451,7 @@ COLMAP["overture_places"] = ({"id": ["id"], "kind": ["kind"], "cat": ["category"
                                    "h": ["heightm"], "fl": ["floors"], "bname": ["buildingname"], "tenant": ["tenant"]}, ("id", "kind", "name", "lat", "lon"))
 COLMAP[HIGHRISE_SOURCE] = COLMAP["overture_places"]
 ROWS = {"nces_ccd": _row_ccd, "nces_pss": _row_pss, "ipeds": _row_ipeds, "cms_hospitals": _row_cms,
-        "overture_places": _row_overture, HIGHRISE_SOURCE: _row_overture}
+        "cms_nursing_homes": _row_nh, "overture_places": _row_overture, HIGHRISE_SOURCE: _row_overture}
 
 
 # --- refresh ----------------------------------------------------------------------------------------------------
@@ -486,7 +521,7 @@ def _cms_url(fetch, src, log):
         if url.lower().startswith("https://"):
             return url
     except Exception as e:
-        log(f"cms_hospitals: metastore not read ({e}); using the last known file")
+        log(f"{src.get('kind', 'cms')}: metastore not read ({e}); using the last known file")
     return src["url"]
 
 
@@ -635,7 +670,7 @@ def _hav(lat1, lon1, lat2, lon2):
 
 def near(data_dir, lat, lon, radius_mi=10, kinds=None, q="", limit=500):
     """Prospects within radius_mi of a spot, nearest first, each with dist_mi. kinds: a list or comma string of
-    school_k12, school_private, college, hospital; q: text in the name or city. Hospitals sit at their ZIP's centre
+    school_k12, school_private, college, hospital, nursing_home and the Overture kinds; q: text in the name or city. Hospitals sit at their ZIP's centre
     (precision 'zip'), so their distance is approximate."""
     if not os.path.exists(db_path(data_dir)):
         return []
@@ -691,7 +726,7 @@ def _merge_highrises(rows):
                     if r.get(k):
                         t[k] = r[k]
                 label = OV_KIND_LABEL.get(r["kind"]) or {"school_k12": "School", "school_private": "School", "college": "College",
-                                                         "hospital": "Hospital"}.get(r["kind"], r["kind"])
+                                                         "hospital": "Hospital", "nursing_home": "Nursing home"}.get(r["kind"], r["kind"])
                 t["detail"] = "; ".join(x for x in (f"Also a {label.lower()}: {r['name']}", re.sub(r"; ?phone and website are .*$", "", t.get("detail") or "")) if x)
                 t["also"] = r["id"]
     return [r for r in rows if r["id"] not in drop]

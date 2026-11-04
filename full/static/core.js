@@ -305,6 +305,7 @@ function mapPrefs(){
   return S.mapLayers;
 }
 function addMapLayers(map){
+  if(window.rfZoomBar) rfZoomBar(map);  // − / + and the wheel-zoom lock on every map (zoombar.js, Cody 11/4)
   const pref=mapPrefs(), bases={}, overs={};
   for(const [name,{src,url,online,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(url||`/tiles/${src}/{z}/{x}/{y}.png`,opt);  // url: a map you imported
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
@@ -342,19 +343,7 @@ function drawMap(rows){
   if(typeof L==="undefined"){ $("#map").innerHTML='<p class="status" style="padding:12px">Map library missing.</p>'; return; }
   if(S.wheelZoom==null){ try{ S.wheelZoom=localStorage.getItem("rfr.wheelZoom")!=="0"; }catch(e){ S.wheelZoom=true; } }
   const map=L.map("map",{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
-  // − / + and a switch for zooming with the mouse wheel (off: the wheel scrolls the page), side by side
-  const Zoom=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","leaflet-bar"); d.style.cssText="display:flex;background:var(--panel,#fff)";
-    const btn=(txt,title)=>{ const b=L.DomUtil.create("a","",d); b.href="#"; b.textContent=txt; b.title=title; b.setAttribute("role","button");
-      b.style.cssText="width:auto;min-width:30px;padding:0 8px;display:flex;align-items:center;justify-content:center;font:600 13px system-ui;color:var(--ink,#111);background:transparent"; return b; };
-    const out=btn("−","Zoom out"), inn=btn("+","Zoom in"), wh=btn("","");
-    const paint=()=>{ wh.textContent=S.wheelZoom?"🖱 Wheel zoom on":"🖱 Wheel zoom off"; wh.title=S.wheelZoom?"The mouse wheel zooms the map. Click to turn it off (the wheel then scrolls the page).":"The mouse wheel scrolls the page. Click to zoom with it again."; };
-    paint(); L.DomEvent.disableClickPropagation(d);
-    L.DomEvent.on(out,"click",e=>{ L.DomEvent.preventDefault(e); map.zoomOut(); });
-    L.DomEvent.on(inn,"click",e=>{ L.DomEvent.preventDefault(e); map.zoomIn(); });
-    L.DomEvent.on(wh,"click",e=>{ L.DomEvent.preventDefault(e); S.wheelZoom=!S.wheelZoom; S.wheelZoom?map.scrollWheelZoom.enable():map.scrollWheelZoom.disable();
-      try{ localStorage.setItem("rfr.wheelZoom", S.wheelZoom?"1":"0"); }catch(_){} paint(); });
-    return d; }});
-  new Zoom({position:"topleft"}).addTo(map);
+  // − / + and the wheel-zoom lock: the shared zoom bar (zoombar.js), added by addMapLayers like every other map
   addMapLayers(map);
   // two drawing layers: the dots (clickable) and the decoration (rings, tracks, overlays) that clicks pass through;
   // a decoration canvas on top used to swallow every click, so locked-pin clicks on dots did nothing
