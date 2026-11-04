@@ -66,16 +66,58 @@ def bearing_fix(readings):
     if abs(det) < 1e-6 * len(lines) ** 2:
         return None
     fx, fy = (s22 * t1 - s12 * t2) / det, (s11 * t2 - s12 * t1) / det
+    keep, method = lines, "least squares"
+    if len(lines) >= ROBUST_MIN:  # enough lines to tell the stray ones: the robust fix, when most lines agree with it
+        rob = _robust_fix(lines, fx, fy)
+        if rob:
+            fx, fy, keep = rob
+            method = "robust"
     miss = [abs((fx - x) * uy - (fy - y) * ux) for x, y, ux, uy in lines]  # distance from the fix to each line
     behind = sum(1 for x, y, ux, uy in lines if (fx - x) * ux + (fy - y) * uy < 0)
     bs = [p[2] for p in pts][:200]  # the widest crossing between any two lines (a line has no direction: mod 180)
     crossing = max(min((a - b) % 180, 180 - (a - b) % 180) for i, a in enumerate(bs) for b in bs[i + 1:])
     rms = math.sqrt(sum(m * m for m in miss) / len(miss))
-    quality = "poor" if behind or crossing < 20 else "fair" if crossing < 45 or len(pts) < 3 else "good"
+    behind_kept = sum(1 for x, y, ux, uy in keep if (fx - x) * ux + (fy - y) * uy < 0)
+    quality = "poor" if behind_kept or crossing < 20 else "fair" if crossing < 45 or len(pts) < 3 else "good"
     out = {"lat": lat0 + fy / ky, "lon": lon0 + fx / kx, "n": len(pts), "rms_m": rms,
-           "crossing_deg": crossing, "behind": behind, "quality": quality}
-    out["ellipse"] = error_ellipse(lines, fx, fy, lat0, lon0, kx, ky)
+           "crossing_deg": crossing, "behind": behind, "quality": quality, "method": method, "dropped": len(lines) - len(keep)}
+    out["ellipse"] = error_ellipse(lines, fx, fy, lat0, lon0, kx, ky)  # every line, round the fix (left-out lines widen it)
     return out
+
+
+ROBUST_MIN = 8        # bearings before the robust fix is used (below it, it measured worse than least squares)
+ROBUST_C_DEG = 40.0   # a line missing by this or more counts for nothing (Tukey's biweight; the miss as atan(miss/distance),
+                      # as error_ellipse measures it, so 40 is a bearing about 57 degrees off; 25 and 30 measured worse)
+ROBUST_KEEP = 0.8     # the robust fix only when at least this share of lines agree with it (a poor compass: least squares)
+
+
+def _robust_fix(lines, fx, fy, iters=8):
+    """The bearing fix with stray lines left out (a reading taken by a car or a steel door): started from the
+    least squares fix, each line weighted by 1/distance^2 (a bearing's error is an angle, so its sideways miss grows
+    with distance) and by Tukey's biweight of the angle it misses by; a line pointing away from the fix counts for
+    nothing. Iterated. Returns (fx, fy, the lines kept) or None when too few lines agree with it (then least squares)."""
+    c = ROBUST_C_DEG
+    ws = []
+    for _ in range(iters):
+        s11 = s12 = s22 = t1 = t2 = 0.0
+        ws = []
+        for x, y, ux, uy in lines:
+            d = max(30.0, math.hypot(fx - x, fy - y))
+            ang = math.degrees(math.atan2(abs((fx - x) * uy - (fy - y) * ux), d))
+            w = 0.0 if (ang >= c or (fx - x) * ux + (fy - y) * uy < 0) else (1 - (ang / c) ** 2) ** 2
+            ws.append(w)
+            w /= d * d
+            a11, a12, a22 = 1 - ux * ux, -ux * uy, 1 - uy * uy
+            s11, s12, s22 = s11 + w * a11, s12 + w * a12, s22 + w * a22
+            t1, t2 = t1 + w * (a11 * x + a12 * y), t2 + w * (a12 * x + a22 * y)
+        det = s11 * s22 - s12 * s12
+        if abs(det) < 1e-18:
+            return None
+        fx, fy = (s22 * t1 - s12 * t2) / det, (s11 * t2 - s12 * t1) / det
+    keep = [ln for ln, w in zip(lines, ws) if w > 0]
+    if len(keep) < max(3, ROBUST_KEEP * len(lines)):
+        return None
+    return fx, fy, keep
 
 
 BEARING_ERR_DEG = 5.0  # a handheld directional antenna's bearing, one sigma, when the readings can't say better
@@ -175,6 +217,108 @@ def combine_fixes(level, bearing):
     wb, wl = 1 / rb ** 2, 1 / rl ** 2
     return {"lat": (bearing["lat"] * wb + level["lat"] * wl) / (wb + wl), "lon": (bearing["lon"] * wb + level["lon"] * wl) / (wb + wl),
             "radius_m": round(1 / math.sqrt(wb + wl)), "from": "levels and bearings"}
+
+
+GUIDE_BEARING_ERR_DEG = 10.0  # what the next-stop guide expects of a phone compass bearing
+GUIDE_NEAR_SHARE = 0.15       # take the nearest spot that gets within this much of the best one's gain
+GUIDE_MIN_STOPS = 3           # simulated: guiding from the 3rd stop (after 2) doubled the 90% miss, from the 4th it didn't
+GUIDE_MAX_AREA_M = 150        # with directions, only once the estimate is this tight (a wild early crossing misleads it)
+
+
+def want_next_stop(n_stops, best, bearings):
+    """Whether to suggest where to stand next: 3 stops saved, and with directions an estimate within GUIDE_MAX_AREA_M."""
+    return bool(best) and n_stops >= GUIDE_MIN_STOPS and (not bearings or (best.get("radius_m") or 1e9) <= GUIDE_MAX_AREA_M)
+
+
+def next_stop(stops, best, frm):
+    """Where to stand next (11/4): stops are (lat, lon, dbm or None, bearing or None), best the current estimate
+    (lat, lon), frm where the person is. Every spot on two rings around the estimate (at the stops' middle distance,
+    and three quarters of it; 80-400 m) is scored by how long the 95% area's long axis would be with a stop there: a
+    bearing adds what it says across its line, a level what it says along the line to the source (the unknown transmit
+    power soaks up what all the levels share, so levels only count from different sides). Of the spots within
+    GUIDE_NEAR_SHARE of the best, the nearest to the person. Returns {lat, lon, m, deg, compass, off_line, ring_m} or None.
+    Simulated hunts (tests/test_hunt_accuracy.py): stops placed here whenever want_next_stop says so shrink the miss
+    against stops wandering one side of it (gated compass, 8 stops, 300 hunts: median 23 -> 18 m, 90% 85 -> 51 m)."""
+    if not best or not stops or frm is None:
+        return None
+    lat0, lon0 = best[0], best[1]
+    kx = 1000 * EARTH_KM * math.radians(1) * math.cos(math.radians(lat0))
+    ky = 1000 * EARTH_KM * math.radians(1)
+    P = [((o - lon0) * kx, (a - lat0) * ky, p, b) for a, o, p, b in stops]
+    sb2 = math.radians(GUIDE_BEARING_ERR_DEG) ** 2
+    gl = 10 * 3.0 / math.log(10)  # a level's slope with distance, dB per e-fold, for a path loss exponent of 3
+    sl2 = SHADOW_DB ** 2
+
+    def info(pts):
+        jxx = jxy = jyy = 0.0
+        g = []
+        for x, y, p, b in pts:
+            d = max(30.0, math.hypot(x, y))
+            rx, ry = x / d, y / d
+            if b is not None:
+                w = 1 / (d * d * sb2)
+                jxx, jxy, jyy = jxx + w * ry * ry, jxy - w * rx * ry, jyy + w * rx * rx
+            if p is not None:
+                g.append((gl * rx / d, gl * ry / d))
+        if len(g) >= 2:
+            mx, my = sum(q[0] for q in g) / len(g), sum(q[1] for q in g) / len(g)
+            for gx, gy in g:
+                jxx, jxy, jyy = jxx + (gx - mx) ** 2 / sl2, jxy + (gx - mx) * (gy - my) / sl2, jyy + (gy - my) ** 2 / sl2
+        return jxx, jxy, jyy
+
+    def long_axis(j):
+        det = j[0] * j[2] - j[1] ** 2
+        if det <= 1e-30:
+            return float("inf")
+        c11, c12, c22 = j[2] / det, -j[1] / det, j[0] / det
+        return 2.45 * math.sqrt((c11 + c22) / 2 + math.sqrt(((c11 - c22) / 2) ** 2 + c12 * c12))
+
+    ds = sorted(max(30.0, math.hypot(x, y)) for x, y, _p, _b in P)
+    ring = min(400.0, max(80.0, ds[len(ds) // 2]))
+    hb = any(b is not None for _x, _y, _p, b in P)
+    hl = any(p is not None for _x, _y, p, _b in P)
+    ux, uy = (frm[1] - lon0) * kx, (frm[0] - lat0) * ky
+    cands = []
+    for rr in (ring * 0.75, ring):
+        for k in range(36):
+            t = math.radians(k * 10)
+            x, y = rr * math.sin(t), rr * math.cos(t)
+            cands.append((long_axis(info(P + [(x, y, 0.0 if hl else None, 0.0 if hb else None)])), math.hypot(x - ux, y - uy), x, y))
+    top = min(c[0] for c in cands)
+    if top == float("inf"):
+        return None
+    _a, walk, x, y = min((c for c in cands if c[0] <= top * (1 + GUIDE_NEAR_SHARE)), key=lambda c: c[1])
+    lat, lon = lat0 + y / ky, lon0 + x / kx
+    # off to the side of the lines so far: at least 30 degrees from every stop, seen from the estimate (a bearing
+    # line has no direction, so mod 180; a level has a side, so mod 360)
+    at = math.degrees(math.atan2(x, y))
+    seps = []
+    for sx, sy, _p, b in P:
+        dd = (at - math.degrees(math.atan2(sx, sy))) % 360
+        seps.append(min(dd % 180, 180 - dd % 180) if b is not None else min(dd, 360 - dd))
+    deg = bearing_deg(frm[0], frm[1], lat, lon)
+    return {"lat": lat, "lon": lon, "m": round(1000 * haversine_km(frm[0], frm[1], lat, lon)), "deg": round(deg),
+            "compass": compass(deg), "off_line": min(seps) >= 30, "ring_m": round(ring)}
+
+
+# Simulated hunts (tests/test_hunt_accuracy.py, 300 seeded hunts per count, 11/4): the median miss in metres with 3 to
+# 12 stops, with the compass (gated, the robust fix from 8) and with levels alone. The stop counter's "two more make
+# the estimate about a quarter tighter" comes from these.
+MISS_BY_STOPS = {3: 50, 4: 37, 5: 31, 6: 30, 7: 29, 8: 23, 9: 20, 10: 19, 11: 18, 12: 17}
+MISS_BY_STOPS_LEVELS = {3: 226, 4: 195, 5: 183, 6: 175, 7: 157, 8: 145, 9: 141, 10: 138, 11: 131, 12: 126}
+STOP_GOAL = 8
+
+
+def stop_counter(n, bearings=True):
+    """Toward 8 stops, then 10: {n, goal, more, tighter_pct} (how much smaller the median miss is at the goal than
+    now, measured; 0 before there are 3 stops to estimate from), or {n, goal: None} from 10."""
+    goal = STOP_GOAL if n < STOP_GOAL else 10 if n < 10 else None
+    if goal is None:
+        return {"n": n, "goal": None, "more": 0, "tighter_pct": 0}
+    table = MISS_BY_STOPS if bearings else MISS_BY_STOPS_LEVELS
+    now, then = (table.get(n) or 0) if n >= 3 else 0, table.get(goal) or 0
+    pct = int(round(100 * (1 - then / now) / 5) * 5) if now > 0 else 0
+    return {"n": n, "goal": goal, "more": goal - n, "tighter_pct": max(0, pct)}
 
 
 def bbox(lat, lon, radius_mi):

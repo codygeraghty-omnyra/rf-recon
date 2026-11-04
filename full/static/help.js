@@ -1,6 +1,8 @@
 "use strict";
 /* RF Recon — Help window: "?" in the header, or press ? / F1. Opens on the section for the tab you're on. */
 
+// RF Recon for Android (android/, built outside this repo): served by the 24/7 server; the public web version leaves it out
+const RF_APK = (/github\.io$/.test(location.hostname) || location.protocol === "file:" ? "https://44-207-142-90.sslip.io/" : "") + "static/android/rf-recon-android.apk";
 const HELP = [
   ["start", "Quick start", `
     <ol><li><b>Pick a place.</b> Type an address, town or county in the Pin box and choose a suggestion, paste a Google Maps link,
@@ -141,6 +143,31 @@ const HELP = [
     <tr><td><b>NAC / CC / tone</b></td><td>P25 network access code, DMR colour code, analog CTCSS / DCS tone: what separates users on one frequency.</td></tr>
     <tr><td><b>Part 15 / Part 95</b></td><td>Unlicensed devices (Wi-Fi, Bluetooth, ISM) / personal radio licensed by rule (FRS, GMRS, MURS, CB).</td></tr>
     <tr><td><b>Unlisted</b></td><td>A surveyed signal with no FCC licence nearby on its frequency and no allocation that allows it: worth a second look.</td></tr></tbody></table>`],
+  ["android", "Android app", () => `
+    <p>RF Recon for Android opens this RF Recon in a full-screen app and lets the DAS walk test read the phone's own LTE / 5G signal.
+      Android 10 or newer. (iPhones can't: Apple gives no app the phone's signal readings.)</p>
+    <p><a href="${RF_APK}" download="RF Recon (Android) 1.0.apk" style="display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--on-accent,#fff);font-weight:600;text-decoration:none">⇩ Download the Android app (1.0)</a>
+      <span class="hint">Open this on the phone, or get the same file from Drive › RF Recon › install kit.</span></p>
+    <ol><li>On the phone, tap the download (or the <i>.apk</i> file in Drive) to open it.</li>
+    <li>The first time, Android says installs from that app are blocked: tap <b>Settings</b>, turn on <b>Allow from this source</b>, go back,
+      tap <b>Install</b>. Once only. If Play Protect warns about an unknown app, tap <b>Install anyway</b>: it isn't on the Play Store.</li>
+    <li>Open <b>RF Recon</b> and sign in as usual. The sign-in is kept.</li>
+    <li><b>DAS › a job › Grid test › Walk › Point › Read the phone</b>, then tap where you stand: the spot takes the phone's serving cell.
+      The first time, allow <b>location</b> (precise, while using the app): Android only gives signal readings to apps that have it,
+      and the phone's Location must be on.</li>
+    <li><b>Continuous › Start walk</b> logs the phone's signal as you go; tap your position as you walk, then <b>Stop</b>: the readings
+      are placed on the walk by time. Keep the app open while walking (it keeps the screen on).</li>
+    <li><b>Correct the phone against a calibrated instrument</b> (once per phone): <b>Point › Phone vs instrument</b>, then at 5 or more
+      spots, strong signal and weak, tap where you stand and type what the instrument beside the phone reads for the same cell. The
+      <i>Phone correction</i> table under the walk shows how far this phone reads off on each band (and how sure); from then on the
+      phone's readings are corrected as they're taken, and <i>Correct this floor's earlier phone readings</i> fixes ones taken before.
+      The table stays on the phone for later jobs.</li></ol>
+    <ul><li>Phone readings are cellular only (no public-safety channels) and not calibrated: they show in the cellular view and never
+      count toward a public-safety pass.</li>
+    <li>Android gives a new reading every few seconds at most; on a dual-SIM phone only the default SIM is read; Android 10 doesn't
+      report the 5G band.</li>
+    <li>Back on the app's first page opens its menu: the server, the web version (no server), reload, exit.</li>
+    <li>A new version installs over this one: tap its download the same way. Your sign-in stays, and jobs are on the server.</li></ul>`],
   ["files", "Where your files are", `
     <ul><li>The app and its docs are in the <b>RF Recon</b> folder in Google Drive; double-click <i>RF Recon (beta)</i> there to open it.</li>
     <li>FCC data and the database stay on this PC (<span class="mono">rf-recon\\data</span> in your Windows user folder): gigabytes that shouldn't sync or go over a phone connection.</li>
@@ -176,6 +203,8 @@ function openHelp(section) {
   const target = $("#help-" + section) || $("#help-start");
   setTimeout(() => target.scrollIntoView({block: "start"}), 30);
 }
+document.addEventListener("click", e => { const a = e.target.closest?.("[data-help]");
+  if (a) { e.preventDefault(); openHelp(a.dataset.help); } });
 // the shared dialog (Help, details) closes on a press outside it, like every other layer; Escape already did (11/3)
 document.getElementById("dlg")?.addEventListener("click", e => {
   const d = e.currentTarget, r = d.getBoundingClientRect();

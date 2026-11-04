@@ -16,10 +16,23 @@ const PR_GROUPS = [["Schools and hospitals", [["school_k12", "Public schools"], 
 const PR_KINDS = PR_GROUPS.flatMap(g => g[1]);
 const PR_STATUS = ["new", "contacted", "replied", "meeting", "won", "not interested", "do not contact"];
 const PR_KIND = Object.fromEntries(PR_KINDS);
+// RF need (need.py, 11/4): an estimate per building of whether agency radio (and carriers) fall short inside, worked out
+// after the list shows, a few dozen buildings a request (the ids ride in the URL, so a GET stays short and view logins see it)
+const PR_NEED = { short: ["Likely short", "#dc2626"], close: ["Close", "#d97706"], ok: ["Likely OK", "#16a34a"], unknown: ["Unknown", "#8a8a8a"] };
+const PR_NEED_RANK = { short: 0, close: 1, unknown: 2, ok: 3 };
+const PR_PRI = { high: 0, medium: 1, low: 2 };
+const PR_NEED_CHUNK = 120;  // about 2.5 KB of ids in the URL
+const PR_STCOL = { new: "#3b82f6", contacted: "#f59e0b", replied: "#a855f7", meeting: "#a855f7", won: "#16a34a", "not interested": "#888", "do not contact": "#555" };
+const prHt = x => { const m = /([\d,]+) ft/.exec(x.size_label || ""); return m ? +m[1].replace(/,/g, "") : 0; };
+const prDb = n => n.margin_db == null ? "" : n.ps === "short" ? ` by ${Math.round(-n.margin_db)} dB` : ` ${n.margin_db >= 0 ? "+" : "−"}${Math.abs(Math.round(n.margin_db))} dB`;
+const prNsiLine = n => [n.year_built && `built ${n.year_built}`, n.stories && `${n.stories} floor${n.stories === 1 ? "" : "s"}`, n.sqft && `${Math.round(n.sqft).toLocaleString()} sq ft`,
+  n.basement ? "basement" : "", n.occupancy_label].filter(Boolean).join(" · ") || "no details";
+const prCells = n => !n.carriers ? "" : !n.carriers.length ? "none claimed here" : n.cell_short ? `${n.cell_short} of ${n.carriers.length} short` : n.cell === "close" ? "close" : "OK";
 
 window.dasProspects = async el => {
   const P = S.dasProspects = S.dasProspects || { radius: 10, kinds: PR_KINDS.map(k => k[0]), q: "", status: "", where: null, label: "", rows: null, gen: 0 };
   if (!P.where && S.center) { P.where = [S.center[0], S.center[1]]; P.label = "the search pin"; }
+  P.need = P.need || {}; P.sort = P.sort || "need"; P.env = P.env || "suburban"; P.colour = P.colour || "need"; P.open = P.open || new Set();
   const [M, firm, jl] = await Promise.all([fetch("static/research/das_market.json").then(r => r.json()).catch(() => ({})),
     api("/api/das/firm").catch(() => ({})), api("/api/das/jobs").catch(() => ({ jobs: [] }))]);
   if (!el.isConnected) return;
@@ -42,9 +55,32 @@ window.dasProspects = async el => {
     <div id="prBody"></div>
     <details class="panel" style="margin-top:12px"><summary>Why these buildings, and who to approach</summary>
       <div class="pitch-cards" style="margin-top:8px">${types.map(t => `<div><b>${esc(t.type)}</b> <span class="tag">${esc(t.priority || "")}</span><p>${esc(t.why || "")}</p><p class="hint">Approach: ${esc(t.decision_maker || "")}</p></div>`).join("")}</div>
+      <p class="hint" id="prNeedHow"><b>RF need</b> is an estimate, not a measurement: the strongest government trunked or 700/800 MHz radio system licensed within 15 mi, its licensed power and height through Okumura-Hata with the hills on the path where terrain is on this computer, minus a building loss (ITU-R P.2109 by year built, plus deep interior, cores and below grade from the USACE National Structure Inventory or the building's type), against −95 dBm inside. Within 6 dB either way it's close: a walk test decides. Carriers: the FCC Broadband Map's modelled signal minus the same loss, against −95 dBm. Sources: FCC ULS, terrain tiles (USGS 3DEP), USACE NSI, Overture heights, FCC Broadband Map.</p>
       <p class="hint">Malls, venues, hotels and the rest are Overture Maps places (CDLA-Permissive-2.0, Apache-2.0 or CC0; attribution: Overture Maps Foundation). High-rises are Overture buildings (© OpenStreetMap contributors, Overture Maps Foundation, ODbL). A building's own name is used when it has one; otherwise it's named by the business inside it.</p>
     </details>`;
   const body = $("#prBody");
+  // RF need: a click on the verdict opens its reasons under the row; "Check the building" asks the NSI (need.py keeps it)
+  body.addEventListener("click", async e => {
+    const nd = e.target.closest("[data-nd]"), ns = e.target.closest("[data-nsi]");
+    if (!nd && !ns) return;
+    const tr = e.target.closest("tr"), pid = tr.dataset.pid || tr.dataset.why, x = (P.rows || []).find(r => r.id === pid);
+    if (!x) return;
+    if (nd) {
+      const open = body.querySelector(`tr[data-why="${CSS.escape(pid)}"]`);
+      if (open) { open.remove(); P.open.delete(pid); } else { tr.insertAdjacentHTML("afterend", prWhy(x)); P.open.add(pid); }
+      return;
+    }
+    ns.disabled = true; ns.textContent = "Asking the NSI…";
+    try {
+      const r = await post(`/api/das/prospects/${encodeURIComponent(pid)}/nsi`, { env: P.env, job_id: x.job_id, area: { lat: P.where[0], lon: P.where[1], radius: P.radius } });
+      if (r.need) P.need[pid] = r.need;
+      const row = body.querySelector(`tr[data-pid="${CSS.escape(pid)}"]`);
+      if (row) row.querySelector("[data-need]").innerHTML = prNeedCell(x);
+      const w = body.querySelector(`tr[data-why="${CSS.escape(pid)}"]`); if (w) w.outerHTML = prWhy(x);
+      P.marks?.get(pid)?.setStyle({ color: prDot(x) });
+      dasSay(`${x.name}: ${prNsiLine(r.nsi)} (NSI, modelled). RF need now ${(PR_NEED[r.need?.ps] || PR_NEED.unknown)[0].toLowerCase()}${r.need ? prDb(r.need) : ""}.`);
+    } catch (err) { ns.disabled = false; ns.textContent = "Check the building (NSI)"; dasSay(err.message); }
+  });
   const where = async () => {
     const t = $("#prWhere").value.trim();
     if (!t) return P.where;
@@ -64,6 +100,7 @@ window.dasProspects = async el => {
     catch (e) { if (gen === P.gen) body.innerHTML = `<p class="status err">Prospects: ${esc(e.message)}</p>`; return; }
     if (gen !== P.gen || !el.isConnected) return;
     P.rows = r.prospects; P.counts = r.counts; P.sources = r.sources;
+    for (const x of P.rows) x.dnc0 = x.status === "do not contact";  // sorted by the status as loaded: a row changed now stays put
     for (const [k] of PR_KINDS) { const n = el.querySelector(`[data-n="${k}"]`); if (n) n.textContent = r.counts[k] ? `(${r.counts[k].toLocaleString()} ${k === "high_rise" ? "found so far" : "in the US"})` : ""; }
     const up = r.counts.updated;
     $("#prSrc").innerHTML = up ? `Public lists: ${Object.values(r.sources).map(s => esc(s.name)).join(", ")}. Updated ${esc(String(up).slice(0, 10))}; the "DAS prospect lists" update refreshes them monthly.`
@@ -71,9 +108,63 @@ window.dasProspects = async el => {
     $("#prFetch") && ($("#prFetch").onclick = async e => { e.target.disabled = true; e.target.textContent = "Downloading… (Updates tab shows progress)";
       try { await post("/api/update/run", { ids: ["das_prospects"] }); dasSay("Downloading the prospect lists. Press Find buildings again when the Updates tab says it's done."); } catch (x) { dasSay(x.message); e.target.disabled = false; } });
     paint();
+    needRun();
+  };
+  // RF need for the rows that don't have it yet (need.py), in the list's order; the cells and dots fill in as each part
+  // comes back, and the list re-sorts once at the end
+  const needSay = t => { P.needMsg = t; const m = $("#prNeedMsg"); if (m) m.innerHTML = t; };
+  const needRun = async () => {
+    const gen = P.gen, key = P.env;
+    if (P.needKey !== key) { P.need = {}; P.needKey = key; P.open.clear(); }
+    const todo = (P.rows || []).filter(x => !P.need[x.id] && x.lat != null).map(x => x.id);
+    if (!todo.length) return;
+    const t0 = performance.now();
+    let done = 0, note = "";
+    for (let i = 0; i < todo.length; i += PR_NEED_CHUNK) {
+      needSay(`Working out need… ${done.toLocaleString()} of ${todo.length.toLocaleString()}`);
+      const ids = todo.slice(i, i + PR_NEED_CHUNK);
+      let r;
+      try { r = await api(`/api/das/prospects/need?ids=${ids.map(encodeURIComponent).join(",").replace(/%3A/gi, ":")}&lat=${P.where[0]}&lon=${P.where[1]}&radius=${P.radius}&env=${P.env}`); }
+      catch (e) { if (gen === P.gen && P.needKey === key) needSay(`<span class="err">RF need: ${esc(e.message)}</span>`); return; }
+      if (gen !== P.gen || P.needKey !== key || !el.isConnected) return;
+      for (const id of ids) P.need[id] = r.need[id] || { ps: "unknown", ps_why: "No estimate: this building isn't in the lists RF Recon reads.", carriers: null };
+      P.needMethod = r.method; note = r.carriers_note || "";
+      done += ids.length;
+      for (const id of ids) {  // in place: the cell, its open "why" row, the dot
+        const x = P.rows.find(y => y.id === id), tr = body.querySelector(`tr[data-pid="${CSS.escape(id)}"]`);
+        if (tr) { tr.querySelector("[data-need]").innerHTML = prNeedCell(x); const w = body.querySelector(`tr[data-why="${CSS.escape(id)}"]`); if (w) w.outerHTML = prWhy(x); }
+        P.marks?.get(id)?.setStyle({ color: prDot(x) });
+      }
+    }
+    const ms = Math.round(performance.now() - t0);
+    needSay(`RF need: an estimate <span title="${esc(P.needMethod?.desc || "")}">(how)</span>${note ? ` · ${esc(note)} Public safety only.` : ""} <span class="hint">${todo.length.toLocaleString()} in ${(ms / 1000).toFixed(1)} s</span>`);
+    if (P.sort === "need") paint();
+  };
+  const prNeedCell = x => {
+    const n = P.need[x.id];
+    if (!n) return x.lat == null ? `<span class="hint">no location</span>` : `<span class="hint">working out…</span>`;
+    const [label, col] = PR_NEED[n.ps] || PR_NEED.unknown, c = prCells(n);
+    return `<button data-nd style="padding:2px 8px;border:1px solid ${col};color:${col};background:transparent;white-space:nowrap" title="${esc(n.ps_why || "")} (click for the reasons)">${label}${prDb(n)}</button>`
+      + (c ? `<div class="hint" title="${esc(n.cell_why || "")}">Carriers: ${esc(c)}</div>` : "");
+  };
+  const prWhy = x => {
+    const n = P.need[x.id];
+    if (!n) return "";
+    return `<tr class="pr-why" data-why="${esc(x.id)}"><td colspan="7" style="white-space:normal">
+      <div class="hint" style="max-width:900px">${esc(n.ps_why || "")}</div>${n.cell_why ? `<div class="hint" style="max-width:900px;margin-top:4px">${esc(n.cell_why)}</div>` : ""}
+      <div style="margin-top:6px">${n.nsi ? `<span class="hint">From the USACE National Structure Inventory (modelled): ${esc(prNsiLine(n.nsi))}.</span>`
+        : `<button data-nsi title="The USACE National Structure Inventory's record of this building (one small look-up): year built, stories, floor area and basement, so the building loss uses them">Check the building (NSI)</button>`}</div></td></tr>`;
+  };
+  const prDot = x => { const n = P.need[x.id]; return P.colour === "need" ? (n ? (PR_NEED[n.ps] || PR_NEED.unknown)[1] : "#bbb") : PR_STCOL[x.status] || "#3b82f6"; };
+  const prSort = rows => {
+    if (P.sort === "priority") return rows;  // the server's order: priority, then distance
+    const key = P.sort === "dist" ? x => [x.dnc0 ? 1 : 0, x.dist_mi || 0]
+      : x => { const n = P.need[x.id]; return [x.dnc0 ? 1 : 0, PR_NEED_RANK[n?.ps ?? "unknown"], PR_PRI[x.priority] ?? 3, -(x.size || 0), -prHt(x), n?.margin_db ?? 0, x.dist_mi || 0]; };
+    const k = new Map(rows.map(x => [x, key(x)]));
+    return [...rows].sort((a, b) => { const A = k.get(a), B = k.get(b); for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return A[i] < B[i] ? -1 : 1; return 0; });
   };
   const paint = () => {
-    const rows = (P.rows || []).filter(x => (!P.status || x.status === P.status) && (!P.q || `${x.name} ${x.city} ${x.detail || ""}`.toLowerCase().includes(P.q.toLowerCase())));
+    const rows = prSort((P.rows || []).filter(x => (!P.status || x.status === P.status) && (!P.q || `${x.name} ${x.city} ${x.detail || ""}`.toLowerCase().includes(P.q.toLowerCase()))));
     const by = s => (P.rows || []).filter(x => x.status === s).length;
     if (!P.rows) return;
     if (!P.rows.length) { body.innerHTML = `<p class="hint">No ${P.kinds.map(k => PR_KIND[k].toLowerCase()).join(", ")} within ${P.radius} mi${P.counts?.updated ? "" : " (the lists aren't downloaded yet)"}. Try a wider radius.</p>`; return; }
@@ -84,10 +175,19 @@ window.dasProspects = async el => {
         <button id="prCsv" title="The rows shown, as a call list">⇩ Call list (CSV)</button>
         ${window.rfMail ? `<button id="prQueue" title="Write a first email to each building shown that has an email and hasn't been written to: they wait in DAS › Mail › Ready to send for your click">✉ Queue first emails</button>` : ""}
       </div>
-      <div id="prMap" style="height:340px;border-radius:12px;margin-bottom:10px"></div>
-      <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
+      <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px">
+        <label class="inl">Sort <select id="prSort">${[["need", "need first"], ["priority", "priority"], ["dist", "nearest"]].map(([k, l]) => `<option value="${k}" ${P.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="inl" title="The estimate's land type (Okumura-Hata): urban loses the most, open land the least">Land <select id="prEnv">${[["urban", "urban"], ["suburban", "suburban"], ["open", "open land"]].map(([k, l]) => `<option value="${k}" ${P.env === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="inl">Map colour <select id="prCol"><option value="need" ${P.colour === "need" ? "selected" : ""}>need</option><option value="status" ${P.colour === "status" ? "selected" : ""}>status</option></select></label>
+        <span class="hint" id="prNeedMsg">${P.needMsg || ""}</span>
+      </div>
+      <div id="prMap" style="height:340px;border-radius:12px;margin-bottom:4px"></div>
+      <p class="hint" id="prLegend" style="margin:0 0 8px">${P.colour === "need" ? Object.values(PR_NEED).map(([l, c]) => `<span style="color:${c}">●</span> ${l}`).join(" &nbsp; ") + " &nbsp; (an estimate)"
+        : Object.entries(PR_STCOL).filter(([s]) => s !== "meeting").map(([s, c]) => `<span style="color:${c}">●</span> ${s}`).join(" &nbsp; ")}</p>
+      <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
       ${rows.slice(0, 400).map(x => `<tr data-pid="${esc(x.id)}" class="${x.status === "do not contact" ? "pr-dnc" : ""}">
         <td><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${x.detail ? `<div class="hint">${esc(x.detail)}</div>` : ""}</td>
+        <td data-need>${prNeedCell(x)}</td>
         <td>${esc(PR_KIND[x.kind] || x.kind)}${x.priority ? `<div><span class="tag" title="${esc(x.why)}">${esc(x.priority)}</span></div>` : ""}${x.size_label ? `<div class="hint">${esc(x.size_label)}</div>` : ""}</td>
         <td>${x.dist_mi < 10 ? x.dist_mi.toFixed(1) : Math.round(x.dist_mi)}</td>
         <td>${x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phone)}</a>` : ""}${x.website ? `<div><a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">website</a></div>` : ""}
@@ -97,12 +197,15 @@ window.dasProspects = async el => {
           <div class="hint" title="Who the research says to approach">${esc(x.approach || "")}</div></td>
         <td><select data-st>${PR_STATUS.map(s => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("")}</select>${x.contacted_at ? `<div class="hint">contacted ${esc(x.contacted_at.slice(0, 10))}</div>` : ""}</td>
         <td style="white-space:nowrap">${x.status === "do not contact" ? `<span class="hint">opted out</span>` : `<button data-em title="A first email, opened in your own mail. RF Recon never sends it.">Email</button>`}
-          ${x.job_id ? `<button data-open="${x.job_id}">Job</button>` : `<button data-job title="Put it on the DAS board as a Lead">+ Job</button>`}</td></tr>`).join("")}
+          ${x.job_id ? `<button data-open="${x.job_id}">Job</button>` : `<button data-job title="Put it on the DAS board as a Lead">+ Job</button>`}</td></tr>${P.open.has(x.id) ? prWhy(x) : ""}`).join("")}
       </tbody></table>${rows.length > 400 ? `<p class="hint">Showing the first 400 of ${rows.length.toLocaleString()}: filter or narrow the radius.</p>` : ""}</div>
       <div id="prMail"></div>`;
     prMap(rows);
     $("#prQ").oninput = e => { P.q = e.target.value; clearTimeout(P.qt); P.qt = setTimeout(() => { const pos = e.target.selectionStart; paint(); const q = $("#prQ"); q.focus(); q.setSelectionRange(pos, pos); }, 250); };
     $("#prStatus").onchange = e => { P.status = e.target.value; paint(); };
+    $("#prSort").onchange = e => { P.sort = e.target.value; paint(); };
+    $("#prEnv").onchange = e => { P.env = e.target.value; P.needMsg = ""; paint(); needRun(); };
+    $("#prCol").onchange = e => { P.colour = e.target.value; paint(); };
     $("#prQueue") && ($("#prQueue").onclick = async e => {  // first emails, lined up in Mail › Ready to send (nothing sent here)
       const pick = rows.filter(x => x.email && (x.status || "new") === "new");
       if (!pick.length) { dasSay("None of the buildings shown has an email and status new. Find email first, or widen the list."); return; }
@@ -113,8 +216,14 @@ window.dasProspects = async el => {
       } catch (err) { dasSay(err.message); } b.disabled = false; });
     $("#prCsv").onclick = () => {
       const cols = ["name", "kind", "priority", "address", "city", "state", "zip", "phone", "email", "website", "approach", "dist_mi", "status", "contacted_at"];
+      // RF need, as estimates (need.py): the verdict, the numbers behind it and the reasons in words
+      const nd = x => P.need[x.id] || {};
+      const est = { rf_need_estimate: x => nd(x).ps ? PR_NEED[nd(x).ps][0] + prDb(nd(x)) : "", est_margin_db: x => nd(x).margin_db, est_outside_dbm: x => nd(x).out_dbm,
+        est_building_loss_db: x => nd(x).loss_db, est_inside_dbm: x => nd(x).in_dbm, agency_system: x => nd(x).system ? `${nd(x).system.licensee} ${nd(x).system.band} (${nd(x).system.call})` : "",
+        carrier_estimate: x => (nd(x).carriers || []).map(c => `${c.brand} ${c.tech} ${Math.round(c.in_dbm)} dBm inside (${c.verdict})`).join("; ") || (nd(x).ps ? nd(x).cell_why || "" : ""),
+        rf_need_why: x => nd(x).ps_why };
       const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      const csv = [cols.join(","), ...rows.map(x => cols.map(c => q(c === "kind" ? PR_KIND[x.kind] || x.kind : x[c])).join(","))].join("\r\n");
+      const csv = [[...cols, ...Object.keys(est)].join(","), ...rows.map(x => [...cols.map(c => q(c === "kind" ? PR_KIND[x.kind] || x.kind : x[c])), ...Object.values(est).map(f => q(f(x)))].join(","))].join("\r\n");
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
       a.download = `DAS prospects ${(P.label || "here").replace(/[^\w ,.-]/g, "")} ${P.radius} mi.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     };
@@ -177,15 +286,15 @@ window.dasProspects = async el => {
     if (P.map) { try { P.map.off(); P.map.remove(); } catch (e) { /* already torn down: nothing to show */ } }
     const map = P.map = L.map(m, { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView(P.where, 11);
     addMapLayers(map);  // the person's own base map, offline tiles included (core.js)
-    const col = { new: "#3b82f6", contacted: "#f59e0b", replied: "#a855f7", meeting: "#a855f7", won: "#16a34a", "not interested": "#888", "do not contact": "#555" };
     L.circle(P.where, { radius: P.radius * 1609.34, color: "#888", weight: 1, fill: false, interactive: false }).addTo(map);
     const pts = [];
+    P.marks = new Map();
     for (const x of rows.slice(0, 1000)) {
       if (x.lat == null) continue;
       pts.push([x.lat, x.lon]);
-      L.circleMarker([x.lat, x.lon], { radius: x.priority === "high" ? 6 : 4, color: col[x.status] || "#3b82f6", weight: 1, fillOpacity: .75 })
-        .bindTooltip(`${esc(x.name)} · ${esc(PR_KIND[x.kind] || "")} · ${esc(x.status)}`).addTo(map)
-        .on("click", () => { const tr = body.querySelector(`tr[data-pid="${CSS.escape(x.id)}"]`); if (tr) { tr.scrollIntoView({ block: "center" }); tr.classList.add("pr-hit"); setTimeout(() => tr.classList.remove("pr-hit"), 1500); } });
+      P.marks.set(x.id, L.circleMarker([x.lat, x.lon], { radius: x.priority === "high" ? 6 : 4, color: prDot(x), weight: 1, fillOpacity: .75 })
+        .bindTooltip(() => { const n = P.need[x.id]; return `${esc(x.name)} · ${esc(PR_KIND[x.kind] || "")} · ${esc(x.status)}${n ? ` · RF need: ${(PR_NEED[n.ps] || PR_NEED.unknown)[0]}${prDb(n)} (estimate)` : ""}`; }).addTo(map)
+        .on("click", () => { const tr = body.querySelector(`tr[data-pid="${CSS.escape(x.id)}"]`); if (tr) { tr.scrollIntoView({ block: "center" }); tr.classList.add("pr-hit"); setTimeout(() => tr.classList.remove("pr-hit"), 1500); } }));
     }
     if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(.1), { animate: false });
     (P.ro = new ResizeObserver(() => { if (P.map === map && m.isConnected) map.invalidateSize(); })).observe(m);

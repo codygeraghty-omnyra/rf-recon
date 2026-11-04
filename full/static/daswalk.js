@@ -12,7 +12,9 @@
    coloured against the job's requirements. Every change rolls the walk up into the grid squares (grid.results, readings
    marked walk:1), so the grid score (IFC 510.5.4 20 / 40 areas, critical squares) and the Report use them. Only readings
    from a calibrated instrument count; cellular readings never count toward public safety (das.js).
-   A web page can't read the phone's own radio, so the signal always comes from a log or is typed.
+   A web page can't read the phone's own radio, so the signal comes from a log or is typed, except in RF Recon for Android
+   (android/, outside this repo): its window.RFRadio gives the phone's own LTE / 5G serving cell (Read the phone; Start
+   walk logs it). Phone readings are cellular only and not calibrated: indicative, never counted toward public safety.
    Saved with the job as data.walk = {v:1, floors:[{name, rev, seq, ar, arFor, rule, pts, wps}]}: lists, so the job's log
    doesn't get a line for every tap (das.py save_job logs scalar changes only).
      pts: {id, by:"tap"|"time"|"xy", x, y (tap / xy: fractions of the plan), t (ISO), inst, src, rs:[readings]}
@@ -213,8 +215,64 @@ function wkFromLog(fw, rows, m, o){ const legs=wkLegs(fw.wps), out={filled:0, pl
     out.pts.push({by:"time", t:new Date(s.ms).toISOString(), rs:[s.r], inst:o.inst, src:o.src}); out.placed++; });
   return out; }
 
+// the phone's own signal (RF Recon for Android's window.RFRadio): a snapshot {ts, serving:[cell], neighbours:[cell]}, a cell
+// {tech, carrier, mcc, mnc, band, pci, earfcn | nrarfcn, rsrp, rsrq, sinr}. Cellular only, not calibrated (inst "uncal").
+const WK_PHONE_SRC = "Phone (not calibrated)";
+const WK_PLMN = {"313100":"FirstNet", "310410":"AT&T", "310280":"AT&T", "310150":"AT&T", "311480":"Verizon", "310004":"Verizon", "310012":"Verizon",
+  "310260":"T-Mobile", "310120":"T-Mobile", "312250":"T-Mobile", "311580":"UScellular", "313340":"Dish / Boost"};
+const WK_PHONE_MAP = Object.fromEntries(["time","tech","carrier","band","pci","freq","rsrp","rsrq","sinr"].map(k=>[k, k]));
+// a snapshot's serving cells -> cellular readings, one per serving cell and carrier (neighbours left out)
+function wkPhoneReadings(snap){ const out=[], seen=new Set();
+  for(const c of (snap&&snap.serving)||[]){ const r={tech:/NR|5G/i.test(String(c.tech||""))?"NR":"LTE"};
+    r.carrier=carrierName(WK_PLMN[`${c.mcc??""}${c.mnc??""}`]||c.carrier||"");
+    for(const [k,v] of [["band",c.band],["pci",c.pci],["freq",c.earfcn??c.nrarfcn]]) if(has(v)) r[k]=String(v);
+    for(const k of ["rsrp","rsrq","sinr"]){ const v=wkNum(c[k]); if(v!=null) r[k]=v; }
+    if(!has(r.rsrp)&&!has(r.rsrq)) continue;
+    const k=chKey(r); if(seen.has(k)) continue; seen.add(k); out.push(r); }
+  return out; }
+// a walk's drained snapshots -> log rows for wkFromLog (with WK_PHONE_MAP), each at the time the phone measured it
+const wkPhoneRows = snaps => (snaps||[]).flatMap(s=>wkPhoneReadings(s).map(r=>({...r, time:+s.ts})));
+
+// Phone correction (Cody 11/4: "can we get the phone calibrated some how?"). A phone can't be calibrated, but it can be
+// characterised against one that is: at a few spots the phone's RSRP and a calibrated instrument's reading of the same cell
+// are kept as a pair (Point › Phone vs instrument). Each band's offset (the median of instrument − phone) corrects the
+// phone's later readings; the spread says how far one corrected reading can still be off. Corrected readings stay "not
+// calibrated": closer to the truth, mapped, never counted toward pass / fail. The pairs are kept with the walk (fw.cal) and
+// on the phone itself (localStorage), per phone model, so a phone's table follows it to the next job.
+//   pair: {t, model, tech, band, carrier, pci, phone (dBm), ref (dBm), inst}
+const WK_CAL_MIN = 5, WK_CAL_KEY = "rfr.phonecal";
+const wkCalKey = r => `${r.tech==="NR"?"NR":"LTE"}|${String(r.band??"").trim()||"?"}`;
+const wkMedian = a => { const v=[...a].sort((x,y)=>x-y), n=v.length; return n?(n%2?v[(n-1)/2]:(v[n/2-1]+v[n/2])/2):null; };
+function wkCalStats(ps){ const dd=ps.map(p=>p.ref-p.phone), n=dd.length, off=wkMedian(dd);
+  const sd=n>1?Math.sqrt(dd.reduce((a,x)=>a+(x-off)**2, 0)/(n-1)):null, lv=ps.map(p=>p.phone), lo=Math.min(...lv), hi=Math.max(...lv);
+  const q=n>=WK_CAL_MIN&&hi-lo>=10&&sd!=null&&sd<=4?"good":n>=3?"rough":"too few";
+  return {off:Math.round(off*10)/10, sd:sd==null?null:Math.round(sd*10)/10, n, lo, hi, q}; }
+const wkCalOk = p => p && isFinite(p.phone) && isFinite(p.ref) && p.phone!==null && p.ref!==null;
+// pairs -> {bands:{"LTE|66": stats}, all: stats over every band | null}
+function wkCalFit(pairs){ const ok=(pairs||[]).filter(wkCalOk), by={};
+  for(const p of ok) (by[wkCalKey(p)] ||= []).push(p);
+  return {bands:Object.fromEntries(Object.entries(by).map(([k, ps])=>[k, wkCalStats(ps)])), all:ok.length?wkCalStats(ok):null}; }
+// one reading through the table: its band's offset when that band has 3+ pairs, else every band's once there are 5+.
+// The phone's own value stays as rsrp_raw (a reading already corrected is left alone).
+function wkCalApply(r, fit){ if(!fit||!r||!has(r.rsrp)||has(r.rsrp_raw)) return r; const k=wkCalKey(r), b=fit.bands[k];
+  const use=b&&b.n>=3?{...b, key:k}:fit.all&&fit.all.n>=WK_CAL_MIN?{...fit.all, key:"all bands"}:null;
+  if(!use) return r;
+  return {...r, rsrp_raw:r.rsrp, rsrp:Math.round((r.rsrp+use.off)*10)/10, cor:{off:use.off, sd:use.sd, n:use.n, key:use.key, q:use.q}}; }
+// pairs from several places (this phone, the job's floors), this phone model's only, each once
+function wkCalMerge(ps, model){ const seen=new Set();
+  return (ps||[]).filter(p=>{ if(!wkCalOk(p)||(p.model&&p.model!==model)) return false; const k=`${p.t}|${wkCalKey(p)}|${p.ref}|${p.phone}`;
+    if(seen.has(k)) return false; seen.add(k); return true; }); }
+const wkCalLabel = k => { const [t, b]=k.split("|"); return k==="all bands"?"every band":`${t==="NR"?"5G NR":"LTE"} band ${b}`; };
+const wkCalSays = s => s.off>0?`reads ${s.off} dB low`:s.off<0?`reads ${-s.off} dB high`:"reads right";
+
 /* ---------- the page ---------- */
 const WK = {cache:{}, undo:{}, lastSync:{}, busy:false, next:null, compass:null};
+// this phone's model, for its correction table: the browser's own report (Android WebView), else its user agent
+const wkModel = () => WK.model || (WK.model = (()=>{ const ua=typeof navigator!=="undefined"?navigator.userAgent||"":"";
+  const m=(ua.match(/Android [\d.]+; (?:[a-z]{2}[-_][a-z]{2}; )?([^;)]+?)(?: Build\/[^;)]*)?[;)]/i)||[])[1]; return m&&m.trim().length>1?m.trim():"this phone"; })());
+try{ navigator.userAgentData?.getHighEntropyValues?.(["model"]).then(v=>{ if(v&&v.model) WK.model=v.model; }).catch(()=>{}); }catch(e){}
+const wkCalStore = model => { try{ const a=JSON.parse(localStorage.getItem(WK_CAL_KEY)||"[]"); return Array.isArray(a)?a.filter(p=>p.model===model):[]; }catch(e){ return []; } };
+const wkCalKeep = ps => { try{ const a=JSON.parse(localStorage.getItem(WK_CAL_KEY)||"[]"); localStorage.setItem(WK_CAL_KEY, JSON.stringify([...(Array.isArray(a)?a:[]), ...ps].slice(-1000))); }catch(e){} };
 const wkUi = () => S.das.walk ||= {mode:"point", vals:"type", kind:"ps", walking:false, leg:0, t0:0, zoom:1, sig:"", met:"", last:{ps:{}, cell:{}}};
 const wkClone = x => JSON.parse(JSON.stringify(x));
 // the floor's walk: the saved one, or this visit's newer copy while a save is still on its way
@@ -223,6 +281,11 @@ function wkFloorOf(j, name){ const W=(j.data||{}).walk, saved=(W&&Array.isArray(
   return wkClone(base||{name, rev:0, seq:0, rule:"centre", pts:[], wps:[]}); }
 const wkLocalTime = ms => { const t=new Date(ms), p=x=>String(x).padStart(2,"0"); return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}T${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`; };
 const wkClock = ms => isFinite(ms) ? new Date(ms).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "–";
+// RF Recon for Android's radio: there, and a call to it (its answers are JSON text; a refusal is {error, message})
+const wkPhone = () => { try{ return !!(window.RFRadio&&window.RFRadio.available()); }catch(e){ return false; } };
+const wkPhoneCall = (fn, ...a) => { try{ const v=window.RFRadio[fn](...a); return typeof v==="string"?JSON.parse(v):v; }
+  catch(e){ return {error:"bridge", message:`The phone's signal couldn't be read (${e.message}).`}; } };
+const wkPhoneTxt = r => `${r.carrier} ${r.tech==="NR"?"5G NR":"LTE"}${has(r.band)?` band ${r.band}`:""}${has(r.rsrp)?` RSRP ${r.rsrp} dBm${has(r.rsrp_raw)?` (the phone read ${r.rsrp_raw})`:""}`:""}${has(r.sinr)?` SINR ${r.sinr} dB`:""}`;
 
 // Saves go one at a time, the newest waiting one next (a fast walk's taps fold into one save); a refused save says so
 async function wkPump(){ if(WK.busy) return; WK.busy=true;
@@ -263,16 +326,23 @@ function wkMount(panel, j0, save, ctx){
   const wft=()=>((((d().design||{}).floors||{})[f.name])||{}).width_ft||null;
   if(!["point","cont","edit"].includes(U.mode)) U.mode="point";
   if(U.walking&&U.floor&&U.floor!==f.name) U.walking=false;  // a walk belongs to its floor
+  const phone=wkPhone(); if((U.vals==="phone"||U.vals==="calib")&&!phone) U.vals="type";
+  const calModel=wkModel(), calOn=()=>U.cor!==false;
+  const calPairs=()=>wkCalMerge([...wkCalStore(calModel), ...(((d().walk||{}).floors)||[]).filter(x=>x.name!==f.name).flatMap(x=>x.cal||[]), ...(fw.cal||[])], calModel);
+  const calFix=rs=>{ const ft=calOn()?wkCalFit(calPairs()):null; return ft?rs.map(r=>wkCalApply(r, ft)):rs; };
   const modeHint={point:U.vals==="log"?"tap where you stand each time the instrument or app logs a reading; then import the log: each spot takes the reading nearest its time"
+      :U.vals==="phone"?"tap where you stand: the spot takes this phone's own serving cell (cellular only, not calibrated)"
+      :U.vals==="calib"?"hold a calibrated instrument beside the phone and tap where you stand: the phone reads its cell, then enter what the instrument reads for the same cell"
       :"tap where you stand, then enter what the instrument reads",
-    cont:U.walking?"tap your position at each turn and every few steps; readings logged between two taps go on the line between them, by time"
+    cont:U.walking?`tap your position at each turn and every few steps; readings logged between two taps go on the line between them, by time${phone?" (this phone is logging its own signal)":""}`
+      :phone?"Start walk (this phone logs its own LTE / 5G signal while you walk), then tap your position as you go"
       :"Start walk, then tap your position as you go while the instrument or phone app logs",
     edit:"tap a point or a walk tap to see, change or delete it; drag it to move it"}[U.mode];
   const insts=ctx.insts||[], instName2=k=>k==="uncal"?"no calibrated instrument (not counted)":k?instName(insts.find(i=>instKey(i)===k)||{model:k.replace("|"," ")}):"";
   panel.innerHTML=`<h3>Walk · floor ${esc(f.name)} <span class="hint">· ${esc(modeHint)}</span></h3>
     <div class="maptools no-print" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <div class="seg" id="wkMode">${[["point","Point"],["cont","Continuous"],["edit","Edit"]].map(([k,l])=>`<button data-wm="${k}" class="${U.mode===k?"on":""}">${l}</button>`).join("")}</div>
-      ${U.mode==="point"?`<div class="seg" id="wkVals">${[["type","Type values"],["log","Values from a log"]].map(([k,l])=>`<button data-wv="${k}" class="${U.vals===k?"on":""}">${l}</button>`).join("")}</div>`:""}
+      ${U.mode==="point"?`<div class="seg" id="wkVals">${[["type","Type values"],["log","Values from a log"],...(phone?[["phone","Read the phone"],["calib","Phone vs instrument"]]:[])].map(([k,l])=>`<button data-wv="${k}" class="${U.vals===k?"on":""}">${l}</button>`).join("")}</div>`:""}
       ${U.mode==="cont"?`<button id="wkGo" class="primary">${U.walking?"Stop walk":"Start walk"}</button><span id="wkClock" class="mono"></span>`:""}
       <button id="wkUndo" ${undo().length?"":"disabled"}>↶ Undo</button>
       <span class="seg" id="wkZoom"><button data-z="-1" aria-label="Zoom out">−</button><button data-z="1" aria-label="Zoom in">+</button></span>
@@ -295,7 +365,9 @@ function wkMount(panel, j0, save, ctx){
       <label class="inl">Import a log <input type="file" id="wkImp" accept=".csv,.tsv,.txt,.json,.xlsx"></label>
       <button id="wkCsv">⇩ Points CSV</button><button id="wkPng">⇩ Heat map PNG</button><button id="wkFile">Save heat map to Files</button><button id="wkClear">Clear this floor's walk</button></div>
     <div id="wkImpBox"></div>
-    <p class="hint" style="margin:8px 0 0">A web page can't read this phone's own signal: log it with a survey app (G-NetTrack Pro, Network Cell Info) or an instrument, then import the log here; readings are matched to your taps by time (set the clock offset if the logger's clock differs). The heat map shows every reading; the grid squares take ${esc(WK_RULE_SHORT[fw.rule||"centre"])} reading of the points in each, and only readings from a calibrated instrument count toward pass / fail. Cellular readings never count toward public safety. Taken with: <b>${esc(instName2(ctx.inst)||"not picked")}</b>.</p>`;
+    <div id="wkCal"></div>
+    <p class="hint" style="margin:8px 0 0">${phone?`<b>This app reads the phone's own signal</b>: Read the phone (Point) takes its serving cell at a tap; Start walk (Continuous) logs it and Stop places the readings by time. Phone readings are cellular only (LTE / 5G, no public-safety channels) and not calibrated: indicative, never counted toward a public-safety pass, saved as taken with "${esc(WK_PHONE_SRC)}". An instrument's log still imports here (Import a log); readings`
+      :`A web page can't read this phone's own signal. On Android, the <a href="#" data-help="android">RF Recon Android app</a> can (Read the phone); otherwise log it with a survey app (G-NetTrack Pro, Network Cell Info) or an instrument, then import the log here; readings`} are matched to your taps by time (set the clock offset if the logger's clock differs). The heat map shows every reading; the grid squares take ${esc(WK_RULE_SHORT[fw.rule||"centre"])} reading of the points in each, and only readings from a calibrated instrument count toward pass / fail. Cellular readings never count toward public safety. Taken with: <b>${esc(instName2(ctx.inst)||"not picked")}</b>.</p>`;
   const $p=s=>panel.querySelector(s), svg=$p("#wkSvg"), cv=$p("#wkHeat"), img=$p("#wkImg");
   const say=t=>{ const x=$p("#wkSaid"); if(x) x.textContent=t; };
 
@@ -380,6 +452,12 @@ function wkMount(panel, j0, save, ctx){
       const t=new Date().toISOString(); commit(w=>{ (w.wps||=[]).push({id:++w.seq, x:+x.toFixed(4), y:+y.toFixed(4), t, leg:U.leg}); });
       const g=wkSquare(x, y, f, ar(), onPlan); say(`Tap ${(fw.wps||[]).filter(w=>w.leg===U.leg).length} at ${wkClock(Date.parse(t))}${g?`, square ${f.name}-${g}`:", outside the grid"}.`); return; }
     if(WK.compass) return compassAt(x, y);
+    if(U.vals==="calib"&&phone) return calAt(x, y);
+    if(U.vals==="phone"&&phone){ const s=wkPhoneCall("read"); if(s.error){ say(s.message||"The phone's signal couldn't be read."); return; }
+      const rs=calFix(wkPhoneReadings(s)); if(!rs.length){ say("The phone reports no LTE or 5G serving cell with a signal right now: no reading taken."); return; }
+      const t=new Date().toISOString(), g=wkSquare(x, y, f, ar(), onPlan), age=+s.age_ms>15000?` (Android's newest reading is ${Math.round(s.age_ms/1000)} s old)`:"";
+      commit(w=>{ w.pts.push({id:++w.seq, by:"tap", x:+x.toFixed(4), y:+y.toFixed(4), t, rs, inst:"uncal", src:WK_PHONE_SRC}); });
+      say(`${WK_PHONE_SRC} at ${wkClock(Date.parse(t))}${g?`, square ${f.name}-${g}`:", outside the grid"}: ${rs.map(wkPhoneTxt).join("; ")}${age}. Cellular, indicative only${rs.some(r=>r.cor)?", corrected by this phone's table":""}.`); return; }
     if(!ctx.inst){ say("Pick what's taking the readings first: Taken with, above the plan."); return; }
     if(U.vals==="log"){ const t=new Date().toISOString(); commit(w=>{ w.pts.push({id:++w.seq, by:"tap", x:+x.toFixed(4), y:+y.toFixed(4), t, rs:[], inst:ctx.inst}); });
       say(`Spot ${fw.pts.length} marked at ${wkClock(Date.parse(t))}: it takes the logged reading nearest that time when you import the log.`); return; }
@@ -503,24 +581,95 @@ function wkMount(panel, j0, save, ctx){
     box.querySelector("#wiGo").onclick=()=>{ const mm=cur(); if(!mm.time&&!(mm.x&&mm.y)){ prev(); return; }
       const inst=$p("#wiInst").value||"uncal";
       const o=wkFromLog(fw, t.rows, mm, {offset:(+$p("#wiOff").value||0)*1000, win:Math.max(1,+$p("#wiWin").value||5)*1000, inst, src:fname, lteOnly:sn.lteOnly});
+      const pl=placeLog(o, fname); if(!pl.ok){ say(pl.msg); return; }
+      box.innerHTML=""; say(pl.msg); note(`Walk, floor ${f.name}: ${pl.msg} Taken with ${inst==="uncal"?"no calibrated instrument":inst.replace("|"," ")}.`); }; }
+  // a log's readings (wkFromLog) onto this floor: an imported file, or the phone's own readings when a walk stops
+  function placeLog(o, fname){
       const room=WK_MAX-fw.pts.length, add=o.pts.filter(p=>!p.fill), fills=o.pts.filter(p=>p.fill), keep=add.slice(0, Math.max(0, room));
-      if(!keep.length&&!fills.length){ say(`Nothing placed from ${fname}: ${[o.outside?`${o.outside.toLocaleString()} rows outside this floor's walk times`:"", o.noTime?`${o.noTime.toLocaleString()} with no readable time`:"", o.noValue?`${o.noValue.toLocaleString()} with no reading`:"", o.other?`${o.other.toLocaleString()} 2G / 3G rows`:""].filter(Boolean).join(", ")||"no rows"}.`); return; }
+      if(!keep.length&&!fills.length) return {ok:false, msg:`Nothing placed from ${fname}: ${[o.outside?`${o.outside.toLocaleString()} rows outside this floor's walk times`:"", o.noTime?`${o.noTime.toLocaleString()} with no readable time`:"", o.noValue?`${o.noValue.toLocaleString()} with no reading`:"", o.other?`${o.other.toLocaleString()} 2G / 3G rows`:""].filter(Boolean).join(", ")||"no rows"}.`};
       commit(w=>{ for(const p of fills){ const it=w.pts.find(x=>x.id===p.id); if(it){ it.rs=p.rs; it.inst=p.inst; it.src=p.src; } }
         for(const p of keep) w.pts.push({id:++w.seq, ...p}); });
       const walked=(fw.wps||[]).length>0, head=[o.placed+o.xy?`${(o.placed+o.xy).toLocaleString()} readings from ${fname} placed`:"", o.filled?`${o.filled} tapped spot${o.filled===1?"":"s"} filled from ${fname}`:""].filter(Boolean).join(", ");
-      const msg=`${head}${o.outside?`; ${o.outside.toLocaleString()} rows ${walked?"outside this floor's walk times (another floor? import it there too)":"not used (no walk on this floor to place them on)"}`:""}${o.noTime?`; ${o.noTime.toLocaleString()} with no readable time`:""}${o.other?`; ${o.other.toLocaleString()} 2G / 3G rows left out`:""}${add.length>keep.length?`; ${(add.length-keep.length).toLocaleString()} over the ${WK_MAX.toLocaleString()} points a floor holds, left out`:""}.`;
-      box.innerHTML=""; say(msg); note(`Walk, floor ${f.name}: ${msg} Taken with ${inst==="uncal"?"no calibrated instrument":inst.replace("|"," ")}.`); }; }
+      return {ok:true, msg:`${head}${o.outside?`; ${o.outside.toLocaleString()} rows ${!walked?"not used (no walk on this floor to place them on)":fname===WK_PHONE_SRC?"logged before your first tap or after your last: not placed":"outside this floor's walk times (another floor? import it there too)"}`:""}${o.noTime?`; ${o.noTime.toLocaleString()} with no readable time`:""}${o.other?`; ${o.other.toLocaleString()} 2G / 3G rows left out`:""}${add.length>keep.length?`; ${(add.length-keep.length).toLocaleString()} over the ${WK_MAX.toLocaleString()} points a floor holds, left out`:""}.`}; }
+  // the phone's logged readings (Start walk to Stop) onto this floor, exactly as an imported log: placed by time between taps
+  const phoneDrain=()=>{ wkPhoneCall("stop"); const snaps=wkPhoneCall("drain"), rows=wkPhoneRows(Array.isArray(snaps)?snaps:[]);
+    if(!rows.length) return {ok:false, msg:`${WK_PHONE_SRC}: no readings were logged (Android gave none: check Location is on and allowed for RF Recon).`};
+    const o=wkFromLog(fw, rows, WK_PHONE_MAP, {offset:0, win:5000, inst:"uncal", src:WK_PHONE_SRC, lteOnly:false});
+    for(const p of o.pts) p.rs=calFix(p.rs||[]);
+    const pl=placeLog(o, WK_PHONE_SRC);
+    if(pl.ok) note(`Walk, floor ${f.name}: ${pl.msg} Cellular, not calibrated (indicative).`); return pl; };
+
+
+  // Phone vs instrument: the phone reads its serving cells; the instrument's reading of each is typed beside it. Each pair
+  // goes into the phone's table; the instrument's reading is also kept here as a spot of its own (it's a calibrated reading).
+  function calAt(x, y){ const s=wkPhoneCall("read"); if(s.error){ say(s.message||"The phone's signal couldn't be read."); return; }
+    const rs=wkPhoneReadings(s).filter(r=>has(r.rsrp)), box=$p("#wkForm");
+    if(!rs.length){ say("The phone reports no LTE or 5G serving cell with an RSRP right now: nothing to compare."); return; }
+    const good=insts.filter(i=>instState(i).ok);
+    if(!good.length){ say("Comparing needs a calibrated instrument: add it on the Overview (model | serial | calibration date), with a calibration that's current."); return; }
+    const t=new Date().toISOString(), g=wkSquare(x, y, f, ar(), onPlan), pick=good.find(i=>instKey(i)===U.calInst)||good[0];
+    spot={x:+x.toFixed(4), y:+y.toFixed(4)}; draw();
+    box.innerHTML=`<div class="panel" style="margin-top:8px"><b>Phone vs instrument${g?` in square ${esc(f.name)}-${g}`:""}</b>
+      <p class="hint" style="margin:2px 0 6px">Read the same cell on the instrument (same carrier and band, the PCI if it shows one), held beside the phone.
+        Each pair teaches RF Recon how far this phone (${esc(calModel)}) reads off on that band.</p>
+      <label class="inl">Instrument <select id="wcInst">${good.map(i=>`<option value="${esc(instKey(i))}" ${i===pick?"selected":""}>${esc(instName(i))}</option>`).join("")}</select></label>
+      ${rs.map((r, i)=>`<div class="row" style="align-items:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap"><span style="flex:1 1 220px">${esc(wkPhoneTxt(r))}</span>
+        <label>Instrument RSRP dBm<input id="wc_${i}" type="number" step="0.5" inputmode="decimal" style="width:90px"></label></div>`).join("")}
+      <div class="row" style="gap:8px;margin-top:8px"><button class="primary" id="wcSave">Save the pair${rs.length>1?"s":""}</button><button id="wcNo">Cancel</button></div></div>`;
+    const done=()=>{ spot=null; box.innerHTML=""; draw(); };
+    box.querySelector("#wcNo").onclick=done;
+    box.querySelector("#wcSave").onclick=()=>{ const inst=box.querySelector("#wcInst").value; U.calInst=inst;
+      const got=rs.map((r, i)=>({r, ref:wkNum(box.querySelector(`#wc_${i}`).value)})).filter(z=>z.ref!=null);
+      if(!got.length){ say("Enter what the instrument reads for at least one cell."); return; }
+      const bad=got.find(z=>z.ref>-20||z.ref<-150); if(bad){ say(`${bad.ref} dBm isn't an RSRP an instrument reads (−150 to −20 dBm).`); return; }
+      const ps=got.map(({r, ref})=>({t, model:calModel, tech:r.tech, band:r.band??"", carrier:r.carrier, pci:r.pci??"", phone:r.rsrp, ref, inst}));
+      wkCalKeep(ps);
+      commit(w=>{ (w.cal||=[]).push(...ps);
+        w.pts.push({id:++w.seq, by:"tap", x:spot.x, y:spot.y, t, inst, src:"typed (beside the phone)",
+          rs:got.map(({r, ref})=>{ const o={carrier:r.carrier, tech:r.tech, rsrp:ref, note:"read beside the phone"}; for(const k of ["band","pci","freq"]) if(has(r[k])) o[k]=r[k]; return o; })}); });
+      done(); const ft=wkCalFit(calPairs());
+      say(`Kept: ${ps.map(p=>{ const b=ft.bands[wkCalKey(p)]; return `${wkCalLabel(wkCalKey(p))}: phone ${p.phone}, instrument ${p.ref} dBm (this phone ${wkCalSays(b)} over ${b.n} pair${b.n===1?"":"s"})`; }).join("; ")}.`);
+      note(`Walk, floor ${f.name}: phone ${calModel} compared with ${instName(insts.find(i=>instKey(i)===inst)||{model:inst})} at ${ps.length} cell${ps.length===1?"":"s"}`);
+      calPanel(); };
+    box.querySelector("#wc_0")?.focus({preventScroll:true}); box.scrollIntoView({block:"nearest", behavior:"smooth"}); }
+  // the phone's correction table: what it reads off by on each band, how sure, and whether it's applied
+  function calPanel(){ const el=$p("#wkCal"); if(!el) return; const ps=calPairs(), hasPhone=fw.pts.some(p=>p.src===WK_PHONE_SRC);
+    if(!phone&&!ps.length&&!hasPhone){ el.innerHTML=""; return; }
+    const ft=wkCalFit(ps), rows=Object.entries(ft.bands).sort(([a],[b])=>a.localeCompare(b, undefined, {numeric:true}));
+    const left=fw.pts.filter(p=>p.src===WK_PHONE_SRC&&(p.rs||[]).some(r=>has(r.rsrp)&&!has(r.rsrp_raw))).length;
+    const Q={good:"good", rough:"rough: more pairs, or strong and weak spots", "too few":"too few: needs 3 pairs"};
+    const row=(k, x)=>`<tr><td><b>${esc(wkCalLabel(k))}</b></td><td>${esc(wkCalSays(x))}<div class="hint">${x.sd==null?"one pair: no spread yet":`±${x.sd} dB a reading`}</div></td>
+      <td>${x.n} pair${x.n===1?"":"s"}<div class="hint">${x.lo} to ${x.hi} dBm</div><div class="hint" style="color:${x.q==="good"?"#1a7f37":"#9a6700"}">${esc(Q[x.q])}</div></td></tr>`;
+    el.innerHTML=`<div class="panel" style="margin-top:8px"><h3 style="margin:0 0 4px">Phone correction <span class="hint">· ${esc(calModel)}, against a calibrated instrument</span></h3>
+      ${rows.length?`<div class="tw"><table><thead><tr><th>Band</th><th>This phone</th><th>Pairs and levels</th></tr></thead><tbody>
+        ${rows.map(([k, x])=>row(k, x)).join("")}${rows.length>1&&ft.all?row("all bands", ft.all):""}</tbody></table></div>`
+        :`<p class="hint" style="margin:0">No pairs yet. ${phone?"Point › <b>Phone vs instrument</b>: at 5 or more spots, strong and weak signal, read this phone and a calibrated instrument side by side."
+          :"Pairs are taken in the RF Recon Android app (Help › Android app)."}</p>`}
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><label class="inl"><input type="checkbox" id="wcOn" ${calOn()?"checked":""}> Correct this phone's readings as they're taken</label>
+        ${left&&rows.length?`<button id="wcFix">Correct this floor's ${left} earlier phone reading${left===1?"":"s"}</button>`:""}</div>
+      <p class="hint" style="margin:6px 0 0">A band with 3 or more pairs uses its own offset; any other band uses every band's once there are 5 pairs. A corrected reading keeps what the phone read and the offset used.
+        It's still not calibrated: closer to the truth and shown in the cellular view, never counted toward pass / fail. The table stays on this phone for the next job, and the pairs are kept with this walk.</p></div>`;
+    el.querySelector("#wcOn").onchange=e=>{ U.cor=e.target.checked; calPanel(); };
+    el.querySelector("#wcFix")?.addEventListener("click", ()=>{ const ft2=wkCalFit(calPairs()); let k=0;
+      commit(w=>{ for(const p of w.pts) if(p.src===WK_PHONE_SRC) p.rs=(p.rs||[]).map(r=>{ const c=wkCalApply(r, ft2); if(c!==r) k++; return c; }); });
+      draw(); say(`${k} phone reading${k===1?"":"s"} corrected by this phone's table.`); note(`Walk, floor ${f.name}: ${k} phone readings corrected (${calModel})`); calPanel(); }); }
 
   // the toolbar
   $p("#wkMode").onclick=e=>{ const b=e.target.closest("[data-wm]"); if(!b) return; if(U.walking&&b.dataset.wm!=="cont"){ say("Stop the walk first."); return; } U.mode=b.dataset.wm; sel=null; remount(); };
   $p("#wkVals")?.addEventListener("click", e=>{ const b=e.target.closest("[data-wv]"); if(b){ U.vals=b.dataset.wv; remount(); } });
   $p("#wkGo")?.addEventListener("click", ()=>{
-    if(U.walking){ U.walking=false; const k=(fw.wps||[]).filter(w=>w.leg===U.leg).length; remount(); say(`Walk stopped: ${k} tap${k===1?"":"s"}. Import the log to place its readings.`); note(`Walk, floor ${f.name}: walked with ${k} taps, ${wkClock(U.t0)} to ${wkClock(Date.now())}`); return; }
-    U.walking=true; U.leg=Math.max(-1, ...(fw.wps||[]).map(w=>w.leg??0))+1; U.t0=Date.now(); U.floor=f.name; remount(); say("Walking: tap where you are now, then at each turn and every few steps."); });
+    if(U.walking){ U.walking=false; const k=(fw.wps||[]).filter(w=>w.leg===U.leg).length; note(`Walk, floor ${f.name}: walked with ${k} taps, ${wkClock(U.t0)} to ${wkClock(Date.now())}`);
+      const pd=phone?phoneDrain():null; remount(); say(`Walk stopped: ${k} tap${k===1?"":"s"}. ${pd?pd.msg:"Import the log to place its readings."}`); return; }
+    let ph=null; if(phone){ wkPhoneCall("stop"); wkPhoneCall("drain"); ph=wkPhoneCall("start", 2000); }  // a fresh log for this walk
+    U.walking=true; U.leg=Math.max(-1, ...(fw.wps||[]).map(w=>w.leg??0))+1; U.t0=Date.now(); U.floor=f.name; remount();
+    say(`Walking: tap where you are now, then at each turn and every few steps.${ph?ph.error?` The phone isn't logging: ${ph.message}`:" The phone is logging its own signal (cellular, indicative).":""}`); });
+  // the phone still logging with no walk on this page (the page was reloaded mid-walk): its readings go on this floor's taps by time
+  if(phone&&!U.walking&&U.mode==="cont"&&wkPhoneCall("logging")===true){ const pd=phoneDrain(); say(`The phone was still logging from a walk this page lost track of. ${pd.msg}`); }
   if(U.mode==="cont"&&U.walking){ const tick=()=>{ const c=$p("#wkClock"); if(!c||!c.isConnected||!U.walking) return clearInterval(iv); const s=Math.floor((Date.now()-U.t0)/1000);
       c.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")} · ${(fw.wps||[]).filter(w=>w.leg===U.leg).length} taps`; }; const iv=setInterval(tick, 1000); tick(); }
   const doUndo=()=>{ const st=undo(); if(!st.length) return; const rev=fw.rev||0; fw=JSON.parse(st.pop()); fw.rev=rev+1; sel=null; spot=null; $p("#wkForm").innerHTML=""; persist(); say("Undone."); };
   $p("#wkUndo").onclick=doUndo;
+  calPanel();
   const onKey=e=>{ if(!panel.isConnected||!svg.isConnected) return document.removeEventListener("keydown", onKey);
     if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||"")){ e.preventDefault(); doUndo(); } };
   document.removeEventListener("keydown", WK.onKey||(()=>{})); WK.onKey=onKey; document.addEventListener("keydown", onKey);

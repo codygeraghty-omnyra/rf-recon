@@ -43,16 +43,30 @@ function hCircMean(xs) {
 const hDecl = p => p && window.WMM ? WMM.declination(p.lat, p.lon) : null;  // east positive; null outside WMM2025's years
 const hTrue = (mag, p) => { const dc = hDecl(p); return dc == null ? mag : ((mag + dc) % 360 + 360) % 360; };
 const hLive = () => HUNT.listening && HUNT.mag != null && Date.now() - HUNT.last < 3000;  // a compass silent for 3 s (screen off, app left) isn't used
+// The steadiness gate, as the PC's (static/hunt.js huntSteady, 11/4): a compass bearing is saved only when the last half
+// second or more of readings agree within H_STEADY degrees and the phone doesn't say it's uncalibrated or rough
+// (iOS: a negative accuracy, or over 20 degrees). Simulated hunts: it halves the estimate's miss. A level is saved either way.
+const H_STEADY = 5;
+function hSteady() {
+  const s = HUNT.samples, acc = HUNT.acc;
+  if (!hLive()) return {ok: false, why: "stopped", say: "The compass stopped: press the compass button again, or type the bearing."};
+  if (acc != null && acc < 0) return {ok: false, why: "uncal", say: "not calibrated: wave the phone in a figure 8, then hold it still"};
+  if (acc != null && acc > 20) return {ok: false, why: "rough", say: `the phone says it's off by up to ±${Math.round(acc)}°: wave it in a figure 8, away from cars and metal`};
+  if (s.length >= 5 && HUNT.spread > H_STEADY) return {ok: false, why: "jumping", say: "jumping, not steady yet: hold it flat or upright and still, away from cars and metal; a figure 8 if it stays jumpy"};
+  if (s.length < 5 || s[s.length - 1].t - s[0].t < 500) return {ok: false, why: "settling", say: "hold it still a moment"};
+  return {ok: true, why: "steady", say: "steady: ready to save"};
+}
 function hShowHeading() {
   const o = $("#hn_head"), q = $("#hn_cq"); if (!o) return;
   if (HUNT.mag == null) { o.textContent = "—"; return; }
-  const dc = hDecl(HUNT.here), h = hTrue(HUNT.mag, HUNT.here), acc = HUNT.acc, bad = (acc != null && (acc < 0 || acc > 20)) || HUNT.spread > 12;
+  const dc = hDecl(HUNT.here), h = hTrue(HUNT.mag, HUNT.here), acc = HUNT.acc, st = hSteady();
   o.textContent = `${Math.round(h)}° ${compass(h)}`;
   if (!q) return;
-  q.style.color = bad ? "var(--bad-ink)" : "";
+  q.style.color = st.ok ? "var(--good-ink)" : st.why === "settling" ? "" : "var(--bad-ink)";
+  q.dataset.steady = st.why;
   q.textContent = `${HUNT.how === "camera side" ? "Upright: the camera side is the direction" : "Flat: the top edge is the direction"} · ±${Math.round(Math.max(HUNT.spread || 0, acc > 0 ? acc : 0))}°`
     + (dc == null ? " · magnetic (true north once the phone has your position)" : ` · true north (${Math.abs(dc).toFixed(1)}° ${dc < 0 ? "W" : "E"} corrected)`)
-    + (bad ? (acc != null && acc < 0 ? " · not calibrated: wave the phone in a figure 8" : " · jumping: hold still, step away from cars and metal, or wave it in a figure 8") : "");
+    + ` · ${st.say}`;
 }
 function hRead(e) {
   const r = hHeadingOf(e); if (!r) return;
@@ -98,14 +112,31 @@ async function hLocate() {
   } catch (e) { hSay(e.message, true); }
 }
 
-async function hStop(b) {
-  const f = hFreq(), lv = parseFloat($("#hn_l").value), typed = parseFloat($("#hn_b").value), ref = $("#hn_ref").value;
+async function hStop(b, levelOnly = false) {
+  if (b.disabled) return;
+  const f = hFreq(), lv = parseFloat($("#hn_l").value), typed = levelOnly ? NaN : parseFloat($("#hn_b").value), ref = $("#hn_ref").value;
+  const lo = $("#hn_lvonly"); if (lo) lo.hidden = true;
   if (!f) return hSay("Say what you're looking for: its frequency in MHz.", true);
+  if (levelOnly && !isFinite(lv)) return hSay("Enter the level you read.", true);
   if (!isFinite(lv) && !isFinite(typed) && !hLive()) {
     return hSay(HUNT.listening && HUNT.mag != null ? "The compass stopped: press the compass button again, or type the bearing." : "Enter the level you read, a direction, or both.", true);
   }
-  const mag = isFinite(typed) ? null : hLive() ? HUNT.mag : null, how = `${HUNT.how}, ±${Math.round(HUNT.spread || 0)}°`;  // the compass as it read when Save was pressed
   b.disabled = true;
+  if (!levelOnly && !isFinite(typed) && hLive()) {  // the gate: wait up to 4 s for a steady compass
+    let st = hSteady();
+    if (!st.ok) hSay("Waiting for a steady compass: hold it still…");
+    for (const until = Date.now() + 4000; !st.ok && Date.now() < until;) { await new Promise(r => setTimeout(r, 200)); st = hSteady(); }
+    if (!st.ok) {
+      b.disabled = false; hShowHeading();
+      if (lo) lo.hidden = !isFinite(lv);
+      return hSay(st.why === "stopped" ? st.say
+          : (st.why === "uncal" ? "Not saved yet: the compass isn't calibrated. Wave the phone in a figure 8, then hold it still"
+            : st.why === "rough" ? "Not saved yet: the phone says its compass is rough. Wave it in a figure 8, away from cars and metal, then hold it still"
+            : `Not saved yet: the compass is ${st.why === "settling" ? "still settling" : "not steady"}. Hold it flat or upright and still, away from cars and metal${st.why === "settling" ? "" : ", and wave it in a figure 8"}`)
+            + `; then save again${isFinite(lv) ? ", or save the level only" : ""}.`, true);
+    }
+  }
+  const mag = isFinite(typed) || levelOnly ? null : hLive() ? HUNT.mag : null, how = `${HUNT.how}, ±${Math.round(HUNT.spread || 0)}°`;  // the compass as it read once steady
   try {
     hSay("Finding you…");
     HUNT.here = await hFix();  // every stop its own fresh fix: the phone has moved since the last one
@@ -117,19 +148,33 @@ async function hStop(b) {
       dbm: isFinite(lv) ? -Math.abs(lv) : null,  // received levels are negative; "72" means -72 dBm, as in the Field log
       sig_type: null, label: "Find a signal", pack: S.pack?.name || "",
       bearing: brg == null ? null : Math.round((((brg % 360) + 360) % 360) * 10) / 10,
-      notes: brg == null ? "" : isFinite(typed) ? `bearing typed (${ref === "mag" ? corrected ? "magnetic, corrected to true" : "magnetic, not corrected" : "true"})`
+      notes: brg == null ? (levelOnly ? "level only (the compass wasn't steady)" : "") : isFinite(typed) ? `bearing typed (${ref === "mag" ? corrected ? "magnetic, corrected to true" : "magnetic, not corrected" : "true"})`
         : `phone compass (${how}, ${corrected ? "true north" : "magnetic"})`};
     e.check = licenceCheck(e);
     e.id = await idb.put("log", e);
     await loadLog();
     HUNT.freq = String(f); hSave();
     $("#hn_l").value = ""; $("#hn_b").value = "";
-    hSay(`Stop saved${HUNT.here.acc > 50 ? ` (position ±${Math.round(HUNT.here.acc)} m: rough)` : ""}.`);
+    hSay(`Stop saved${levelOnly ? ", the level only" : ""}${HUNT.here.acc > 50 ? ` (position ±${Math.round(HUNT.here.acc)} m: rough)` : ""}.`);
     hDraw();
   } catch (err) { hSay(`Not saved: ${err.message}`, true); }
   b.disabled = false;
 }
 
+// The stop counter, the next stop and the left-out directions in words (as the PC's static/hunt.js says them)
+const H_NUM = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+const hShare = p => p <= 12 ? "a tenth tighter" : p <= 22 ? "a fifth tighter" : p <= 29 ? "a quarter tighter" : p <= 40 ? "a third tighter" : p <= 60 ? "twice as tight" : "three times as tight";
+function hCountSay(c) {
+  if (!c) return "";
+  const more = `${H_NUM[c.more] || c.more} more`, v = c.more === 1 ? "s" : "", gain = c.tighter_pct >= 5 ? ` make${v} the estimate about ${hShare(c.tighter_pct)}` : ` firm${v} it up`;
+  return c.goal === 8 ? `${c.n} of 8 stops: ${more}${gain}.` : c.goal ? `${c.n} stops: a firm estimate. ${more[0].toUpperCase() + more.slice(1)}, from new sides,${gain}.` : `${c.n} stops: plenty. Walk the likely area.`;
+}
+function hNextSay(n, bearings) {
+  if (!n) return "";
+  if (n.m < 20) return "<b>Next stop:</b> about here is a good spot (the purple ring).";
+  return `<b>Next stop:</b> walk about ${hFmtM(Math.max(10, n.m))} ${esc(n.compass)} (the purple ring)${n.off_line ? bearings ? ", off to the side of your lines, so the directions cross wider" : ", round to another side of it, so the levels pin it down" : ", to tighten the estimate"}.`;
+}
+const hDropSay = b => b && b.dropped > 0 ? `${H_NUM[b.dropped] || b.dropped} of ${b.n} directions left out: they point well away from the rest (a car or metal nearby?).` : "";
 const hFmtM = m => m < 1000 ? `${Math.round(m / 10) * 10} m` : `${num(m / 1609.344, 1)} mi`;
 function hResult() {
   const f = hFreq(), log = S.log.filter(e => !HUNT.since || (e.ts || "") >= HUNT.since);
@@ -141,15 +186,21 @@ function hDraw() {
   const {f, r} = hResult(), pts = r.readings, lv = pts.filter(p => p.dbm != null), best = r.best;
   const word = !best ? null : r.level && r.bearing ? "from levels and directions" : r.bearing ? "from directions" : "from levels";
   const trend = lv[0] && lv[1] ? lv[0].dbm - lv[1].dbm : null, fy = r.from_you;
+  const cnt = pts.length ? hCountSay(r.count) : "", nx = hNextSay(r.next, !!r.bearing), drop = hDropSay(r.bearing);
   out.innerHTML = !f ? `<p class="hint" style="margin:0">Type the frequency you're looking for above.</p>`
     : !pts.length ? `<p class="hint" style="margin:0">No stops on ${fmtF(f)} MHz yet. Read the level, then Save this stop: the phone takes your position as you save.</p>`
     : `${best ? `<p style="margin:0 0 4px;font-size:18px"><b>${fy ? `About ${hFmtM(fy.m)} ${esc(fy.compass)} of you (${fy.deg}°)` : "Best guess on the map"}</b></p>
         <p class="hint" style="margin:0 0 6px">±${best.radius_m != null ? Math.round(best.radius_m) : "?"} m, ${word}, ${pts.length} stop${pts.length === 1 ? "" : "s"}</p>
-        ${!fy ? `<p style="margin:0 0 4px">Tap 📍 to see which way it is from you.</p>` : (best.radius_m || 0) > 250 ? `<p style="margin:0 0 4px">Head ${esc(fy.compass)}. The area is still wide (±${Math.round(best.radius_m)} m): stops further apart, some nearer and some further out, narrow it.</p>`
+        ${cnt ? `<p class="hint" id="hn_count" style="margin:0 0 6px">${esc(cnt)}</p>` : ""}
+        ${!fy ? `<p style="margin:0 0 4px">Tap 📍 to see which way it is from you.</p>${nx ? `<p style="margin:0 0 4px" id="hn_next">${nx}</p>` : ""}`
+          : fy.m <= (best.radius_m || 0) && (best.radius_m || 0) <= 250 ? `<p style="margin:0 0 4px">You're inside the likely area: walk it slowly and watch for the level to jump.</p>`
+          : nx ? `<p style="margin:0 0 4px" id="hn_next">${nx}</p>`
+          : (best.radius_m || 0) > 250 ? `<p style="margin:0 0 4px">Head ${esc(fy.compass)}. The area is still wide (±${Math.round(best.radius_m)} m): stops further apart, some nearer and some further out, narrow it.</p>`
           : fy.m > (best.radius_m || 0) ? `<p style="margin:0 0 4px">Head ${esc(fy.compass)} and take the next stop about ${Math.max(30, Math.round(Math.min(fy.m / 2, 300) / 10) * 10)} m on.</p>`
           : `<p style="margin:0 0 4px">You're inside the likely area: walk it slowly and watch for the level to jump.</p>`}`
       : `<p style="margin:0 0 4px"><b>${lv.length < 3 ? `${3 - Math.min(3, lv.length)} more stop${lv.length === 2 ? "" : "s"} with a level` : "The levels are too even to say yet"}</b>
-        <span class="hint">to estimate where it is${pts.some(p => p.bearing != null) ? ", or one more direction from somewhere else" : ""}. Spread the stops out.</span></p>`}
+        <span class="hint">to estimate where it is${pts.some(p => p.bearing != null) ? ", or one more direction from somewhere else" : ""}. Spread the stops out.</span></p>${cnt ? `<p class="hint" id="hn_count" style="margin:0 0 6px">${esc(cnt)}</p>` : ""}`}
+      ${best && drop ? `<p class="hint" style="margin:0 0 4px">${esc(drop)}</p>` : ""}
       ${trend != null ? `<div class="check ${trend >= 3 ? "licensed" : trend <= -3 ? "outside" : ""}" style="margin:6px 0">${trend >= 3 ? `Warmer: ${num(trend)} dB stronger than the stop before.` : trend <= -3 ? `Colder: ${num(-trend)} dB weaker than the stop before. Turn back toward the stronger stop.` : "About the same as the stop before."}</div>` : ""}
       ${r.level ? `<p class="hint" style="margin:4px 0 0">Strongest so far: ${num(r.level.strongest.dbm)} dBm. The readings fit a signal falling off as distance to the power ${r.level.n_exp} (${r.level.n_exp <= 2.5 ? "open ground" : r.level.n_exp >= 3.5 ? "built up" : "mixed"}).</p>` : ""}
       ${best ? `<div class="row" style="margin-top:10px"><button class="btn small" data-act="huntpin">Put the pin there</button><span class="hint">the Map and List then show what's licensed there</span></div>` : ""}`;
@@ -186,11 +237,15 @@ function hMap(r) {
     L.circleMarker([p.lat, p.lon], {radius: 7, weight: 1, color: "#0008", fillOpacity: .92, fillColor: hColor(p, lv)})
       .bindTooltip(`${p.dbm != null ? `${num(p.dbm)} dBm` : "no level"}${p.bearing != null ? ` · ${Math.round(p.bearing)}°` : ""}`).addTo(layer);
   }
+  if (r.next && hNextSay(r.next, !!r.bearing)) { const t = [r.next.lat, r.next.lon], from = HUNT.here ? [HUNT.here.lat, HUNT.here.lon] : pts[0] ? [pts[0].lat, pts[0].lon] : null; all.push(t);
+    if (from) L.polyline([from, t], {color: "#8250df", weight: 2, dashArray: "2 6", interactive: false}).addTo(layer);
+    L.circleMarker(t, {radius: 13, color: "#8250df", weight: 3, dashArray: "5 4", fillColor: "#8250df", fillOpacity: .12}).bindTooltip("Next stop").addTo(layer);
+    L.circleMarker(t, {radius: 3, color: "#8250df", weight: 1, fillColor: "#8250df", fillOpacity: 1, interactive: false}).addTo(layer); }
   if (r.best) { all.push([r.best.lat, r.best.lon]);
     L.marker([r.best.lat, r.best.lon], {icon: pinIcon(), keyboard: false}).bindTooltip("Best guess").addTo(layer); }
   if (HUNT.here) { all.push([HUNT.here.lat, HUNT.here.lon]);
     L.marker([HUNT.here.lat, HUNT.here.lon], {icon: L.divIcon({className: "", html: '<div class="me"></div>', iconSize: [16, 16]}), interactive: false}).addTo(layer); }
-  const fit = () => { map.invalidateSize(); if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.3), {maxZoom: 18, animate: false});
+  const fit = () => { map.invalidateSize(); if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.3), {maxZoom: 18, animate: false, padding: [18, 18]});
     else map.setView(S.center || [39.5, -98.35], S.center ? 14 : 4); };
   setTimeout(fit, 0);
 }
@@ -215,11 +270,12 @@ window.viewHunt = async v => {
           <div class="two"><input id="hn_b" inputmode="decimal" placeholder="or type the bearing °" aria-label="Bearing, degrees">
             <select id="hn_ref" aria-label="That bearing is" title="A bearing off a hand compass is magnetic; one off a map is true"><option value="mag" ${HUNT.ref !== "true" ? "selected" : ""}>magnetic (a compass)</option><option value="true" ${HUNT.ref === "true" ? "selected" : ""}>true (a map)</option></select></div>
           <p class="hint" style="margin:4px 0 0">With a directional antenna, or your body as a shield. Every bearing is saved to true north (NOAA's magnetic model at the stop).</p></div>
-        <div class="row"><button class="btn primary" data-act="huntsave" style="font-size:17px;min-height:48px;flex:1">Save this stop</button></div>
+        <div class="row"><button class="btn primary" data-act="huntsave" style="font-size:17px;min-height:48px;flex:1">Save this stop</button>
+          <button class="btn" id="hn_lvonly" data-act="huntlevel" hidden style="min-height:48px">Save the level only</button></div>
         <p class="hint" id="hn_msg" style="margin:8px 0 0"></p></div>
       <div class="card glass" style="--i:3"><h2>Where it probably is</h2><div id="hn_out"></div>
         <div id="hn_map" style="height:320px;border-radius:16px;margin-top:10px;overflow:hidden"></div>
-        <p class="hint" style="margin:8px 0 0">Blue: the area from levels. Orange: from directions. Dots: your stops, red strongest.</p></div>
+        <p class="hint" style="margin:8px 0 0">Blue: the area from levels. Orange: from directions. Dots: your stops, red strongest. Purple ring: where to stand next.</p></div>
       <div class="card glass" style="--i:4"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Stops on this frequency</h2>
           <button class="btn small" data-act="huntnew" title="Leave the stops so far out of the estimate (they stay in the Field log)">New hunt</button></div>
         <div id="hn_stops" style="margin-top:6px"></div>${HUNT.since ? `<p class="hint" style="margin:6px 0 0">Counting stops since ${esc(new Date(HUNT.since).toLocaleString())}.</p>` : ""}</div>
@@ -227,6 +283,7 @@ window.viewHunt = async v => {
         <ul class="hint" style="margin:6px 0 0;padding-left:18px">
           <li>Levels alone: a signal gets weaker with distance, so stops on different sides of it show where it is. Take stops around it, not in a line; 5 or more spread over the area give a tight answer.</li>
           <li>With directions: lines from each stop cross where it is. Two cross somewhere; three show whether they agree.</li>
+          <li>A direction is saved only once the compass is steady (within 5°): hold it still, away from cars and metal. Aim for 8 stops, and go where the purple ring says: from the side, the lines cross wider.</li>
           <li>A rogue booster usually sits inside a building: the level climbs sharply in the last 50 m. Walk the block, then the floors; look for a donor antenna on the roof or a booster in a telecom room.</li>
           <li>A booster retransmits with the licensee's consent only (47 CFR 90.219): tell the agency's radio shop what you found, with the readings (Field log, Export CSV).</li>
           <li>Worked out on this phone the same way as RF Recon on the PC (Mission, Find a signal).</li></ul></details></div>`;
@@ -242,6 +299,7 @@ document.addEventListener("click", async e => {  // Find a signal's buttons (app
   if (act === "huntgps") hLocate();
   else if (act === "huntcmp") hCompass();
   else if (act === "huntsave") hStop(a);
+  else if (act === "huntlevel") hStop(a, true);
   else if (act === "huntopen") { S.logView = "hunt"; setTab("log"); }
   else if (act === "huntnew") { const was = HUNT.since; HUNT.since = new Date().toISOString(); hSave(); render();
     toast("New hunt: the earlier stops stay in the Field log.", () => { HUNT.since = was; hSave(); render(); }); }

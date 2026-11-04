@@ -11,6 +11,7 @@ import io
 import json
 import math
 import mimetypes
+mimetypes.add_type("application/vnd.android.package-archive", ".apk")  # RF Recon for Android (Help › Android app)
 mimetypes.add_type("application/manifest+json", ".webmanifest")  # the app manifest (installable on the server)
 import os
 import re
@@ -1002,6 +1003,10 @@ def mission_hunt(mid, freq, tol_khz=12.5, here_lat=None, here_lon=None):
         out["from_you"] = {"m": round(1000 * geo.haversine_km(here_lat, here_lon, best["lat"], best["lon"])),
                             "deg": round(geo.bearing_deg(here_lat, here_lon, best["lat"], best["lon"])),
                             "compass": geo.compass(geo.bearing_deg(here_lat, here_lon, best["lat"], best["lon"]))}
+    out["count"] = geo.stop_counter(len(pts), any(p["bearing"] is not None for p in pts))
+    if geo.want_next_stop(len(pts), best, bearing is not None):  # where to stand next, from you (or the latest stop)
+        frm = (here_lat, here_lon) if here_lat is not None and here_lon is not None else (pts[0]["lat"], pts[0]["lon"])
+        out["next"] = geo.next_stop([(p["lat"], p["lon"], p["dbm"], p["bearing"]) for p in pts[:120]], (best["lat"], best["lon"]), frm)
     return out
 
 
@@ -1876,6 +1881,16 @@ class H(BaseHTTPRequestHandler):
                 rows = prospects.near(uls_import.DATA_DIR, lat, lon, fnum(qs, "radius", 10), kinds, fstr(qs, "q"), int(fnum(qs, "limit", 500)))
                 return self.send(200, {"prospects": das.with_pipeline(con, rows), "counts": prospects.counts(uls_import.DATA_DIR),
                                        "sources": {k: {"name": v.get("name"), "license": v.get("license")} for k, v in prospects.SOURCES.items()}})
+            if p == "/api/das/prospects/need":  # RF need per prospect, an estimate (need.py, 11/4); a GET, so view logins see it
+                import need
+                return self.send(200, need.api(con, uls_import.DATA_DIR, {k: fstr(qs, k) for k in need.QUERY}))
+            m = re.match(r"^/api/das/prospects/([\w:.%\-]+)/nsi$", p)
+            if m and method == "POST":  # the NSI record for one prospect's building, kept, and its need again (need.py)
+                import need
+                try:
+                    return self.send(200, need.api_nsi(con, uls_import.DATA_DIR, unquote(m.group(1)), self.body_json()))
+                except LookupError as e:
+                    return self.send(404, {"error": str(e)})
             if p == "/api/das/prospects/highrises" and method == "POST":  # Overture buildings 75 ft / 7 floors and up near a spot
                 import prospects
                 d = self.body_json()
@@ -2561,7 +2576,8 @@ class RemoteH(H):
             return self.send(303, b"", "text/plain", {"Location": "/remote/login", "Set-Cookie": remote.cookie("", self.secure(), clear=True)})
         if p == "/sw.js":
             return self.send(200, remote.SW_JS, "text/javascript", {"Service-Worker-Allowed": "/"})
-        if p.startswith(("/static/theme/", "/static/app/")) or p == "/favicon.ico":
+        # the sign-in page's look, and RF Recon for Android (Help › Android app): a phone fetches it before it signs in
+        if p.startswith(("/static/theme/", "/static/app/", "/static/android/")) or p == "/favicon.ico":
             return handler()
         if not user:
             self.close_connection = keep  # a refused note's body is never read

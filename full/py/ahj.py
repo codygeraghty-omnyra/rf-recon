@@ -8,7 +8,8 @@ type and station count, plus 8,092 station addresses; no coordinates, so a depar
 the registry page says "the general public can use the data for similar purposes" (studies and direct communication
 with fire departments); FEMA's Website Information page: "Most material on FEMA.gov is free of copyright and may be
 copied and distributed without permission" (US government work). The registry stopped taking updates in June 2026:
-its records are as of then (NERIS, neris.fsri.org, is the current list, behind a sign-in).
+its records are as of then. The current list is NERIS (neris.fsri.org/departments): public to browse, but its terms forbid
+automated retrieval and commercial reproduction without UL's written consent (read 2026-11-04), so RF Recon only links to it.
 
 Which place and county the building is in: the Census Bureau's TIGERweb (public domain), one small point query per
 job, kept. In most places the fire marshal is the ERCES AHJ (IFC 510's fire code official): the registry names fire
@@ -332,4 +333,7 @@ def lookup(data_dir, lat, lon, address="", fetch=None, limit=6):
             "registry": {"name": SOURCE["name"], "url": SOURCE["page"], "fetched": meta.get("fetched"), "as_of": "records added or changed before June 2026",
                          "license": SOURCE["license"]},
             "note": "The fire marshal (the fire code official) usually signs off an ERCES; the registry lists fire departments, "
-                    "not fire marshal offices. Confirm with the department's fire prevention or fire marshal office."}
+                    "not fire marshal offices. Confirm with the department's fire prevention or fire marshal office. The registry "
+                    "stopped taking updates in June 2026 (USFA's notice); a department's current listing is at "
+                    "neris.fsri.org/departments (look it up there by hand: its terms forbid automated copying).",
+            "current_list": "https://neris.fsri.org/departments"}

@@ -72,17 +72,104 @@ const GeoFix = (() => {
     }
     const det = s11 * s22 - s12 * s12;
     if (Math.abs(det) < 1e-6 * lines.length ** 2) return null;
-    const fx = (s22 * t1 - s12 * t2) / det, fy = (s11 * t2 - s12 * t1) / det;
+    let fx = (s22 * t1 - s12 * t2) / det, fy = (s11 * t2 - s12 * t1) / det;
+    let keep = lines, method = "least squares";
+    if (lines.length >= ROBUST_MIN) {  // enough lines to tell the stray ones: the robust fix, when most lines agree with it
+      const rob = robustFix(lines, fx, fy);
+      if (rob) { [fx, fy, keep] = rob; method = "robust"; }
+    }
     const miss = lines.map(([x, y, ux, uy]) => Math.abs((fx - x) * uy - (fy - y) * ux));
     const behind = lines.filter(([x, y, ux, uy]) => (fx - x) * ux + (fy - y) * uy < 0).length;
+    const behindKept = keep.filter(([x, y, ux, uy]) => (fx - x) * ux + (fy - y) * uy < 0).length;
     const bs = pts.map(p => p[2]).slice(0, 200);
     let crossing = -Infinity;
     for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) { const m = pmod(bs[i] - bs[j], 180); crossing = Math.max(crossing, Math.min(m, 180 - m)); }
     const rms = Math.sqrt(sum(miss.map(m => m * m)) / miss.length);
-    const quality = behind || crossing < 20 ? "poor" : crossing < 45 || pts.length < 3 ? "fair" : "good";
-    const out = {lat: lat0 + fy / ky, lon: lon0 + fx / kx, n: pts.length, rms_m: rms, crossing_deg: crossing, behind, quality};
-    out.ellipse = errorEllipse(lines, fx, fy, lat0, lon0, kx, ky);
+    const quality = behindKept || crossing < 20 ? "poor" : crossing < 45 || pts.length < 3 ? "fair" : "good";
+    const out = {lat: lat0 + fy / ky, lon: lon0 + fx / kx, n: pts.length, rms_m: rms, crossing_deg: crossing, behind, quality, method, dropped: lines.length - keep.length};
+    out.ellipse = errorEllipse(lines, fx, fy, lat0, lon0, kx, ky);  // every line, round the fix (left-out lines widen it)
     return out;
+  }
+
+  // geo.py _robust_fix: stray lines left out (1/d^2 weights, Tukey's biweight of the miss angle, lines pointing away dropped)
+  const ROBUST_MIN = 8, ROBUST_C_DEG = 40.0, ROBUST_KEEP = 0.8;
+  function robustFix(lines, fx, fy, iters = 8) {
+    const c = ROBUST_C_DEG; let ws = [];
+    for (let it = 0; it < iters; it++) {
+      let s11 = 0, s12 = 0, s22 = 0, t1 = 0, t2 = 0; ws = [];
+      for (const [x, y, ux, uy] of lines) {
+        const d = Math.max(30, Math.hypot(fx - x, fy - y));
+        const ang = deg(Math.atan2(Math.abs((fx - x) * uy - (fy - y) * ux), d));
+        let w = ang >= c || (fx - x) * ux + (fy - y) * uy < 0 ? 0 : (1 - (ang / c) ** 2) ** 2;
+        ws.push(w); w /= d * d;
+        const a11 = 1 - ux * ux, a12 = -ux * uy, a22 = 1 - uy * uy;
+        s11 += w * a11; s12 += w * a12; s22 += w * a22; t1 += w * (a11 * x + a12 * y); t2 += w * (a12 * x + a22 * y);
+      }
+      const det = s11 * s22 - s12 * s12;
+      if (Math.abs(det) < 1e-18) return null;
+      fx = (s22 * t1 - s12 * t2) / det; fy = (s11 * t2 - s12 * t1) / det;
+    }
+    const keep = lines.filter((l, i) => ws[i] > 0);
+    if (keep.length < Math.max(3, ROBUST_KEEP * lines.length)) return null;
+    return [fx, fy, keep];
+  }
+
+  // geo.next_stop: where to stand next, the spot around the estimate that most shrinks the long axis of the 95% area,
+  // the nearest of those within GUIDE_NEAR_SHARE of the best. stops [[lat, lon, dbm|null, bearing|null]], best [lat, lon], frm [lat, lon]
+  const GUIDE_BEARING_ERR_DEG = 10.0, GUIDE_NEAR_SHARE = 0.15;
+  const GUIDE_MIN_STOPS = 3, GUIDE_MAX_AREA_M = 150;  // geo.want_next_stop: 3 stops, and with directions an estimate within 150 m
+  const wantNextStop = (n, best, bearings) => !!best && n >= GUIDE_MIN_STOPS && (!bearings || (best.radius_m || 1e9) <= GUIDE_MAX_AREA_M);
+  function nextStop(stops, best, frm) {
+    if (!best || !stops || !stops.length || !frm) return null;
+    const [lat0, lon0] = best, kx = 1000 * EARTH_KM * rad(1) * Math.cos(rad(lat0)), ky = 1000 * EARTH_KM * rad(1);
+    const P = stops.map(([a, o, p, b]) => [(o - lon0) * kx, (a - lat0) * ky, p, b]);
+    const sb2 = rad(GUIDE_BEARING_ERR_DEG) ** 2, gl = 10 * 3.0 / Math.log(10), sl2 = SHADOW_DB ** 2;
+    const info = pts => {
+      let jxx = 0, jxy = 0, jyy = 0; const g = [];
+      for (const [x, y, p, b] of pts) {
+        const d = Math.max(30, Math.hypot(x, y)), rx = x / d, ry = y / d;
+        if (b != null) { const w = 1 / (d * d * sb2); jxx += w * ry * ry; jxy -= w * rx * ry; jyy += w * rx * rx; }
+        if (p != null) g.push([gl * rx / d, gl * ry / d]);
+      }
+      if (g.length >= 2) {
+        const mx = sum(g.map(q => q[0])) / g.length, my = sum(g.map(q => q[1])) / g.length;
+        for (const [gx, gy] of g) { jxx += (gx - mx) ** 2 / sl2; jxy += (gx - mx) * (gy - my) / sl2; jyy += (gy - my) ** 2 / sl2; }
+      }
+      return [jxx, jxy, jyy];
+    };
+    const longAxis = j => {
+      const det = j[0] * j[2] - j[1] ** 2; if (det <= 1e-30) return Infinity;
+      const c11 = j[2] / det, c12 = -j[1] / det, c22 = j[0] / det;
+      return 2.45 * Math.sqrt((c11 + c22) / 2 + Math.sqrt(((c11 - c22) / 2) ** 2 + c12 * c12));
+    };
+    const ds = P.map(([x, y]) => Math.max(30, Math.hypot(x, y))).sort((a, b) => a - b);
+    const ring = Math.min(400, Math.max(80, ds[Math.floor(ds.length / 2)]));
+    const hb = P.some(q => q[3] != null), hl = P.some(q => q[2] != null);
+    const ux = (frm[1] - lon0) * kx, uy = (frm[0] - lat0) * ky, cands = [];
+    for (const rr of [ring * 0.75, ring]) for (let k = 0; k < 36; k++) {
+      const t = rad(k * 10), x = rr * Math.sin(t), y = rr * Math.cos(t);
+      cands.push([longAxis(info(P.concat([[x, y, hl ? 0 : null, hb ? 0 : null]]))), Math.hypot(x - ux, y - uy), x, y]);
+    }
+    const top = Math.min(...cands.map(c => c[0]));
+    if (top === Infinity) return null;
+    let pick = null;  // min() by walk: the first of equals, as Python's
+    for (const c of cands) if (c[0] <= top * (1 + GUIDE_NEAR_SHARE) && (pick === null || c[1] < pick[1])) pick = c;
+    const [, , x, y] = pick, lat = lat0 + y / ky, lon = lon0 + x / kx, at = deg(Math.atan2(x, y));
+    const seps = P.map(([sx, sy, , b]) => { const dd = pmod(at - deg(Math.atan2(sx, sy)), 360); return b != null ? Math.min(dd % 180, 180 - dd % 180) : Math.min(dd, 360 - dd); });
+    const dg = bearingDeg(frm[0], frm[1], lat, lon);
+    return {lat, lon, m: pyRound(1000 * haversineKm(frm[0], frm[1], lat, lon)), deg: pyRound(dg), compass: compass(dg), off_line: Math.min(...seps) >= 30, ring_m: pyRound(ring)};
+  }
+
+  // geo.stop_counter: toward 8 stops, then 10, and how much tighter the estimate gets there (simulated hunts)
+  const MISS_BY_STOPS = {3: 50, 4: 37, 5: 31, 6: 30, 7: 29, 8: 23, 9: 20, 10: 19, 11: 18, 12: 17};
+  const MISS_BY_STOPS_LEVELS = {3: 226, 4: 195, 5: 183, 6: 175, 7: 157, 8: 145, 9: 141, 10: 138, 11: 131, 12: 126}, STOP_GOAL = 8;
+  function stopCounter(n, bearings = true) {
+    const goal = n < STOP_GOAL ? STOP_GOAL : n < 10 ? 10 : null;
+    if (goal === null) return {n, goal: null, more: 0, tighter_pct: 0};
+    const table = bearings ? MISS_BY_STOPS : MISS_BY_STOPS_LEVELS;
+    const now = n >= 3 ? table[n] || 0 : 0, then = table[goal] || 0;
+    const pct = now > 0 ? pyRound(100 * (1 - then / now) / 5) * 5 : 0;
+    return {n, goal, more: goal - n, tighter_pct: Math.max(0, pct)};
   }
 
   // geo.level_fix: levels alone. P = A - 10 n log10(d); every spot on a grid around the readings, n from 2 to 4, the
@@ -163,9 +250,14 @@ const GeoFix = (() => {
       const b = bearingDeg(hereLat, hereLon, best.lat, best.lon);
       out.from_you = {m: pyRound(1000 * haversineKm(hereLat, hereLon, best.lat, best.lon)), deg: pyRound(b), compass: compass(b)};
     }
+    out.count = stopCounter(pts.length, pts.some(p => p.bearing != null));
+    if (wantNextStop(pts.length, best, bearing != null)) {  // where to stand next, from you (or the latest stop)
+      const frm = have(hereLat) && have(hereLon) ? [hereLat, hereLon] : [pts[0].lat, pts[0].lon];
+      out.next = nextStop(pts.slice(0, 120).map(p => [p.lat, p.lon, p.dbm, p.bearing]), [best.lat, best.lon], frm);
+    }
     return out;
   }
 
-  return {levelFix, bearingFix, combineFixes, errorEllipse, hunt, haversineKm, bearingDeg, compass, SHADOW_DB};
+  return {levelFix, bearingFix, combineFixes, errorEllipse, hunt, nextStop, stopCounter, haversineKm, bearingDeg, compass, SHADOW_DB};
 })();
 if (typeof module === "object" && module.exports) module.exports = GeoFix;
