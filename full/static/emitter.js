@@ -47,7 +47,7 @@ document.addEventListener("click", ev=>{ const tr=ev.target.closest("#mapTable t
 function emitOpen(r, tab){
   if(!r || r.lat==null){ $("#status").textContent="That entry has no location to work from."; return; }
   S.emit = {r, tab: tab || (emIsCell(r) ? "cell" : "coverage"), opt: emDefaults(r), cov:null, net:null, cell:null, err:{}};
-  try{ $("#dlg").close(); }catch(e){}
+  try{ $("#dlg").close(); }catch(e){ /* the dialog was already closed */ }
   if(S.tab!=="map") setTab("map"); else { emitPanel(); emitDraw(); }
   emitLoad();
 }
@@ -86,7 +86,8 @@ async function emCellSite(r){
   if(r._site) return r._site;
   const m=CELL_RE.exec(String(r.ext_id||r.ident||"")); if(!m) throw new Error("This cell's ID isn't in a form RF Recon can read (MCC-MNC-area-cell).");
   const res=await api(`/api/cells?lat=${r.lat}&lon=${r.lon}&radius=2`);
-  for(const s of res.sites) for(const c of s.cells) if(c.mcc===m[1] && +c.cid===+m[4]){ r._cell=c; r._site=s; S.emit.opt=Object.assign(emDefaults(r), {}); return s; }
+  // the operator too (MCC and MNC): two operators' cells can share a cell ID within 2 mi
+  for(const s of res.sites) for(const c of s.cells) if(c.mcc===m[1] && +c.mnc===+m[2] && +c.cid===+m[4]){ r._cell=c; r._site=s; S.emit.opt=Object.assign(emDefaults(r), {}); return s; }
   throw new Error("No site found for this cell.");
 }
 

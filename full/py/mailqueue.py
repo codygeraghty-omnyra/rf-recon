@@ -6,6 +6,13 @@ Send all for a batch). Also the written emails for a job (status to the customer
 subcontractor, the design to the AHJ, the retest reminder, the plans request), for "Email about this job".
 Items are worked out from the record each time, so they clear themselves once sent; a person can put one off
 (snooze) or drop it (dismiss).
+
+Lifecycle reminders (lane D 11/4): every dated lifecycle item (das.lifecycle: the annual retest, the five-year test, the
+AHJ's report deadline and 13-month limit, the operational permit, licensee renewals, instrument calibration, the
+tester's certificates) is offered 90 and 30 days before it's due, on the day, and every 30 days while it's overdue, to
+the person it concerns (owner, licensee or our technician). One per window: an email with the same subject sent since
+the window opened clears it. BDA alarms (snmpwatch.py) are offered to the owner while a monitored BDA has an open
+alarm or has gone quiet.
 """
 import datetime
 import json
@@ -16,9 +23,23 @@ import dasmail
 
 FOLLOW_DAYS = 5          # no reply this many days after the last email on a tag: a follow-up
 FOLLOW_MAX = 1           # follow-ups per conversation (prospects: CAN-SPAM-polite, one)
-RETEST_DAYS = 30         # the annual retest reminder, this many days before it's due (and when overdue)
 PROSPECT_BATCH = 50      # first emails queued from the Prospects list at one go
 SEND_PER_HOUR = 150      # Gmail and Workspace limit a mailbox to about 2,000 a day: RF Recon keeps well under
+REMIND_DAYS = (90, 30)   # retest and lifecycle reminders this many days before an item is due, then on the day
+RETEST_DAYS = REMIND_DAYS[0]  # (the annual retest's first reminder; one at 30 days until 11/4)
+OVERDUE_EVERY = 30       # and again every this many days while it's overdue
+# each lifecycle item's reminder: who it goes to (Overview › People roles, first with an email) and its group
+LIFE_TO = {"quant5": (("owner",), "Lifecycle reminders"), "annual_ahj": (("owner",), "Lifecycle reminders"),
+           "op_permit": (("owner",), "Lifecycle reminders"), "auth": (("agency",), "Lifecycle reminders"),
+           "report": (("tech",), "Reports due to the AHJ"), "cal": (("tech",), "Calibration and certificates"),
+           "cert": (("tech",), "Calibration and certificates"),
+           # a carrier DAS (das.job_scope): consent renewals to our technician (or the carrier contact's email when the
+           # job has one), the carrier's retest and the maintenance agreement to the owner
+           "carrier_consent": (("tech",), "Lifecycle reminders"), "carrier_retest": (("owner",), "Lifecycle reminders"),
+           "maintenance": (("owner",), "Lifecycle reminders")}
+ROLE_WORD = {"owner": "building owner", "agency": "radio system owner (the licensee)", "tech": "technician (Our technician)"}
+GROUP_ORDER = ("BDA alarms", "Follow-ups", "Retest reminders", "Reports due to the AHJ", "Lifecycle reminders",
+               "Calibration and certificates", "Plans requests", "Prospects")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS das_mail_queue(login TEXT, key TEXT, state TEXT, until TEXT, data TEXT, ts TEXT,
@@ -83,8 +104,9 @@ def _person(job_data, contacts, roles):
     return None, None
 
 
-def template(con, job_id, tid, firm=None, acct_name=""):
-    """A written email for a job: {to, to_name, role, subject, body, topic}. Blank is subject + greeting + signature."""
+def template(con, job_id, tid, firm=None, acct_name="", due=None):
+    """A written email for a job: {to, to_name, role, subject, body, topic}. Blank is subject + greeting + signature.
+    due: the retest date when it isn't the job's retest_due (one computed from the lifecycle)."""
     firm = firm or {}
     j = das.job_row(con, int(job_id))
     if not j:
@@ -131,7 +153,7 @@ def template(con, job_id, tid, firm=None, acct_name=""):
                 "plans for every floor, as PDFs (architectural plans with walls, ideally the CAD-exported PDFs rather than scans), "
                 f"and the roof plan if there is one?\n\nA reply to this email with the files attached is all we need.\n\nThank you,\n{sig}")
     elif tid == "retest":
-        due = d.get("retest_due") or "soon"
+        due = due or d.get("retest_due") or "soon"
         subject = f"Annual emergency radio coverage retest due {due}: {j['name']}"
         body = (f"{hello}\n\nThe emergency responder radio coverage system at {where} is due its annual test on {due}, which "
                 f"{d.get('ahj') or 'the fire code official'} requires (IFC 510.6 / NFPA 1225).\n\nCould you reply with a few dates "
@@ -139,6 +161,98 @@ def template(con, job_id, tid, firm=None, acct_name=""):
                 f"buildings, and you'll receive the report for the fire marshal afterwards.\n\nThank you,\n{sig}")
     return {"to": (c or {}).get("email") or "", "to_name": (c or {}).get("name") or "", "role": role, "subject": subject,
             "body": body, "topic": topic, "job_id": j["id"]}
+
+
+def window(left):
+    """The reminder window a due date is in, from the days left: (name, days from the due date it opened), or None
+    before the first one. 90 and 30 days out, on the day, then every OVERDUE_EVERY days while overdue."""
+    if left is None or left > REMIND_DAYS[0]:
+        return None
+    if left > REMIND_DAYS[1]:
+        return str(REMIND_DAYS[0]), -REMIND_DAYS[0]
+    if left > 0:
+        return str(REMIND_DAYS[1]), -REMIND_DAYS[1]
+    if left == 0:
+        return "0", 0
+    n = (-left) // OVERDUE_EVERY
+    return f"over{n}", n * OVERDUE_EVERY
+
+
+def _when(due, left):
+    return f"overdue since {due} ({-left} days)" if left < 0 else "due today" if left == 0 else f"due {due} (in {left} days)"
+
+
+def _sent_since(rows, start, match):
+    """An email on this job sent on or after start (a date) whose subject (tag stripped) passes match."""
+    return any(r["direction"] == "out" and str(r["ts"])[:10] >= start and match(_strip_tag(r["subject"])) for r in rows or [])
+
+
+def _life_mail(j, x, contacts, firm, acct_name):
+    """The written reminder for one lifecycle item: (to contact, role, subject, body)."""
+    d = j["data"] or {}
+    roles = LIFE_TO[x["key"]][0]
+    c, role = _person(d, contacts, roles)
+    em = re.search(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", x.get("contact") or "") if x["key"] == "carrier_consent" else None
+    if em:  # the carrier's own contact, from its approval on the job
+        c, role = {"email": em.group(0), "name": ""}, "carrier"
+    where = f"{j['name']}{', ' + d['address'] if d.get('address') else ''}"
+    hello = f"Hello{(' ' + _first(c.get('name'))) if c and _first(c.get('name')) else ''},"
+    sig = _sig(d, contacts, firm, acct_name)
+    due, late, k, src = x["due"], (x["days"] or 0) < 0, x["key"], x["source"]
+    is_due = "was due" if late else "is due"
+    ahj = d.get("ahj") or "the fire code official"
+    dates = ("Could you reply with a few dates that work for access to every floor, the roof and the equipment room? "
+             "You'll receive the report for the fire marshal afterwards.")
+    if k == "quant5":
+        subject = f"Five-year emergency radio coverage test due {due}: {j['name']}"
+        body = (f"{hello}\n\nThe emergency responder radio coverage system at {where} {is_due} its five-year full test on "
+                f"{due}.\n\nThe rule: {src}\n\n{dates}\n\nThank you,\n{sig}")
+    elif k == "annual_ahj":
+        subject = f"{x.get('ahj')} annual report deadline {due}: {j['name']}"
+        body = (f"{hello}\n\n{x['label']}. For {where} ({x['note']}) the next test has to be done and its report filed by "
+                f"{due}.\n\nThe rule: {src}\n\n{dates}\n\nThank you,\n{sig}")
+    elif k == "op_permit":
+        subject = f"ERCES operational permit expires {due}: {j['name']}"
+        body = (f"{hello}\n\nThe operational permit for the emergency responder radio coverage system at {where} "
+                f"{'expired' if late else 'expires'} on {due}. {ahj} renews it. Would you like us to file the renewal?"
+                f"\n\nThank you,\n{sig}")
+    elif k == "auth":
+        subject = f"Retransmission authorization renewal due {due}: {j['name']}"
+        body = (f"{hello}\n\nThe authorization to retransmit your radio system with the signal booster at {where}"
+                f"{' (granted ' + x['done'] + ')' if x.get('done') else ''} {is_due} for renewal on {due}. What do you need "
+                f"from us to renew it?\n\nThank you,\n{sig}")
+    elif k == "report":
+        subject = f"Test report due to {x.get('ahj')} by {due}: {j['name']}"
+        body = (f"{hello}\n\nThe test report for {where} ({x['note']}) {is_due} to {x.get('ahj')} by {due}.\n\nThe rule: {src}"
+                f"\n\nOnce it's filed, enter the filing date on the job (Overview, Lifecycle, Report filed) and this reminder "
+                f"stops.\n\n{sig}")
+    elif k == "cal":
+        subject = f"Calibration runs out {due}: {x.get('instrument')}"
+        body = (f"{hello}\n\nThe calibration of the {x.get('instrument')}, used on {where}, {'ran' if late else 'runs'} out on "
+                f"{due} ({x['note']}). Readings taken with it after that date don't count toward pass or fail, and the AHJ "
+                f"report lists each instrument's calibration date. Book its calibration before the next test.\n\n{sig}")
+    elif k == "carrier_consent":
+        car = x.get("carrier") or "the carrier"
+        subject = f"{car} consent renewal due {due}: {j['name']}"
+        body = (f"{hello}\n\nThe {car} consent to retransmit its bands with the signal booster at {where} ({x['note']}) "
+                f"{is_due} for renewal on {due}. The booster may run only with the carrier's consent (47 CFR 20.21(c)). "
+                f"{'Could you send the renewal, or tell us what you need from us for it?' if role == 'carrier' else 'Ask ' + car + (' (' + x['contact'] + ')' if x.get('contact') else '') + ' for the renewal before then.'}"
+                f"\n\n{'Thank you,' + chr(10) if role == 'carrier' else ''}{sig}")
+    elif k == "carrier_retest":
+        car = x.get("carrier") or "The carrier"
+        subject = f"{car} retest of the in-building cellular system due {due}: {j['name']}"
+        body = (f"{hello}\n\n{car}'s terms call for a retest of the in-building cellular system at {where} by {due}.\n\n"
+                f"{dates.replace(' for the fire marshal', '')}\n\nThank you,\n{sig}")
+    elif k == "maintenance":
+        subject = f"Maintenance agreement renewal {due}: {j['name']}"
+        body = (f"{hello}\n\nThe maintenance agreement for the in-building coverage system at {where} "
+                f"{'ran out' if late else 'runs out'} on {due}. Would you like to renew it?\n\nThank you,\n{sig}")
+    else:  # cert
+        subject = f"{x.get('cert')} expires {due}: {x.get('tester') or 'tester'}"
+        body = (f"{hello}\n\nThe {x.get('cert')} for {x.get('tester') or 'the tester'} {'expired' if late else 'expires'} on "
+                f"{due}. AHJs check the tester's credentials on each report ({src}). Renew it before the next test at "
+                f"{where}.\n\n{sig}")
+    return c, role, subject, body
 
 
 def _state(con, login):
@@ -209,22 +323,46 @@ def items(con, login, firm=None, acct_name="", now=None):
             sent_topics.setdefault(r["job_id"], []).append(r)
     for jid, j in jobs.items():
         d = j["data"] or {}
-        # 2. the annual retest: RETEST_DAYS before it's due, and when overdue; not if one was asked in the last 45 days
-        due = d.get("retest_due")
-        if due:
+        life = das.lifecycle(d, j["stage"], now.date()) if j["stage"] != "Closed" else []
+        # 2. the annual retest: 90 and 30 days before it's due, on the day, and every 30 days while overdue; an email
+        #    about the retest sent since the window opened (this queue's or one written by hand) clears it
+        annual = next((x for x in life if x["key"] == "annual"), {})
+        due = d.get("retest_due") or annual.get("due")
+        if due and j["stage"] != "Closed" and das.job_scope(d)["ps"]:  # a carrier-only DAS has no IFC annual test
             try:
                 left = (datetime.date.fromisoformat(str(due)[:10]) - now.date()).days
             except ValueError:
                 left = None
-            asked = any("retest" in (r["subject"] or "").lower() and _days_since(r["ts"], now) < 45 for r in sent_topics.get(jid, []))
-            key = f"retest:{jid}:{due}"
-            if left is not None and left <= RETEST_DAYS and not asked and _live(st, key, now):
-                t = template(con, jid, "retest", firm, acct_name)
-                out.append({"key": key, "group": "Retest reminders", "kind": "job", "refs": {"job_id": jid, "topic": "MAIL"},
-                            "to": t["to"], "to_name": t["to_name"], "subject": t["subject"], "body": t["body"], "job_id": jid,
-                            "why": f"{j['name']}: the annual test is {'overdue since' if left < 0 else 'due'} {due}"
-                                   + ("" if left < 0 else f" (in {left} days)"),
-                            "blocked": "" if t["to"] else "No building owner with an email on this job (Overview › People)."})
+            win = window(left)
+            if win:
+                start = (datetime.date.fromisoformat(str(due)[:10]) + datetime.timedelta(days=win[1])).isoformat()
+                asked = _sent_since(sent_topics.get(jid), start, lambda s: "retest" in s.lower())
+                key = f"retest:{jid}:{due}:{win[0]}"
+                if not asked and _live(st, key, now):
+                    t = template(con, jid, "retest", firm, acct_name, due=str(due)[:10])
+                    out.append({"key": key, "group": "Retest reminders", "kind": "job", "refs": {"job_id": jid, "topic": "MAIL"},
+                                "to": t["to"], "to_name": t["to_name"], "subject": t["subject"], "body": t["body"], "job_id": jid,
+                                "why": f"{j['name']}: the annual test is {_when(due, left)}",
+                                "blocked": "" if t["to"] else "No building owner with an email on this job (Overview › People)."})
+        # 2b. every other dated lifecycle item, to the person it concerns, in the same windows
+        for x in life:
+            if x["key"] not in LIFE_TO or not x["due"] or x["state"] == "done":
+                continue
+            win = window(x["days"])
+            if not win:
+                continue
+            c, role, subject, body = _life_mail(j, x, contacts, firm, acct_name)
+            start = (datetime.date.fromisoformat(x["due"]) + datetime.timedelta(days=win[1])).isoformat()
+            key = f"life:{jid}:{x['id']}:{x['due']}:{win[0]}"
+            if _sent_since(sent_topics.get(jid), start, lambda s, subject=subject: s == subject) or not _live(st, key, now):
+                continue
+            roles = LIFE_TO[x["key"]][0]
+            out.append({"key": key, "group": LIFE_TO[x["key"]][1], "kind": "job", "refs": {"job_id": jid, "topic": "MAIL"},
+                        "to": (c or {}).get("email") or "", "to_name": (c or {}).get("name") or "", "subject": subject,
+                        "body": body, "job_id": jid, "life": x["id"],
+                        "why": f"{j['name']}: {x['label']}, {_when(x['due'], x['days'])}"
+                               + (f" ({x['ahj']} rule)" if x.get("ahj") else ""),
+                        "blocked": "" if c else f"No {ROLE_WORD[roles[0]]} with an email on this job (Overview › People)."})
         # 3. plans: an early job with no floor plans and no plans request yet
         has_plan = any((f or {}).get("plan") for f in (d.get("floors") or []))
         asked_plans = any((r["tag"] or "").endswith(" PLANS") for r in sent_topics.get(jid, []))
@@ -252,7 +390,13 @@ def items(con, login, firm=None, acct_name="", now=None):
                     "why": f"{row.get('name') or pid}: queued from Prospects{(' (' + row['kind_label'] + ')') if row.get('kind_label') else ''}",
                     "blocked": "Add your firm's mailing address (Prospects › Firm details): US law (CAN-SPAM) requires it." if not firm.get("address")
                     else "" if email else "No email for this building: Find email, or call."})
-    order = {"Follow-ups": 0, "Retest reminders": 1, "Plans requests": 2, "Prospects": 3}
+    # 5. BDA alarms and BDAs gone quiet (snmpwatch.py), only while monitoring is switched on
+    try:
+        import snmpwatch
+        out += [x for x in snmpwatch.queue_items(con, jobs, contacts, firm, acct_name, now) if _live(st, x["key"], now)]
+    except ImportError:  # the web version has no monitoring
+        pass
+    order = {g: i for i, g in enumerate(GROUP_ORDER)}
     out.sort(key=lambda x: (order.get(x["group"], 9), x["why"]))
     return out
 

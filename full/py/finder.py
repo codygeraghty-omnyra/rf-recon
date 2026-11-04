@@ -17,6 +17,7 @@ import sqlite3
 import threading
 import time
 
+import build
 import das
 import geo
 import paths
@@ -247,19 +248,32 @@ def everything(con, crowd, q, lat=None, lon=None, scope=None, per=25):
                     build_index(_db_path(con))
                 notes.append("Licensee names are being indexed (once after each FCC update, about a minute): call signs and frequencies work now.")
         add("licences", "Licences", lic, more=len(lic) > per)
-    if f is not None and want("frequency"):
-        fr = rows("""SELECT call_sign, MAX(licensee) licensee, MAX(service_name) service, MAX(station_class) cls, COUNT(DISTINCT lat || ',' || lon) sites,
-                     MAX(lat) lat, MAX(lon) lon, MAX(city) city, MAX(state) state, MAX(mode) mode FROM tx WHERE freq_mhz BETWEEN ? AND ? AND status='A'
-                     GROUP BY call_sign LIMIT 500""", (f - 0.00051, f + 0.00051))
-        items = [{"kind": "licence", "title": r["licensee"] or r["call_sign"], "call_sign": r["call_sign"], "freq": f, "sub": f"{r['call_sign']} · {f:g} MHz · {r['service'] or ''}",
-                  "facts": [r["mode"] or "", f"{r['sites']} site{'s' * (r['sites'] != 1)}", ", ".join(x for x in (r["city"], r["state"]) if x)], "lat": r["lat"], "lon": r["lon"]} for r in fr]
-        for r in rows("SELECT * FROM bcast WHERE freq_mhz BETWEEN ? AND ? LIMIT 50", (f - 0.01, f + 0.01)):
-            items.append({"kind": "broadcast", "title": f"{r['call_sign']} {r.get('service') or r.get('kind') or ''}", "sub": f"{r['freq_mhz']:g} MHz · {r['licensee'] or ''}", "lat": r["lat"], "lon": r["lon"],
-                          "facts": [", ".join(x for x in (r["city"], r["state"]) if x)]})
-        for r in rows("SELECT ident, name, kind, use, freq_mhz, city, state, lat, lon FROM faa WHERE freq_mhz BETWEEN ? AND ? LIMIT 50", (f - 0.005, f + 0.005)):
-            items.append({"kind": "faa", "title": f"{r['ident']} {r['name'] or ''}", "sub": f"{r['freq_mhz']:g} MHz · {r['use'] or r['kind'] or ''}", "lat": r["lat"], "lon": r["lon"],
-                          "facts": [", ".join(x for x in (r["city"], r["state"]) if x)]})
-        add("frequency", f"On {f:g} MHz", items, more=len(fr) >= 500)
+    if f is not None:  # a frequency: licences on it, and broadcast, FAA and NOAA stations on it (under their own scope too)
+        bc = [{"kind": "broadcast", "title": f"{r['call_sign']} {r.get('service') or r.get('kind') or ''}", "sub": f"{r['freq_mhz']:g} MHz · {r['licensee'] or ''}",
+               "lat": r["lat"], "lon": r["lon"], "facts": [", ".join(x for x in (r["city"], r["state"]) if x)]}
+              for r in rows("SELECT * FROM bcast WHERE freq_mhz BETWEEN ? AND ? LIMIT 50", (f - 0.01, f + 0.01))] if want("broadcast") or want("frequency") else []
+        fa = [{"kind": "faa", "title": f"{r['ident']} {r['name'] or ''}", "sub": f"{r['freq_mhz']:g} MHz · {r['use'] or r['kind'] or ''}", "lat": r["lat"], "lon": r["lon"],
+               "facts": [", ".join(x for x in (r["city"], r["state"]) if x)]}
+              for r in rows("SELECT ident, name, kind, use, freq_mhz, city, state, lat, lon FROM faa WHERE freq_mhz BETWEEN ? AND ? LIMIT 50", (f - 0.005, f + 0.005))] \
+            if want("aviation") or want("frequency") else []
+        nw = [{"kind": "noaa", "title": f"{r['call_sign']} {r['site'] or ''}", "sub": f"{r['freq_mhz']:.3f} MHz", "lat": r["lat"], "lon": r["lon"],
+               "facts": [", ".join(x for x in (r["city"], r["state"]) if x)]}
+              for r in rows("SELECT * FROM nwr WHERE freq_mhz BETWEEN ? AND ? LIMIT 200", (f - 0.0026, f + 0.0026))] if want("noaa") or want("frequency") else []
+        if want("frequency"):
+            fr = rows("""SELECT call_sign, MAX(licensee) licensee, MAX(service_name) service, MAX(station_class) cls, COUNT(DISTINCT lat || ',' || lon) sites,
+                         MAX(lat) lat, MAX(lon) lon, MAX(city) city, MAX(state) state, MAX(mode) mode FROM tx WHERE freq_mhz BETWEEN ? AND ? AND status='A'
+                         GROUP BY call_sign LIMIT 500""", (f - 0.00051, f + 0.00051))
+            items = [{"kind": "licence", "title": r["licensee"] or r["call_sign"], "call_sign": r["call_sign"], "freq": f, "sub": f"{r['call_sign']} · {f:g} MHz · {r['service'] or ''}",
+                      "facts": [r["mode"] or "", f"{r['sites']} site{'s' * (r['sites'] != 1)}", ", ".join(x for x in (r["city"], r["state"]) if x)], "lat": r["lat"], "lon": r["lon"]} for r in fr]
+            # stations whose own group isn't asked for sit with the licences (the "Licences & frequencies" scope)
+            items += (bc if not want("broadcast") else []) + (fa if not want("aviation") else []) + (nw if not want("noaa") else [])
+            add("frequency", f"On {f:g} MHz", items, more=len(fr) >= 500)
+        if want("broadcast"):
+            add("broadcast", f"Broadcast on {f:g} MHz", bc)
+        if want("aviation"):
+            add("aviation", f"Aviation (FAA) on {f:g} MHz", fa)
+        if want("noaa"):
+            add("noaa", f"NOAA Weather Radio on {f:g} MHz", nw)
     if want("towers"):
         add("towers", "Towers (FCC ASR)", [{"kind": "tower", "title": f"{r['struct_type'] or 'Structure'} {r['overall_agl_m'] or '?'} m · {r['owner'] or 'owner not on file'}",
                                             "sub": f"ASR {r['reg']}", "reg": r["reg"], "lat": r["lat"], "lon": r["lon"], "rank": 0 if r["reg"] == q else 1,
@@ -284,7 +298,7 @@ def everything(con, crowd, q, lat=None, lon=None, scope=None, per=25):
                                                  "facts": [", ".join(x for x in (r["city"], r["state"], r["country"]) if x), f"since {r['received'][:4]}" if r["received"] else ""]}
                                                 for r in rows("SELECT * FROM fcc_grantee WHERE code IN (?, ?) OR name LIKE ? ESCAPE '\\' LIMIT 40",
                                                               (code[:3], code[:5], lk))])
-    if want("noaa"):
+    if want("noaa") and f is None:
         add("noaa", "NOAA Weather Radio", [{"kind": "noaa", "title": f"{r['call_sign']} {r['site'] or ''}", "sub": f"{r['freq_mhz']:.3f} MHz", "lat": r["lat"], "lon": r["lon"],
                                             "facts": [", ".join(x for x in (r["city"], r["state"]) if x)]}
                                            for r in rows("SELECT * FROM nwr WHERE call_sign LIKE ? OR site LIKE ? ESCAPE '\\' OR city LIKE ? ESCAPE '\\' LIMIT 20", (Q + "%", lk, lk))])
@@ -310,8 +324,10 @@ def everything(con, crowd, q, lat=None, lon=None, scope=None, per=25):
             items.append({"kind": "capture", "title": r["label"] or r["ident"] or "", "sub": f"Survey: {r['capture_name']} · {r['kind'] or ''}{mhz}",
                           "lat": r["lat"], "lon": r["lon"], "facts": [f"{r['dbm']:.0f} dBm" if r["dbm"] is not None else "", (r["ts"] or "")[:16]]})
         if crowd is not None:
+            held = [s for s in build.PERSONAL_ONLY if not build.allowed(s)]  # personal-only sources: the owner's personal build only
             try:
-                for r in crowd.execute("SELECT * FROM ext_point WHERE label LIKE ? ESCAPE '\\' OR ext_id LIKE ? ESCAPE '\\' LIMIT 80", (lk, lk)):
+                for r in crowd.execute("SELECT * FROM ext_point WHERE (label LIKE ? ESCAPE '\\' OR ext_id LIKE ? ESCAPE '\\')"
+                                       + (f" AND source NOT IN ({','.join('?' * len(held))})" if held else "") + " LIMIT 80", (lk, lk, *held)):
                     r = dict(r)
                     items.append({"kind": "crowd", "title": r["label"] or r["ext_id"], "sub": f"{r['layer']} · {r['kind'] or ''}", "lat": r["lat"], "lon": r["lon"],
                                   "facts": [f"{r['dbm']:.0f} dBm" if r["dbm"] is not None else "", r["last_seen"] or ""]})

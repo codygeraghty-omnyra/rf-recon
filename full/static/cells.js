@@ -42,10 +42,10 @@ S.views.cells = async v => {
         <p class="hint" style="margin:6px 0 0">Licensed (CBRS, 3.5 GHz and the like), unlicensed (5 GHz, 900 MHz) and LBR fixed wireless: emitters a survey may hear.</p>`:""}</div>
     ${all.length?"":`<div class="panel"><h3>No cells here yet</h3><p class="hint" style="margin-top:0">Cell data comes from the crowd and from your own surveys:</p>
       <ul class="hint"><li><b>OpenCelliD</b>: add your free key in Data &amp; updates and fetch for the pin, or import a whole-country download below (free account at <a href="https://opencellid.org/downloads.php" target="_blank" rel="noopener">opencellid.org/downloads.php</a>; the US files are 310 to 316).</li>
-        <li><b>WiGLE</b>: add your API name and token in Data &amp; updates, then fetch for the pin (cells come with Wi-Fi and Bluetooth).</li>
+        ${r.sources.wigle?`<li><b>WiGLE</b>: add your API name and token in Data &amp; updates, then fetch for the pin (cells come with Wi-Fi and Bluetooth).</li>`:""}
         <li><b>Your captures</b>: WiGLE WiFi app exports and cell scanner CSVs imported in a mission (cells need their MCC-MNC-area-cell ID).</li></ul></div>`}
     <div class="panel"><h3>Import an OpenCelliD download</h3>
-      <div class="row"><input type="file" id="csImp" accept=".csv,.gz"><span class="hint" id="csMsg">Kept to the states set in Data &amp; updates (${esc((await api("/api/settings").catch(()=>({}))).states||"all states: large")}).</span></div></div>
+      <div class="row"><input type="file" id="csImp" accept=".csv,.gz"><span class="hint" id="csMsg">Kept to the states set in Data &amp; updates (${esc(r.states||"all states: large")}).</span></div></div>
     ${list.length?`<div class="tw"><table><thead><tr><th>Operator</th><th>Tech</th><th>Site</th><th>Sectors (cell IDs)</th><th>Tower (FCC)</th><th>Owner</th><th class="n">Height</th><th class="n">Licensees on it</th><th class="n">Samples</th><th>Last seen</th><th class="n">Distance</th></tr></thead><tbody>
       ${list.slice(0,1500).map((s,i)=>`<tr data-i="${all.indexOf(s)}" style="cursor:pointer"><td><b>${esc(s.operator)}</b><div class="hint mono">${esc(s.plmn)}</div></td><td>${esc(s.radio)}</td>
         <td class="mono">${esc(s.site_kind.split(" ")[0])} ${esc(String(s.site_id))}</td>

@@ -40,8 +40,8 @@ S.views.report = (v, rows) => {
   const maxF = Math.max(1, ...bands.map(b => b.freqs)), maxL = Math.max(1, ...bands.map(b => b.lics));
 
   v.innerHTML = `
-  <div class="row no-print" style="justify-content:space-between;margin-bottom:6px">
-    <h2 style="margin:0">Area report</h2><button id="rp_print">⎙ Print report</button></div>
+  <div class="row" style="justify-content:space-between;margin-bottom:6px">
+    <h2 style="margin:0">Area report</h2><button id="rp_print" class="no-print">⎙ Print report</button></div>
   <p style="margin:2px 2px 10px">Within <b>${S.radius} mi</b> of <span class="mono">${S.center[0].toFixed(5)}, ${S.center[1].toFixed(5)}</span>:
     <b>${freqs.size.toLocaleString()}</b> licensed frequencies from <b>${lics.size.toLocaleString()}</b> licensees in <b>${bands.length}</b> bands,
     ${digitalPct}% digital (P25 / DMR / NXDN and data); <b>${towers.length}</b> registered towers${nearest != null ? `; nearest licensed site ${num(nearest, 2)} mi` : ""}.
@@ -94,7 +94,7 @@ S.views.report = (v, rows) => {
 
   <div class="panel" id="rp_sig" style="margin-top:10px"><h3>Signals not on the FCC licence list</h3>
     <p class="hint">Your captures and the crowd layers (OpenCelliD and imported layers; WiGLE and RepeaterBook in the personal build) in this area. Each is checked against FCC licences on that frequency within 40 mi,
-      then against bands where transmitting is allowed without a site licence (Part 15, Part 95, amateur, market-licensed cellular, broadcast, aviation, marine, federal).
+      then against bands where transmitting is allowed without a site licence (Part 15, Part 95, amateur, market-licensed cellular, broadcast, aviation, marine, NOAA Weather Radio, satellite navigation (GPS), federal).
       Whatever is left is <b style="color:var(--bad-ink)">Unlisted</b>: worth a second look on site.</p>
     <div id="rp_sigbody">${survey.length ? '<p class="status">Checking…</p>' : `<p class="status">No survey or crowd data in this area yet.</p>
       <div class="row no-print"><button data-goto="mission">Import captures (Mission)</button><button data-goto="data">Fetch crowd data (Data &amp; updates)</button></div>`}</div></div>

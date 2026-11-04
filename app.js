@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "a203e3c530";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "f904b94236";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -664,12 +664,12 @@ async function viewPacks(v) {
     + (other.length ? `<div class="card glass" style="--i:2"><h2>Also on this phone</h2>${other.map(o => `<div class="item" style="cursor:default"><div class="main"><div class="t">${esc(o.name)}</div>
       <div class="s">${esc(area(o.area))} · made ${esc(o.made_at)} · ${num(o.size / 1e6, 1)} MB</div></div>
       <div class="row"><button class="btn small" data-act="use" data-id="${esc(o.id)}">Use</button><button class="btn small danger" data-act="rmpack" data-id="${esc(o.id)}">Remove</button></div></div>`).join("")}</div>` : "")
-    + `<div class="card glass" style="--i:3"><h2>Load a pack</h2><p style="margin:0 0 10px">Packs are in the RF Recon folder in Google Drive, under <b>field packs</b>. Tap below and pick
+    + `<div class="card glass" style="--i:3"><h2>Load a pack</h2><p style="margin:0 0 10px">A pack made on Cody's PC is in the RF Recon folder in Google Drive, under <b>field packs</b>; one made on the server, the admin downloads there. Tap below and pick
       ${isIOS() ? "<b>Browse</b>, then <b>Google Drive</b> (turn it on under Browse, the ⋯ menu, Edit, if it isn't listed)" : "<b>Drive</b> from the picker's menu"}. Only people the folder is shared with can see them.
       A pack made on the PC with “Make a field pack” (Data &amp; updates) appears there when Drive has synced.</p>
       <div class="row"><button class="btn primary" data-act="load">Load a pack</button>${p ? '<button class="btn danger" data-act="rmpack" data-id="' + esc(p.id) + '">Remove this pack</button>' : ""}</div></div>`
     + `<div class="card glass" style="--i:3"><h2>A state from the RF Recon site</h2><p style="margin:0 0 10px">Every state's FCC data is kept on the RF Recon site, so you
-      don't need Drive for it: pick one and it downloads to this phone (1 to 25 MB, so use Wi-Fi for the big ones). A search outside your pack offers its state too.</p>
+      don't need Drive for it: pick one and it downloads to this phone (most under 13 MB; California 32 MB and Texas 28 MB, so use Wi-Fi for the big ones). A search outside your pack offers its state too.</p>
       <div class="row"><select id="spSel" style="flex:1"><option value="">Getting the list…</option></select><button class="btn primary" data-act="sitepack">Load</button></div></div>`
     + `<div class="card glass" style="--i:4"><h2>Map without signal</h2><p style="margin:0 0 10px">Map tiles you've looked at stay on the phone. To save more before you go, set the pin and radius,
       then save that area (USGS maps, zoom 8 to 15). Street maps can't be saved: OpenStreetMap's rules don't allow it.</p>

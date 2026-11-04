@@ -64,3 +64,42 @@ def commit():
             return fh.read().strip()[:40] or None
     except OSError:
         return None
+
+
+_VERSION = {"at": 0, "v": None}
+
+
+def version():
+    """This copy's build, for Ways in: {commit, date, how}. The server: the commit deploy_server.sh wrote to COMMIT and
+    when (the file's time). An install-kit copy: its VERSION stamp. A git checkout (Cody's PC): HEAD and its date, and
+    whether files changed since. None when none of those can be read. Read at most once a minute."""
+    import json
+    import subprocess
+    import time
+    if time.time() - _VERSION["at"] < 60:
+        return _VERSION["v"]
+    here = os.path.dirname(os.path.abspath(__file__))
+    v = None
+    c = commit()
+    if c:
+        v = {"commit": c[:10], "date": time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(os.path.join(here, "COMMIT")))),
+             "how": "deployed"}
+    else:
+        try:
+            with open(os.path.join(here, "VERSION"), encoding="utf-8") as fh:
+                k = json.load(fh)
+            v = {"commit": str(k.get("version") or "")[:10], "date": k.get("built"), "how": "install kit"}
+        except (OSError, ValueError):
+            try:
+                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                out = subprocess.run(["git", "-C", here, "log", "-1", "--format=%h|%cd", "--date=format:%Y-%m-%d %H:%M"], capture_output=True,
+                                     text=True, timeout=10, creationflags=flags)
+                if out.returncode == 0 and "|" in out.stdout:
+                    h, d = out.stdout.strip().split("|", 1)
+                    dirty = subprocess.run(["git", "-C", here, "status", "--porcelain", "--untracked-files=no"], capture_output=True,
+                                           text=True, timeout=10, creationflags=flags).stdout.strip()
+                    v = {"commit": h, "date": d, "how": "git", "changed": bool(dirty)}
+            except (OSError, subprocess.SubprocessError):
+                v = None
+    _VERSION.update(at=time.time(), v=v)
+    return v

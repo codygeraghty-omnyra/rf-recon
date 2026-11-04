@@ -1,14 +1,15 @@
 """
 Remote access: other people use the full PC version from anywhere. Tailscale Funnel publishes a public https link
-that forwards to a second port on this PC (127.0.0.1:8790); everything arriving there must be signed in and is view
-and search only. Cody's own copy on localhost:8765 is untouched.
+that forwards to a second port on this PC (127.0.0.1:8790); everything arriving there must be signed in, and each
+login has a role (below). Cody's own copy on localhost:8765 is untouched.
 
 Logins live in DATA_DIR/remote_users.json as salted PBKDF2 hashes. Cody adds a person in Data & updates and the
 password is shown once, for him to pass on. A session is a signed cookie tied to the login's salt, so removing a
 person or giving them a new password ends their sessions at once.
 
-Remote people can't reach anything that writes (every POST) except leaving a note for Cody (notes.py: their own,
-size-capped), nor the keys and update settings, TAK settings, the field-pack folders, or the Signal ID Wiki catalog.
+A view login can't reach anything that writes (every POST) except leaving a note for Cody (notes.py: their own,
+size-capped); full logins write too. Neither reaches the BLOCKED parts: the keys and update settings, TAK settings,
+the field-pack folders, or the Signal ID Wiki catalog. An admin login is the owner and reaches everything.
 Ships come only from what is already streaming: their looks never start the stream on Cody's aisstream key.
 
 On the 24/7 server (RF_RECON_PUBLIC_URL set, 11/2) this door is the only way in: the server's own https front forwards
@@ -37,10 +38,14 @@ LOCK_AFTER, LOCK_S = 8, 15 * 60  # wrong passwords per name before a 15-minute l
 BLOCKED = ("/api/settings", "/api/update/", "/api/tak/", "/api/fieldpack", "/api/net/", "/api/sigwiki/", "/api/artemis/", "/api/crowd/", "/api/remote", "/api/kit")
 EMPTY = {"/api/sigwiki/match": {"candidates": []}, "/api/sigwiki/range": {"signals": []}}  # answered empty so pages carry on
 OPEN = ("/static/theme/", "/remote/")  # the sign-in page's own look
-NOTE_WRITE = re.compile(r"^/api/notes(/\d+/file)?$")  # a new note and its recordings / photos
+NOTE_WRITE = re.compile(r"^/api/notes(/\d+/(file|sent))?$")  # a new note, its recordings / photos, and "emailed as report #N"
 
 SERVER_URL = (os.environ.get("RF_RECON_PUBLIC_URL") or "").rstrip("/")  # set on the 24/7 server: always on, no Tailscale
-ROLES = ("view", "full", "admin")
+# ahj (11/4): an AHJ or radio shop reviewer. It sees only the jobs shared with it by name (dashist.py access lists), in
+# the review page, and can Accept or Return the report with a comment; nothing else in RF Recon answers it.
+ROLES = ("view", "full", "admin", "ahj")
+REVIEW_WRITE = re.compile(r"^/api/das/jobs/\d+/review$")  # a review decision or comment: checked per job (dashist.level)
+AHJ_READ = re.compile(r"^(/review|/api/das/jobs|/api/das/jobs/\d+/(review|file))$")  # all an ahj login reaches, besides /static/
 
 ON = threading.local()  # ON.user is set while a remote request is being answered
 _LOCK = threading.Lock()
@@ -239,10 +244,26 @@ def writer(role):
     return role in ("full", "admin")
 
 
+def reads_body(method, path, role):
+    """Whether the handler reads what was sent: a note (anyone signed in), a review (checked per job), and every change
+    a full or admin login makes that isn't refused."""
+    if refused(method, path, role):
+        return False
+    return note_write(method, path) and role != "ahj" or bool(REVIEW_WRITE.match(path)) and method == "POST" or writer(role)
+
+
 def refused(method, path, role="view"):
     """Why a remote person can't do this, or None when they can."""
     if role == "admin":
         return None
+    if role == "ahj":  # the review page and the jobs shared with it, nothing else
+        if method == "GET" and (AHJ_READ.match(path) or path.startswith("/static/")):
+            return None
+        if method == "POST" and REVIEW_WRITE.match(path):
+            return None
+        return "An AHJ login sees only the reports shared with it."
+    if method == "POST" and REVIEW_WRITE.match(path):
+        return None  # a comment or a review: the job's access list says who may (app.py das_route)
     if method != "GET" and not note_write(method, path) and not writer(role):
         return "Your login is view only." if SERVER_URL else "View only: changes are made on Cody's PC."
     if path.startswith(BLOCKED):

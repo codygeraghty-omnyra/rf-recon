@@ -21,9 +21,12 @@ CREATE TABLE IF NOT EXISTS note(id INTEGER PRIMARY KEY, ts TEXT, who TEXT, kind 
 
 def migrate(con):
     """Columns added after the first notes (10/31): what the browser heard during a voice note or screen recording."""
-    if "transcript" not in [r[1] for r in con.execute("PRAGMA table_info(note)")]:
+    have = [r[1] for r in con.execute("PRAGMA table_info(note)")]
+    if "transcript" not in have:
         con.execute("ALTER TABLE note ADD COLUMN transcript TEXT")
-        con.commit()
+    if "sent" not in have:  # 11/4: "Emailed to Cody · report #N" kept with the note, not in one browser's storage
+        con.execute("ALTER TABLE note ADD COLUMN sent TEXT")
+    con.commit()
 KINDS = {"voice": "Voice note", "screen": "Screen recording", "photo-voice": "Photo + voice note",
          "photo-text": "Photo + written note", "text": "Written note"}
 TYPES = {".webm": "video/webm", ".mp4": "video/mp4", ".mov": "video/quicktime", ".m4a": "audio/mp4", ".ogg": "audio/ogg",
@@ -144,6 +147,10 @@ def listing(con, base, who=None):
         d = dict(r)
         d["files"] = [dict(f, url=f"/api/notes/{r['id']}/{f['name']}") for f in json.loads(r["files"] or "[]")]
         d["label"] = KINDS.get(r["kind"], "Note")
+        try:
+            d["sent"] = json.loads(d.get("sent") or "null")
+        except ValueError:
+            d["sent"] = None
         out.append(d)
     return {"notes": out, "where": base}
 
@@ -155,6 +162,20 @@ def file_path(con, base, nid, name, who=None):
     if not any(f["name"] == name for f in json.loads(r["files"] or "[]")):
         raise LookupError("That file isn't in the note.")
     return os.path.join(base, r["folder"], name), TYPES[os.path.splitext(name)[1].lower()]
+
+
+def mark_sent(con, nid, s, who=None):
+    """The note was emailed to Cody as report #N: kept on the note, so every browser shows it sent and no one sends it
+    a second time under a new number. Someone on the remote link marks only their own notes."""
+    r = _row(con, nid)
+    if who is not None and r["who"] != who:
+        raise PermissionError("That note isn't yours.")
+    if not isinstance(s, dict) or not str(s.get("report") or "").strip():
+        raise ValueError("Say which report number it went as.")
+    keep = {"report": str(s["report"])[:20], "subject": _clean(s.get("subject"), 200), "at": _clean(s.get("at"), 40)}
+    con.execute("UPDATE note SET sent=? WHERE id=?", (json.dumps(keep), nid))
+    con.commit()
+    return {"ok": True, "sent": keep}
 
 
 def delete(con, base, nid):

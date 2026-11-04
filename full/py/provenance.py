@@ -172,7 +172,9 @@ def judge(row, lic=None, fcc_as_of=None, track=None):
             support = []
     measured = "first-party measured" in origins
     n = len(origins)
-    if flags:
+    if len(flags) >= 2:  # two checks disagree (decoded ID, level, bearing): contradicted, the scale's 5
+        claim = 5
+    elif flags:
         claim = 4
     elif n >= 2 and measured and diag:
         claim = 1
@@ -184,7 +186,7 @@ def judge(row, lic=None, fcc_as_of=None, track=None):
         claim = 3 if grade(src, "on_air") in "ABC" else 6
     words = CLAIM_WORDS[claim]
     if flags:
-        reason = "a check disagrees"
+        reason = "two checks disagree" if len(flags) >= 2 else "a check disagrees"
     elif diag:
         reason = "; ".join(diag + support)
     elif n >= 2:

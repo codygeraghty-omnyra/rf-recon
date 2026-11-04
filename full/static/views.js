@@ -46,9 +46,11 @@ document.addEventListener("click", e=>{ const th=e.target.closest("th[data-sort]
   if(e.target.id==="moreTbl"){ S.shown+=1000; render(); } });
 
 /* ---------- display filter (Wireshark-like) ---------- */
-const ALIAS={freq:"freq_mhz",frequency:"freq_mhz",type:"sig_type",sig:"sig_type",dist:"dist_mi",distance:"dist_mi",rssi:"dbm",level:"dbm",power:"erp_w",erp:"erp_w",
+// type and time read what the Type and Time columns show (typeOf, timeOf), so Keep only this on "Tower / structure",
+// "911 call centre" or "Unknown", and a time filter on a licence or crowd row, match (11/4: they matched nothing)
+const ALIAS={freq:"freq_mhz",frequency:"freq_mhz",type:"@type",sig:"sig_type",dist:"dist_mi",distance:"dist_mi",rssi:"dbm",level:"dbm",power:"erp_w",erp:"erp_w",
   src:"layer",source:"layer",call:"call_sign",callsign:"call_sign",ssid:"label",name:"label",mac:"ident",bssid:"ident",id:"ident",cat:"category",station:"station_class",
-  emission:"emissions",height:"height_tip_m",time:"ts",service:"service",band:"band",mode:"mode",licensee:"licensee",tag:"ov_alpha_tag",status:"status"};
+  emission:"emissions",height:"height_tip_m",time:"@time",service:"service",band:"band",mode:"mode",licensee:"licensee",tag:"ov_alpha_tag",status:"status"};
 function tokenize(s){ const out=[]; let i=0;
   const re=/\s*(?:("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(==|!=|>=|<=|&&|\|\||[><!()~])|(-?\d+(?:\.\d+)?)|([A-Za-z_][\w.]*))/y;
   while(i<s.length){ re.lastIndex=i; const m=re.exec(s); if(!m){ if(/^\s*$/.test(s.slice(i))) break; throw new Error("Unexpected text at “"+s.slice(i,i+12)+"”"); }
@@ -60,7 +62,7 @@ function tokenize(s){ const out=[]; let i=0;
   return out; }
 function compileFilter(src){
   const T=tokenize(src); let p=0; const peek=()=>T[p], take=()=>T[p++];
-  const field=n=>{ const k=ALIAS[n.toLowerCase()]||n; return r=>{ if(k==="layer") return r.layer; const v=r[k]; return v; }; };
+  const field=n=>{ const k=ALIAS[n.toLowerCase()]||n; return r=>k==="@type"?typeOf(r):k==="@time"?timeOf(r):r[k]; };
   function orE(){ let l=andE(); while(peek()&&peek().v==="||"){ take(); const r=andE(), a=l; l=x=>a(x)||r(x); } return l; }
   function andE(){ let l=notE(); while(peek()&&peek().v==="&&"){ take(); const r=notE(), a=l; l=x=>a(x)&&r(x); } return l; }
   function notE(){ if(peek()&&peek().v==="!"){ take(); const e=notE(); return x=>!e(x); } return prim(); }
@@ -167,7 +169,7 @@ function showTree(r){
   const kv=(k,v)=>v===""||v==null?"":`<span class="kv"><span class="k">${esc(k)}:</span> ${esc(v)}</span>`;
   const sec=(t,inner,open)=>inner.replace(/<[^>]+>/g,"").trim()?`<details ${open?"open":""}><summary>${esc(t)}</summary>${inner}</details>`:"";
   const ems=(r.emissions||"").split(/\s+/).filter(Boolean).map(decodeEmission).filter(Boolean);
-  let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){}
+  let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){ /* not JSON: the record shows without extra fields */ }
   $("#anTree").innerHTML=
     sec(`Record ${r.fid}, ${LAYERS[r.layer]?.label||r.layer}`, kv("Source",LAYERS[r.layer]?.label)+kv("Time",timeOf(r))+kv("Capture",r.capture_name)+kv("Attribution",r.attribution)+kv("Status",r.status),true)+
     sec("Position", kv("Latitude",r.lat)+kv("Longitude",r.lon)+kv("Altitude m",r.alt)+kv("GPS accuracy m",r.acc)+kv("Distance mi",r.dist_mi)+kv("Bearing",r.bearing!=null?`${r.bearing}° ${r.compass}`:"")+kv("Site",[r.address||r.street,r.city,r.county,r.state].filter(Boolean).join(", ")),true)+
@@ -259,7 +261,7 @@ S.views.dashboard = (v, rows) => {
       <label class="inl">Histogram bins <select id="dbBins">${[10,16,24,40,80].map(n=>`<option ${D.bins===n?"selected":""}>${n}</option>`).join("")}</select></label>
       <label class="inl">Show top <select id="dbTop">${[8,12,20,50].map(n=>`<option ${D.top===n?"selected":""}>${n}</option>`).join("")}</select> in lists</label>
       <label class="inl">Signal levels <select id="dbLv"><option value="both">Measured + predicted</option><option value="meas">Measured only</option><option value="est">Predicted only (free-space)</option></select></label>
-      <span class="hint">Click any bar or slice to filter every tab by it.</span></div>
+      <span class="hint">Click a bar or slice in Signal types, Sources, Bands or Categories to filter every tab by it; a Top names bar shows its whole name; the histograms don't filter.</span></div>
     <div class="dash">
     <div class="w12"><div class="cards">
       <div class="card"><div class="v">${rows.length.toLocaleString()}</div><div class="k">Items shown</div></div>
@@ -435,7 +437,7 @@ S.views.profile = (v, rows) => {
       <label class="inl">Rank levels by <select id="pfLv"><option value="both">Measured + predicted</option><option value="meas">Measured only</option><option value="est">Predicted only (free-space)</option></select></label>
       <span class="hint">Click any bar to filter every tab by it.</span></div>
     <p style="margin:2px 2px 10px"><b>${esc(where)}</b>${S.mission?` · Mission: ${esc(S.mission.name)}`:""}${fcc?` · FCC data ${esc(fcc)}`:""}
-      ${filtersOn?' <span class="tag">filters on: everything below follows them</span>':""}</p>
+      ${filtersOn?' <span class="tag">filters on: the counts and lists follow them; Watch checks every result</span>':""}</p>
     <div class="cards">
     ${card(new Set(uls.map(r=>fmtF(r.freq_mhz))).size.toLocaleString(),"Licensed frequencies","Distinct MHz on active FCC licences")}
     ${card(new Set(uls.map(r=>r.licensee)).size.toLocaleString(),"Licensees","Distinct licence holders")}

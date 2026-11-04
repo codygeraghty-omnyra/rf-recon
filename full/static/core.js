@@ -7,7 +7,7 @@ const fmtF = f => f == null || f === "" ? "" : Number(f).toFixed(5).replace(/0{1
 // a booster's power from the FCC's grant search (fccid.py POWER_RANGES): the range its strongest band falls in
 const wattsTxt = x => !x?.watts ? "" : x.watts[1] >= 10000 ? `over ${x.watts[0]} W` : `${x.watts[0]}–${x.watts[1]} W`;
 const num = (v, d=0) => v == null || v === "" || isNaN(v) ? "" : Number(v).toFixed(d).replace(/^-(0(\.0+)?)$/, "$1");  // never "-0"
-const api = async (path, opts) => { const r = await fetch(path, opts);
+const api = async (path, opts) => { if(window.dasJobApi && !opts?.dasRaw && /^\/api\/das\/jobs(\/\d+)?$/.test(path)) return window.dasJobApi(path, opts);  /* job saves carry their revision (dasrev.js) */ const r = await fetch(path, opts);
   // a session that ended: to the sign-in page, for every login (11/3: only non-admin logins went there; admins were left
   // with an error line wherever they were). The PC's own copy never answers 401.
   if(r.status===401){ location.href="/remote/login"; throw new Error("Signed out."); }
@@ -129,12 +129,12 @@ function setFold(folded, keep=true){
   $("#filters").classList.toggle("folded",folded);
   const b=$("#filterFold"); b.querySelector(".lbl").textContent=folded?"Show filters":"Collapse"; b.setAttribute("aria-expanded",String(!folded));
   b.title=folded?"Show the layer and signal filters":"Fold the filters away so the map gets the room";
-  foldNote(); if(keep) try{ localStorage.setItem("rfr.filtersFolded",folded?"1":""); }catch(e){}
+  foldNote(); if(keep) try{ localStorage.setItem("rfr.filtersFolded",folded?"1":""); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ }
 }
 $("#filterFold").onclick=()=>setFold(!$("#filters").classList.contains("folded"));
 // on a phone the chips run several screens long, so they start folded until someone opens them there
 try{ const f=localStorage.getItem("rfr.filtersFolded");
-  if(f==="1") setFold(true); else if(f===null && matchMedia("(max-width:600px)").matches) setFold(true,false); }catch(e){}
+  if(f==="1") setFold(true); else if(f===null && matchMedia("(max-width:600px)").matches) setFold(true,false); }catch(e){ /* storage blocked (a private window): the filters open unfolded */ }
 document.addEventListener("click", e => {
   const lc=e.target.closest(".chip[data-layer]");
   if(lc){ const k=lc.dataset.layer; S.layerOn.has(k)?S.layerOn.delete(k):S.layerOn.add(k); S.shown=600; render(); return; }
@@ -278,7 +278,7 @@ const MwLinks=L.LayerGroup.extend({
         .bindTooltip(`${esc(k.licensee||"")} ${esc(k.call_sign)}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
       for(const k of r.pending||[]) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:S.dotsR, color:"#d4a017", weight:1.8, opacity:.85, dashArray:"6 5", bubblingMouseEvents:false})
         .bindTooltip(`<b>Pending application</b> ${esc(k.file_number)} (${esc(k.purpose)}, filed ${esc(k.received)})<br>${esc(k.licensee||"")} ${esc(k.call_sign||"")}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
-      if(r.truncated) $("#status").textContent="Microwave backhaul: showing the first links here; zoom in for all of them."; }catch(e){}
+      if(r.truncated) $("#status").textContent="Microwave backhaul: showing the first links here; zoom in for all of them."; }catch(e){ /* the overlay just draws nothing this time; the next pan asks again */ }
   }});
 // live ships (AIS via aisstream on the PC): asks every 10 s while the layer is on; the PC stops streaming when nobody asks
 const AisShips=L.LayerGroup.extend({
@@ -300,7 +300,7 @@ const OVERLAYS={
     {maxZoom:19, opacity:.6, zIndex:6, attribution:"NEXRAD via Iowa Environmental Mesonet"}),
 };
 function mapPrefs(){
-  if(!S.mapLayers){ let saved={}; try{ saved=JSON.parse(localStorage.getItem("rfr.mapLayers"))||{}; }catch(e){}
+  if(!S.mapLayers){ let saved={}; try{ saved=JSON.parse(localStorage.getItem("rfr.mapLayers"))||{}; }catch(e){ /* storage blocked (a private window): the default stands */ }
     S.mapLayers={base:BASEMAPS[saved.base]?saved.base:"Street (OpenStreetMap)", overlays:(saved.overlays||[]).filter(n=>OVERLAYS[n])}; }
   return S.mapLayers;
 }
@@ -314,17 +314,18 @@ function addMapLayers(map){
   L.control.layers(bases, overs, {position:"topright"}).addTo(map);
   let unloading=false;  // map.remove() (leaving the tab) removes every layer; that isn't a choice to save
   map.on("unload",()=>{ unloading=true; });
-  const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){} };
+  const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
   // no signal on a map that's for use with signal only: show NO_SIGNAL_BASE, check every 30 s, go back when it answers
   let standIn=false, swapping=false, misses=0, timer=null;
   const swap=name=>{ swapping=true; for(const n of [pref.base, NO_SIGNAL_BASE]) if(map.hasLayer(bases[n])) map.removeLayer(bases[n]); bases[name].addTo(map); swapping=false; };
   const noSignal=()=>{ if(standIn || !BASEMAPS[pref.base]?.online || unloading) return; standIn=true; swap(NO_SIGNAL_BASE);
-    $("#status").textContent=`No signal: showing ${NO_SIGNAL_BASE}, kept on this device. ${pref.base} isn't kept for use with no signal (its terms), so it comes back when signal does.`;
+    // its tiles are kept by the copy serving the page: this PC's own, or the server's (out of reach with no signal)
+    $("#status").textContent=`No signal: showing ${NO_SIGNAL_BASE}, ${S.me||S.remote?"where this browser already has it (the server keeps the rest, out of reach with no signal)":"kept on this device"}. ${pref.base} isn't kept for use with no signal (its terms), so it comes back when signal does.`;
     timer=setInterval(check, 30000); };
   const back=()=>{ if(!standIn) return; standIn=false; misses=0; clearInterval(timer); if(!unloading) swap(pref.base); };
   const check=async()=>{ if(navigator.onLine===false) return; const z=Math.min(map.getZoom(),18), c=map.project(map.getCenter(),z).divideBy(256).floor();
     const u=L.Util.template(bases[pref.base]._url, {x:c.x, y:c.y, z, s:"a", r:""});
-    try{ if((await fetch(u, {cache:"no-store", mode:u.startsWith("/")?"same-origin":"cors"})).ok) back(); }catch(e){} };
+    try{ if((await fetch(u, {cache:"no-store", mode:u.startsWith("/")?"same-origin":"cors"})).ok) back(); }catch(e){ /* still no signal: the next check, 30 s on, tries again */ } };
   for(const [n,b] of Object.entries(bases)) if(BASEMAPS[n]?.online){
     b.on("tileload", ()=>{ misses=0; });
     b.on("tileerror", ()=>{ if(++misses>=4) noSignal(); }); }
@@ -384,7 +385,7 @@ function drawMap(rows){
     b.style.cssText="padding:4px 8px;font:600 12px system-ui;cursor:pointer;background:var(--panel,#fff);color:var(--ink,#111)";
     const paint=()=>{ b.textContent=S.pinLocked?"🔒 Pin locked":"🔓 Pin moves on click"; b.title=S.pinLocked?"Clicks select emitters; the pin stays put. Click to unlock.":"Clicking the map moves the pin. Click to lock it."; };
     paint(); L.DomEvent.disableClickPropagation(b);
-    b.onclick=()=>{ S.pinLocked=!S.pinLocked; try{ localStorage.setItem("rfr.pinLocked", S.pinLocked?"1":"0"); }catch(e){} paint();
+    b.onclick=()=>{ S.pinLocked=!S.pinLocked; try{ localStorage.setItem("rfr.pinLocked", S.pinLocked?"1":"0"); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } paint();
       const h=$("#mapHint"); if(h&&S.center) h.textContent=S.pinLocked?"Pin locked: click a dot to see what's there, its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely.";
       if(S.pinMarker){ S.pinLocked?S.pinMarker.dragging?.disable():S.pinMarker.dragging?.enable(); } map.getContainer().classList.toggle("pin-locked", !!S.pinLocked); };
     return b; }});
@@ -435,7 +436,7 @@ async function heatCarrierFill(){
   if(S.center){ const r=(S.radius||5)*1.609/111, k=Math.cos(S.center[0]*Math.PI/180); [s,n,w,e]=[S.center[0]-r,S.center[0]+r,S.center[1]-r/k,S.center[1]+r/k]; }
   else if(S.map){ const b=S.map.getBounds(); [s,n,w,e]=[b.getSouth(),b.getNorth(),b.getWest(),b.getEast()]; }
   else return;
-  let cs=[]; try{ cs=(await api(`/api/bdc/carriers?s=${s}&n=${n}&w=${w}&e=${e}`)).carriers; }catch(err){}
+  let cs=[]; try{ cs=(await api(`/api/bdc/carriers?s=${s}&n=${n}&w=${w}&e=${e}`)).carriers; }catch(err){ /* no carrier list (offline, or no coverage loaded): the picker says none */ }
   sel.innerHTML=cs.length?cs.map(c=>`<option value="${c.provider}:${c.tech}">${esc(c.brand)} ${esc(c.tech_name)}</option>`).join("")
     :'<option value="">No carrier coverage loaded here (Data &amp; updates)</option>';
   if(!cs.some(c=>`${c.provider}:${c.tech}`===S.heat.carrier)) S.heat.carrier=cs.length?`${cs[0].provider}:${cs[0].tech}`:"";
@@ -477,7 +478,7 @@ function kvg(pairs){ return `<div class="kvg">${pairs.filter(p=>p[1]!==""&&p[1]!
 function radioIdLookup(r){
   const kind=/NXDN/i.test(`${r.sig_type||""} ${r.kind||""}`)?"nxdn":/DMR/i.test(`${r.sig_type||""} ${r.kind||""}`)?"dmr":null;
   if(!kind) return;
-  let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){}
+  let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){ /* not JSON: the record shows without extra fields */ }
   const fromExtra=Object.entries(extra).find(([k,v])=>/^(radio_?id|src(_?id)?|source_?id|unit(_?id)?|rid|from)$/i.test(k)&&/^\d{3,8}$/.test(String(v).trim()));
   const rid=fromExtra?String(fromExtra[1]).trim():(/^\d{6,8}$/.test(String(r.ident||"").trim())?String(r.ident).trim():null);
   if(!rid) return;
@@ -539,7 +540,7 @@ function openDetail(fid){
       ["Address",esc([r.street,r.city,r.state].filter(Boolean).join(", "))]])}
       <h3 style="margin-top:10px">Licensed transmitters on this structure</h3><p>${esc([...new Set(S.rows.filter(x=>x.tower_reg===r.reg).map(x=>`${x.licensee} (${fmtF(x.freq_mhz)})`))].slice(0,30).join("; ")||"None linked in the current results.")}</p></div>`;
   } else {
-    let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){}
+    let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){ /* not JSON: the record shows without extra fields */ }
     html += `<div class="sec"><h3>Record</h3>${kvg([["Type / tech",esc(r.kind||"")],["Label / SSID",esc(r.label||"")],["Identifier",`<span class="mono">${esc(r.ident||r.ext_id||"")}</span>`],
       ["Frequency",r.freq_mhz?`<span class="mono">${fmtF(r.freq_mhz)} MHz</span>${r.freq_in_mhz?` (input ${fmtF(r.freq_in_mhz)})`:""} · ${esc(r.band||"")}`:""],["Channel",esc(r.channel||"")],
       ["Level",r.dbm!=null?`${r.dbm} dBm`:""],["Bandwidth",r.bw_khz?`${r.bw_khz} kHz`:""],["Mode / tones",esc(r.mode||"")],["Security",esc(r.auth||"")],
@@ -607,10 +608,10 @@ $("#clearChips").onclick=()=>{ for(const k in S.chips) S.chips[k].clear(); S.fil
 const exportParams=()=>params({layers:[...S.layerOn].join(",")});
 $("#csvBtn").onclick=()=>getFile("/api/export.csv?"+exportParams());
 $("#kmlBtn").onclick=()=>getFile("/api/export.kml?"+exportParams());
-$("#printBtn").onclick=()=>{ setTab("profile"); setTimeout(()=>window.print(),80); };
+$("#printBtn").onclick=()=>{ setTab("profile"); setTimeout(()=>{ document.body.classList.add("print-prep"); window.print(); setTimeout(()=>document.body.classList.remove("print-prep"),500); },80); };
 $("#themeBtn").onclick=()=>{ const d=document.documentElement, dark=matchMedia("(prefers-color-scheme: dark)").matches;
-  const cur=d.dataset.theme||(dark?"dark":"light"); d.dataset.theme=cur==="dark"?"light":"dark"; try{localStorage.setItem("theme",d.dataset.theme);}catch(e){} render(); };
-try{ const t=localStorage.getItem("theme"); if(t) document.documentElement.dataset.theme=t; }catch(e){}
+  const cur=d.dataset.theme||(dark?"dark":"light"); d.dataset.theme=cur==="dark"?"light":"dark"; try{localStorage.setItem("theme",d.dataset.theme);}catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } render(); };
+try{ const t=localStorage.getItem("theme"); if(t) document.documentElement.dataset.theme=t; }catch(e){ /* storage blocked (a private window): the default stands */ }
 
 async function boot(){
   try{

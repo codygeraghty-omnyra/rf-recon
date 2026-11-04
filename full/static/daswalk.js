@@ -95,7 +95,9 @@ function wkPick(list, rule, centre, ar){
   return rule==="worst" ? s[0] : s[Math.floor((s.length-1)/2)]; }
 // the floor's walk -> the grid's results: the walk's earlier readings on this floor come out, then each square gets one
 // reading per channel (das.js chKey) from the points in it. Typed and imported square readings stay as they are.
-function wkRollup(d, f, fw, onPlan){
+// Only the pass the grid uses rolls up (wkGraded; a point with no pass is the acceptance pass), or the pass asked for.
+function wkRollup(d, f, fw0, onPlan, passId){
+  const fw=wkPassView(fw0, passId??wkGraded(d));
   const ar=wkAr(f, fw, onPlan), res={...((d.grid||{}).results||{})}, pre=`${f.name}|`, skip=new Set(f.skip||[]), rule=fw.rule||"centre";
   for(const k of Object.keys(res)) if(k.startsWith(pre)){ const rs=readingsOf(res[k]);
     if(rs.some(x=>x.walk)){ const keep=rs.filter(x=>!x.walk); if(keep.length) res[k]={...res[k], readings:keep}; else delete res[k]; } }
@@ -112,6 +114,62 @@ function wkRollup(d, f, fw, onPlan){
 // the walk's readings in a floor's squares, to tell whether the grid still holds what the walk gives
 const wkSig = (results, f) => JSON.stringify(Object.keys(results||{}).filter(k=>k.startsWith(`${f.name}|`)).sort()
   .map(k=>[k, readingsOf(results[k]).filter(x=>x.walk)]).filter(x=>x[1].length));
+
+/* ---------- test passes (beat-par 11/4): the same floors walked as named passes, BDA off, BDA on, acceptance, each annual,
+   five-year, kept side by side. Saved with the walk: data.walk.passes [{id, kind, year}], .cur (the pass being walked),
+   .graded (the pass the grid and the Report use), .compare {a, b, sig, met} (the comparison the Report prints). A point or
+   walk tap carries pass: <id>; one without (every walk saved before passes) belongs to the acceptance pass. */
+const WK_PASS0 = "acceptance";
+const WK_PASS_KINDS = [["bda_off","BDA off"],["bda_on","BDA on"],["acceptance","Acceptance"],["annual","Annual"],["five_year","Five-year"]];
+const wkPassOf = p => (p&&p.pass) || WK_PASS0;
+function wkPasses(d){ const L=((d.walk||{}).passes||[]).filter(p=>p&&p.id); return L.some(p=>p.id===WK_PASS0)?L:[{id:WK_PASS0, kind:"acceptance"}, ...L]; }
+const wkPassId = (kind, year) => kind==="annual"||kind==="five_year" ? `${kind}-${year}` : kind;
+const wkPassName = (d, id) => { const p=wkPasses(d).find(x=>x.id===id)||{id, kind:String(id).split("-")[0], year:String(id).split("-")[1]};
+  const k=(WK_PASS_KINDS.find(x=>x[0]===p.kind)||[,p.kind||id])[1]; return p.year?`${k} ${p.year}`:k; };
+const wkCur = d => (d.walk||{}).cur || WK_PASS0;
+const wkGraded = d => (d.walk||{}).graded || WK_PASS0;
+// one pass of a floor's walk: its points and taps
+const wkPassView = (fw, id) => ({...fw, pts:(fw.pts||[]).filter(p=>wkPassOf(p)===id), wps:(fw.wps||[]).filter(w=>wkPassOf(w)===id)});
+// a pass's squares on their own: the floor's grid results with only that pass's walk in them (typed and imported square
+// readings left out, so two passes compare walk to walk)
+function wkPassResults(d, f, fw, onPlan, id){ const pre=`${f.name}|`, res=Object.fromEntries(Object.entries((d.grid||{}).results||{}).filter(([k])=>!k.startsWith(pre)));
+  return wkRollup({...d, grid:{...(d.grid||{}), results:res}}, f, fw, onPlan, id).results; }
+// a square's value for one signal and metric in one pass: the points in it, taken by the floor's rule (as the roll-up does)
+function wkSqVals(fw, f, ar, onPlan, sig, met){ const by=new Map(), rule=fw.rule||"centre";
+  for(const p of wkPlaced(fw)){ if(p.x==null) continue; const v=wkVal(p, sig, met); if(v==null) continue; const g=wkSquare(p.x, p.y, f, ar, onPlan); if(!g) continue;
+    if(!by.has(g)) by.set(g, []); by.get(g).push({p, v}); }
+  const out=new Map();
+  for(const [g, L] of by){ let v;
+    if(rule==="centre"){ const c=wkCentre(g, f, ar, onPlan); v=L.reduce((a,b)=>Math.hypot(b.p.x-c.x,(b.p.y-c.y)*ar)<Math.hypot(a.p.x-c.x,(a.p.y-c.y)*ar)?b:a).v; }
+    else { const s=L.map(x=>x.v).sort((a,b)=>a-b); v=rule==="worst"?s[0]:s[Math.floor((s.length-1)/2)]; }
+    out.set(g, v); }
+  return out; }
+// Clark County FPAN (Dec 2025), five-year: "no deviation of coverage more than 5 percent from the initial installation
+// documentation". Coverage here = the floor's tested squares that pass (public safety, the job's AHJ profile), each pass
+const WK_CLARK = {pts:5, src:"https://files.lasvegasnevada.gov/fire-rescue/2025/FPAN-Guide_for_ERCES_Permitting_Testing_Recertification-Dec-2025.pdf",
+  says:"Clark County FPAN, five-year: no deviation of coverage more than 5 percent from the initial installation documentation"};
+// two passes on one floor: per square A, B and the change for the signal shown; each pass's coverage and the 5% check
+function wkCompare(d, f, fw, onPlan, a, b, sig, met){ const ar=wkAr(f, fw, onPlan); if(!ar) return null;
+  const n=f.grids||DAS.grids, skip=new Set(f.skip||[]), A=wkSqVals(wkPassView(fw, a), f, ar, onPlan, sig, met), B=wkSqVals(wkPassView(fw, b), f, ar, onPlan, sig, met);
+  const st=id=>{ const res=wkPassResults(d, f, fw, onPlan, id), dd={...d, grid:{...(d.grid||{}), results:res}}, s=floorStats(dd, f);
+    return {s, res, dd, n:wkPassView(fw, id).pts.length}; };
+  const SA=st(a), SB=st(b), squares=[];
+  for(let g=1; g<=n; g++){ if(skip.has(g)) continue; const va=A.has(g)?A.get(g):null, vb=B.has(g)?B.get(g):null;
+    squares.push({g, a:va, b:vb, d:va!=null&&vb!=null?Math.round((vb-va)*10)/10:null,
+      pa:wkSqState(SA.dd, SA.res[`${f.name}|${g}`], sig), pb:wkSqState(SB.dd, SB.res[`${f.name}|${g}`], sig)}); }
+  const cov=x=>x.s.tested>0?dasPct(x.s.pass, x.s.tested):null, ca=cov(SA), cb=cov(SB), delta=ca!=null&&cb!=null?Math.round((cb-ca)*10)/10:null;
+  const both=squares.filter(x=>x.d!=null), mean=both.length?Math.round(both.reduce((s,x)=>s+x.d,0)/both.length*10)/10:null;
+  const clark=delta==null?{state:null, txt:"needs both passes walked on this floor"}:Math.abs(delta)<=WK_CLARK.pts?{state:"ok", txt:`coverage ${ca}% → ${cb}%: ${delta>=0?"+":""}${delta} points, within ${WK_CLARK.pts}`}
+    :delta<0?{state:"fail", txt:`coverage ${ca}% → ${cb}%: ${delta} points, more than ${WK_CLARK.pts} down`}:{state:"warn", txt:`coverage ${ca}% → ${cb}%: +${delta} points, more than ${WK_CLARK.pts} up (better, still a deviation: tell the AHJ)`};
+  return {squares, a:{id:a, cov:ca, pts:SA.n, stats:SA.s}, b:{id:b, cov:cb, pts:SB.n, stats:SB.s}, delta, mean, worse:both.filter(x=>x.d<0).length, better:both.filter(x=>x.d>0).length, clark}; }
+// the difference heat map: each pass's heat on one grid, B minus A where both have colour
+function wkDiffHeat(ptsA, ptsB, W, H, cols){ const ha=wkHeat(ptsA, W, H, cols), hb=wkHeat(ptsB, W, H, cols), v=new Float32Array(ha.v.length).fill(NaN), al=new Float32Array(ha.v.length);
+  for(let k=0;k<v.length;k++) if(!isNaN(ha.v[k])&&!isNaN(hb.v[k])){ v[k]=hb.v[k]-ha.v[k]; al[k]=Math.min(ha.al[k], hb.al[k]); }
+  return {cols:ha.cols, rows:ha.rows, v, al}; }
+// red where B is worse, white where the same, blue where better; full colour at ±span (10 dB, 1 DAQ, 6 dB SINR)
+const wkDiffSpan = met => met==="daq"?1:met==="sinr"||met==="rsrq"?6:10;
+function wkDiffRgb(dv, span){ const t=Math.max(-1, Math.min(1, dv/span)), w=[245,245,245], r=[207,34,46], b=[31,111,235], c=t<0?r:b, k=Math.abs(t);
+  return w.map((x,i)=>Math.round(x+(c[i]-x)*k)); }
 
 // what to show: public safety (every channel, or one), or a carrier's cells below / from 3.3 GHz (dascell.js), or one band
 function wkSignals(pts){ const ps=new Set(), cell=new Map(); let anyPs=false;
@@ -262,6 +320,13 @@ function wkCalApply(r, fit){ if(!fit||!r||!has(r.rsrp)||has(r.rsrp_raw)) return 
 function wkCalMerge(ps, model){ const seen=new Set();
   return (ps||[]).filter(p=>{ if(!wkCalOk(p)||(p.model&&p.model!==model)) return false; const k=`${p.t}|${wkCalKey(p)}|${p.ref}|${p.phone}`;
     if(seen.has(k)) return false; seen.add(k); return true; }); }
+// the pairs a job holds, one group per phone model (each pair once): [{model, pairs}], the given model first, then by name.
+// A pair saved with no model is shown as "phone not named". This device's own pairs (its local table) are added by the page.
+const WK_CAL_NONAME = "phone not named";
+function wkCalModels(ps, first){ const by=new Map(), seen=new Set();
+  for(const p of ps||[]){ if(!wkCalOk(p)) continue; const m=p.model||WK_CAL_NONAME, k=`${m}|${p.t}|${wkCalKey(p)}|${p.ref}|${p.phone}`; if(seen.has(k)) continue; seen.add(k);
+    if(!by.has(m)) by.set(m, []); by.get(m).push(p); }
+  return [...by.entries()].map(([model, pairs])=>({model, pairs})).sort((a,b)=>(b.model===first)-(a.model===first)||a.model.localeCompare(b.model)); }
 const wkCalLabel = k => { const [t, b]=k.split("|"); return k==="all bands"?"every band":`${t==="NR"?"5G NR":"LTE"} band ${b}`; };
 const wkCalSays = s => s.off>0?`reads ${s.off} dB low`:s.off<0?`reads ${-s.off} dB high`:"reads right";
 
@@ -270,9 +335,9 @@ const WK = {cache:{}, undo:{}, lastSync:{}, busy:false, next:null, compass:null}
 // this phone's model, for its correction table: the browser's own report (Android WebView), else its user agent
 const wkModel = () => WK.model || (WK.model = (()=>{ const ua=typeof navigator!=="undefined"?navigator.userAgent||"":"";
   const m=(ua.match(/Android [\d.]+; (?:[a-z]{2}[-_][a-z]{2}; )?([^;)]+?)(?: Build\/[^;)]*)?[;)]/i)||[])[1]; return m&&m.trim().length>1?m.trim():"this phone"; })());
-try{ navigator.userAgentData?.getHighEntropyValues?.(["model"]).then(v=>{ if(v&&v.model) WK.model=v.model; }).catch(()=>{}); }catch(e){}
+try{ navigator.userAgentData?.getHighEntropyValues?.(["model"]).then(v=>{ if(v&&v.model) WK.model=v.model; }).catch(()=>{}); }catch(e){ /* no model from this browser: the phone stays unnamed */ }
 const wkCalStore = model => { try{ const a=JSON.parse(localStorage.getItem(WK_CAL_KEY)||"[]"); return Array.isArray(a)?a.filter(p=>p.model===model):[]; }catch(e){ return []; } };
-const wkCalKeep = ps => { try{ const a=JSON.parse(localStorage.getItem(WK_CAL_KEY)||"[]"); localStorage.setItem(WK_CAL_KEY, JSON.stringify([...(Array.isArray(a)?a:[]), ...ps].slice(-1000))); }catch(e){} };
+const wkCalKeep = ps => { try{ const a=JSON.parse(localStorage.getItem(WK_CAL_KEY)||"[]"); localStorage.setItem(WK_CAL_KEY, JSON.stringify([...(Array.isArray(a)?a:[]), ...ps].slice(-1000))); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
 const wkUi = () => S.das.walk ||= {mode:"point", vals:"type", kind:"ps", walking:false, leg:0, t0:0, zoom:1, sig:"", met:"", last:{ps:{}, cell:{}}};
 const wkClone = x => JSON.parse(JSON.stringify(x));
 // the floor's walk: the saved one, or this visit's newer copy while a save is still on its way
@@ -323,6 +388,7 @@ function wkMount(panel, j0, save, ctx){
   let j=j0, fw=wkFloorOf(j0, ctx.f.name), sel=null, spot=null, spotPid=null, drag=null;
   const U=wkUi(), f=ctx.f, onPlan=!!ctx.hasPlan, uk=`${j.id}|${f.name}`, n=f.grids||DAS.grids, cols=dasCols(f), rows=wkRows(f);
   const d=()=>j.data||{}, ar=()=>wkAr(f, fw, onPlan), undo=()=>WK.undo[uk]||[];
+  const cur=()=>wkCur(d()), pv=()=>wkPassView(fw, cur());  // the pass being walked: what the plan shows and what a tap adds to
   const wft=()=>((((d().design||{}).floors||{})[f.name])||{}).width_ft||null;
   if(!["point","cont","edit"].includes(U.mode)) U.mode="point";
   if(U.walking&&U.floor&&U.floor!==f.name) U.walking=false;  // a walk belongs to its floor
@@ -347,6 +413,7 @@ function wkMount(panel, j0, save, ctx){
       <button id="wkUndo" ${undo().length?"":"disabled"}>↶ Undo</button>
       <span class="seg" id="wkZoom"><button data-z="-1" aria-label="Zoom out">−</button><button data-z="1" aria-label="Zoom in">+</button></span>
     </div>
+    ${wkPassBar(d(), fw)}
     <p class="status" id="wkScore" style="margin:0 0 6px"></p>
     <div id="wkScroll" style="${U.zoom>1?"overflow:auto;max-height:75vh;":"overflow:hidden;"}border-radius:10px">
       <div id="wkWrap" style="position:relative;width:${U.zoom*100}%;line-height:0">
@@ -366,6 +433,7 @@ function wkMount(panel, j0, save, ctx){
       <button id="wkCsv">⇩ Points CSV</button><button id="wkPng">⇩ Heat map PNG</button><button id="wkFile">Save heat map to Files</button><button id="wkClear">Clear this floor's walk</button></div>
     <div id="wkImpBox"></div>
     <div id="wkCal"></div>
+    <div id="wkCmp"></div>
     <p class="hint" style="margin:8px 0 0">${phone?`<b>This app reads the phone's own signal</b>: Read the phone (Point) takes its serving cell at a tap; Start walk (Continuous) logs it and Stop places the readings by time. Phone readings are cellular only (LTE / 5G, no public-safety channels) and not calibrated: indicative, never counted toward a public-safety pass, saved as taken with "${esc(WK_PHONE_SRC)}". An instrument's log still imports here (Import a log); readings`
       :`A web page can't read this phone's own signal. On Android, the <a href="#" data-help="android">RF Recon Android app</a> can (Read the phone); otherwise log it with a survey app (G-NetTrack Pro, Network Cell Info) or an instrument, then import the log here; readings`} are matched to your taps by time (set the clock offset if the logger's clock differs). The heat map shows every reading; the grid squares take ${esc(WK_RULE_SHORT[fw.rule||"centre"])} reading of the points in each, and only readings from a calibrated instrument count toward pass / fail. Cellular readings never count toward public safety. Taken with: <b>${esc(instName2(ctx.inst)||"not picked")}</b>.</p>`;
   const $p=s=>panel.querySelector(s), svg=$p("#wkSvg"), cv=$p("#wkHeat"), img=$p("#wkImg");
@@ -378,7 +446,10 @@ function wkMount(panel, j0, save, ctx){
     j={...j, data:{...dd, ...patch}}; WK.cache[uk]=wkClone(fw);
     WK.next={patch, rev:fw.rev, floor:f.name, save:async p=>{ const nj=await save(p); return nj; }, say:t=>{ const x=$p("#wkSave"); if(x){ x.textContent=t; x.style.color=/^Not/.test(t)?"var(--bad)":""; } }}; wkPump();
     draw(); const u=$p("#wkUndo"); if(u) u.disabled=!undo().length; };
-  const commit=mut=>{ (WK.undo[uk]||=[]).push(JSON.stringify(fw)); if(WK.undo[uk].length>80) WK.undo[uk].shift(); mut(fw); fw.rev=(fw.rev||0)+1; persist(); };
+  // a point or tap added goes in the pass being walked (the acceptance pass leaves it unmarked, as before passes)
+  const commit=mut=>{ (WK.undo[uk]||=[]).push(JSON.stringify(fw)); if(WK.undo[uk].length>80) WK.undo[uk].shift(); const seq0=fw.seq||0, c=cur(); mut(fw);
+    if(c!==WK_PASS0) for(const x of [...(fw.pts||[]), ...(fw.wps||[])]) if(x.id>seq0&&!x.pass) x.pass=c;
+    fw.rev=(fw.rev||0)+1; persist(); };
   const note=t=>post(`/api/das/jobs/${j.id}/note`, {text:t}).catch(e=>say("Not noted in the log: "+e.message));
   const remount=()=>wkMount(panel, j, save, ctx);
 
@@ -389,7 +460,7 @@ function wkMount(panel, j0, save, ctx){
     draw(); };
 
   // what to show
-  const placed=()=>wkPlaced(fw);
+  const placed=()=>wkPlaced(pv());
   const sigs=()=>wkSignals(placed());
   const pickSig=()=>{ const L=sigs(); if(!L.some(s=>s.key===U.sig)) U.sig=L[0]?.key||"";
     const kind=U.sig.startsWith("cell")?"cell":"ps"; if(!WK_METRICS[kind].some(([k])=>k===U.met)) U.met=WK_METRICS[kind][0][0];
@@ -406,14 +477,16 @@ function wkMount(panel, j0, save, ctx){
     for(let k=0;k<hm.v.length;k++){ if(isNaN(hm.v[k])) continue; const c=wkRgb(hm.v[k], sc), o=k*4; im.data[o]=c[0]; im.data[o+1]=c[1]; im.data[o+2]=c[2]; im.data[o+3]=Math.round(235*Math.max(.25, hm.al[k])); }
     g.putImageData(im, 0, 0);
     // squares
-    const skip=new Set(f.skip||[]), crit=new Set(f.critical||[]), st=floorStats(d(), f), res=(d().grid||{}).results||{};
+    // the squares as the pass on screen leaves them: the grid itself for the pass it uses, else that pass's walk alone
+    const gp=cur()===wkGraded(d()), dv=gp?d():{...d(), grid:{...(d().grid||{}), results:wkPassResults(d(), f, fw, onPlan, cur())}};
+    const skip=new Set(f.skip||[]), crit=new Set(f.critical||[]), st=floorStats(dv, f), res=(dv.grid||{}).results||{};
     let s="";
     for(let q=1;q<=n;q++){ const c=(q-1)%cols, r=Math.floor((q-1)/cols), pts=[[c/cols,r/rows],[(c+1)/cols,r/rows],[(c+1)/cols,(r+1)/rows],[c/cols,(r+1)/rows]].map(([u,v])=>wkUV(u, v, f, A, onPlan));
-      const p=wkSqState(d(), res[`${f.name}|${q}`], sig), mid=wkUV((c+.07)/cols, (r+.1)/rows, f, A, onPlan);  // the label in the square's corner: the centre is where you test
+      const p=wkSqState(dv, res[`${f.name}|${q}`], sig), mid=wkUV((c+.07)/cols, (r+.1)/rows, f, A, onPlan);  // the label in the square's corner: the centre is where you test
       s+=`<polygon points="${pts.map(t=>`${(t.x*W).toFixed(1)},${(t.y*H).toFixed(1)}`).join(" ")}" fill="none" stroke="${crit.has(q)?"#fab219":p===false?"#e5534b":p?"#2fa35f":"#111"}" stroke-opacity="${p==null&&!crit.has(q)?.35:.9}" stroke-width="${crit.has(q)||p!=null?2:1}" ${skip.has(q)?'stroke-dasharray="4 4"':""}/>`
         +`<text x="${(mid.x*W).toFixed(1)}" y="${(mid.y*H).toFixed(1)}" text-anchor="start" dominant-baseline="hanging" font-size="11" fill="#111" fill-opacity=".6" style="paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-opacity:.6">${esc(f.name)}-${q}${crit.has(q)?" ★":""}</text>`; }
     // the walk's line and its taps
-    for(const leg of wkLegs(fw.wps)){ if(leg.length>1) s+=`<polyline points="${leg.map(w=>`${(w.x*W).toFixed(1)},${(w.y*H).toFixed(1)}`).join(" ")}" fill="none" stroke="#1f6feb" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>`;
+    for(const leg of wkLegs(pv().wps)){ if(leg.length>1) s+=`<polyline points="${leg.map(w=>`${(w.x*W).toFixed(1)},${(w.y*H).toFixed(1)}`).join(" ")}" fill="none" stroke="#1f6feb" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>`;
       leg.forEach((w,i)=>{ const on2=sel&&sel.t==="wp"&&sel.id===w.id; s+=`<circle cx="${(w.x*W).toFixed(1)}" cy="${(w.y*H).toFixed(1)}" r="${on2?10:7}" fill="#fff" stroke="#1f6feb" stroke-width="${on2?4:2.5}"/><text x="${(w.x*W).toFixed(1)}" y="${(w.y*H+.5).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="700" fill="#1f6feb">${i+1}</text>`; }); }
     // points: dots by value against the requirement; an empty spot (waiting for its log) a ring
     for(const p of on){ const v=sig?wkVal(p, sig, met):null, rr=p.by==="time"?3.5:6.5, on2=sel&&sel.t==="pt"&&sel.id===p.id;
@@ -435,8 +508,9 @@ function wkMount(panel, j0, save, ctx){
     // the score: the walk, and the grid as the walk leaves it
     const tapped=on.filter(p=>p.by!=="time").length, timed=on.filter(p=>p.by==="time").length, out=P.filter(p=>p.x==null).length, wait=on.filter(p=>!(p.rs||[]).length).length;
     const sqW=new Set(Object.keys(res).filter(k=>k.startsWith(`${f.name}|`)&&readingsOf(res[k]).some(x=>x.walk))).size;
-    $p("#wkScore").innerHTML=`<b>${P.length.toLocaleString()}</b> point${P.length===1?"":"s"} on this floor (${tapped} tapped, ${timed.toLocaleString()} placed by time${out?`, <b>${out.toLocaleString()}</b> outside the walk's times: not placed`:""}${wait?`, ${wait} spot${wait===1?"":"s"} waiting for a log`:""}) · ${(fw.wps||[]).length} walk tap${(fw.wps||[]).length===1?"":"s"} · ${sqW} of ${n-skip.size} squares get walk readings.
-      Grid, judged by ${esc(st.rule)}: ${st.genPass}/${st.gen} general${st.crit?`, ${st.critPass}/${st.crit} critical`:""} pass${st.untested?`, ${st.untested} untested`:""}${st.notCounted?`, ${st.notCounted} not counted (no calibrated instrument)`:""} · <b>${st.untested?"not complete":st.ok?"pass":"fail"}</b>.`+(sig.startsWith("cell")?(()=>{ const [,c,l]=sig.split("|"), cf=cellFloor(d(), f, `${c}|${l}`), P2=cellProfile(d());
+    const nw=pv().wps.length;
+    $p("#wkScore").innerHTML=`<b>${P.length.toLocaleString()}</b> point${P.length===1?"":"s"} on this floor${wkPasses(d()).length>1||cur()!==WK_PASS0?` in ${esc(wkPassName(d(), cur()))}`:""} (${tapped} tapped, ${timed.toLocaleString()} placed by time${out?`, <b>${out.toLocaleString()}</b> outside the walk's times: not placed`:""}${wait?`, ${wait} spot${wait===1?"":"s"} waiting for a log`:""}) · ${nw} walk tap${nw===1?"":"s"} · ${sqW} of ${n-skip.size} squares get walk readings.
+      ${gp?"":`<b>The grid and the Report use ${esc(wkPassName(d(), wkGraded(d())))}</b>; the squares here are this pass's own. `}Grid${gp?"":` (${esc(wkPassName(d(), cur()))})`}, judged by ${esc(st.rule)}: ${st.genPass}/${st.gen} general${st.crit?`, ${st.critPass}/${st.crit} critical`:""} pass${st.untested?`, ${st.untested} untested`:""}${st.notCounted?`, ${st.notCounted} not counted (no calibrated instrument)`:""} · <b>${st.untested?"not complete":st.ok?"pass":"fail"}</b>.`+(sig.startsWith("cell")?(()=>{ const [,c,l]=sig.split("|"), cf=cellFloor(d(), f, `${c}|${l}`), P2=cellProfile(d());
         return ` ${esc(c)}, ${esc(LAYER_NAME[l])}: ${cf.pass}/${cf.tested} squares at target (${cf.pct}%, ${esc(P2.name)} asks ${P2.pct}%)${cf.untested?`, ${cf.untested} with no cellular reading`:""}.`; })():"");
   }
 
@@ -444,7 +518,7 @@ function wkMount(panel, j0, save, ctx){
   const at=e=>{ const R=svg.getBoundingClientRect(); return {x:Math.max(0,Math.min(1,(e.clientX-R.left)/R.width)), y:Math.max(0,Math.min(1,(e.clientY-R.top)/R.height)), W:R.width, H:R.height}; };
   const hit=(x, y, W, H)=>{ let best=null;
     for(const p of placed()) if(p.x!=null){ const dd=Math.hypot((p.x-x)*W, (p.y-y)*H); if(dd<18&&(!best||dd<best.dd)) best={t:"pt", id:p.id, dd}; }
-    for(const w of fw.wps||[]){ const dd=Math.hypot((w.x-x)*W, (w.y-y)*H); if(dd<18&&(!best||dd<=best.dd)) best={t:"wp", id:w.id, dd}; }
+    for(const w of pv().wps){ const dd=Math.hypot((w.x-x)*W, (w.y-y)*H); if(dd<18&&(!best||dd<=best.dd)) best={t:"wp", id:w.id, dd}; }
     return best; };
   const tap=(x, y, W, H)=>{
     if(U.mode==="edit"){ const h=hit(x, y, W, H); sel=h?{t:h.t, id:h.id}:null; spot=null; draw(); return editForm(); }
@@ -460,7 +534,7 @@ function wkMount(panel, j0, save, ctx){
       say(`${WK_PHONE_SRC} at ${wkClock(Date.parse(t))}${g?`, square ${f.name}-${g}`:", outside the grid"}: ${rs.map(wkPhoneTxt).join("; ")}${age}. Cellular, indicative only${rs.some(r=>r.cor)?", corrected by this phone's table":""}.`); return; }
     if(!ctx.inst){ say("Pick what's taking the readings first: Taken with, above the plan."); return; }
     if(U.vals==="log"){ const t=new Date().toISOString(); commit(w=>{ w.pts.push({id:++w.seq, by:"tap", x:+x.toFixed(4), y:+y.toFixed(4), t, rs:[], inst:ctx.inst}); });
-      say(`Spot ${fw.pts.length} marked at ${wkClock(Date.parse(t))}: it takes the logged reading nearest that time when you import the log.`); return; }
+      say(`Spot ${pv().pts.length} marked at ${wkClock(Date.parse(t))}: it takes the logged reading nearest that time when you import the log.`); return; }
     spot={x:+x.toFixed(4), y:+y.toFixed(4)}; spotPid=null; sel=null; draw(); entryForm(); };
   svg.onpointerdown=e=>{ const p=at(e); drag={x0:e.clientX, y0:e.clientY, id:e.pointerId, moved:false};
     if(U.mode==="edit"){ const h=hit(p.x, p.y, p.W, p.H), it=h&&(h.t==="wp"?(fw.wps||[]).find(w=>w.id===h.id):fw.pts.find(q=>q.id===h.id));
@@ -558,7 +632,7 @@ function wkMount(panel, j0, save, ctx){
     importBox(t, file.name); };
   function importBox(t, fname){ const box=$p("#wkImpBox"), sn=wkSniff(t.headers, t.guess), m=sn.map;
     const opts=h=>`<option value="">—</option>${t.headers.map(x=>`<option ${x===h?"selected":""}>${esc(x)}</option>`).join("")}`;
-    const walkMs=(fw.wps||[]).map(w=>Date.parse(w.t)).filter(isFinite).concat(fw.pts.filter(p=>p.by==="tap").map(p=>Date.parse(p.t)).filter(isFinite));
+    const walkMs=pv().wps.map(w=>Date.parse(w.t)).filter(isFinite).concat(pv().pts.filter(p=>p.by==="tap").map(p=>Date.parse(p.t)).filter(isFinite));
     box.innerHTML=`<div class="panel" style="margin-top:8px"><h3>Import ${esc(fname)} <span class="hint">· ${esc(sn.name)}, ${t.total.toLocaleString()} rows${t.total>t.rows.length?` (the first ${t.rows.length.toLocaleString()} are read)`:""} · check the columns, then import</span></h3>
       <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">${WK_FIELDS.map(([k,l])=>`<label>${l}<select data-wf="${k}">${opts(m[k])}</select></label>`).join("")}</div>
       <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:6px">
@@ -580,7 +654,7 @@ function wkMount(panel, j0, save, ctx){
     box.querySelector("#wiNo").onclick=()=>{ box.innerHTML=""; };
     box.querySelector("#wiGo").onclick=()=>{ const mm=cur(); if(!mm.time&&!(mm.x&&mm.y)){ prev(); return; }
       const inst=$p("#wiInst").value||"uncal";
-      const o=wkFromLog(fw, t.rows, mm, {offset:(+$p("#wiOff").value||0)*1000, win:Math.max(1,+$p("#wiWin").value||5)*1000, inst, src:fname, lteOnly:sn.lteOnly});
+      const o=wkFromLog(pv(), t.rows, mm, {offset:(+$p("#wiOff").value||0)*1000, win:Math.max(1,+$p("#wiWin").value||5)*1000, inst, src:fname, lteOnly:sn.lteOnly});
       const pl=placeLog(o, fname); if(!pl.ok){ say(pl.msg); return; }
       box.innerHTML=""; say(pl.msg); note(`Walk, floor ${f.name}: ${pl.msg} Taken with ${inst==="uncal"?"no calibrated instrument":inst.replace("|"," ")}.`); }; }
   // a log's readings (wkFromLog) onto this floor: an imported file, or the phone's own readings when a walk stops
@@ -589,12 +663,12 @@ function wkMount(panel, j0, save, ctx){
       if(!keep.length&&!fills.length) return {ok:false, msg:`Nothing placed from ${fname}: ${[o.outside?`${o.outside.toLocaleString()} rows outside this floor's walk times`:"", o.noTime?`${o.noTime.toLocaleString()} with no readable time`:"", o.noValue?`${o.noValue.toLocaleString()} with no reading`:"", o.other?`${o.other.toLocaleString()} 2G / 3G rows`:""].filter(Boolean).join(", ")||"no rows"}.`};
       commit(w=>{ for(const p of fills){ const it=w.pts.find(x=>x.id===p.id); if(it){ it.rs=p.rs; it.inst=p.inst; it.src=p.src; } }
         for(const p of keep) w.pts.push({id:++w.seq, ...p}); });
-      const walked=(fw.wps||[]).length>0, head=[o.placed+o.xy?`${(o.placed+o.xy).toLocaleString()} readings from ${fname} placed`:"", o.filled?`${o.filled} tapped spot${o.filled===1?"":"s"} filled from ${fname}`:""].filter(Boolean).join(", ");
+      const walked=pv().wps.length>0, head=[o.placed+o.xy?`${(o.placed+o.xy).toLocaleString()} readings from ${fname} placed`:"", o.filled?`${o.filled} tapped spot${o.filled===1?"":"s"} filled from ${fname}`:""].filter(Boolean).join(", ");
       return {ok:true, msg:`${head}${o.outside?`; ${o.outside.toLocaleString()} rows ${!walked?"not used (no walk on this floor to place them on)":fname===WK_PHONE_SRC?"logged before your first tap or after your last: not placed":"outside this floor's walk times (another floor? import it there too)"}`:""}${o.noTime?`; ${o.noTime.toLocaleString()} with no readable time`:""}${o.other?`; ${o.other.toLocaleString()} 2G / 3G rows left out`:""}${add.length>keep.length?`; ${(add.length-keep.length).toLocaleString()} over the ${WK_MAX.toLocaleString()} points a floor holds, left out`:""}.`}; }
   // the phone's logged readings (Start walk to Stop) onto this floor, exactly as an imported log: placed by time between taps
   const phoneDrain=()=>{ wkPhoneCall("stop"); const snaps=wkPhoneCall("drain"), rows=wkPhoneRows(Array.isArray(snaps)?snaps:[]);
     if(!rows.length) return {ok:false, msg:`${WK_PHONE_SRC}: no readings were logged (Android gave none: check Location is on and allowed for RF Recon).`};
-    const o=wkFromLog(fw, rows, WK_PHONE_MAP, {offset:0, win:5000, inst:"uncal", src:WK_PHONE_SRC, lteOnly:false});
+    const o=wkFromLog(pv(), rows, WK_PHONE_MAP, {offset:0, win:5000, inst:"uncal", src:WK_PHONE_SRC, lteOnly:false});
     for(const p of o.pts) p.rs=calFix(p.rs||[]);
     const pl=placeLog(o, WK_PHONE_SRC);
     if(pl.ok) note(`Walk, floor ${f.name}: ${pl.msg} Cellular, not calibrated (indicative).`); return pl; };
@@ -633,23 +707,31 @@ function wkMount(panel, j0, save, ctx){
       calPanel(); };
     box.querySelector("#wc_0")?.focus({preventScroll:true}); box.scrollIntoView({block:"nearest", behavior:"smooth"}); }
   // the phone's correction table: what it reads off by on each band, how sure, and whether it's applied
-  function calPanel(){ const el=$p("#wkCal"); if(!el) return; const ps=calPairs(), hasPhone=fw.pts.some(p=>p.src===WK_PHONE_SRC);
-    if(!phone&&!ps.length&&!hasPhone){ el.innerHTML=""; return; }
-    const ft=wkCalFit(ps), rows=Object.entries(ft.bands).sort(([a],[b])=>a.localeCompare(b, undefined, {numeric:true}));
+  // On the phone: its own model's table first (its local pairs and the job's), then the job's other phone models, read-only.
+  // On a device that can't read a phone (a desktop): every phone model the job holds pairs for, one labelled table each,
+  // read-only (correcting readings happens on the phone of that model).
+  function calPanel(){ const el=$p("#wkCal"); if(!el) return; const hasPhone=fw.pts.some(p=>p.src===WK_PHONE_SRC);
+    const jobPairs=[...(((d().walk||{}).floors)||[]).filter(x=>x.name!==f.name).flatMap(x=>x.cal||[]), ...(fw.cal||[])];
+    const own=phone?calPairs():[], groups=wkCalModels(jobPairs, phone?calModel:null).filter(g=>!phone||(g.model!==calModel&&g.model!==WK_CAL_NONAME));
+    if(!phone&&!groups.length&&!hasPhone){ el.innerHTML=""; return; }
     const left=fw.pts.filter(p=>p.src===WK_PHONE_SRC&&(p.rs||[]).some(r=>has(r.rsrp)&&!has(r.rsrp_raw))).length;
     const Q={good:"good", rough:"rough: more pairs, or strong and weak spots", "too few":"too few: needs 3 pairs"};
     const row=(k, x)=>`<tr><td><b>${esc(wkCalLabel(k))}</b></td><td>${esc(wkCalSays(x))}<div class="hint">${x.sd==null?"one pair: no spread yet":`±${x.sd} dB a reading`}</div></td>
       <td>${x.n} pair${x.n===1?"":"s"}<div class="hint">${x.lo} to ${x.hi} dBm</div><div class="hint" style="color:${x.q==="good"?"#1a7f37":"#9a6700"}">${esc(Q[x.q])}</div></td></tr>`;
-    el.innerHTML=`<div class="panel" style="margin-top:8px"><h3 style="margin:0 0 4px">Phone correction <span class="hint">· ${esc(calModel)}, against a calibrated instrument</span></h3>
-      ${rows.length?`<div class="tw"><table><thead><tr><th>Band</th><th>This phone</th><th>Pairs and levels</th></tr></thead><tbody>
-        ${rows.map(([k, x])=>row(k, x)).join("")}${rows.length>1&&ft.all?row("all bands", ft.all):""}</tbody></table></div>`
-        :`<p class="hint" style="margin:0">No pairs yet. ${phone?"Point › <b>Phone vs instrument</b>: at 5 or more spots, strong and weak signal, read this phone and a calibrated instrument side by side."
-          :"Pairs are taken in the RF Recon Android app (Help › Android app)."}</p>`}
-      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><label class="inl"><input type="checkbox" id="wcOn" ${calOn()?"checked":""}> Correct this phone's readings as they're taken</label>
-        ${left&&rows.length?`<button id="wcFix">Correct this floor's ${left} earlier phone reading${left===1?"":"s"}</button>`:""}</div>
+    const table=(ps, who)=>{ const ft=wkCalFit(ps), rows=Object.entries(ft.bands).sort(([a],[b])=>a.localeCompare(b, undefined, {numeric:true}));
+      return rows.length?`<div class="tw"><table data-calmodel="${esc(who)}"><thead><tr><th>Band</th><th>${esc(who)}</th><th>Pairs and levels</th></tr></thead><tbody>
+        ${rows.map(([k, x])=>row(k, x)).join("")}${rows.length>1&&ft.all?row("all bands", ft.all):""}</tbody></table></div>`:""; };
+    const ownT=phone?table(own, "This phone"):"";
+    el.innerHTML=`<div class="panel" style="margin-top:8px"><h3 style="margin:0 0 4px">Phone correction <span class="hint">· ${phone?`${esc(calModel)}, `:""}against a calibrated instrument</span></h3>
+      ${phone?(ownT||`<p class="hint" style="margin:0">No pairs yet for this phone. Point › <b>Phone vs instrument</b>: at 5 or more spots, strong and weak signal, read this phone and a calibrated instrument side by side.</p>`):""}
+      ${groups.map(g=>`<h4 style="margin:8px 0 4px">${esc(g.model)} <span class="hint">· ${g.pairs.length} pair${g.pairs.length===1?"":"s"} in this job${phone?"; shown only: its readings are corrected on that phone":""}</span></h4>${table(g.pairs, g.model)}`).join("")}
+      ${!phone&&!groups.length?'<p class="hint" style="margin:0">No pairs in this job yet. Pairs are taken in the RF Recon Android app (Help › Android app).</p>':""}
+      ${phone?`<div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><label class="inl"><input type="checkbox" id="wcOn" ${calOn()?"checked":""}> Correct this phone's readings as they're taken</label>
+        ${left&&ownT?`<button id="wcFix">Correct this floor's ${left} earlier phone reading${left===1?"":"s"}</button>`:""}</div>`
+        :'<p class="hint" style="margin:6px 0 0">Read-only here: a phone\'s readings are corrected in the RF Recon Android app on that model of phone.</p>'}
       <p class="hint" style="margin:6px 0 0">A band with 3 or more pairs uses its own offset; any other band uses every band's once there are 5 pairs. A corrected reading keeps what the phone read and the offset used.
-        It's still not calibrated: closer to the truth and shown in the cellular view, never counted toward pass / fail. The table stays on this phone for the next job, and the pairs are kept with this walk.</p></div>`;
-    el.querySelector("#wcOn").onchange=e=>{ U.cor=e.target.checked; calPanel(); };
+        It's still not calibrated: closer to the truth and shown in the cellular view, never counted toward pass / fail. The table stays on the phone for the next job, and the pairs are kept with this walk.</p></div>`;
+    el.querySelector("#wcOn")?.addEventListener("change", e=>{ U.cor=e.target.checked; calPanel(); });
     el.querySelector("#wcFix")?.addEventListener("click", ()=>{ const ft2=wkCalFit(calPairs()); let k=0;
       commit(w=>{ for(const p of w.pts) if(p.src===WK_PHONE_SRC) p.rs=(p.rs||[]).map(r=>{ const c=wkCalApply(r, ft2); if(c!==r) k++; return c; }); });
       draw(); say(`${k} phone reading${k===1?"":"s"} corrected by this phone's table.`); note(`Walk, floor ${f.name}: ${k} phone readings corrected (${calModel})`); calPanel(); }); }
@@ -676,27 +758,56 @@ function wkMount(panel, j0, save, ctx){
   $p("#wkZoom").onclick=e=>{ const b=e.target.closest("[data-z]"); if(!b) return; const Z=[1,1.5,2,3,4], i=Z.indexOf(U.zoom);
     U.zoom=Z[Math.max(0, Math.min(Z.length-1, (i<0?0:i)+ +b.dataset.z))]; const sc=$p("#wkScroll"), w=$p("#wkWrap");
     sc.style.overflow=U.zoom>1?"auto":"hidden"; sc.style.maxHeight=U.zoom>1?"75vh":""; w.style.width=`${U.zoom*100}%`; };
-  $p("#wkSig").onchange=e=>{ U.sig=e.target.value; U.met=""; draw(); };
-  $p("#wkMet").onchange=e=>{ U.met=e.target.value; draw(); };
+  $p("#wkSig").onchange=e=>{ U.sig=e.target.value; U.met=""; draw(); if(U.cmp) cmpPanel(); };
+  $p("#wkMet").onchange=e=>{ U.met=e.target.value; draw(); if(U.cmp) cmpPanel(); };
+  // test passes: walk one, pick the one the grid uses, compare any two
+  const setWalk=(patch, msg)=>{ const W=d().walk&&Array.isArray(d().walk.floors)?d().walk:{v:1, floors:[]}; j={...j, data:{...d(), walk:{...W, v:1, ...patch}}};
+    fw.rev=(fw.rev||0)+1; persist(); remount(); if(msg) say(msg); };
+  $p("#wkPass").onchange=e=>{ if(U.walking){ e.target.value=cur(); say("Stop the walk first."); return; } setWalk({cur:e.target.value}, `Walking ${wkPassName(d(), e.target.value)}: taps and imports go in it.`); };
+  $p("#wkNewPass").onclick=()=>{ if(U.walking){ say("Stop the walk first."); return; } const kind=$p("#wkNewKind").value, yr=+$p("#wkNewYear").value||new Date().getFullYear(), id=wkPassId(kind, yr);
+    const L=wkPasses(d()), had=L.some(p=>p.id===id), passes=had?L:[...L, {id, kind, ...(id!==kind?{year:yr}:{}), made:today()}];
+    const rec=["acceptance","annual","five_year"].includes(kind), nm=wkPassName({walk:{passes}}, id);
+    setWalk({passes, cur:id, ...(rec?{graded:id}:{})}, `${had?"Back on":"New pass:"} ${nm}. Taps and imports go in it${rec?`; the grid and the Report use it (a test of record)`:`; the grid and the Report stay on ${wkPassName(d(), wkGraded(d()))}`}.`);
+    note(`Walk: ${had?"switched to":"new test pass"} ${nm}`); };
+  $p("#wkGraded").onchange=e=>setWalk({graded:e.target.value}, `The grid and the Report now use ${wkPassName(d(), e.target.value)}.`);
+  $p("#wkCmpGo")?.addEventListener("click", ()=>{ if(U.cmp){ U.cmp=null; $p("#wkCmp").innerHTML=""; return; }
+    const ids=wkPasses(d()).map(p=>p.id).filter(id=>wkPassView(fw, id).pts.length), b=cur(), a=ids.find(x=>x===WK_PASS0&&x!==b)||ids.find(x=>x!==b)||WK_PASS0;
+    U.cmp={a, b}; cmpPanel(); $p("#wkCmp").scrollIntoView({block:"nearest", behavior:"smooth"}); });
+  async function cmpPanel(){ const box=$p("#wkCmp"); if(!box||!U.cmp) return; const L=wkPasses(d()), {a, b}=U.cmp, sig=U.sig||"ps|*", met=U.met||"dl", W=d().walk||{};
+    const on=W.compare&&W.compare.a===a&&W.compare.b===b&&W.compare.sig===sig&&W.compare.met===met;
+    const opt=v=>L.map(p=>`<option value="${esc(p.id)}" ${p.id===v?"selected":""}>${esc(wkPassName(d(), p.id))} · ${wkPassView(fw, p.id).pts.length} pts</option>`).join("");
+    box.innerHTML=`<div class="panel" style="margin-top:8px"><h3 style="margin:0 0 4px">Compare two passes <span class="hint">· floor ${esc(f.name)}, ${esc((sigs().find(s=>s.key===sig)||{}).label||sig)}, the metric shown above</span></h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><label class="inl">Then <select id="wcA">${opt(a)}</select></label><label class="inl">Now <select id="wcB">${opt(b)}</select></label>
+        <label class="inl"><input type="checkbox" id="wcRep" ${on?"checked":""}> Put this comparison on the Report</label><button id="wcNo2">Close</button></div>
+      <div id="wcOut" style="margin-top:8px"><p class="hint">Drawing the difference…</p></div></div>`;
+    box.querySelector("#wcA").onchange=e=>{ U.cmp.a=e.target.value; cmpPanel(); };
+    box.querySelector("#wcB").onchange=e=>{ U.cmp.b=e.target.value; cmpPanel(); };
+    box.querySelector("#wcNo2").onclick=()=>{ U.cmp=null; box.innerHTML=""; };
+    box.querySelector("#wcRep").onchange=e=>setWalk({compare:e.target.checked?{a, b, sig, met}:null}, e.target.checked?"The Report shows this comparison.":"The Report no longer shows a comparison.");
+    if(a===b){ box.querySelector("#wcOut").innerHTML='<p class="hint">Pick two different passes.</p>'; return; }
+    const p=await wkDeltaPicture(j, d(), f, fw, a, b, sig, met, onPlan?img:null); if(!box.isConnected||!p) return;
+    box.querySelector("#wcOut").innerHTML=`<img src="${p.url}" alt="${esc(p.caption)}" style="width:100%;border:1px solid var(--line);border-radius:8px;display:block">${wkClarkLine(p.C)}<div class="tw">${wkCmpTable(d(), f, p.C, met)}</div>`; }
+  if(U.cmp) cmpPanel();
   $p("#wkRule").onchange=e=>{ const v=e.target.value; commit(w=>{ w.rule=v; }); say(`Each square now takes ${WK_RULE_SHORT[v]} reading of its points.`); };
-  $p("#wkClear").onclick=()=>{ if(!fw.pts.length&&!(fw.wps||[]).length) return; if(!confirm(`Clear floor ${f.name}'s walk (${fw.pts.length} points, ${(fw.wps||[]).length} taps)? Undo brings it back.`)) return;
-    commit(w=>{ w.pts=[]; w.wps=[]; }); note(`Walk, floor ${f.name}: cleared`); };
+  $p("#wkClear").onclick=()=>{ const V=pv(), c=cur(), nm=wkPasses(d()).length>1||c!==WK_PASS0?` ${wkPassName(d(), c)}`:""; if(!V.pts.length&&!V.wps.length) return;
+    if(!confirm(`Clear floor ${f.name}'s${nm} walk (${V.pts.length} points, ${V.wps.length} taps)? Undo brings it back.`)) return;
+    commit(w=>{ w.pts=w.pts.filter(p=>wkPassOf(p)!==c); w.wps=(w.wps||[]).filter(x=>wkPassOf(x)!==c); }); note(`Walk, floor ${f.name}:${nm} cleared`); };
   $p("#wkCsv").onclick=()=>dasDl(`${fileSafe(j.name)} walk floor ${fileSafe(f.name)}.csv`, csvOf(wkCsvRows(d(), f, fw, onPlan)), "text/csv");
-  const pic=async()=>{ if(!U.sig){ say("Nothing measured to map yet."); return null; } return wkPicture(j, d(), f, fw, U.sig, U.met, onPlan?img:null); };
+  const pic=async()=>{ if(!U.sig){ say("Nothing measured to map yet."); return null; } return wkPicture(j, d(), f, pv(), U.sig, U.met, onPlan?img:null, wkPasses(d()).length>1?wkPassName(d(), cur()):""); };
   $p("#wkPng").onclick=async()=>{ const p=await pic(); if(!p) return; const a=document.createElement("a"); a.href=p.url; a.download=`${fileSafe(j.name)} walk floor ${fileSafe(f.name)} ${fileSafe(p.short)}.png`; document.body.appendChild(a); a.click(); a.remove(); };
   $p("#wkFile").onclick=async()=>{ const p=await pic(); if(!p) return; const name=`${fileSafe(j.name)} walk floor ${fileSafe(f.name)} ${fileSafe(p.short)}.png`;
     try{ const blob=await (await fetch(p.url)).blob(); await api(`/api/das/jobs/${j.id}/files?name=${encodeURIComponent(name)}`, {method:"POST", body:await blob.arrayBuffer()}); say(`Saved to the job's Files as ${name}.`); }
     catch(e){ say("Not saved to Files: "+e.message); } };
   new ResizeObserver(()=>draw()).observe(svg);
   if(img){ if(img.complete&&img.naturalWidth) ready(); else img.addEventListener("load", ready, {once:true}); } else ready();
-  window.__wk={get fw(){ return fw; }, get j(){ return j; }, draw, f, onPlan};  // for the UI sweep
+  window.__wk={get fw(){ return fw; }, get j(){ return j; }, pv, draw, f, onPlan};  // for the UI sweep
 }
 
 // the points as a table: one row per reading (an empty spot and each walk tap get a row too)
 function wkCsvRows(d, f, fw, onPlan){ const ar=wkAr(f, fw, onPlan), wft=((((d.design||{}).floors||{})[f.name])||{}).width_ft||null, out=[];
   const base=p=>{ const g=p.x!=null&&ar?wkSquare(p.x, p.y, f, ar, onPlan):null;
     return {floor:f.name, point:p.id, placed:p.by==="time"?(p.x==null?"not placed (outside the walk's times)":"by time"):p.by==="xy"?"by the log's plan position":"tapped",
-      square:g?`${f.name}-${g}`:"", x:p.x==null?"":(+p.x).toFixed(4), y:p.y==null?"":(+p.y).toFixed(4), x_ft:wft&&p.x!=null?Math.round(p.x*wft):"", y_ft:wft&&p.x!=null&&ar?Math.round(p.y*ar*wft):"", time:p.t||""}; };
+      square:g?`${f.name}-${g}`:"", x:p.x==null?"":(+p.x).toFixed(4), y:p.y==null?"":(+p.y).toFixed(4), x_ft:wft&&p.x!=null?Math.round(p.x*wft):"", y_ft:wft&&p.x!=null&&ar?Math.round(p.y*ar*wft):"", time:p.t||"", pass:wkPassName(d, wkPassOf(p))}; };  // pass last: the columns before it stay where they were
   for(const p of wkPlaced(fw)){ const b=base(p), insT=k=>k==="uncal"?"not calibrated":k?k.replace("|"," "):"";
     if(!(p.rs||[]).length){ out.push({...b, kind:"spot, no reading yet", instrument:insT(p.inst)}); continue; }
     for(const r of p.rs){ const cal=calOf(d, {...r, inst:p.inst, time:p.t}), ps=!isCell(r), pass=ps?gridPass(r):null;
@@ -704,11 +815,11 @@ function wkCsvRows(d, f, fw, onPlan){ const ar=wkAr(f, fw, onPlan), wft=((((d.de
         result:ps?(pass==null?"":pass?"pass":"fail"):"", channel:r.freq??"", technology:r.tech??"", carrier:r.carrier??"", band:r.band??"", pci:r.pci??"",
         dl_dbm:r.dl??"", dl_daq:r.daq??"", sinr_db:r.sinr??"", ber_pct:r.ber??"", ul_dbm:r.ul??"", ul_daq:r.ul_daq??"", rsrp_dbm:r.rsrp??"", rsrq_db:r.rsrq??"", source:p.src||"", note:r.note||""}); } }
   for(const leg of wkLegs(fw.wps)) leg.forEach((w,i)=>{ const g=ar?wkSquare(w.x, w.y, f, ar, onPlan):null;
-    out.push({floor:f.name, point:`walk ${(w.leg??0)+1} tap ${i+1}`, placed:"walk tap", square:g?`${f.name}-${g}`:"", x:(+w.x).toFixed(4), y:(+w.y).toFixed(4), x_ft:wft?Math.round(w.x*wft):"", y_ft:wft&&ar?Math.round(w.y*ar*wft):"", time:w.t, kind:"walk tap"}); });
+    out.push({floor:f.name, point:`walk ${(w.leg??0)+1} tap ${i+1}`, placed:"walk tap", square:g?`${f.name}-${g}`:"", x:(+w.x).toFixed(4), y:(+w.y).toFixed(4), x_ft:wft?Math.round(w.x*wft):"", y_ft:wft&&ar?Math.round(w.y*ar*wft):"", time:w.t, pass:wkPassName(d, wkPassOf(w)), kind:"walk tap"}); });
   return out; }
 
 // the heat map as a picture: plan, heat, squares, the walk, points, a title and the scale (for the Report and Files)
-async function wkPicture(j, d, f, fw, sig, met, planImg){
+async function wkPicture(j, d, f, fw, sig, met, planImg, passLabel){
   const onPlan=!!f.plan, ar=wkAr(f, fw, onPlan)||.75;
   let im=planImg&&planImg.naturalWidth?planImg:null;
   if(!im&&onPlan){ const src=await jobFileSrc(j.id, f.plan); if(src) im=await new Promise(ok=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ok(null); i.src=src; }); }
@@ -734,7 +845,7 @@ async function wkPicture(j, d, f, fw, sig, met, planImg){
   const kind=sig.startsWith("cell")?"cell":"ps", label=WK_METRICS[kind].find(([k])=>k===met)?.[1]||met, what=(wkSignals(on).find(x=>x.key===sig)||{}).label||sig;
   const nPass=sc.thr!=null?vals.filter(x=>x.v>=sc.thr).length:null, dig=met==="daq"?1:0;
   g.fillStyle="#111"; g.textAlign="left"; g.textBaseline="alphabetic"; g.font=`bold ${Math.round(17*Math.max(1,s))}px sans-serif`;
-  g.fillText(`${j.name} · floor ${f.name} · ${what} · ${label}`, 12, 24);
+  g.fillText(`${j.name} · floor ${f.name}${passLabel?` · ${passLabel}`:""} · ${what} · ${label}`, 12, 24);
   g.font=`${Math.round(13*Math.max(1,s))}px sans-serif`; g.fillStyle="#444";
   const cap=`${vals.length} points${sc.thr!=null?`, ${nPass} at or above ${num(sc.thr,dig)}${sc.unit} (${dasPct(nPass, vals.length)}%), from ${sc.what}`:", no requirement set for this metric"} · drawn ${today()} · the grid squares decide pass / fail`;
   { const words=cap.split(" "); let line="", y=46; for(const w of words){ const t=line?line+" "+w:w; if(g.measureText(t).width>W-24&&line){ g.fillText(line, 12, y); line=w; y+=17*Math.max(1,s); } else line=t; } g.fillText(line, 12, y); }
@@ -742,20 +853,82 @@ async function wkPicture(j, d, f, fw, sig, met, planImg){
   for(let k=0;k<bw;k++){ g.fillStyle=`rgb(${wkRgb(lo+(hi-lo)*k/bw, sc)})`; g.fillRect(bx+k, by, 1, 14); }
   g.fillStyle="#111"; g.font=`${Math.round(12*Math.max(1,s))}px sans-serif`; g.fillText(`${num(lo,dig)}`, bx, by+30); g.textAlign="right"; g.fillText(`${num(hi,dig)}${sc.unit}`, bx+bw, by+30);
   g.textAlign="left"; g.fillText(sc.thr!=null?`pass at ≥ ${num(sc.thr,dig)}${sc.unit}`:"lowest to highest reading", bx+bw+14, by+12);
-  return {url:c.toDataURL("image/png"), short:`${what.replace(/\s*\(.*\)$/,"")} ${label}`.replace(/[,]/g,""), caption:`Floor ${f.name} · ${what} · ${label} · ${cap}`}; }
+  return {url:c.toDataURL("image/png"), short:`${what.replace(/\s*\(.*\)$/,"")} ${label}`.replace(/[,]/g,""), caption:`Floor ${f.name}${passLabel?` · ${passLabel}`:""} · ${what} · ${label} · ${cap}`}; }
 
-// the Report: each walked floor's heat map, public safety first, then each required carrier (four a floor at most)
+/* ---------- test passes on the page: the bar above the plan, and the comparison below it ---------- */
+function wkPassBar(d, fw){ const L=wkPasses(d), c=wkCur(d), gr=wkGraded(d), n=id=>wkPassView(fw, id).pts.length, y=new Date().getFullYear();
+  return `<div class="maptools no-print wk-pass" id="wkPassBar" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:flex-end">
+    <label class="inl">Test pass <select id="wkPass">${L.map(p=>`<option value="${esc(p.id)}" ${p.id===c?"selected":""}>${esc(wkPassName(d, p.id))} · ${n(p.id)} pt${n(p.id)===1?"":"s"} here</option>`).join("")}</select></label>
+    <span class="row" style="gap:4px;align-items:flex-end"><label class="inl">New pass <select id="wkNewKind">${WK_PASS_KINDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select></label>
+      <input id="wkNewYear" type="number" value="${y}" min="2000" max="2100" aria-label="Year (annual and five-year)" style="width:78px"><button id="wkNewPass">+ Add</button></span>
+    <label class="inl">The grid and Report use <select id="wkGraded">${L.map(p=>`<option value="${esc(p.id)}" ${p.id===gr?"selected":""}>${esc(wkPassName(d, p.id))}</option>`).join("")}</select></label>
+    ${L.length>1?`<button id="wkCmpGo">Compare two passes</button>`:""}</div>`; }
+// the difference picture (for the page and the Report): plan, B − A heat, each square's change, the scale
+async function wkDeltaPicture(j, d, f, fw, a, b, sig, met, planImg){
+  const onPlan=!!f.plan, ar=wkAr(f, fw, onPlan)||.75, C=wkCompare(d, f, fw, onPlan, a, b, sig, met); if(!C) return null;
+  let im=planImg&&planImg.naturalWidth?planImg:null;
+  if(!im&&onPlan){ const src=await jobFileSrc(j.id, f.plan); if(src) im=await new Promise(ok=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=()=>ok(null); i.src=src; }); }
+  const W=im?Math.min(1400, im.naturalWidth):1100, H=Math.round(W*(im?im.naturalHeight/im.naturalWidth:ar)), top=60, foot=46, s=W/900;
+  const c=document.createElement("canvas"); c.width=W; c.height=H+top+foot; const g=c.getContext("2d");
+  g.fillStyle="#fff"; g.fillRect(0, 0, c.width, c.height); if(im){ g.globalAlpha=.55; g.drawImage(im, 0, top, W, H); g.globalAlpha=1; }
+  const pts=id=>wkPlaced(wkPassView(fw, id)).filter(p=>p.x!=null).map(p=>({x:p.x, y:p.y, v:wkVal(p, sig, met)})).filter(p=>p.v!=null);
+  const hm=wkDiffHeat(pts(a), pts(b), W, H, 200), span=wkDiffSpan(met), hc=document.createElement("canvas"); hc.width=hm.cols; hc.height=hm.rows;
+  const hg=hc.getContext("2d"), id=hg.createImageData(hm.cols, hm.rows);
+  for(let k=0;k<hm.v.length;k++){ if(isNaN(hm.v[k])) continue; const col=wkDiffRgb(hm.v[k], span), o=k*4; id.data[o]=col[0]; id.data[o+1]=col[1]; id.data[o+2]=col[2]; id.data[o+3]=Math.round(200*Math.max(.3, hm.al[k])); }
+  hg.putImageData(id, 0, 0); g.imageSmoothingEnabled=true; g.drawImage(hc, 0, top, W, H);
+  const cols=dasCols(f), rows=wkRows(f), P=(u,v)=>{ const q=wkUV(u, v, f, ar, onPlan); return [q.x*W, top+q.y*H]; }, unit=met==="daq"?"":" dB";
+  for(const q of C.squares){ const cc=(q.g-1)%cols, r=Math.floor((q.g-1)/cols);
+    g.beginPath(); [[cc,r],[cc+1,r],[cc+1,r+1],[cc,r+1]].forEach(([u,v],i)=>{ const [x,y]=P(u/cols, v/rows); i?g.lineTo(x,y):g.moveTo(x,y); }); g.closePath();
+    g.strokeStyle=q.pa===true&&q.pb===false?"#cf222e":"rgba(0,0,0,.35)"; g.lineWidth=(q.pa===true&&q.pb===false?3:1)*s; g.stroke();
+    const [mx,my]=P((cc+.5)/cols, (r+.5)/rows), lab=q.d==null?`${f.name}-${q.g}`:`${q.d>0?"+":""}${num(q.d, met==="daq"?1:0)}${unit}`;
+    g.font=`${Math.round((q.d==null?11:15)*s)}px sans-serif`; g.textAlign="center"; g.textBaseline="middle"; g.lineWidth=3*s; g.strokeStyle="rgba(255,255,255,.85)"; g.strokeText(lab, mx, my); g.fillStyle=q.d==null?"rgba(0,0,0,.45)":"#111"; g.fillText(lab, mx, my); }
+  const kind=sig.startsWith("cell")?"cell":"ps", ml=WK_METRICS[kind].find(([k])=>k===met)?.[1]||met;
+  g.textAlign="left"; g.textBaseline="alphabetic"; g.fillStyle="#111"; g.font=`bold ${Math.round(17*Math.max(1,s))}px sans-serif`;
+  g.fillText(`${j.name} · floor ${f.name} · ${wkPassName(d, b)} minus ${wkPassName(d, a)} · ${ml}`, 12, 24);
+  g.font=`${Math.round(13*Math.max(1,s))}px sans-serif`; g.fillStyle="#444";
+  g.fillText(`${C.mean!=null?`mean change ${C.mean>0?"+":""}${C.mean}${unit} over ${C.squares.filter(x=>x.d!=null).length} squares · ${C.worse} worse, ${C.better} better · `:""}${C.clark.txt} · drawn ${today()}`, 12, 46);
+  const bx=12, by=top+H+14, bw=Math.min(360, W/2.5);
+  for(let k=0;k<bw;k++){ g.fillStyle=`rgb(${wkDiffRgb(-span+2*span*k/bw, span)})`; g.fillRect(bx+k, by, 1, 14); }
+  g.fillStyle="#111"; g.font=`${Math.round(12*Math.max(1,s))}px sans-serif`; g.fillText(`−${span}${unit} worse`, bx, by+30); g.textAlign="right"; g.fillText(`+${span}${unit} better`, bx+bw, by+30);
+  g.textAlign="left"; g.fillText("a red outline: passed before, fails now", bx+bw+14, by+12);
+  return {url:c.toDataURL("image/png"), C, caption:`Floor ${f.name} · ${wkPassName(d, b)} minus ${wkPassName(d, a)} · ${ml} · ${C.clark.txt}`}; }
+// the comparison's table: each square in both passes
+function wkCmpTable(d, f, C, met){ const u=met==="daq"?"":met==="dl"||met==="ul"||met==="rsrp"?" dBm":" dB", r=v=>v==null?"–":`${num(v, met==="daq"?1:0)}${u}`, ps=v=>v==null?"untested":v?"pass":"fail";
+  return `<table><thead><tr><th>Square</th><th class="n">${esc(wkPassName(d, C.a.id))}</th><th class="n">${esc(wkPassName(d, C.b.id))}</th><th class="n">Change</th><th>Result then → now</th></tr></thead><tbody>
+    ${C.squares.map(q=>`<tr><td>${esc(f.name)}-${q.g}</td><td class="n">${r(q.a)}</td><td class="n">${r(q.b)}</td><td class="n" style="color:${q.d==null?"inherit":q.d<0?"var(--bad,#cf222e)":"inherit"}">${q.d==null?"":`${q.d>0?"+":""}${num(q.d, met==="daq"?1:0)}`}</td><td>${ps(q.pa)} → ${ps(q.pb)}${q.pa===true&&q.pb===false?" <b>(now fails)</b>":""}</td></tr>`).join("")}</tbody></table>`; }
+const wkClarkLine = C => `<p style="margin:6px 0"><b style="color:${C.clark.state==="fail"?"var(--bad,#cf222e)":C.clark.state==="warn"?"var(--warn,#9a6700)":"inherit"}">${C.clark.state==="fail"?"Outside":C.clark.state==="warn"?"Outside (better)":C.clark.state==="ok"?"Within":"Not yet"} Clark County's 5%:</b> ${esc(C.clark.txt)} (${C.a.pts} and ${C.b.pts} points). <span class="hint">${esc(WK_CLARK.says)} (<a href="${WK_CLARK.src}" target="_blank" rel="noopener">FPAN Guide, Dec 2025</a>). Coverage: the tested squares that pass, public safety, by the job's AHJ profile.</span></p>`;
+
+// the Report: each walked floor's heat map, public safety first, then each required carrier (four a floor at most), from the
+// pass the grid uses; then the test passes, and the comparison picked on the Walk page
 window.dasWalkReport = async (box, j) => { const d=j.data||{}, W=d.walk; if(!box||!W||!Array.isArray(W.floors)) return;
-  const P=cellProfile(d), items=[];
-  for(const f of (Array.isArray(d.floors)?d.floors:[])){ const fw=W.floors.find(x=>x.name===f.name); if(!fw) continue;
+  const P=cellProfile(d), items=[], gr=wkGraded(d), many=wkPasses(d).length>1, gl=many?wkPassName(d, gr):"";
+  for(const f of (Array.isArray(d.floors)?d.floors:[])){ const fw0=W.floors.find(x=>x.name===f.name); if(!fw0) continue; const fw=wkPassView(fw0, gr);
     const on=wkPlaced(fw).filter(p=>p.x!=null&&(p.rs||[]).length); if(!on.length) continue; const L=wkSignals(on), pick=[];
     if(L.some(s=>s.key==="ps|*")) pick.push(["ps|*", DASJ.threshold!=null?"dl":"daq"]);
     for(const s of L.filter(s=>s.kind==="cell"&&s.key.split("|").length===3)) if(pick.length<4&&cellRequired(P, s.key.split("|")[1])) pick.push([s.key, "rsrp"]);
     for(const [sig, met] of pick) items.push({f, fw, sig, met}); }
-  if(!items.length) return;
-  box.innerHTML=`<div style="break-before:page;margin-top:16px"><h3>Walk test heat maps</h3><p class="hint">Readings walked on each floor's plan, coloured against the requirement. The heat map shows every reading, calibrated or not; the grid squares above decide pass / fail.</p><div data-wk="imgs"><p class="hint">Drawing the heat maps…</p></div></div>`;
+  const cmp=W.compare&&W.compare.a&&W.compare.b?W.compare:null;
+  if(!items.length&&!many) return;
+  const passRows=wkPasses(d).map(p=>{ const fl=(d.floors||[]).map(f=>{ const fw0=W.floors.find(x=>x.name===f.name); if(!fw0) return null; const n=wkPassView(fw0, p.id).pts.length; if(!n) return null;
+      const s=floorStats({...d, grid:{...(d.grid||{}), results:wkPassResults(d, f, fw0, !!f.plan, p.id)}}, f); return `${f.name}: ${s.tested?`${dasPct(s.pass, s.tested)}% of ${s.tested}`:"no scored squares"}`; }).filter(Boolean);
+    const n=W.floors.reduce((a,fw)=>a+wkPassView(fw, p.id).pts.length, 0); return {p, n, fl}; }).filter(x=>x.n||x.p.id===gr);
+  box.innerHTML=`<div style="break-before:page;margin-top:16px"><h3>Walk test heat maps${gl?`: ${esc(gl)}`:""}</h3><p class="hint">Readings walked on each floor's plan, coloured against the requirement. The heat map shows every reading, calibrated or not; the grid squares above decide pass / fail.</p><div data-wk="imgs"><p class="hint">Drawing the heat maps…</p></div>
+    ${many?`<h3>Test passes</h3><table><thead><tr><th>Pass</th><th class="n">Points</th><th>Squares passing, by floor (public safety, scored)</th><th></th></tr></thead><tbody>${passRows.map(x=>`<tr><td>${esc(wkPassName(d, x.p.id))}</td><td class="n">${x.n}</td><td>${esc(x.fl.join(" · ")||"–")}</td><td>${x.p.id===gr?"the grid above":""}</td></tr>`).join("")}</tbody></table>`:""}
+    ${cmp?`<h3>${esc(wkPassName(d, cmp.b))} compared with ${esc(wkPassName(d, cmp.a))}</h3><div data-wk="cmp"><p class="hint">Drawing the comparison…</p></div>`:""}</div>`;
   const out=[];
-  for(const it of items){ let p=null; try{ p=await wkPicture(j, d, it.f, it.fw, it.sig, it.met, null); }catch(e){ out.push(`<p class="hint">Floor ${esc(it.f.name)}: the heat map couldn't be drawn (${esc(e.message)}).</p>`); continue; }
+  for(const it of items){ let p=null; try{ p=await wkPicture(j, d, it.f, it.fw, it.sig, it.met, null, gl); }catch(e){ out.push(`<p class="hint">Floor ${esc(it.f.name)}: the heat map couldn't be drawn (${esc(e.message)}).</p>`); continue; }
     if(!box.isConnected) return;
     out.push(`<figure style="margin:10px 0;break-inside:avoid"><img src="${p.url}" alt="${esc(p.caption)}" style="width:100%;max-width:760px;border:1px solid #999;display:block"><figcaption class="hint" style="margin-top:4px">${esc(p.caption)}</figcaption></figure>`); }
-  const at=box.querySelector('[data-wk="imgs"]'); if(at) at.innerHTML=out.join(""); };
+  const at=box.querySelector('[data-wk="imgs"]'); if(at) at.innerHTML=out.join("")||'<p class="hint">No readings in this pass.</p>';
+  if(!cmp) return; const co=[];
+  for(const f of (d.floors||[])){ const fw0=W.floors.find(x=>x.name===f.name); if(!fw0||!wkPassView(fw0, cmp.a).pts.length||!wkPassView(fw0, cmp.b).pts.length) continue;
+    try{ const p=await wkDeltaPicture(j, d, f, fw0, cmp.a, cmp.b, cmp.sig||"ps|*", cmp.met||"dl", null); if(!p) continue; if(!box.isConnected) return;
+      co.push(`<figure style="margin:10px 0;break-inside:avoid"><img src="${p.url}" alt="${esc(p.caption)}" style="width:100%;max-width:760px;border:1px solid #999;display:block"><figcaption class="hint" style="margin-top:4px">${esc(p.caption)}</figcaption></figure>${wkClarkLine(p.C)}${wkCmpTable(d, f, p.C, cmp.met||"dl")}`); }
+    catch(e){ co.push(`<p class="hint">Floor ${esc(f.name)}: the comparison couldn't be drawn (${esc(e.message)}).</p>`); } }
+  const ac=box.querySelector('[data-wk="cmp"]'); if(ac) ac.innerHTML=co.join("")||'<p class="hint">No floor has both passes walked.</p>'; };
+// the walk's placed points on a floor plan, for the Design's predicted-vs-measured check (dasdesign.js): plan fractions
+// x / y and each reading's channel and public safety downlink (dBm), from the pass the grid and Report use (the
+// graded pass: BDA-off or old annual passes would skew the fit). Floors with no plan have no plan positions: none.
+window.wkPointsFor = (j, name) => { const f=((j.data||{}).floors||[]).find(x=>x.name===name); if(!f||!f.plan) return [];
+  return wkPlaced(wkPassView(wkFloorOf(j, name), wkGraded(j.data||{}))).filter(p=>p.x!=null&&p.y!=null).map(p=>({id:p.id, x:+p.x, y:+p.y, t:p.t||null, inst:p.inst||"", src:p.src||"",
+    rs:(p.rs||[]).filter(r=>!isCell(r)&&has(r.dl)&&isFinite(+r.dl)).map(r=>({freq:r.freq??null, dl:+r.dl}))})).filter(p=>p.rs.length); };

@@ -12,7 +12,7 @@ const SPEC_M = {l: 56, r: 14, t: 22, b: 34};  // plot margins (px)
 function specState() {
   if (!S.spec) {
     let markers = [];
-    try { markers = JSON.parse(localStorage.getItem("rfr.spec.markers")) || []; } catch (e) {}
+    try { markers = JSON.parse(localStorage.getItem("rfr.spec.markers")) || []; } catch(e){ /* storage blocked (a private window): the default stands */ }
     S.spec = {lo: null, hi: null, metric: "count", plan: true, widths: true, known: true, scale: "auto", markers};
   }
   return S.spec;
@@ -22,7 +22,7 @@ function specScale(lo, hi, choice) {
   const log = choice === "log" || (choice === "auto" && hi / Math.max(lo, 1e-3) > 20);
   return log ? {log, T: f => Math.log10(Math.max(f, 1e-3)), Ti: u => 10 ** u} : {log, T: f => f, Ti: u => u};
 }
-const saveMarkers = () => { try { localStorage.setItem("rfr.spec.markers", JSON.stringify(S.spec.markers)); } catch (e) {} };
+const saveMarkers = () => { try { localStorage.setItem("rfr.spec.markers", JSON.stringify(S.spec.markers)); } catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
 // tick step giving about n ticks over span
 function niceTick(span, n = 9) { const raw = span / n, p = 10 ** Math.floor(Math.log10(raw)); for (const m of [1, 2, 2.5, 5, 10]) if (raw <= m * p) return m * p; return raw; }
 const fDigits = span => span > 200 ? 0 : span > 20 ? 1 : span > 2 ? 2 : span > 0.2 ? 3 : span > 0.02 ? 4 : 5;

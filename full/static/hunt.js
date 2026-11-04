@@ -173,7 +173,9 @@ window.missionHunt = (v, m) => {
     try {
       await post("/api/fieldlog", { mission_id: m.id, lat: HUNT.here.lat, lon: HUNT.here.lon, acc: HUNT.here.acc, freq_mhz: f, dbm: dbm === "" ? null : -Math.abs(+dbm),  // received levels are negative: "72" means -72 dBm, as lite saves it
         bearing: brg == null ? null : Math.round(brg * 10) / 10, label: "Find a signal",
-        notes: brg == null ? (levelOnly ? "level only (the compass wasn't steady)" : "") : typed !== "" ? `bearing typed (${$("#hnBrgRef").value === "mag" ? "magnetic, corrected to true" : "true"})` : `phone compass (${HUNT.how}, ±${Math.round(HUNT.spread || 0)}°, true north)` });
+        // the north it's in: with no declination (no position, or a date outside the World Magnetic Model's 2025-2030) a
+        // magnetic bearing stays magnetic, and the note says so, as lite's does
+        notes: brg == null ? (levelOnly ? "level only (the compass wasn't steady)" : "") : typed !== "" ? `bearing typed (${$("#hnBrgRef").value === "mag" ? (huntDecl() == null ? "magnetic, not corrected" : "magnetic, corrected to true") : "true"})` : `phone compass (${HUNT.how}, ±${Math.round(HUNT.spread || 0)}°, ${huntDecl() == null ? "magnetic, not corrected" : "true north"})` });
       $("#hnDbm").value = ""; $("#hnBrg").value = ""; huntSay(levelOnly ? "Stop saved, the level only." : "Stop saved."); H.freq = String(f); await draw();
     } catch (err) { huntSay(`Not saved: ${err.message}`, true); }
     b.disabled = false; };
@@ -194,7 +196,7 @@ window.missionHunt = (v, m) => {
     const cnt = pts.length ? huntCountSay(r.count) : "", nx = huntNextSay(r.next, !!r.bearing), drop = huntDropSay(r.bearing);
     $("#hnOut").innerHTML = !pts.length ? `<p class="hint">No stops on this frequency yet. Set your position, read the level, and save the first stop.</p>`
       : `${best ? `<p style="margin:0 0 4px;font-size:16px"><b>${r.from_you ? `About ${r.from_you.m < 1000 ? `${Math.round(r.from_you.m / 10) * 10} m` : `${num(r.from_you.m / 1609.34, 1)} mi`} ${esc(r.from_you.compass)} of you (${r.from_you.deg}°)` : "Best guess on the map"}</b>
-          <span class="hint">±${best.radius_m != null ? Math.round(best.radius_m) : "?"} m, ${word}, ${pts.length} stop${pts.length === 1 ? "" : "s"}</span></p>
+          <span class="hint">±${best.radius_m != null ? Math.round(best.radius_m) : "?"} m, ${word}, ${pts.length - (r.imported || 0)} stop${pts.length - (r.imported || 0) === 1 ? "" : "s"}${r.imported ? ` and ${r.imported} imported reading${r.imported === 1 ? "" : "s"}` : ""}</span></p>
           ${cnt ? `<p class="hint" id="hnCount" style="margin:0 0 4px">${esc(cnt)}</p>` : ""}
           ${!r.from_you ? "" : r.from_you.m <= (best.radius_m || 0) && (best.radius_m || 0) <= 250 ? `<p style="margin:0 0 4px">You're inside the likely area: walk it slowly and watch for the level to jump.</p>`
             : nx ? `<p style="margin:0 0 4px" id="hnNext">${nx}</p>`

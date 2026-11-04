@@ -7,7 +7,7 @@ const STATUSES=["Planning","Active","Paused","Complete"];
 async function loadMission(id, applyArea){
   if(!id){ S.mission=null; S.missionId=null; $("#missionName").textContent="No mission"; return; }
   const m=await api("/api/missions/"+id); S.mission=m; S.missionId=m.id;
-  try{ const t=await api(`/api/missions/${id}/tracks`); S.mission.tracks=t.tracks; }catch(e){}
+  try{ const t=await api(`/api/missions/${id}/tracks`); S.mission.tracks=t.tracks; }catch(e){ /* no tracks for this mission yet: the map draws none */ }
   $("#missionName").textContent=`${m.name} · ${m.status}`;
   const lay=m.settings.layers||{}; S.layerSolo=S.layerPrev=null; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !(k==="uls_hist"&&!lay[k])));
   $("#hideMobile").checked=m.settings.fixed_sites_only!==false;
@@ -25,7 +25,7 @@ window.missionBoot = async () => {
     const b=document.createElement("button"); b.className="hbtn"; b.id="meOut"; b.textContent=`Admin · ${S.me.user} · Sign out`;
     b.onclick=()=>{ location.href="/remote/logout"; }; $("#netChip").after(b);
   }
-  try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){}
+  try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){ /* no active mission, or the server is starting: the app opens without one */ }
   if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000);
     api("/api/kit").then(k=>{ if(!k.update) return;  // a kit copy with a newer kit out: say so in the header
       const b=document.createElement("button"); b.className="hbtn"; b.id="kitChip"; b.title="A newer RF Recon is out: Data & updates installs it";
@@ -97,7 +97,7 @@ S.views.mission = async (v) => {
   ${m&&editing!=="new"?`
   <div class="grid2">
     <div class="panel"><h3>Import field captures</h3>
-      <p class="hint">WiGLE / Kismet (wiglecsv) · GPX tracks · rtl_power / hackrf_sweep CSV · analyzer CSV (lat, lon, freq, dBm…) · KML / KMZ. Import GPS tracks first; later files without coordinates are positioned from them by time.</p>
+      <p class="hint">WiGLE / Kismet (wiglecsv) · GPX tracks · rtl_power / hackrf_sweep CSV · analyzer CSV (lat, lon, freq, dBm…, or time, freq, dBm with no coordinates) · KML / KMZ. Import timed GPS tracks first (GPX, KML gx:Track, a WiGLE file); later files without coordinates are placed from them by time, within ${esc(String(m.settings?.track_match_s??30))} s. A KML line (LineString) has no times, so it can't place them.</p>
       <div class="row"><input type="file" id="capFiles" multiple accept=".csv,.txt,.gpx,.kml,.kmz">
         <label class="inl"><input type="checkbox" id="capFixed"> Place un-positioned points at the mission pin</label></div>
       <div class="row" style="margin-top:6px" title="What took these captures. A calibrated instrument's levels grade A; uncalibrated levels are relative only and grade C.">
@@ -197,7 +197,9 @@ S.views.mission = async (v) => {
   v.querySelectorAll("[data-delcap]").forEach(b=>b.onclick=async()=>{ if(!confirm("Delete this capture?")) return; await post(`/api/captures/${b.dataset.delcap}/delete`); await loadMission(m.id); render(); });
   $("#fl_gps").onclick=()=>navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{ $("#fl_lat").value=p.coords.latitude.toFixed(6); $("#fl_lon").value=p.coords.longitude.toFixed(6); $("#fl_lat").dataset.acc=p.coords.accuracy; },
     err=>{ $("#fl_res").textContent="GPS unavailable: "+err.message; },{enableHighAccuracy:true});
-  $("#fl_pin").onclick=()=>{ const p=parseLoc($("#loc").value)||[m.lat,m.lon]; $("#fl_lat").value=p[0]; $("#fl_lon").value=p[1]; };
+  // the pin has no GPS accuracy: an earlier ◎ GPS press's must not ride along with it
+  $("#fl_pin").onclick=()=>{ const p=parseLoc($("#loc").value)||[m.lat,m.lon]; $("#fl_lat").value=p[0]; $("#fl_lon").value=p[1]; delete $("#fl_lat").dataset.acc; };
+  $("#fl_lat").oninput=$("#fl_lon").oninput=()=>{ delete $("#fl_lat").dataset.acc; };  // typed by hand: no GPS accuracy either
   $("#fl_log").onclick=async()=>{ const d={mission_id:m.id, lat:+$("#fl_lat").value, lon:+$("#fl_lon").value, acc:+($("#fl_lat").dataset.acc||0)||null, freq_mhz:$("#fl_freq").value, dbm:$("#fl_dbm").value===""?null:+$("#fl_dbm").value,
       type:$("#fl_type").value||null, label:$("#fl_notes").value, notes:$("#fl_notes").value, bearing:$("#fl_brg").value===""?null:+$("#fl_brg").value};
     if(!$("#fl_lat").value){ $("#fl_res").textContent="Set a position (GPS or pin) first."; return; }
@@ -259,24 +261,39 @@ const DAS_LIVE={"Terrain Tiles on AWS (Tilezen)":"donor paths and terrain around
 const dasNote=why=>`<div class="hint dasnote"><span class="tag das">DAS</span> ${esc(why)}</div>`;
 const CROWD_FETCH=[["wigle","WiGLE","wigle"],["opencellid","OpenCelliD","opencellid"],["ttn","LoRaWAN gateways"],["satnogs","SatNOGS stations"],["wspr","WSPR"],["pskreporter","PSKReporter"]];
 const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"],[336,"2 weeks"],[720,"monthly"]];
-// Ways in: every way people get this version or its data, and whether it needs this PC on. The remote link's row
-// (#wayRemote) and the two site links (#wayWeb, #wayLite) are filled in live; the panel shows on the copy with the remote door.
+// Ways in: every way people get this version or its data, which build each runs, and whether it needs Cody's PC on.
+// The remote link's row (#wayRemote), the two site links (#wayWeb, #wayLite) and the Version column ([data-ver]) are
+// filled in live (/api/versions: this copy's build, the published site's, the newest kit; Android's is the one written
+// down). The panel shows on a copy with the remote door, and on the server for the admin; team logins never see it.
 const WAYS=[
-  ["24/7 server","The main RF Recon, always on. Cody's admin login sees every source; team logins (Josh, Doug, Hunter, Joe, Josh Trigg) see the sold build. The whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes live here","Yes, 24/7 on AWS ($24 a month)",'<a href="https://44-207-142-90.sslip.io/" target="_blank" rel="noopener">44-207-142-90.sslip.io ↗</a>; installs as an app'],
-  ["Cody's PC","A second full copy for working with no signal: its own data and DAS jobs, separate from the server's","No","localhost:8765; starts with Windows"],
-  ["Remote link","Cody's PC copy, live, for people signed in: a backup way in now the server is up","No: it runs on Cody's PC and its connection",'<span id="wayRemote">Checking…</span>',"wayRemoteRow"],
-  ["Full web version","Nearly every tab in any browser. Each state's FCC data loads from the RF Recon site; each person's work stays in their browser","Yes, 24/7 on GitHub's servers",'<a id="wayWeb" target="_blank" rel="noopener">The web version ↗</a>'],
-  ["RF Recon lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>'],
-  ["Field packs","One area's public data in a file, for the web version or RF Recon lite","Yes","Phone app: field packs, below"],
-  ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of RF Recon, below; install kit in the Drive folder"],
-  ["Drive folder","The docs, install kit, field packs and backups","Yes","Google Drive › RF Recon, for the people it's shared with"],
-  ["Exports","CSV, KML and ATAK data packages of what's on the map","Yes, once made","The export buttons beside the results"],
-  ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK: from Cody's PC to TAK apps on its networks; from either copy to your TAK Server","Yes, from the server to a TAK Server","Push to ATAK, below"],
+  ["24/7 server","The main RF Recon, always on. The admin login sees every source; team logins see the sold build (no WiGLE, RepeaterBook, WSPR, Signal ID Wiki, Artemis or ships). The whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes live here","Yes, 24/7 on AWS ($24 a month)",'<a href="https://44-207-142-90.sslip.io/" target="_blank" rel="noopener">44-207-142-90.sslip.io ↗</a>; installs as an app',"","server"],
+  ["Cody's PC","A second full copy for working with no signal: its own data and DAS jobs, separate from the server's","No","localhost:8765; starts with Windows","","pc"],
+  ["RF Recon for Android","The server in a full-screen app on an Android phone (Android 10 or newer). The DAS walk test reads the phone's own LTE / 5G signal, and corrects it against a calibrated instrument","Yes: it opens the server",'<a href="#help-android" data-help="android">Help › Android app</a> (the download opens signed out), or Drive › RF Recon › install kit',"","android"],
+  ["Remote link","Cody's PC copy, live, for people signed in: a backup way in now the server is up","No: it runs on Cody's PC and its connection",'<span id="wayRemote">Checking…</span>',"wayRemoteRow","pc"],
+  ["Full web version","Nearly every tab in any browser. Each state's FCC data loads from the RF Recon site; each person's work stays in their browser","Yes, 24/7 on GitHub's servers",'<a id="wayWeb" target="_blank" rel="noopener">The web version ↗</a>',"","site"],
+  ["RF Recon lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>',"","site"],
+  ["Field packs","One area's public data in a file, for the web version or RF Recon lite","Yes. On the server only the admin login makes and downloads them","Phone app: field packs, below","",""],
+  ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of RF Recon, below; install kit in the Drive folder","","kit"],
+  ["Drive folder","The docs and the install kit, and Cody's PC copy's field packs, backups and notes (its code left Drive on 11/3)","Yes","Google Drive › RF Recon, for the people it's shared with","",""],
+  ["Exports","CSV, KML and ATAK data packages of what's on the map","Yes, once made","The export buttons beside the results","",""],
+  ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK: from Cody's PC to TAK apps on its networks; from either copy to your TAK Server. On the server only the admin login pushes","Yes, from the server to a TAK Server (admin login)","Push to ATAK, below","",""],
 ];
+// the Version column: what each way runs, read live (never written down, but Android's)
+function waysVersions(){
+  api("/api/versions").then(x=>{
+    const put=(k,html)=>$$(`#waysPanel [data-ver="${k}"]`).forEach(td=>{ td.innerHTML=html; });
+    const v=b=>b?`<span class="mono">${esc(b.commit)}</span>${b.changed?' <span class="hint">and changes not committed</span>':""}${b.date?`<div class="hint">${esc(b.date)}${b.how==="deployed"?" deployed":""}</div>`:""}`:'<span class="hint">not readable</span>';
+    put(x.server?"server":"pc", v(x.this));
+    put(x.server?"pc":"server", `<span class="hint">${x.server?"Read on Cody's PC (its Data &amp; updates)":"Read on the server, signed in as admin"}</span>`);
+    put("site", x.site?`<span class="mono">${esc(x.site.build)}</span>${x.site.date?`<div class="hint">published ${esc(x.site.date)}</div>`:""}`:'<span class="hint">offline: not checked</span>');
+    put("kit", x.kit?`<span class="mono">${esc(x.kit.version)}</span>${x.kit.built?`<div class="hint">built ${esc(x.kit.built)}</div>`:""}`:'<span class="hint">offline: not checked</span>');
+    put("android", `<span class="mono">${esc(x.android)}</span>`);
+  }).catch(()=>$$("#waysPanel [data-ver]").forEach(td=>{ if(td.dataset.ver) td.innerHTML='<span class="hint">not readable</span>'; }));
+}
 S.views.data = async (v) => {
-  if(S.remote){ v.innerHTML='<p class="status">Data &amp; updates stays on Cody\'s PC.</p>'; return; }
+  if(S.remote){ v.innerHTML=`<p class="status">${S.remote.server?"Data &amp; updates is for the admin login.":"Data &amp; updates stays on Cody's PC."}</p>`; return; }
   let settings={creds:{},states:""}, layers={layers:[],fetches:[]};
-  try{ [settings, layers]=await Promise.all([api("/api/settings"), api("/api/layers")]); UPD=await api("/api/update/status"); }catch(e){}
+  try{ [settings, layers]=await Promise.all([api("/api/settings"), api("/api/layers")]); UPD=await api("/api/update/status"); }catch(e){ /* a view login or offline: the panels below say what they couldn't read */ }
   const c=navigator.connection||{};
   v.innerHTML=`
   <div class="grid2" style="margin-top:0">
@@ -297,8 +314,12 @@ S.views.data = async (v) => {
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
   <div class="panel" id="waysPanel" hidden><h3>Ways in: who can use this version and its data</h3>
-    <div class="tw wrap"><table><thead><tr><th>Way</th><th>What they get</th><th>With Cody's PC off</th><th>Where</th></tr></thead><tbody>${
-      WAYS.map(([w,what,off,where,id])=>`<tr${id?` id="${id}"`:""}><td><b>${w}</b></td><td>${what}</td><td>${off}</td><td>${where}</td></tr>`).join("")}</tbody></table></div>
+    <style>@media (max-width:700px){ /* a phone: each way is a card, its facts labelled, instead of a five-column table */
+      #waysPanel thead{display:none} #waysPanel tr{display:block;padding:9px 10px;border-bottom:1px solid var(--line)}
+      #waysPanel td{display:block;border:0;padding:2px 0;white-space:normal} #waysPanel td[data-ver=""]{display:none}
+      #waysPanel td[data-lbl]::before{content:attr(data-lbl) ": ";color:var(--dim)} }</style>
+    <div class="tw wrap"><table><thead><tr><th>Way</th><th>What they get</th><th>Version</th><th>With Cody's PC off</th><th>Where</th></tr></thead><tbody>${
+      WAYS.map(([w,what,off,where,id,ver])=>`<tr${id?` id="${id}"`:""}><td><b>${w}</b></td><td>${what}</td><td data-ver="${ver}" data-lbl="Version">${ver?'<span class="hint">Checking…</span>':""}</td><td data-lbl="With Cody's PC off">${off}</td><td data-lbl="Where">${where}</td></tr>`).join("")}</tbody></table></div>
     <p class="hint">RF Recon lives on the 24/7 server (AWS Lightsail, since 11/2): the FCC database and its downloads, the crowd data, the keys it uses and the team's DAS jobs are there. Team logins get the sold build (no WiGLE, Signal ID Wiki, Artemis, ships, RepeaterBook or WSPR).
       Cody's PC keeps its own copy for work with no signal. The two don't sync: a DAS job made on one isn't on the other.</p></div>
   <div class="panel"><h3>This copy of RF Recon</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
@@ -312,10 +333,10 @@ S.views.data = async (v) => {
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Pack</th><th>Size</th><th>Made</th></tr></thead><tbody id="fpList"></tbody></table></div>
     <p class="hint">Packs carry public data only: never your missions, captures, labels or keys, and none of the crowd layers or the Signal ID Wiki catalog. VA, MD and DC together come to about 5 MB.</p></div>
   <div class="panel"><h3>Remote access: this full version from anywhere</h3>
-    <p class="hint" id="raHow" style="margin-top:0">People you add open the link in any browser, sign in, and can view and search everything here, but change nothing. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay on this PC. The link works while this PC is on and RF Recon is running, and what they look at runs over this PC's connection.</p>
+    <p class="hint" id="raHow" style="margin-top:0">People you add open the link in any browser, sign in, and do what their login allows: View only looks and searches; Full also works DAS jobs, missions and notes; Admin also has the keys, updates and people. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay with the admin. The link works while this PC is on and RF Recon is running, and what they look at runs over this PC's connection.</p>
     <div id="raLink"><p class="hint">Checking Tailscale…</p></div>
     <div class="row" style="margin-top:8px;align-items:end"><label class="grow">Add a person<input id="raName" placeholder="Their name, e.g. Josh" autocomplete="off"></label>
-      <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option></select></label><button class="primary" id="raAdd">Add and make a password</button></div>
+      <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option><option value="ahj">AHJ reviewer: only the jobs shared with it</option></select></label><button class="primary" id="raAdd">Add and make a password</button></div>
     <p class="hint" id="raMsg" style="margin:6px 0 0"></p>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Person</th><th>Can</th><th>Added</th><th>Last here</th><th></th></tr></thead><tbody id="raList"></tbody></table></div></div>
   <div class="panel"><h3>Push to ATAK</h3>
@@ -330,6 +351,10 @@ S.views.data = async (v) => {
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span class="hint" id="fiSrc">Maker names: …</span>
       <label class="inl">Import the FCC's list <input type="file" id="fiImp" accept=".csv,.txt,.tsv,.xlsx,.xls,.xml,.json,.zip,.htm,.html"></label></div>
     <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px"><span class="hint" id="fiGr"></span>
+      <label class="inl" title="The file doesn't say what the search was by: a search by Equipment Class fills the booster class">Searched by class
+        <select id="fiGrCls"><option value="">no (a maker's code)</option>${[["B9A","Part 90 Class A"],["B9B","Part 90 Class B"],["B2I","Part 20 industrial"],["B2P","Part 20 provider-specific"],["B2W","Part 20 wideband consumer"],["BOS","other booster"]].map(([k,l])=>`<option value="${k}">${k}: ${l}</option>`).join("")}</select></label>
+      <label class="inl" title="A search by Power Output (with the class above) fills that class's power range">and power
+        <select id="fiGrW"><option value="">no</option>${["0-0.5","0.5-1","1-2","2-5","5-10","10-10000"].map(w=>`<option value="${w}">${w==="10-10000"?"over 10":w} W</option>`).join("")}</select></label>
       <label class="inl">Import FCC grant searches <input type="file" id="fiGrImp" multiple accept=".xml,.xls,.xlsx,.htm,.html,.csv"></label></div>
     ${dasNote("the grant searches imported here are the booster list in the pre-survey (devices granted for the building's bands)")}</div>
   <div class="panel"><h3>Data sources <span class="hint">· <span class="tag das">DAS</span> marks what the DAS tab uses; it also updates them (DAS › Data &amp; links)</span></h3><div id="srcList"></div></div>
@@ -395,7 +420,8 @@ S.views.data = async (v) => {
   api("/api/fccid/grantees").then(fiSrc).catch(()=>{ if($("#fiSrc")) $("#fiSrc").textContent=""; });
   $("#fiGrImp").onchange=async e=>{ const files=[...e.target.files]; if(!files.length) return; let done=0;
     try{ for(const f of files){ $("#fiGr").textContent=`Reading ${f.name} (${done+1} of ${files.length})…`;
-        await api(`/api/fccid/grants?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()}); done++; }
+        const by=new URLSearchParams({name:f.name, ...($("#fiGrCls").value?{eq_class:$("#fiGrCls").value}:{}), ...($("#fiGrW").value?{watts:$("#fiGrW").value}:{})});
+        await api(`/api/fccid/grants?${by}`,{method:"POST",body:await f.arrayBuffer()}); done++; }
       fiSrc(await api("/api/fccid/grantees")); }
     catch(err){ $("#fiGr").textContent=`${done} of ${files.length} imported. ${err.message}`; } finally{ e.target.value=""; } };
   $("#fiImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#fiSrc").textContent=`Reading ${f.name}…`;
@@ -421,7 +447,7 @@ S.views.data = async (v) => {
   // this copy's version and updates (kitupdate.py): a kit copy installs a newer kit zip and restarts
   api("/api/kit").catch(()=>new Promise(ok=>setTimeout(ok,2000)).then(()=>api("/api/kit"))).then(k=>{  // one retry: just after a restart
     if(!$("#kitBody")) return;  // left the tab while it loaded
-    if(!k.kit){ $("#kitBody").innerHTML='<p class="hint" style="margin:0">This copy runs from the RF Recon folder in Google Drive and updates with it.</p>'; return; }
+    if(!k.kit){ $("#kitBody").innerHTML=`<p class="hint" style="margin:0">${S.me?"This is the server's copy: it updates when a new version is deployed to it.":"This copy runs from its own app folder on this PC (outside Drive since 11/3) and updates from git."}</p>`; return; }
     const c=k.current, L=k.latest;
     $("#kitBody").innerHTML=`<p style="margin:0 0 8px">Version <span class="mono">${esc(c.version)}</span>, built ${esc(c.built)}. ${k.update?`<b>A newer kit is out: <span class="mono">${esc(L.version)}</span>, built ${esc(L.built)}.</b>`:L?"This is the newest kit.":'<span class="hint">Couldn\'t check for a newer kit (offline?).</span>'}</p>
       ${k.update&&L.notes?.length?`<ul class="hint" style="margin:0 0 8px">${L.notes.slice(0,6).map(n=>`<li>${esc(n)}</li>`).join("")}</ul>`:""}
@@ -432,7 +458,7 @@ S.views.data = async (v) => {
       try{ const r=await api("/api/kit/update",{method:"POST", body:await f.arrayBuffer()});
         $("#kitMsg").textContent=`Updated ${r.from} → ${r.to} (${r.files} files). RF Recon is restarting…`;
         await new Promise(ok=>setTimeout(ok,3000));
-        for(let i=0;i<60;i++){ try{ if((await api("/api/kit")).current?.version===r.to){ location.reload(); return; } }catch(err){} await new Promise(ok=>setTimeout(ok,1000)); }  // the old server can still answer while it shuts down
+        for(let i=0;i<60;i++){ try{ if((await api("/api/kit")).current?.version===r.to){ location.reload(); return; } }catch(err){ /* the server is restarting: ask again in a second */ } await new Promise(ok=>setTimeout(ok,1000)); }  // the old server can still answer while it shuts down
         $("#kitMsg").textContent="It didn't come back by itself: double-click Start RF Recon."; }
       catch(err){ $("#kitMsg").textContent=err.message; } };
   }).catch(()=>{ if($("#kitBody")) $("#kitBody").innerHTML='<p class="hint" style="margin:0">Couldn\'t read this copy\'s version.</p>'; });
@@ -440,7 +466,8 @@ S.views.data = async (v) => {
   const raPaint=async()=>{ if(!$("#raList")) return; let r; try{ r=await api("/api/remote"); }catch(e){ if($("#raLink")) $("#raLink").innerHTML=`<p class="hint">${esc(e.message)}</p>`; return; }
     if(!$("#raList")) return;  // left the tab while it loaded
     $("#raList").closest(".panel").hidden=!r.door;  // a copy without the remote door (the install kit) has nothing to show here
-    $("#waysPanel").hidden=!r.door;  // and Ways in is about sharing that copy
+    $("#waysPanel").hidden=!(r.door||S.me);  // and Ways in is about sharing that copy: the PC's door, or the server's admin
+    if(!$("#waysPanel").hidden) waysVersions();
     const L=r.link||{}, n=r.people.length, ts={NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running";
     if(L.server && $("#wayRemoteRow")) $("#wayRemoteRow").hidden=true;  // the PC's Tailscale link means nothing on the server
     $("#wayRemote").textContent=`${!L.installed?"Tailscale isn't installed":L.state!=="Running"?`Off: Tailscale is ${ts}`:L.on?"On":"Off"} · ${n?`${n} ${n===1?"person":"people"} can sign in`:"no one can sign in yet"}. Remote access, below`;
@@ -450,7 +477,7 @@ S.views.data = async (v) => {
       :L.state!=="Running"?`<p class="hint">Tailscale is ${esc(ts)} on this PC. Sign in to Tailscale (system tray) to get the link.</p>`
       :`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><b>Link</b><span class="mono">${esc(L.url||"")}</span><span class="tag">${L.on?"On":"Off"}</span>
          ${L.on?'<button id="raCopy">Copy link</button>':""}<button id="raToggle">${L.on?"Turn the link off":"Turn the link on"}</button></div>`;
-    $("#raList").innerHTML=r.people.map(u=>`<tr><td>${esc(u.name)}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
+    $("#raList").innerHTML=r.people.map(u=>`<tr><td>${esc(u.name)}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
       <td style="text-align:right;white-space:nowrap"><button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
       ||'<tr><td colspan="5" class="hint">No one yet. Add a person to give them a sign-in.</td></tr>';
     if($("#raCopy")) $("#raCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(L.url); $("#raMsg").textContent="Link copied."; }catch(e){ $("#raMsg").textContent=L.url; } };

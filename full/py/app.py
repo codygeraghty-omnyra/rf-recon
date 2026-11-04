@@ -56,6 +56,7 @@ import captures  # noqa: E402
 import cells  # noqa: E402
 import coverage  # noqa: E402
 import das  # noqa: E402
+import dashist  # noqa: E402
 import build  # noqa: E402
 import connectors  # noqa: E402
 import provenance  # noqa: E402
@@ -96,7 +97,7 @@ DEFAULT_MISSION_SETTINGS = {
                "opencellid": True, "repeaterbook": True, "custom": True},
     "min_dbm": None, "gps_max_accuracy_m": 50, "sweep_threshold_db": 10, "track_match_s": 30,
     "heat_size": 200, "heat_metric": "mean", "heat_combine": "max", "heat_alpha": 190,
-    "units": "imperial", "auto_refresh_crowd": False, "fixed_sites_only": True,
+    "auto_refresh_crowd": False, "fixed_sites_only": True,  # "units" left 11/4: no control set it and nothing read it
 }
 
 now = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
@@ -162,6 +163,8 @@ def init():
     threading.Thread(target=ulscontacts.ensure_quiet, args=(DB_PATH, uls_import.DATA_DIR), daemon=True).start()
     if BACKUP_DIR:
         threading.Thread(target=backup_loop, daemon=True).start()
+    import snmpwatch  # BDA monitoring: listens only when an admin has switched it on (setting snmp.monitor)
+    snmpwatch.boot(DB_PATH, get_setting, set_setting)
 
 
 def get_setting(k, default=None):
@@ -193,6 +196,76 @@ def active_areas():
         if (m["id"] == act or s.get("auto_refresh_crowd")) and m["lat"] is not None:
             out.append((m["lat"], m["lon"], m["radius_mi"] or 10, m["state"]))
     return out
+
+
+PROSPECT_SPOTS = 4  # the last places DAS Prospects listed, warmed at the next start
+WARM = {"state": "idle"}  # warm_prospects: what it did, for a check
+
+
+def remember_prospect_spot(lat, lon, radius):
+    """Keep the last few places DAS Prospects listed (rounded to about 1 km), newest first."""
+    spot = [round(lat, 4), round(lon, 4), min(50.0, max(1.0, float(radius or 10)))]
+    try:
+        old = get_setting("prospects.recent", []) or []
+        new = [spot] + [x for x in old if (round(x[0], 2), round(x[1], 2)) != (round(lat, 2), round(lon, 2))][:PROSPECT_SPOTS - 1]
+        if new != old:
+            set_setting("prospects.recent", new)
+    except (sqlite3.Error, TypeError, ValueError) as e:  # remembering is a nicety: the list itself already went out
+        print(f"Note: prospect spot not kept ({e})", flush=True)
+
+
+def prospect_spots():
+    """Where a person's first DAS Prospects list after a start is likely: the last places listed, the most recently
+    changed DAS jobs and the active mission areas; six at most, one per ~1 km."""
+    spots = [tuple(x) for x in (get_setting("prospects.recent", []) or []) if isinstance(x, list) and len(x) == 3]
+    con = db()
+    try:
+        for r in con.execute("SELECT data FROM das_job ORDER BY updated_at DESC LIMIT 4"):
+            try:
+                d = json.loads(r["data"] or "{}")
+            except ValueError:
+                continue
+            if d.get("lat") is not None and d.get("lon") is not None:
+                spots.append((float(d["lat"]), float(d["lon"]), 10.0))
+    except sqlite3.Error:  # no DAS tables yet (a new copy): the other places still count
+        pass
+    finally:
+        con.close()
+    spots += [(la, lo, float(r)) for la, lo, r, _st in active_areas()]
+    out, seen = [], set()
+    for la, lo, r in spots:
+        k = (round(la, 2), round(lo, 2))
+        if k not in seen:
+            seen.add(k)
+            out.append((la, lo, r))
+    return out[:6]
+
+
+def warm_prospects(delay_s=1.0):
+    """After a start, in the background: the first DAS Prospects list was slow on the server (11/4: 92 s, and RF need
+    sat at "0 of 1,000"), because the prospect query and need.py's area load (the agency sites within 15 mi, one SQL
+    scan of a whole-US licence table) ran cold. Run both once for the likely places, so a person's first list finds the
+    pages read and the area in need.py's cache (need.area_for: a person asking mid-load waits for this load)."""
+    import need
+    import prospects
+    time.sleep(delay_s)
+    t0 = time.time()
+    WARM.update(state="running", started=now())
+    done = 0
+    con = db()
+    try:
+        prospects.counts(uls_import.DATA_DIR)
+        for lat, lon, r in prospect_spots():
+            prospects.near(uls_import.DATA_DIR, lat, lon, r, None, "", 1000)
+            need.area_for(con, lat, lon, max(r, 10.0) + 1.0)  # a mile spare: a pin dropped near the place still falls inside
+            done += 1
+        WARM.update(state="done", places=done, took_s=round(time.time() - t0, 1))
+        print(f"DAS Prospects warmed for {done} place{'s' * (done != 1)} in {time.time() - t0:.1f} s", flush=True)
+    except Exception as e:  # noqa: BLE001  a warm-up that fails leaves the first list as slow as before, no worse
+        WARM.update(state="error", error=str(e))
+        print(f"DAS Prospects warm-up stopped: {e}", flush=True)
+    finally:
+        con.close()
 
 
 UPD = None
@@ -503,6 +576,7 @@ def query_area(qs):
 # ---------------------------------------------------------------- field packs for the phone app
 
 PHONE_URL = "https://codygeraghty-omnyra.github.io/rf-recon/"
+ANDROID_VERSION = "1.0"  # RF Recon for Android (android/, built outside this repo): the one version not readable from a file here
 FP_JOB = {"running": False, "log": [], "result": None, "error": None}
 
 
@@ -537,7 +611,7 @@ def start_fieldpack(d):
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
                 "/api/cells", "/api/cells/import", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
-                "/api/fccid/boosters", "/api/find", "/api/radioid"}
+                "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid"}
 
 
 def coverage_args(qs):
@@ -622,11 +696,12 @@ def ensure_places():
 
 def ensure_sigwiki():
     """First start: fetch the Signal Identification Wiki catalog (a few seconds) if there's none yet.
-    After that the Data & updates source keeps it current."""
+    After that the Data & updates source keeps it current. The sold build leaves the wiki out (build.py), so it never
+    fetches there."""
     con = connectors.open_db(CROWD_PATH)
     try:
         con.executescript(sigwiki.SCHEMA)
-        if not con.execute("SELECT 1 FROM sigwiki LIMIT 1").fetchone():
+        if build.allowed("sigwiki") and not con.execute("SELECT 1 FROM sigwiki LIMIT 1").fetchone():
             sigwiki.fetch(con, log=lambda m, end="\n": None)
     except Exception as e:
         print(f"Signal ID Wiki catalog not fetched (offline?): {e}")
@@ -641,6 +716,20 @@ def place_label(r):
         suffix = "" if city else (" Parish" if r["state"] == "LA" else " County")
         return f"{name}{suffix}, {r['state']}"
     return f"{name}, {r['state']}"
+
+
+US_STATE_ABBR = {n.lower(): a for a, n in (
+    ("AL", "Alabama"), ("AK", "Alaska"), ("AZ", "Arizona"), ("AR", "Arkansas"), ("CA", "California"), ("CO", "Colorado"),
+    ("CT", "Connecticut"), ("DE", "Delaware"), ("DC", "District of Columbia"), ("FL", "Florida"), ("GA", "Georgia"),
+    ("HI", "Hawaii"), ("ID", "Idaho"), ("IL", "Illinois"), ("IN", "Indiana"), ("IA", "Iowa"), ("KS", "Kansas"),
+    ("KY", "Kentucky"), ("LA", "Louisiana"), ("ME", "Maine"), ("MD", "Maryland"), ("MA", "Massachusetts"),
+    ("MI", "Michigan"), ("MN", "Minnesota"), ("MS", "Mississippi"), ("MO", "Missouri"), ("MT", "Montana"),
+    ("NE", "Nebraska"), ("NV", "Nevada"), ("NH", "New Hampshire"), ("NJ", "New Jersey"), ("NM", "New Mexico"),
+    ("NY", "New York"), ("NC", "North Carolina"), ("ND", "North Dakota"), ("OH", "Ohio"), ("OK", "Oklahoma"),
+    ("OR", "Oregon"), ("PA", "Pennsylvania"), ("RI", "Rhode Island"), ("SC", "South Carolina"), ("SD", "South Dakota"),
+    ("TN", "Tennessee"), ("TX", "Texas"), ("UT", "Utah"), ("VT", "Vermont"), ("VA", "Virginia"), ("WA", "Washington"),
+    ("WV", "West Virginia"), ("WI", "Wisconsin"), ("WY", "Wyoming"), ("PR", "Puerto Rico"), ("GU", "Guam"),
+    ("VI", "United States Virgin Islands"), ("AS", "American Samoa"), ("MP", "Northern Mariana Islands"))}
 
 
 def geocode(qs):
@@ -690,8 +779,12 @@ def geocode(qs):
                 street = " ".join(x for x in (pr.get("housenumber"), pr.get("street")) if x)
                 head = pr.get("name") or street or pr.get("city") or ""
                 tail = ", ".join(x for x in (street if street != head else None, pr.get("city"), pr.get("state")) if x)
+                # the whole address as it's written on mail: "1200 N Main St, Arlington, VA 22201" (address boxes take this)
+                st = US_STATE_ABBR.get((pr.get("state") or "").lower(), pr.get("state") or "")
+                full = ", ".join(x for x in (street or pr.get("name"), pr.get("city") or pr.get("district") or pr.get("county"),
+                                             " ".join(y for y in (st, pr.get("postcode")) if y)) if x)
                 remote.append({"label": head + (f", {tail}" if tail else ""), "sub": (pr.get("osm_value") or pr.get("type") or "").replace("_", " ").title(),
-                               "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "photon"})
+                               "full": full, "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "photon"})
             if len(GEO_CACHE) > 500:
                 GEO_CACHE.clear()
             GEO_CACHE[key] = remote
@@ -779,7 +872,8 @@ def coverage_conflicts(caps, most_spots=40):
         sp = spots.setdefault((round(c["lat"] / 0.003) * 0.003, round(c["lon"] / 0.003) * 0.003), {"heard": {}, "n": 0})
         sp["n"] += 1
         key, op, _cell = got
-        if c.get("dbm") is not None and (key not in sp["heard"] or c["dbm"] > sp["heard"][key][1]):
+        # the strongest level heard; a carrier first heard with no level (None) takes the first one it gets
+        if c.get("dbm") is not None and (key not in sp["heard"] or sp["heard"][key][1] is None or c["dbm"] > sp["heard"][key][1]):
             sp["heard"][key] = (op, c["dbm"])
         else:
             sp["heard"].setdefault(key, (op, None))
@@ -988,17 +1082,21 @@ def mission_hunt(mid, freq, tol_khz=12.5, here_lat=None, here_lon=None):
     from both, and, when the person's position is given, which way and how far it is from them."""
     con = db()
     try:
-        rows = con.execute("SELECT ts, lat, lon, freq_mhz, dbm, extra FROM capture_point WHERE mission_id=? AND lat IS NOT NULL"
-                           + (" AND freq_mhz BETWEEN ? AND ?" if freq else "") + " ORDER BY ts DESC LIMIT 400",
+        rows = con.execute("SELECT p.ts, p.lat, p.lon, p.freq_mhz, p.dbm, p.extra, c.fmt FROM capture_point p LEFT JOIN capture c ON c.id = p.capture_id "
+                           "WHERE p.mission_id=? AND p.lat IS NOT NULL"
+                           + (" AND p.freq_mhz BETWEEN ? AND ?" if freq else "") + " ORDER BY p.ts DESC LIMIT 400",
                            (mid,) + ((freq - tol_khz / 1000, freq + tol_khz / 1000) if freq else ())).fetchall()
     finally:
         con.close()
-    pts = [{"ts": r["ts"], "lat": r["lat"], "lon": r["lon"], "freq_mhz": r["freq_mhz"], "dbm": r["dbm"], "bearing": point_bearing(r["extra"])} for r in rows]
+    # stops (field log readings) and imported readings alike; a sweep's levels are relative dB, not dBm, so they place
+    # a reading but never weigh in the level estimate
+    pts = [{"ts": r["ts"], "lat": r["lat"], "lon": r["lon"], "freq_mhz": r["freq_mhz"], "dbm": None if r["fmt"] == "sweep" else r["dbm"],
+            "bearing": point_bearing(r["extra"]), "stop": r["fmt"] == "fieldlog"} for r in rows]
     lv = [p for p in pts if p["dbm"] is not None][:120]  # the latest 120 levels keep the estimate quick
     level = geo.level_fix([(p["lat"], p["lon"], p["dbm"]) for p in lv])
     bearing = geo.bearing_fix([(p["lat"], p["lon"], p["bearing"]) for p in pts if p["bearing"] is not None])
     best = geo.combine_fixes(level, bearing)
-    out = {"readings": pts, "level": level, "bearing": bearing, "best": best}
+    out = {"readings": pts, "level": level, "bearing": bearing, "best": best, "imported": sum(1 for p in pts if not p["stop"])}
     if best and here_lat is not None and here_lon is not None:
         out["from_you"] = {"m": round(1000 * geo.haversine_km(here_lat, here_lon, best["lat"], best["lon"])),
                             "deg": round(geo.bearing_deg(here_lat, here_lon, best["lat"], best["lon"])),
@@ -1459,6 +1557,8 @@ class H(BaseHTTPRequestHandler):
         import dasmail
         import mailbox
         login = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"  # the PC's own window: "local"
+        if fnum(qs, "job") is not None:  # a job's mail, people or email text: only for a login the job is shared with
+            self.job_gate(con, int(fnum(qs, "job")), "view")
         if p == "/api/mail/account":
             if method == "GET":
                 return self.send(200, {"available": True, "login": login, "account": dasmail.account(uls_import.DATA_DIR, login),
@@ -1487,6 +1587,8 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, mailqueue.template(con, int(fnum(qs, "job")), fstr(qs, "t") or "blank", firm, acct.get("name") or ""))
             if p == "/api/mail/queue":
                 its = mailqueue.items(con, login, firm, acct.get("name") or "")
+                vis = dashist.visible(con, *self.team())
+                its = [x for x in its if vis is None or not x.get("job_id") or x["job_id"] in vis]
                 return self.send(200, {"items": its, "ready": sum(1 for x in its if not x["blocked"]), "per_hour": mailqueue.SEND_PER_HOUR,
                                        "sent_last_hour": mailqueue.sent_last_hour(con, login)})
             if method != "POST":
@@ -1513,6 +1615,9 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, self.mail_send(con, login, self.body_json()))
         m = re.match(r"^/api/mail/(\d+)/apply$", p)
         if m and method == "POST":
+            rj = con.execute("SELECT r.job_id FROM das_mail m JOIN das_rfq r ON r.id = m.rfq_id WHERE m.id=?", (int(m.group(1)),)).fetchone()
+            if rj and rj[0]:
+                self.job_gate(con, rj[0], "edit")
             return self.send(200, dasmail.apply_proposal(con, int(m.group(1))))
         m = re.match(r"^/api/mail/(\d+)/attachment$", p)
         if m:
@@ -1520,6 +1625,7 @@ class H(BaseHTTPRequestHandler):
             name = fstr(qs, "name")
             if not r or not r["job_id"] or name not in [x.get("saved") for x in json.loads(r["attachments"] or "[]")]:
                 raise LookupError("That attachment isn't kept.")
+            self.job_gate(con, r["job_id"], "view")
             j = das.job_row(con, r["job_id"])
             with open(das.file_path(r["job_id"], j["name"], name), "rb") as fh:
                 return self.send(200, fh.read(), mimetypes.guess_type(name)[0] or "application/octet-stream",
@@ -1559,6 +1665,8 @@ class H(BaseHTTPRequestHandler):
         else:
             raise ValueError("What is this email about?")
         jid = refs.get("job_id")
+        if jid:  # mail filed into a job, with its files: only a login that can change the job
+            self.job_gate(con, int(jid), "edit")
         if d.get("files") and jid:
             j = das.job_row(con, int(jid))
             for name in d["files"][:10]:
@@ -1608,7 +1716,7 @@ class H(BaseHTTPRequestHandler):
                 con, cc = db(), cdb()
                 try:
                     scope = set(filter(None, fstr(qs, "scope").split(","))) or None
-                    return self.send(200, finder.everything(con, cc, fstr(qs, "q"), fnum(qs, "lat"), fnum(qs, "lon"), scope))
+                    return self.send(200, self.hide_jobs(con, finder.everything(con, cc, fstr(qs, "q"), fnum(qs, "lat"), fnum(qs, "lon"), scope)))
                 finally:
                     con.close()
                     cc.close()
@@ -1631,6 +1739,12 @@ class H(BaseHTTPRequestHandler):
                 try:
                     return self.send(200, fccid.import_grant_file(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "eq_class") or None,
                                                                   fstr(qs, "watts") or None))
+                finally:
+                    con.close()
+            if p == "/api/fccid/parts" and method == "POST":  # the kept Part 90 booster grants into the DAS parts catalogue
+                con = db()                                    # (under /fccid so the web version attaches the grants first)
+                try:
+                    return self.send(200, das.parts_from_grants(con))
                 finally:
                     con.close()
             if p == "/api/fccid/boosters":  # devices whose grants take in all these frequencies (f=851.0125,806.0125,...);
@@ -1734,7 +1848,9 @@ class H(BaseHTTPRequestHandler):
                         raise ValueError("Cell sites need a pin.")
                     cc = cdb()
                     try:
-                        return self.send(200, cells.sites(con, cc, lat, lon, fnum(qs, "radius", 5), int(mid) if mid is not None else None))
+                        # the import keeps to the states set in Data & updates: sent here, since /api/settings is the admin's
+                        return self.send(200, dict(cells.sites(con, cc, lat, lon, fnum(qs, "radius", 5), int(mid) if mid is not None else None),
+                                                   states=get_setting("update.states", "") or ""))
                     finally:
                         cc.close()
                 if p == "/api/cells/import" and method == "POST":  # an OpenCelliD download, kept to the states in Data & updates
@@ -1791,6 +1907,8 @@ class H(BaseHTTPRequestHandler):
                     self.close_connection = True  # a refused file may be left unread: never reuse this connection
                     raise
                 return self.send(200, {"files": files})
+            if sub == "sent":  # emailed to Cody as report #N (notes.mark_sent)
+                return self.send(200, notes.mark_sent(con, nid, self.body_json(), who))
             if sub == "delete" and not who:
                 notes.delete(con, NOTES_DIR, nid)
                 return self.send(200, {"ok": True})
@@ -1809,22 +1927,48 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.startswith("/api/das/x/"):  # licence watch, consent contacts, passband licensees, audit, AHJ, tunnels (dasx.py)
                 import dasx
+                mx = re.match(r"^/api/das/x/\w+/(\d+)", p)
+                if mx:
+                    self.job_gate(con, int(mx.group(1)), "view" if method == "GET" else "edit")
                 return self.send(*dasx.handle(con, method, p, qs, self.body_json))
+            if p.startswith("/api/das/monitor"):  # BDA monitoring: SNMP traps per job, off until an admin turns it on (snmpwatch.py)
+                import snmpwatch
+                return self.send(*snmpwatch.handle(con, method, p, qs, self.body_json))
+            if p.startswith("/api/das/seal"):  # sealed reports and their verify codes (das.py seal_*)
+                return self.send(*das.seal_route(con, method, p, qs, self.body_json, getattr(remote.ON, "login", None) or ""))
             m = re.match(r"^/api/das/jobs(?:/(\d+))?(?:/(\w+))?(?:/(\w+))?$", p)
             if m:
                 jid, action, sub = (int(m.group(1)) if m.group(1) else None), m.group(2), m.group(3)
+                who, role = self.team()
                 job = das.job_row(con, jid) if jid else None
-                if jid and job is None:
+                lv = dashist.level(con, jid, who, role) if job else None
+                if jid and (job is None or lv is None):  # a job not shared with this login answers as if it weren't there
                     raise LookupError(f"Job {jid} was deleted. Reload to see the current jobs.")
+                if role == "ahj" and (method, action) not in (("GET", None), ("GET", "review"), ("GET", "file"), ("POST", "review")) or \
+                        role == "ahj" and jid and action is None:
+                    raise dashist.NotAllowed("An AHJ login sees only the reports shared with it.")
                 if method == "GET":
                     if jid is None:
-                        return self.send(200, {"jobs": das.list_jobs(con), "stages": das.STAGES, "folder": das.DAS_DIR})
+                        vis = dashist.visible(con, who, role)
+                        if role == "ahj":  # the review list: what was shared with it and where each review stands
+                            return self.send(200, {"jobs": self.review_list(con, vis), "stages": das.STAGES})
+                        return self.send(200, {"jobs": [x for x in das.list_jobs(con) if vis is None or x["id"] in vis],
+                                               "stages": das.STAGES, "folder": das.DAS_DIR})
                     if action is None:
                         return self.send(200, job)
+                    if action == "history":  # every change, who and when, newest first (dashist.history)
+                        return self.send(200, dashist.history(con, jid, fnum(qs, "before"), fnum(qs, "limit", 40)))
+                    if action == "access":  # who can open the job, its share links and its review
+                        return self.send(200, self.access_info(con, job, lv))
+                    if action == "review":  # what a reviewer sees (dashist.review_view)
+                        return self.send(200, dict(dashist.review_view(job, das.list_files(jid, job["name"])["files"]), level=lv,
+                                                   who=dashist.who_now()))
+                    if action == "file" and role == "ahj" and fstr(qs, "name") not in dashist.review_files(job["data"], das.list_files(jid, job["name"])["files"]):
+                        raise LookupError("No such file.")
                     if action == "files":
                         return self.send(200, das.list_files(jid, job["name"]))
                     if action == "packet":  # the AHJ packet's parts: the bill of materials and every gathered spec sheet (Joe 11/3)
-                        return self.send(200, das.packet_zip(jid, job), "application/zip",
+                        return self.send(200, das.packet_zip(jid, das.with_part_codes(con, job)), "application/zip",
                                          {"Content-Disposition": disposition("attachment", f"{job['name']} - bill of materials and spec sheets.zip")})
                     if action == "file":
                         fp = das.file_path(jid, job["name"], fstr(qs, "name"))
@@ -1837,11 +1981,29 @@ class H(BaseHTTPRequestHandler):
                         return self.send(200, data, ctype, {"Content-Disposition": disposition("inline" if inline else "attachment", os.path.basename(fp))})
                 else:
                     if jid is None:
-                        return self.send(200, das.save_job(con, self.body_json()))
-                    if action is None:
-                        return self.send(200, das.save_job(con, self.body_json(), jid))
+                        return self.send(200, das.save_job(con, self.body_json(), page=True))
+                    if action == "review":  # an AHJ's Accept / Return, or a comment from either side, kept in the job and its log
+                        return self.send(200, self.review_post(con, job, lv, self.body_json()))
+                    if lv not in ("edit", "owner"):
+                        raise dashist.NotAllowed("This job is shared with you to look at only." if lv == "view" else
+                                                 "This job is shared with you for review only.")
+                    if action is None:  # a team login must say which revision its copy came from (dashist.check)
+                        return self.send(200, das.save_job(con, self.body_json(), jid, page=True, need_rev=bool(who)))
+                    if action == "restore":  # undo one change, or the job as it was then: a new revision, history kept
+                        d = self.body_json()
+                        try:
+                            rev = int(d.get("rev"))
+                        except (TypeError, ValueError):
+                            raise ValueError("Which revision?")
+                        return self.send(200, das.restore_job(con, jid, rev, d.get("mode") or "undo"))
+                    if action == "access":
+                        return self.send(200, self.access_post(con, job, lv, self.body_json()))
+                    if action == "share":
+                        return self.send(200, self.share_post(con, job, sub, self.body_json()))
                     if action == "note":
                         return self.send(200, das.note(con, jid, self.body_json().get("text", "")))
+                    if action == "example":  # a completed example job's people, quotes, consent, log and mail (dasexample.py)
+                        import dasexample; return self.send(200, dasexample.seed(con, jid, self.body_json(), getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"))  # noqa: E702
                     if action == "specsheets":  # every BOM part's spec sheet into the job's folder (Joe 11/3: "build spec sheets")
                         return self.send(200, das.build_specsheets(con, jid, job))
                     if action == "delete":
@@ -1879,7 +2041,10 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError("Pick where to look: the pin, a mission or a job.")
                 kinds = [k for k in fstr(qs, "kinds").split(",") if k] or None
                 rows = prospects.near(uls_import.DATA_DIR, lat, lon, fnum(qs, "radius", 10), kinds, fstr(qs, "q"), int(fnum(qs, "limit", 500)))
-                return self.send(200, {"prospects": das.with_pipeline(con, rows), "counts": prospects.counts(uls_import.DATA_DIR),
+                remember_prospect_spot(lat, lon, fnum(qs, "radius", 10))  # the next start warms it (warm_prospects)
+                vis = dashist.visible(con, *self.team())
+                pl = [x if vis is None or x.get("job_id") in vis else dict(x, job_id=None) for x in das.with_pipeline(con, rows)]
+                return self.send(200, {"prospects": pl, "counts": prospects.counts(uls_import.DATA_DIR),
                                        "sources": {k: {"name": v.get("name"), "license": v.get("license")} for k, v in prospects.SOURCES.items()}})
             if p == "/api/das/prospects/need":  # RF need per prospect, an estimate (need.py, 11/4); a GET, so view logins see it
                 import need
@@ -1921,7 +2086,8 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, got)
                 have = con.execute("SELECT job_id FROM das_prospect WHERE id=?", (pid,)).fetchone()
                 if have and have[0] and das.job_row(con, have[0]):
-                    return self.send(200, das.job_row(con, have[0]))  # one job per prospect
+                    self.job_gate(con, have[0], "view")  # one job per prospect: someone else's, not shared, stays theirs
+                    return self.send(200, das.job_row(con, have[0]))
                 job = das.save_job(con, {"name": row["name"], "stage": "Lead", "data": {"lat": row["lat"], "lon": row["lon"],
                       "address": ", ".join(x for x in (row.get("address"), row.get("city"), row.get("state"), row.get("zip")) if x),
                       "notes": f"From prospects ({row['source']}): {row.get('phone') or ''} {row.get('website') or ''}".strip()}})
@@ -1932,6 +2098,12 @@ class H(BaseHTTPRequestHandler):
             # mail from the person's own mailbox (Cody 11/4: send and receive without leaving RF Recon): dasmail.py, mailbox.py
             if p.startswith("/api/mail/"):
                 return self.mail_route(p, method, qs, con)
+            if p == "/api/das/share-links":  # read-only share links for outside people: off until the admin turns them on
+                if method == "POST":
+                    if self.team()[0]:
+                        raise dashist.NotAllowed("Only the admin turns share links on or off.")
+                    set_setting("das.share_links", bool(self.body_json().get("on")))
+                return self.send(200, {"on": self.share_on()})
             if p == "/api/das/firm":  # the firm's own details for the DAS Pitch deck, kept for every login (11/3)
                 if method == "GET":
                     return self.send(200, get_setting("das.firm", {}) or {})
@@ -1946,12 +2118,18 @@ class H(BaseHTTPRequestHandler):
                 rid, action = (int(m.group(1)) if m.group(1) else None), m.group(2)
                 if rid is None:
                     if method == "GET":
+                        if fnum(qs, "job"):
+                            self.job_gate(con, int(fnum(qs, "job")), "view")
                         return self.send(200, {"rfqs": das.list_rfqs(con, int(fnum(qs, "job", 0)))})
                     d = self.body_json()
                     job = das.job_row(con, int(d.get("job_id") or 0))
                     if not job:
                         raise LookupError("That job was deleted.")
+                    self.job_gate(con, job["id"], "edit")
                     return self.send(200, das.create_rfq(con, job["id"], job, d.get("suppliers") or [], d.get("need_by", ""), d.get("ship_to", ""), d.get("notes", "")))
+                rj = con.execute("SELECT job_id FROM das_rfq WHERE id=?", (rid,)).fetchone()
+                if rj and rj[0]:  # a request for quote is its job's: the job's access list says who sees and changes it
+                    self.job_gate(con, rj[0], "view" if method == "GET" else "edit")
                 if method == "GET":
                     q = das.get_rfq(con, rid)
                     if action == "sheet":
@@ -1972,6 +2150,9 @@ class H(BaseHTTPRequestHandler):
                 if action == "delete":
                     for t in ("das_quote", "das_rfq_supplier"):
                         con.execute(f"DELETE FROM {t} WHERE rfq_id=?", (rid,))
+                    # its mail stays as history but leaves the request: a new request can get this id back, and showed
+                    # the old replies (and their Apply) as its own (11/4)
+                    con.execute("UPDATE das_mail SET rfq_id=NULL WHERE rfq_id=?", (rid,))
                     con.execute("DELETE FROM das_rfq WHERE id=?", (rid,))
                     con.commit()
                     return self.send(200, {"ok": True})
@@ -1987,13 +2168,17 @@ class H(BaseHTTPRequestHandler):
                         with open(fp, "rb") as fh:
                             return self.send(200, fh.read(), "application/pdf", {"Content-Disposition": disposition("inline", os.path.basename(fp))})
                     das.seed_parts(con)  # once: a starter catalogue from the research parts, before any price list (11/3)
+                    das.sync_grant_parts(con)  # every Part 90 booster on the kept FCC grants, when they changed (11/4)
                     ids = [int(x) for x in fstr(qs, "ids").split(",") if x.strip().isdigit()] if fstr(qs, "ids") else None
-                    return self.send(200, das.list_parts(con, fstr(qs, "q"), fstr(qs, "standard") == "1", ids, int(fnum(qs, "limit", 200))))
+                    return self.send(200, das.list_parts(con, fstr(qs, "q"), fstr(qs, "standard") == "1", ids, int(fnum(qs, "limit", 200)),
+                                                             grants=fstr(qs, "grants") == "1"))
                 if p == "/api/das/parts/import":
                     return self.send(200, das.import_parts(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "supplier")))
                 if action == "delete":
                     das.delete_part(con, pid)
                     return self.send(200, {"ok": True})
+                if action == "pattern":  # a Planet .msi / .pln antenna pattern onto the part, or a new antenna part (11/4)
+                    return self.send(200, das.save_pattern(con, pid, fstr(qs, "name"), self.raw_body()))
                 if action == "spec":
                     return self.send(200, das.save_spec(con, pid, self.raw_body()))
                 return self.send(200, das.save_part(con, self.body_json(), pid))
@@ -2001,7 +2186,10 @@ class H(BaseHTTPRequestHandler):
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None:
                     raise ValueError("The pre-survey needs the building's location.")
-                res = das.presurvey(con, lat, lon, fnum(qs, "radius", 15), fnum(qs, "loss", 15), fnum(qs, "threshold", -95))
+                # no loss given: the job's building's own ITU-R P.2109 entry loss (das.building_entry_loss)
+                jid = fnum(qs, "job")
+                bld = ((das.job_row(con, int(jid)) or {}).get("data") or {}) if jid is not None and fnum(qs, "loss") is None else None
+                res = das.presurvey(con, lat, lon, fnum(qs, "radius", 15), fnum(qs, "loss"), fnum(qs, "threshold", -95), building=bld)
                 # beside the free-space levels, the realistic ones: Hata + terrain where cached (coverage.py, 11/4)
                 return self.send(200, coverage.presurvey_realistic(con, res, lat, lon, fstr(qs, "env") or "suburban"))
             if p == "/api/das/nsi":  # the USACE National Structure Inventory for the job's building (nsi.py; a small box, never bulk)
@@ -2010,6 +2198,8 @@ class H(BaseHTTPRequestHandler):
                 if lat is None or lon is None:
                     raise ValueError("Set the building's location first.")
                 jid = fnum(qs, "job")
+                if jid is not None:
+                    self.job_gate(con, int(jid), "view")
                 job = das.job_row(con, int(jid)) if jid is not None else None
                 try:
                     return self.send(200, nsi.lookup(lat, lon, outline=(((job or {}).get("data") or {}).get("building") or {}).get("outline")))
@@ -2018,8 +2208,10 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/das/parse" and method == "POST":  # any tool's results file -> rows + a guess at its columns
                 fmt, head, rows = das.read_table(fstr(qs, "name"), self.raw_body())
                 return self.send(200, {"format": fmt, "headers": head, "rows": rows[:20000], "total": len(rows), "guess": das.guess_for(fmt, head)})
+            if p == "/api/das/sweep" and method == "POST":  # a cable / antenna analyzer's sweep export -> its trace (dassweep.js)
+                return self.send(200, das.read_sweep(fstr(qs, "name"), self.raw_body()))
             if p == "/api/das/search":  # everything in the DAS tab: jobs (every field), contacts, log, files, research
-                return self.send(200, finder.das_search(con, fstr(qs, "q")))
+                return self.send(200, self.hide_jobs(con, finder.das_search(con, fstr(qs, "q"))))
             if p == "/api/das/building":  # the building's outline, footprint and levels from OpenStreetMap
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None:
@@ -2042,8 +2234,169 @@ class H(BaseHTTPRequestHandler):
                 got = [terrain.download_area(float(a["lat"]), float(a["lon"]), float(a.get("radius") or 15)) for a in self.body_json().get("areas", [])]
                 return self.send(200, {"areas": got, **terrain.cache_status()})
             return self.send(404, {"error": "not found"})
+        except dashist.Refused as e:  # a stale or unknown revision: what clashed, for the page to ask about (409), or reload (428)
+            return self.send(e.status, e.body)
+        except dashist.NotAllowed as e:
+            return self.send(403, {"error": str(e)})
         except ValueError as e:
             return self.send(400, {"error": str(e)})
+        finally:
+            con.close()
+
+    # ------------------------------------------------ per-job access (dashist.py): team logins see the jobs shared with them
+    def team(self):
+        """The signed-in team login answering now and its role, or (None, None) for the admin and the PC's own window."""
+        who = getattr(remote.ON, "user", None)
+        return (who, remote.role_of(who) or "view") if who else (None, None)
+
+    def job_gate(self, con, jid, need="view"):
+        """The login's level on the job; a job not shared with it answers as if it weren't there (404), a change it
+        can't make is refused (403)."""
+        lv = dashist.level(con, jid, *self.team())
+        if lv is None or not con.execute("SELECT 1 FROM das_job WHERE id=?", (jid,)).fetchone():
+            raise LookupError(f"Job {jid} was deleted. Reload to see the current jobs.")
+        if need == "edit" and lv not in ("edit", "owner"):
+            raise dashist.NotAllowed("This job is shared with you to look at only." if lv == "view" else "This job is shared with you for review only.")
+        return lv
+
+    def hide_jobs(self, con, res):
+        """A search answer without the jobs (and their log lines and files) this login can't open."""
+        vis = dashist.visible(con, *self.team())
+        if vis is None:
+            return res
+
+        def walk(x):
+            if isinstance(x, dict):
+                out = {k: walk(v) for k, v in x.items()}
+                if isinstance(out.get("items"), list) and any(isinstance(i, dict) and "job_id" in i for i in x.get("items") or []):
+                    out["items"] = [i for i in out["items"] if not (isinstance(i, dict) and i.get("job_id") is not None and i["job_id"] not in vis)]
+                    if "count" in out:
+                        out["count"] = len(out["items"])
+                return out
+            if isinstance(x, list):
+                return [walk(v) for v in x if not (isinstance(v, dict) and v.get("kind") in ("dasjob", "dasfile") and v.get("job_id") not in vis)]
+            return x
+        return walk(res)
+
+    def review_list(self, con, vis):
+        """An AHJ login's list: the jobs shared with it, where each is and where its review stands."""
+        out = []
+        for r in con.execute("SELECT id, name, stage, data, updated_at FROM das_job ORDER BY updated_at DESC").fetchall():
+            if vis is not None and r["id"] not in vis:
+                continue
+            d = json.loads(r["data"] or "{}")
+            rv = d.get("review") if isinstance(d.get("review"), dict) else {}
+            out.append({"id": r["id"], "name": r["name"], "stage": r["stage"], "updated_at": r["updated_at"], "address": d.get("address"),
+                        "ahj": d.get("ahj"), "review": rv.get("status") or "waiting"})
+        return out
+
+    def share_on(self):
+        return bool(get_setting("das.share_links", False))
+
+    def access_info(self, con, job, lv):
+        """Who can open the job and how, the people who could be added, its share links and its review."""
+        jid, manage = job["id"], lv in ("edit", "owner")
+        people = {u["name"].lower(): u for u in remote.users()}
+        rows = [dict(a, name="Whole team" if a["who"] == "*" else (people.get(a["who"]) or {}).get("name") or a["who"],
+                     role="" if a["who"] == "*" else (people.get(a["who"]) or {}).get("role") or "gone") for a in dashist.access_list(con, jid)]
+        files = das.list_files(jid, job["name"])["files"]
+        rv = job["data"].get("review") if isinstance(job["data"].get("review"), dict) else {}
+        return {"list": rows, "level": lv, "can_manage": manage, "admin": self.team()[0] is None,
+                "people": [{"name": u["name"], "role": u["role"]} for u in people.values()] if manage else [],
+                "share": {"on": self.share_on(), "links": dashist.share_list(con, jid) if manage else [], "days": list(dashist.SHARE_DAYS)},
+                "review": {"status": rv.get("status") or "waiting", "thread": rv.get("thread") or []},
+                "files": [f["name"] for f in files], "review_files": dashist.review_files(job["data"], files),
+                "picked": isinstance(job["data"].get("review_files"), list)}
+
+    def access_post(self, con, job, lv, d):
+        """{who, level}: a login (or "*", the whole team) on the job at view / review / edit, or off it ("none");
+        {review_files: [...]}: the files a reviewer sees."""
+        jid, by = job["id"], dashist.who_now()
+        if "review_files" in d:
+            names = {f["name"] for f in das.list_files(jid, job["name"])["files"]}
+            pick = d["review_files"]
+            das.save_job(con, {"data": {"review_files": None if pick is None else [n for n in pick if n in names]}}, jid)
+            return self.access_info(con, das.job_row(con, jid), lv)
+        who, level_ = (d.get("who") or "").strip(), d.get("level") or ""
+        if who != "*" and not remote.role_of(who):
+            raise ValueError("No login by that name. The admin adds people in Data & updates, Remote access.")
+        if who != "*" and remote.role_of(who) == "admin":
+            raise ValueError("An admin login sees every job already.")
+        dashist.grant(con, jid, who, level_, by)
+        con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)",
+                    (jid, now(), "access", f"{'Whole team' if who == '*' else who}: {'removed' if level_ == 'none' else level_} ({by})"))
+        con.commit()
+        return self.access_info(con, job, lv)
+
+    def share_post(self, con, job, sub, d):
+        """A read-only link that expires ({days, label}), or one revoked (sub "revoke", {id}). Off until the admin
+        turns share links on (POST /api/das/share-links)."""
+        jid = job["id"]
+        if sub == "revoke":
+            return {"links": dashist.share_revoke(con, jid, int(d.get("id") or 0))}
+        if sub:
+            raise LookupError("No such share action.")
+        if not self.share_on():
+            raise dashist.NotAllowed("Share links are off. The admin turns them on in a job's Log tab, Access.")
+        made = dashist.share_make(con, jid, dashist.who_now(), d.get("days"), d.get("label") or "")
+        con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)",
+                    (jid, now(), "share", f"read-only link{' for ' + d['label'].strip()[:80] if (d.get('label') or '').strip() else ''}, "
+                                          f"until {made['expires'][:16]} ({dashist.who_now()})"))
+        con.commit()
+        return {"path": f"/share/{made['token']}", "expires": made["expires"], "links": dashist.share_list(con, jid)}
+
+    def review_post(self, con, job, lv, d):
+        """{decision: accept | return | comment, comment}: Accept and Return are the reviewer's (a review grant); a comment
+        is anyone's who can open the job beyond looking. Kept in the job (data.review) and its log."""
+        decision = d.get("decision")
+        if decision in ("accept", "return") and lv != "review":
+            raise dashist.NotAllowed("Accept and Return are the reviewer's: share the job with their login for review.")
+        if decision == "comment" and lv not in ("review", "edit", "owner"):
+            raise dashist.NotAllowed("This job is shared with you to look at only.")
+        who, role = dashist.who_now(), self.team()[1] or "owner"
+        rv = dashist.review_add(job["data"].get("review"), who, role, decision, d.get("comment"))
+        j = das.save_job(con, {"data": {"review": rv}}, job["id"], who=who)
+        word = {"accept": "Accepted", "return": "Returned", "comment": "Comment"}[decision]
+        con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)",
+                    (job["id"], now(), "review", f"{word} by {who}{': ' + rv['thread'][-1]['comment'] if rv['thread'][-1]['comment'] else ''}"[:2000]))
+        con.commit()
+        return dict(dashist.review_view(j, das.list_files(job["id"], j["name"])["files"]), level=lv, who=who)
+
+    def share_route(self, p, qs):
+        """A read-only share link (dashist.py): the review page, its data and its files, for as long as the link lives and
+        share links are on. Anything else here answers 404, signed out or not."""
+        m = re.match(r"^/share/([A-Za-z0-9_-]{32,64})(?:/(data|file|review\.js|das\.js))?$", p)
+        hdr = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}
+        if not m or not self.share_on():
+            return self.send(404, {"error": "not found"}, extra=hdr)
+        con = db()
+        try:
+            jid = dashist.share_find(con, m.group(1))
+            job = das.job_row(con, jid) if jid else None
+            if not job:
+                return self.send(404, {"error": "This link has expired or was turned off."}, extra=hdr)
+            what = m.group(2)
+            if what in ("review.js", "das.js"):
+                with open(os.path.join(STATIC, "dasreview.js" if what == "review.js" else "das.js"), "rb") as fh:
+                    return self.send(200, fh.read(), "text/javascript; charset=utf-8", hdr)
+            if what is None:
+                with open(os.path.join(STATIC, "review.html"), "rb") as fh:
+                    page = fh.read().replace(b"/static/das.js", f"/share/{m.group(1)}/das.js".encode()) \
+                        .replace(b"/static/dasreview.js", f"/share/{m.group(1)}/review.js".encode())
+                return self.send(200, page, "text/html; charset=utf-8", dict(hdr, **{"X-Frame-Options": "DENY"}))
+            files = das.list_files(jid, job["name"])["files"]
+            view = dashist.review_view(job, files)
+            if what == "data":  # an owner or radio shop sees where the review stands, not the thread
+                view["review"] = {"status": view["review"]["status"], "thread": []}
+                return self.send(200, dict(view, share=True, level="view"), extra=hdr)
+            name = fstr(qs, "name")
+            if name not in view["files"]:
+                return self.send(404, {"error": "No such file."}, extra=hdr)
+            fp = das.file_path(jid, job["name"], name)
+            with open(fp, "rb") as fh:
+                data = fh.read()
+            ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
+            return self.send(200, data, ctype, dict(hdr, **{"Content-Disposition": disposition("inline", os.path.basename(fp))}))
         finally:
             con.close()
 
@@ -2052,6 +2405,11 @@ class H(BaseHTTPRequestHandler):
         qs = parse_qs(u.query)
         p = u.path
         try:
+            if p.startswith("/share/"):  # a read-only share link (off unless the admin turned them on; dashist.py)
+                return self.share_route(p, qs)
+            if p == "/review":  # the review page: an AHJ login's whole RF Recon (dasreview.js)
+                with open(os.path.join(STATIC, "review.html"), "rb") as fh:
+                    return self.send(200, fh.read(), "text/html; charset=utf-8")
             if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("GET", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
@@ -2061,6 +2419,14 @@ class H(BaseHTTPRequestHandler):
             if p in ("/", "/index.html"):
                 with open(os.path.join(STATIC, "index.html"), "rb") as fh:
                     return self.send(200, fh.read(), "text/html; charset=utf-8")
+            if p == "/verify":  # a sealed report's public verify page: off until Cody switches das_verify_public on (das.py)
+                if not das.public_verify_on(get_setting):
+                    return self.send(404, b"Report verification isn't switched on here.", "text/plain; charset=utf-8")
+                con = db()
+                try:
+                    return self.send(200, das.public_verify_page(con, fstr(qs, "code")), "text/html; charset=utf-8")
+                finally:
+                    con.close()
             if p == "/favicon.ico":  # browsers ask for it on every page; it was a 404 each time (11/3)
                 with open(os.path.join(STATIC, "app", "icons", "icon-192.png"), "rb") as fh:
                     return self.send(200, fh.read(), "image/png", {"Cache-Control": "max-age=86400"})
@@ -2083,6 +2449,9 @@ class H(BaseHTTPRequestHandler):
                 return self.tile(m.group(1) or "osm", *m.groups()[1:])
             if p == "/api/kit":  # this copy's install-kit version and the newest one (kitupdate.py)
                 return self.send(200, kitupdate.status())
+            if p == "/api/versions":  # Ways in's Version column: this copy's build, the published site's, the newest kit, Android
+                return self.send(200, {"this": build.version(), "server": bool(remote.SERVER_URL), "site": kitupdate.site_build(),
+                                       "kit": kitupdate.latest(), "android": ANDROID_VERSION})
             m = re.match(r"^/api/research/(pim|parts|plans|budget)$", p)  # cited field research (static/research): PIM, Parts, DAS Plans, link budget
             if m:
                 fp = os.path.join(STATIC, "research", {"pim": "pim.json", "parts": "rf_parts.json", "plans": "plans_materials.json",
@@ -2201,8 +2570,9 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200 if mm else 404, mm or {"error": "no such mission"})
             if p == "/api/layers":
                 cc = cdb()
-                rows = [dict(r) for r in cc.execute("SELECT source, layer, COUNT(*) n, MAX(fetched_at) fetched FROM ext_point GROUP BY source, layer")]
-                fetches = [dict(r) for r in cc.execute("SELECT * FROM ext_fetch ORDER BY id DESC LIMIT 20")]
+                rows = [dict(r) for r in cc.execute("SELECT source, layer, COUNT(*) n, MAX(fetched_at) fetched FROM ext_point GROUP BY source, layer")
+                        if build.allowed(r["source"])]  # personal-only sources stay out of a team login's list
+                fetches = [dict(r) for r in cc.execute("SELECT * FROM ext_fetch ORDER BY id DESC LIMIT 20") if build.allowed(r["source"])]
                 cc.close()
                 return self.send(200, {"layers": rows, "fetches": fetches})
             if p == "/api/settings":
@@ -2557,7 +2927,7 @@ class RemoteH(H):
         user = remote.user_of(self.headers.get("Cookie"))
         role = remote.role_of(user) if user else None
         # what the handler itself reads: a note's words and files (anyone signed in), and every change by a full or admin login
-        keep = remote.note_write(method, p) or (bool(user) and remote.writer(role) and not remote.refused(method, p, role))
+        keep = bool(user) and remote.reads_body(method, p, role) or remote.note_write(method, p) and role != "ahj"
         if method != "GET" and p != "/remote/login" and not keep:
             self.raw_body()  # read what was sent even when refusing it: left on a kept-alive connection, it garbles the next request
             if self.headers.get("Content-Length"):
@@ -2579,6 +2949,10 @@ class RemoteH(H):
         # the sign-in page's look, and RF Recon for Android (Help › Android app): a phone fetches it before it signs in
         if p.startswith(("/static/theme/", "/static/app/", "/static/android/")) or p == "/favicon.ico":
             return handler()
+        if p.startswith("/share/") and method == "GET":  # a read-only share link: 404 unless share links are on (dashist.py)
+            return handler()
+        if p == "/verify" and method == "GET" and das.public_verify_on(get_setting):  # signed out, only when switched on (das.py)
+            return handler()
         if not user:
             self.close_connection = keep  # a refused note's body is never read
             if method == "GET" and p in ("/", "/index.html"):
@@ -2586,6 +2960,8 @@ class RemoteH(H):
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})
         if p == "/api/me":
             return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL)})
+        if role == "ahj" and p in ("/", "/index.html"):  # an AHJ reviewer's RF Recon is the review page
+            return self.send(303, b"", "text/plain", {"Location": "/review"})
         if p in remote.EMPTY and role != "admin":
             return self.send(200, remote.EMPTY[p])
         why = remote.refused(method, p, role)
@@ -2636,7 +3012,9 @@ def main():
     UPD = updmod.Updater(DB_PATH, CROWD_PATH, get_setting, set_setting, active_areas)
     if not a.no_auto:
         UPD.start()
-    host = "0.0.0.0" if a.lan else "127.0.0.1"
+    if os.environ.get("RF_RECON_NO_WARM") != "1":  # the first DAS Prospects list after a start is fast (warm_prospects)
+        threading.Thread(target=warm_prospects, daemon=True).start()
+    host ="0.0.0.0" if a.lan else "127.0.0.1"
     rport = a.remote_port if a.remote_port is not None else (remote.PORT if a.port == 8765 else 0)
     if rport:  # the live copy opens the remote door; a test server only when asked (--remote-port)
         serve_remote(rport)

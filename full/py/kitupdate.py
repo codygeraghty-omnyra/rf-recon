@@ -23,7 +23,7 @@ _LATEST = {"at": 0, "data": None}
 
 
 def current(app_dir=HERE):
-    """This copy's kit version, or None when it isn't a kit copy (Cody's runs from the Drive folder)."""
+    """This copy's kit version, or None when it isn't a kit copy (Cody's PC runs a git checkout; the server, a deploy)."""
     try:
         with open(os.path.join(app_dir, "VERSION"), encoding="utf-8") as fh:
             return json.load(fh)
@@ -44,6 +44,33 @@ def latest():
     return _LATEST["data"]
 
 
+SITE_SW = LATEST_URL.rsplit("/", 1)[0] + "/sw.js"  # the web version and RF Recon lite: publish.py stamps one build id into it
+_SITE = {"at": 0, "data": None}
+
+
+def site_build():
+    """The published web version's and RF Recon lite's build id (phone/publish.py writes it into sw.js as VERSION) and
+    when GitHub last served a new one; asked at most every ten minutes; None when offline."""
+    import re
+    if time.time() - _SITE["at"] < 600:
+        return _SITE["data"]
+    try:
+        with urllib.request.urlopen(urllib.request.Request(SITE_SW, headers={"User-Agent": "RF-Recon/2.0"}), timeout=8) as r:
+            text, mod = r.read(20_000).decode("utf-8", "replace"), r.headers.get("Last-Modified")
+        m = re.search(r'const VERSION = "([^"]+)"', text)
+        date = None
+        if mod:
+            from email.utils import parsedate_to_datetime
+            try:
+                date = parsedate_to_datetime(mod).astimezone().strftime("%Y-%m-%d %H:%M")
+            except (TypeError, ValueError):
+                date = None
+        _SITE.update(at=time.time(), data={"build": m.group(1), "date": date} if m else None)
+    except (OSError, ValueError):
+        _SITE.update(at=time.time() - 480, data=None)  # offline: try again in two minutes
+    return _SITE["data"]
+
+
 def status():
     cur, new = current(), None
     if cur:
@@ -56,7 +83,7 @@ def apply(data, app_dir=HERE, root=ROOT):
     """Write a kit zip's files over this copy. Returns what changed; raises ValueError for a zip that isn't one."""
     cur = current(app_dir)
     if not cur:
-        raise ValueError("This copy isn't from the install kit: it updates with its Drive folder.")
+        raise ValueError("This copy isn't from the install kit: it updates from git (Cody's PC) or by a deploy (the server).")
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:

@@ -5,11 +5,30 @@
    Prospects: the schools, colleges and hospitals near the pin from the pack's own lists (fieldpack.py, packs made since
    11/4), to call or look up; their status, first emails and jobs are kept in RF Recon on the PC or the web version. */
 
-const DAS_PROFILES = {  // the PC's AHJ presets
+// the PC's AHJ presets (static/das.js DAS_PROFILES), the numbers a phone grid test scores by. ul: an uplink reading in
+// every square (the AHJ's own rule; a square with only a downlink reading is untested, never a pass). The PC keeps every
+// source; the phone keeps the section in `src`. A test saved under an old name keeps it (the first four)
+const DAS_PROFILES = {
   "IFC 2021 + NFPA 1225": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12},
   "IFC 2024 / NFPA 1225 (DAQ only)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12},
   "Strict (DAQ 3.4, 24 h, as OCSD)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 100, battery_h: 24},
   "Older NFPA 72 (90% general)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12},
+  "San Diego Fire-Rescue C-1 (rev 01/22/2026)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "C-1 §IV, §V.B"},
+  "LA County Fire V7-C3-S21 (02/02/2023)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 100, battery_h: 24, src: "V7-C3-S21 §IV.B.2"},
+  "Clark County / Las Vegas FPAN (12/18/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "FPAN §7.0"},
+  "Seattle SFC 510 (2018) + CAM 5123": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "SFC 510.4.1, 510.5.3"},
+  "Colorado Springs FD (6/30/2023)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "CSFD II.C"},
+  "Miami-Dade Fire Rescue (rev 05-2024)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12, src: "MDFR General Guidelines p.5 (no contractor uplink testing)"},
+  "Osceola County FL (06/2024)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12, src: "Osceola ERCES p.15-16 (−95 dBm: RF Recon default)"},
+  "Santa Clara County FD C-2 (rev 09/01/2020)": {threshold: null, daq: 3.4, general_pct: 90, critical_pct: 99, battery_h: 24, ul: true, src: "C-2 V.A, VIII.A"},
+  "Murray City UT": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "Murray ERCS 1., 5."},
+  "Charlotte / Mecklenburg ERCCS (rev 09/04/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "ERCCS Signal Strength Survey p.3 (general %: RF Recon default)"},
+  "Denver Policy 510-1 (02/01/2018)": {threshold: -100, daq: 3.4, general_pct: 95, critical_pct: 100, battery_h: 12, src: "Policy 510-1 ATP A"},
+  "Riverside County Fire OFM-13 (11/2023)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "OFM-13 p.3-5"},
+  "Durham NC BDA permit (Doc. 47330)": {threshold: -95, daq: 3.0, general_pct: 100, critical_pct: 99, battery_h: 12, src: "Doc. 47330 App. 4 3.g"},
+  "College Station TX": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "College Station handout p.1-2"},
+  "Salt Lake City FD (02/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "SLC states no numbers: RF Recon defaults"},
+  "Douglas County CO (DCSORS Rev 2.0)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "DCSORS Step 1 (PCTEL tools required there)"},
 };
 const DAS_DAQ = ["", "1", "2", "2.5", "3", "3.4", "3.5", "4", "4.5", "5"];
 // uplink bands a PIM product can land in (the PC's PIM tab, static/fieldref.js)
@@ -26,18 +45,22 @@ const dHas = v => v !== null && v !== undefined && v !== "" && !isNaN(v);
 const dProfile = t => DAS_PROFILES[t.profile] || DAS_PROFILES["IFC 2021 + NFPA 1225"];
 const dSave = () => kv.set("das.tests", DAS.tests);
 
-function dasPass(t, r) {  // null when untested; the same rule as the PC (gridPass)
+function dasPass(t, r) {  // null when untested; the same rule as the PC (gridPass, and uplink in every square where the AHJ asks it)
   if (!r || !(dHas(r.dl) || dHas(r.daq))) return null;
   const P = dProfile(t), lvl = v => P.threshold == null || !dHas(v) || +v >= P.threshold;
-  return lvl(r.dl) && lvl(r.ul) && (!dHas(r.daq) || +r.daq >= P.daq);
+  const ok = lvl(r.dl) && lvl(r.ul) && (!dHas(r.daq) || +r.daq >= P.daq) && (!dHas(r.ul_daq) || +r.ul_daq >= P.daq);
+  if (ok && P.ul && dNoUl(r)) return null;  // a downlink that passes with no uplink reading: untested for uplink
+  return ok;
 }
+const dNoUl = r => !!r && !dHas(r.ul) && !dHas(r.ul_daq);  // no uplink reading in the square
+const dUlMissing = (t, r) => !!dProfile(t).ul && dNoUl(r) && !!r && (dHas(r.dl) || dHas(r.daq)) && dasPass(t, r) === null;
 function dasFloor(t, f) {  // squares marked not tested leave the count; critical squares are judged on their own percentage
-  const skip = new Set(f.skip || []), crit = new Set(f.critical || []), o = {n: f.grids, gen: 0, genPass: 0, crit: 0, critPass: 0, untested: 0};
+  const skip = new Set(f.skip || []), crit = new Set(f.critical || []), o = {n: f.grids, gen: 0, genPass: 0, crit: 0, critPass: 0, untested: 0, noUl: 0};
   for (let g = 1; g <= f.grids; g++) {
     if (skip.has(g)) continue;
-    const c = crit.has(g), p = dasPass(t, t.results[`${f.name}|${g}`]);
+    const c = crit.has(g), r = t.results[`${f.name}|${g}`], p = dasPass(t, r);
     c ? o.crit++ : o.gen++;
-    if (p == null) o.untested++; else if (p) c ? o.critPass++ : o.genPass++;
+    if (p == null) { o.untested++; if (dUlMissing(t, r)) o.noUl++; } else if (p) c ? o.critPass++ : o.genPass++;
   }
   const P = dProfile(t);
   o.genPct = o.gen ? Math.round(100 * o.genPass / o.gen) : 100; o.critPct = o.crit ? Math.round(100 * o.critPass / o.crit) : 100;
@@ -72,7 +95,7 @@ function dasTest(v, t) {
   const sq = g => { const r = t.results[`${f.name}|${g}`], p = skip.has(g) ? "skip" : dasPass(t, r);
     const bg = p === "skip" ? "transparent" : p == null ? "var(--wash)" : p ? "rgba(60,207,122,.28)" : "rgba(229,83,75,.32)";
     return `<button data-act="dassq" data-g="${g}" style="aspect-ratio:1;border-radius:12px;border:${crit.has(g) ? "2px solid #fab219" : "1px solid var(--g-border)"};background:${bg};color:var(--ink);font:inherit;padding:2px;${p === "skip" ? "opacity:.45;text-decoration:line-through" : ""}">
-      <b style="display:block;font-size:15px">${g}</b><small style="font-size:10px;color:var(--ink-2)">${p === "skip" ? "not tested" : r && dHas(r.dl) ? `${num(r.dl)}` : r && dHas(r.daq) ? `DAQ ${r.daq}` : ""}</small></button>`; };
+      <b style="display:block;font-size:15px">${g}</b><small style="font-size:10px;color:var(--ink-2)">${p === "skip" ? "not tested" : dUlMissing(t, r) ? "no uplink" : r && dHas(r.dl) ? `${num(r.dl)}` : r && dHas(r.daq) ? `DAQ ${r.daq}` : ""}</small></button>`; };
   v.innerHTML = head(esc(t.name), esc([t.address, `${t.profile}: ${P.threshold != null ? `${P.threshold} dBm, ` : ""}DAQ ${P.daq.toFixed(1)}, ${P.general_pct}% / ${P.critical_pct}% critical`].filter(Boolean).join(" · ")))
     + `<div class="row" style="margin:0 2px 10px;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="dasback">‹ All tests</button>
         <button class="btn small" data-act="dasexport">Export CSV for the PC</button><button class="btn small" data-act="dasfloors">Floors</button>
@@ -81,19 +104,20 @@ function dasTest(v, t) {
         return `<button class="chip ${x.name === f.name ? "on" : ""}" data-act="dasfloor" data-f="${esc(x.name)}"><span class="dot" style="background:${dColor(s)}"></span> ${esc(x.name)}</button>`; }).join("")}</div>`
     + `<div class="kpis"><div class="kpi glass" style="--i:0"><div class="v" style="color:${dColor(st)}">${st.genPct}%</div><div class="k">General · need ${P.general_pct}%</div></div>
         <div class="kpi glass" style="--i:1"><div class="v">${st.crit ? `${st.critPct}%` : "–"}</div><div class="k">Critical · need ${P.critical_pct}%</div></div>
-        <div class="kpi glass" style="--i:2"><div class="v">${st.untested}</div><div class="k">Untested</div></div></div>`
+        <div class="kpi glass" style="--i:2"><div class="v">${st.untested}</div><div class="k">Untested${st.noUl ? ` · ${st.noUl} no uplink` : ""}</div></div></div>`
     + `<div class="card glass" style="--i:3"><h2>Floor ${esc(f.name)} · ${f.grids} squares</h2>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${Array.from({length: f.grids}, (_, i) => sq(i + 1)).join("")}</div>
-        <p class="hint" style="margin:8px 0 0">Tap a square to enter its reading. Amber edge: critical area. Squares marked not tested leave the count.</p></div>`;
+        <p class="hint" style="margin:8px 0 0">Tap a square to enter its reading. Amber edge: critical area. Squares marked not tested leave the count.${P.ul ? ` This AHJ requires an uplink reading in every square (${esc(P.src || "")}): a square with only a downlink is untested.` : ""}</p></div>`;
 }
 
 function dasSquare(t, f, g) {
   const key = `${f.name}|${g}`, r = t.results[key] || {}, skip = (f.skip || []).includes(g), crit = (f.critical || []).includes(g), P = dProfile(t);
-  openSheet(`Floor ${f.name} · square ${g}`, `Pass: ${P.threshold != null ? `${P.threshold} dBm or better, ` : ""}DAQ ${P.daq.toFixed(1)} or better.`, `
+  openSheet(`Floor ${f.name} · square ${g}`, `Pass: ${P.threshold != null ? `${P.threshold} dBm or better, ` : ""}DAQ ${P.daq.toFixed(1)} or better${P.ul ? ", and an uplink reading here" : ""}.`, `
     <form id="dsqForm">
       <div class="two"><div class="field"><label for="dq_dl">Downlink, dBm</label><input id="dq_dl" inputmode="decimal" value="${dHas(r.dl) ? r.dl : ""}" placeholder="-85"></div>
-        <div class="field"><label for="dq_ul">Uplink, dBm (optional)</label><input id="dq_ul" inputmode="decimal" value="${dHas(r.ul) ? r.ul : ""}"></div></div>
-      <div class="field"><label for="dq_daq">Delivered audio quality (DAQ)</label><select id="dq_daq">${DAS_DAQ.map(d => `<option value="${d}" ${String(r.daq ?? "") === d ? "selected" : ""}>${d || "not scored"}</option>`).join("")}</select></div>
+        <div class="field"><label for="dq_ul">Uplink, dBm${P.ul ? " (required here)" : " (optional)"}</label><input id="dq_ul" inputmode="decimal" value="${dHas(r.ul) ? r.ul : ""}"></div></div>
+      <div class="two"><div class="field"><label for="dq_daq">Downlink DAQ</label><select id="dq_daq">${DAS_DAQ.map(d => `<option value="${d}" ${String(r.daq ?? "") === d ? "selected" : ""}>${d || "not scored"}</option>`).join("")}</select></div>
+        <div class="field"><label for="dq_uldaq">Uplink DAQ (talk-back)</label><select id="dq_uldaq">${DAS_DAQ.map(d => `<option value="${d}" ${String(r.ul_daq ?? "") === d ? "selected" : ""}>${d || "not scored"}</option>`).join("")}</select></div></div>
       <div class="field"><label><input type="checkbox" id="dq_crit" ${crit ? "checked" : ""}> Critical area (stairwell, fire command, pump room…)</label></div>
       <div class="field"><label><input type="checkbox" id="dq_skip" ${skip ? "checked" : ""}> Not tested (no access): leaves the count</label></div>
       <div class="field"><label for="dq_n">Notes</label><input id="dq_n" value="${esc(r.note || "")}"></div>
@@ -104,8 +128,8 @@ function dasSquare(t, f, g) {
     let me = null;  // where the reading was taken, if the phone knows by the time it's saved; quietly none indoors
     navigator.geolocation?.getCurrentPosition(p => { me = {lat: p.coords.latitude, lon: p.coords.longitude}; }, () => {}, {maximumAge: 120000, timeout: 8000});
     const store = async () => {
-      const dl = lv("#dq_dl"), ul = lv("#dq_ul"), daq = $("#dq_daq").value, note = $("#dq_n").value.trim();
-      if (dl != null || ul != null || daq) t.results[key] = {dl, ul, daq: daq ? +daq : null, note, ts: new Date().toISOString(), lat: me?.lat ?? null, lon: me?.lon ?? null};
+      const dl = lv("#dq_dl"), ul = lv("#dq_ul"), daq = $("#dq_daq").value, uldaq = $("#dq_uldaq").value, note = $("#dq_n").value.trim();
+      if (dl != null || ul != null || daq || uldaq) t.results[key] = {dl, ul, daq: daq ? +daq : null, ul_daq: uldaq ? +uldaq : null, note, ts: new Date().toISOString(), lat: me?.lat ?? null, lon: me?.lon ?? null};
       const tog = (list, on) => on ? [...new Set([...(list || []), g])] : (list || []).filter(x => x !== g);
       f.critical = tog(f.critical, $("#dq_crit").checked); f.skip = tog(f.skip, $("#dq_skip").checked);
       t.updated = new Date().toISOString(); await dSave();
@@ -158,11 +182,11 @@ function dasFloors(t) {
 }
 
 async function dasExport(t) {  // the columns the PC's Grid test import reads (das.py GRID_ALIASES)
-  const rows = [["floor", "grid", "dl_dbm", "ul_dbm", "daq", "critical", "pass", "notes", "lat", "lon", "time"]];
+  const rows = [["floor", "grid", "dl_dbm", "ul_dbm", "daq", "ul_daq", "critical", "pass", "notes", "lat", "lon", "time"]];
   for (const f of t.floors) for (let g = 1; g <= f.grids; g++) {
     const r = t.results[`${f.name}|${g}`]; if (!r || (f.skip || []).includes(g)) continue;
     const p = dasPass(t, r);
-    rows.push([f.name, g, r.dl ?? "", r.ul ?? "", r.daq ?? "", (f.critical || []).includes(g) ? "yes" : "", p == null ? "" : p ? "pass" : "fail", r.note || "", r.lat ?? "", r.lon ?? "", r.ts || ""]);
+    rows.push([f.name, g, r.dl ?? "", r.ul ?? "", r.daq ?? "", r.ul_daq ?? "", (f.critical || []).includes(g) ? "yes" : "", p == null ? (dUlMissing(t, r) ? "no uplink" : "") : p ? "pass" : "fail", r.note || "", r.lat ?? "", r.lon ?? "", r.ts || ""]);
   }
   const text = rows.map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n", file = new File([text], `${t.name} grid test.csv`.replace(/[\\/:*?"<>|]+/g, "-"), {type: "text/csv"});
   try { if (navigator.canShare?.({files: [file]})) { await navigator.share({files: [file], title: file.name}); return; } }

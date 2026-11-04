@@ -256,6 +256,54 @@ def boosters_for(con, freqs, limit=40, bands=None, classes=None, min_watts=None)
             "kept": grants_source(con)}
 
 
+# the US public safety signal boosters: Part 90 Class A and Class B (47 CFR 90.219), the equipment classes the FCC's
+# search calls B9A and B9B. Each one kept becomes a part in the DAS parts catalogue (das.parts_from_grants).
+PS_BOOSTER_CLASSES = ("B9A", "B9B")
+
+
+def record_url(fcc_id):
+    """The device's FCC record: fccid.io shows the FCC's own public filings (grant, manual, test reports) at one link;
+    the FCC's search (SEARCH_FORM) takes a form, not a link."""
+    return f"https://fccid.io/{urllib.parse.quote(fcc_id)}"
+
+
+def booster_parts(con, classes=PS_BOOSTER_CLASSES):
+    """Every device kept whose grant puts it in one of these booster classes, as a parts-catalogue entry: {fcc_id,
+    code, maker, model (the FCC ID's product code: the maker's own model name can differ), classes, booster_class
+    ("A", "B" or "A, B"), class_name, bands [[lo, hi] MHz], watts [lo, hi] of its strongest band's range, watts_from,
+    granted (the original grant), changed (the newest permissive change or new identification, if later), record,
+    search}. Public FCC records only, in FCC ID order."""
+    classes = tuple(classes)
+    try:
+        rows = con.execute(f"""SELECT fcc_id, code, applicant, purpose, granted, lo, hi FROM fcc_grant WHERE fcc_id IN
+                               (SELECT fcc_id FROM fcc_grant_eq WHERE eq_class IN ({','.join('?' * len(classes))}))""", classes).fetchall()
+    except sqlite3.Error:
+        return []
+    by = {}
+    for fid, code, app, purpose, granted, lo, hi in rows:
+        d = by.setdefault(fid, {"code": code, "applicant": "", "newest": "", "orig": [], "dates": [], "lines": []})
+        if app and (granted or "") >= d["newest"]:
+            d["applicant"], d["newest"] = app, granted or ""  # the newest filing's grantee name
+        if granted:
+            d["dates"].append(granted)
+            if (purpose or "").lower().startswith("original"):
+                d["orig"].append(granted)
+        d["lines"].append((lo, hi))
+    info = _device_info(con, set(by))
+    out = []
+    for fid, d in sorted(by.items()):
+        i = info.get(fid, {})
+        ps = [c for c in i.get("classes") or [] if c in classes]
+        granted = min(d["orig"] or d["dates"] or [""]) or None
+        changed = max(d["dates"] or [""]) or None
+        out.append({"fcc_id": fid, "code": d["code"], "maker": DAS_MAKERS.get(d["code"]) or d["applicant"] or d["code"],
+                    "grantee": d["applicant"], "model": fid[len(d["code"]):].lstrip("-") or fid, "classes": i.get("classes") or [],
+                    "booster_class": ", ".join(c[-1] for c in ps), "class_name": i.get("class_name") or "",
+                    "bands": _bands(d["lines"]), "watts": i.get("watts"), "watts_from": i.get("watts_from"), "granted": granted,
+                    "changed": changed if changed and changed != granted else None, "record": record_url(fid), "search": SEARCH_FORM})
+    return out
+
+
 def _keep_grantees(con, rows, source, file=None, at=None, keep_old=False):
     """Replace the kept list with rows of (code, name, address, city, state, country, zip, received). keep_old keeps the
     codes the new list lacks (the FCC's own list leaves out some old ones, which older devices still carry)."""

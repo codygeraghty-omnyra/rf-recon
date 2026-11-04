@@ -169,7 +169,7 @@ ALIASES = {
     "lat": ["lat", "latitude", "currentlatitude", "gps_lat", "y"],
     "lon": ["lon", "lng", "long", "longitude", "currentlongitude", "gps_lon", "x"],
     "alt": ["alt", "altitude", "altitudemeters", "elevation", "ele"],
-    "acc": ["acc", "accuracy", "accuracymeters", "hdop"],
+    "acc": ["acc", "accuracy", "accuracymeters", "accuracy_m", "horizontal_accuracy"],  # metres; HDOP is unitless, so it stays in extra
     "ts": ["time", "timestamp", "datetime", "date_time", "utc", "firstseen", "ts"],
     "freq": ["freq_mhz", "frequency_mhz", "freq", "frequency", "center_frequency", "cf", "fc", "frequency_hz", "freq_hz"],
     "dbm": ["dbm", "rssi", "level", "power", "power_dbm", "signal", "signal_dbm", "amplitude", "rx_dbm", "rsrp"],
@@ -197,8 +197,11 @@ def parse_csv(text, delimiter=None):
                 return cols[a]
         return None
     m = {k: pick(k) for k in ALIASES}
-    if not (m["lat"] and m["lon"]):
-        raise ValueError("CSV needs latitude and longitude columns (e.g. lat, lon).")
+    if not (m["lat"] and m["lon"]) and not (m["freq"] or m["dbm"] or m["ident"]):
+        raise ValueError("This CSV has no lat / lon columns and nothing to place: give it latitude and longitude columns "
+                         "(lat, lon), or a time column and readings (freq, dBm) to place from the GPS track.")
+    # no lat / lon columns: an analyzer's readings, placed later from the mission's GPS track by time (store), or at
+    # the mission pin when "Place un-positioned points at the mission pin" is ticked
     fcol = m["freq"] or ""
     hz = "hz" in fcol.lower() and "mhz" not in fcol.lower()
     pts = []
@@ -214,8 +217,8 @@ def parse_csv(text, delimiter=None):
         brg = fnum(r.get(m["bearing"])) if m["bearing"] else None
         if brg is not None:
             extra["bearing"] = brg % 360
-        pts.append(dict(ts=iso(parse_ts(r.get(m["ts"]))) if m["ts"] else None, lat=fnum(r.get(m["lat"])),
-                        lon=fnum(r.get(m["lon"])), alt=fnum(r.get(m["alt"])) if m["alt"] else None,
+        pts.append(dict(ts=iso(parse_ts(r.get(m["ts"]))) if m["ts"] else None, lat=fnum(r.get(m["lat"])) if m["lat"] else None,
+                        lon=fnum(r.get(m["lon"])) if m["lon"] else None, alt=fnum(r.get(m["alt"])) if m["alt"] else None,
                         acc=fnum(r.get(m["acc"])) if m["acc"] else None, kind=kind.upper() or "RF",
                         declared=kind, label=(r.get(m["label"]) or "") if m["label"] else "",
                         ident=(r.get(m["ident"]) or "") if m["ident"] else "", freq_mhz=f,
@@ -344,7 +347,8 @@ def parse_any(name, data, settings):
     elif fmt == "gpx":
         pts, track = parse_gpx(text)
     elif fmt == "sweep":
-        pts, track = parse_sweep(text, float(settings.get("sweep_threshold_db", 10)), settings.get("min_dbm"))
+        # a sweep's levels are relative dB, not dBm: the mission's "Ignore below (dBm)" doesn't apply to them (store exempts them too)
+        pts, track = parse_sweep(text, float(settings.get("sweep_threshold_db", 10)))
     elif fmt == "kml":
         pts, track = parse_kml_text(text)
     elif fmt == "kmz":
@@ -387,6 +391,10 @@ def store(con, mission_id, name, fmt, pts, track, settings, uls_lookup, extra_tr
             p.setdefault("extra", {})
             p["extra"] = dict(p["extra"] or {}, uls_call=match.get("call_sign"), uls_licensee=match.get("licensee"))
         kept.append(p)
+    if pts and no_pos == len(pts):  # nothing could be placed: say why rather than keep an empty capture
+        raise ValueError(f"None of the {len(pts):,} readings has a position: the file has no coordinates, and no GPS track in this "
+                         "mission covers their times. Import the GPS track first (GPX, KML, or a WiGLE file), or tick "
+                         "\"Place un-positioned points at the mission pin\".")
     cur = con.execute("INSERT INTO capture(mission_id,name,fmt,imported_at,points,track_points,notes) VALUES(?,?,?,?,?,?,?)",
                       (mission_id, name, fmt, iso(datetime.now(timezone.utc)), len(kept), len(track), ""))
     cid = cur.lastrowid

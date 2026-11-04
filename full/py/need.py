@@ -138,6 +138,7 @@ _lock = threading.Lock()
 _areas = OrderedDict()     # (stamp, box) -> {"box", "sites", "systems"}
 _points = OrderedDict()    # (stamp, env, lat, lon, town) -> point levels
 _cells = OrderedDict()     # (bdc stamp, lat, lon) -> carrier signals
+_inflight = {}             # (stamp, box) -> Event: one load of an area at a time; a second asker waits for it
 MAX_AREAS, MAX_POINTS = 12, 20000  # about 1 KB a point: some 20 MB at most
 stats = {"area_loads": 0, "point_hits": 0, "point_misses": 0, "cell_hits": 0, "cell_misses": 0}
 
@@ -250,20 +251,37 @@ def hata_consts(f, hb, hm, env):
     return a, b, 20 * lf + 32.44
 
 
+def _holds(box, need):
+    return box[0] <= need[0] and box[1] >= need[1] and box[2] <= need[2] and box[3] >= need[3]
+
+
 def area_for(con, lat, lon, radius_mi, stamp=None):
-    """The cached sites for a search area (its circle's box plus RADIUS_MI), loaded once."""
+    """The cached sites for a search area (its circle's box plus RADIUS_MI), loaded once. While one load runs (the
+    start-up warm-up, or a first list), a second asker for an area inside it waits for that load instead of making
+    its own: on a whole-US database a cold load is the slow part."""
     stamp = stamp or uls_stamp(con)
     need = _box(lat, lon, radius_mi + RADIUS_MI)
-    with _lock:
-        for (st, box), a in reversed(_areas.items()):
-            if st == stamp and box[0] <= need[0] and box[1] >= need[1] and box[2] <= need[2] and box[3] >= need[3]:
-                _areas.move_to_end((st, box))
-                return a
-    a = load_area(con, *need)
-    with _lock:
-        stats["area_loads"] += 1
-        _lru_put(_areas, (stamp, need), a, MAX_AREAS)
-    return a
+    while True:
+        with _lock:
+            for (st, box), a in reversed(_areas.items()):
+                if st == stamp and _holds(box, need):
+                    _areas.move_to_end((st, box))
+                    return a
+            ev = next((e for (st, box), e in _inflight.items() if st == stamp and _holds(box, need)), None)
+            if ev is None:
+                ev = _inflight[(stamp, need)] = threading.Event()
+                break
+        ev.wait(600)  # then look again: the load is cached, or it failed and this asker loads it
+    try:
+        a = load_area(con, *need)
+        with _lock:
+            stats["area_loads"] += 1
+            _lru_put(_areas, (stamp, need), a, MAX_AREAS)
+        return a
+    finally:
+        with _lock:
+            _inflight.pop((stamp, need), None)
+        ev.set()
 
 
 def _flat(s):

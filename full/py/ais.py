@@ -162,7 +162,11 @@ def _run(key):
 
 
 def known(s, n, w, e):
-    """The ships already streamed into a box, without starting or moving the stream (remote viewers)."""
+    """The ships already streamed into a box, without starting or moving the stream (remote viewers). aisstream is
+    personal-only (build.py), so a team login gets none of what streamed on the owner's key."""
+    if not build.allowed("aisstream"):
+        return {"ships": [], "status": "not in this build", "error": "Ships are in the owner's personal build only: "
+                + build.PERSONAL_ONLY["aisstream"]}
     now = time.time()
     with LOCK:
         out = [dict(v, age_s=int(now - v["seen"])) for v in STATE["ships"].values()

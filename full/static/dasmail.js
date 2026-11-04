@@ -234,7 +234,7 @@ window.rfMail = (() => {
     let r; try { r = await api("/api/mail/queue"); } catch (e) { el.innerHTML = ""; return; }
     if (!el.isConnected) return;
     qCount(r.ready);
-    if (!r.items.length) { el.innerHTML = `<div class="panel"><h3 style="margin-top:0">Ready to send</h3><p class="hint" style="margin:0">Nothing waiting. Follow-ups (no reply in 5 days), retest reminders (30 days before), plans requests (jobs with no plans) and prospect emails you queue from Prospects appear here, written and ready: nothing goes until you click.</p></div>`; return; }
+    if (!r.items.length) { el.innerHTML = `<div class="panel"><h3 style="margin-top:0">Ready to send</h3><p class="hint" style="margin:0">Nothing waiting. Follow-ups (no reply in 5 days), reminders for every lifecycle date (the retest, the five-year test, the AHJ's report deadline, renewals, calibrations and certificates: 90 and 30 days before, on the day and while overdue), BDA alarms, plans requests (jobs with no plans) and prospect emails you queue from Prospects appear here, written and ready: nothing goes until you click.</p></div>`; return; }
     const groups = [...new Set(r.items.map(x => x.group))];
     el.innerHTML = `<div class="panel" id="mqPanel"><h3 style="margin-top:0">Ready to send <span class="hint">· ${r.ready} ready${r.items.length > r.ready ? `, ${r.items.length - r.ready} need something first` : ""}; nothing goes until you click</span></h3>
       ${groups.map(g => `<div class="mq-group" data-mqg="${esc(g)}" style="margin-top:8px"><b>${esc(g)}</b>${r.items.filter(x => x.group === g).map(x => `

@@ -4,14 +4,15 @@ Field packs: one area's public data for the RF Recon phone app.
 A pack is a gzip-compressed SQLite file (.rfpack) holding only what the phone needs, worked out in advance:
 active FCC licences (with band and signal type), towers, broadcast, NOAA Weather Radio, FAA, place names, 911 call
 centres and the microwave links with an end in the area, and the DAS prospect lists' buildings in the area (every kind
-prospects.db has: schools, colleges and hospitals from US government lists, Overture places and high-rises), which
+prospects.db has but the ODbL share-alike ones, PROSPECT_SKIP_SOURCES: schools, colleges and hospitals from US
+government lists and Overture places; high-rises and tunnels stay off the packs), which
 the web version's DAS Prospects and the phone's read offline (web/webhost.py, phone/das.js), with the whole country's
 counts in meta (prospect_counts). A history file (build_history) holds the area's expired,
 cancelled and removed licences for the web version's history layer, and one grantee file (build_grantee) the FCC's
 equipment-maker codes for its FCC ID look-ups; the phone app reads neither.
 It never carries missions, captures, labels, settings or keys, and none of the crowd layers or the Signal ID
-Wiki catalog (their terms don't allow passing them on). Packs go in the Drive folder's "field packs"; anyone
-the folder is shared with can load them on their phone.
+Wiki catalog (their terms don't allow passing them on). On Cody's PC packs go in the Drive folder's "field packs",
+for anyone the folder is shared with; on the server they stay on the server, for the admin to download.
 
     python fieldpack.py --states VA,MD,DC
     python fieldpack.py --center 38.88,-77.10 --radius 25 --name "Arlington 25 mi"

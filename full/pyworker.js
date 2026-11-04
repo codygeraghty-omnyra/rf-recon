@@ -3,7 +3,9 @@
    keep: missions, captures, the field log, labels, DAS jobs and their files, talk groups, your own layers. shim.js
    starts it the first time one is used, so a plain search never waits for it. Your work is kept in this browser
    (IndexedDB, /rfr) and never sent anywhere; the FCC data is the pack in use. web/webhost.py does the Python side. */
-const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";
+// the engine (Pyodide 0.27.7, MPL-2.0) from this site's own pyodide/ beside this file (publish.py puts it there, web/pyodide.json
+// names it), so the phone keeps it and a DAS job starts with no signal (11/4: until then it came from jsDelivr's CDN, never kept)
+const PYODIDE = new URL("pyodide/", self.location.href).href;
 importScripts(PYODIDE + "pyodide.js");
 
 let py = null, host = null, boot = null;

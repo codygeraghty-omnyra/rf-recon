@@ -105,10 +105,11 @@ S.views.find = v => {
     try{
       const p = new URLSearchParams({q}); if(F.scope) p.set("scope", F.scope); if(S.center){ p.set("lat", S.center[0]); p.set("lon", S.center[1]); }
       const res = await api("/api/find?" + p); if(gen !== F.gen) return;
-      F.res = res; findRender(out, res, q);
+      F.res = res; if(!out.isConnected) return;  // Search was left while it looked: the results wait for the next visit
+      findRender(out, res, q);
       $("#fdMsg").textContent = S.center ? "Nearest to the pin first." : "Drop a pin to sort results by distance.";
       if(res.index === "building") setTimeout(() => { if(S.tab === "find" && F.q === q) run(); }, 15000);
-    }catch(e){ if(gen === F.gen) $("#fdMsg").textContent = e.message; }
+    }catch(e){ if(gen === F.gen && $("#fdMsg")) $("#fdMsg").textContent = e.message; }
   };
   let t; inp.oninput = () => { clearTimeout(t); t = setTimeout(run, 350); };
   inp.onkeydown = e => { if(e.key === "Enter"){ clearTimeout(t); run(); } };

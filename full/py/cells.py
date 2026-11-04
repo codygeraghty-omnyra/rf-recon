@@ -21,6 +21,7 @@ import math
 import re
 import time
 
+import build
 import connectors
 import geo
 import sigid
@@ -68,6 +69,11 @@ def decode(radio, mcc, mnc, area, cid):
     return d
 
 
+def crowd_sources():
+    """The crowd cell sources this person may see: OpenCelliD always, WiGLE in the personal build for the owner only."""
+    return [s for s in ("opencellid", "wigle") if build.allowed(s)]
+
+
 def gather(con, crowd, lat, lon, radius_mi, mission=None):
     """Every cell around a point from the crowd sources and your captures, decoded."""
     s, n, w, e = geo.bbox(lat, lon, radius_mi)
@@ -96,8 +102,9 @@ def gather(con, crowd, lat, lon, radius_mi, mission=None):
             if extra.get(k):
                 c[k] = better(c[k], extra[k]) if c[k] else extra[k]
 
-    for r in crowd.execute("SELECT * FROM ext_point WHERE source IN ('opencellid', 'wigle') AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
-                           (s, n, w, e)):
+    srcs = crowd_sources()  # WiGLE is personal-only (build.py): team logins and the sold build never see its cells
+    for r in crowd.execute(f"SELECT * FROM ext_point WHERE source IN ({','.join('?' * len(srcs))}) AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
+                           (*srcs, s, n, w, e)):
         try:
             det = json.loads(r["details"] or "{}")
         except ValueError:
@@ -166,7 +173,8 @@ def sites(con, crowd, lat, lon, radius_mi, mission=None):
                     "samples": sum(c["samples"] for c in cs), "last": max((c["last"] for c in cs if c["last"]), default=None)})
     out.sort(key=lambda x: x["dist_mi"])
     return {"sites": out, "cells": len(cells), "towers_nearby": len(towers),
-            "sources": {"opencellid": "OpenCelliD Project, CC BY-SA 4.0", "wigle": "WiGLE.net contributors", "fcc": "FCC Antenna Structure Registration"}}
+            "sources": {k: v for k, v in (("opencellid", "OpenCelliD Project, CC BY-SA 4.0"), ("wigle", "WiGLE.net contributors"),
+                                          ("fcc", "FCC Antenna Structure Registration")) if k == "fcc" or k in crowd_sources()}}
 
 
 def import_ocid(crowd, name, data, boxes=None, log=None):

@@ -224,10 +224,11 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 }
 @media print{
   header,.tabs,.no-print,#searchPanel,#filters{display:none!important}
-  .print-only{display:block}
   body{background:#fff;color:#000}
   th{position:static}
-  #view > *:not(#printSheet){display:none!important}
+  /* ⎙ Prep sheet (body.print-prep) prints its checklist alone; any other print (⎙ Print report) prints the page */
+  body.print-prep .print-only{display:block}
+  body.print-prep #view > *:not(#printSheet){display:none!important}
 }
 </style>
 <style id="glass">
@@ -541,6 +542,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/spectrum.js"></script>
 <script src="static/keys.js"></script>
 <script src="static/checklists.js"></script>
+<script src="static/addrfill.js"></script>
 <script src="static/help.js"></script>
 <script src="static/tak.js"></script>
 <script src="static/mapstyle.js"></script>
@@ -548,16 +550,22 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/cells.js"></script>
 <script src="static/find.js"></script>
 <script src="static/das.js"></script>
+<script src="static/dasrev.js"></script>
+<script src="static/dasahj.js"></script>
 <script src="static/fieldref.js"></script>
 <script src="static/plans.js"></script>
 <script src="static/dasdesign.js"></script>
 <script src="static/planlines.js"></script>
 <script src="static/dswalls.js"></script>
+<script src="static/dxf.js"></script>
 <script src="static/dascell.js"></script>
 <script src="static/dasx.js"></script>
 <script src="static/daswalk.js"></script>
+<script src="static/dascommission.js"></script>
+<script src="static/dassweep.js"></script>
 <script src="static/dasscreen.js"></script>
 <script src="static/dasexample.js"></script>
+<script src="static/dasmonitor.js"></script>
 <script src="static/welcome.js"></script>
 <script src="static/notes.js"></script>
 <script>

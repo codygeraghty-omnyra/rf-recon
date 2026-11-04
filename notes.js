@@ -142,8 +142,13 @@ const server = {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
   },
   async blobs(n) { return Promise.all(n.files.map(async f => ({...f, blob: await (await fetch(f.url)).blob()}))); },
-  sent: id => JSON.parse(ls.get(`rfr.sent.${location.host}.${id}`) || "null"),
-  async markSent(id, s) { ls.set(`rfr.sent.${location.host}.${id}`, JSON.stringify(s)); }};
+  sent: id => JSON.parse(ls.get(`rfr.sent.${location.host}.${id}`) || "null"),  // a note marked in this browser before 11/4
+  async markSent(id, s) {  // on the note itself (notes.mark_sent), so another browser doesn't offer to send it again
+    ls.set(`rfr.sent.${location.host}.${id}`, JSON.stringify(s));
+    // the email already went: a mark that doesn't reach the server stays in this browser, and the send isn't undone
+    try { await fetch(`/api/notes/${id}/sent`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(s)}); }
+    catch (e) { console.warn("Note marked sent in this browser only:", e.message); }
+  }};
 const browser = {
   db: null,
   open() {
@@ -172,7 +177,7 @@ const browser = {
     const ts = new Date();
     const rec = {ts: `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, "0")}-${String(ts.getDate()).padStart(2, "0")} ${String(ts.getHours()).padStart(2, "0")}:${String(ts.getMinutes()).padStart(2, "0")}`,
       kind: n.kind, label: KIND_LABEL[n.kind] || "Note", text: n.text, transcript: n.transcript || "", screen: n.screen, lat: n.lat, lon: n.lon, mission: n.mission, who: "",
-      files: n.files.map((f, i) => ({name: `${f.role}${n.files.filter((g, j) => j < i && g.role === f.role).length ? " " + (i + 1) : ""}.${extOf(f.type)}`,
+      files: n.files.map((f, i, all, k = all.filter((g, j) => j < i && g.role === f.role).length) => ({name: `${f.role}${k ? " " + (k + 1) : ""}.${extOf(f.type)}`,
         role: f.role, type: f.type, secs: f.secs ? Math.round(f.secs) : undefined, blob: f.blob}))};
     return this.tx("readwrite", s => s.add(rec));
   },
@@ -306,7 +311,7 @@ const ctxLine = c => [c.screen && `On ${c.screen}`, c.lat != null && c.lon != nu
 async function open() {
   if (screenOn) return;  // the recording bar's Stop ends a screen recording
   stopLive(); recOn = false;
-  if (opts.store === "server" && opts.remote == null) {  // on the remote link? the note goes to Cody's PC, and only theirs show
+  if (opts.store === "server" && opts.remote == null) {  // signed in through a door? the note stays with the copy serving it (the server, or Cody's PC), and only theirs show
     try { const me = await (await fetch("/api/me")).json(); opts.remote = !!me.remote && me.role !== "admin"; } catch (e) { opts.remote = false; }
   }
   draft = {kind: null, text: "", files: [], ...context()};
@@ -573,7 +578,8 @@ function wireSend(box, n) {
 function noteTxt(n) {
   return [`RF Recon (beta): ${(n.label || KIND_LABEL[n.kind] || "note").toLowerCase()}`, `When: ${n.ts}`, n.screen && `Screen: ${n.screen}`,
     n.lat != null && n.lon != null && `Place: ${(+n.lat).toFixed(5)}, ${(+n.lon).toFixed(5)}  https://maps.google.com/?q=${(+n.lat).toFixed(5)},${(+n.lon).toFixed(5)}`,
-    n.mission && `Mission: ${n.mission}`, "", n.text || "(no words)"].filter(x => x !== false && x != null).join("\n");
+    n.mission && `Mission: ${n.mission}`, "", n.text || "(no words)",
+    ...(n.transcript ? ["", "What was said (the browser's own transcript, may have mistakes):", n.transcript] : [])].filter(x => x !== false && x != null).join("\n");
 }
 async function share(n) {  // the phone's share sheet (Messages, Gmail, Drive, ...); where there's none, the files are saved
   const stamp = n.ts.replace(/:/g, "-");

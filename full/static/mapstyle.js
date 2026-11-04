@@ -23,12 +23,12 @@ function msRegister(maps){  // your maps join the built-in ones (and the layers 
 }
 async function msLoad(){
   try{ msRegister((await api("/api/basemaps")).maps || []); }catch(e){ msRegister([]); }
-  let saved = null; try{ saved = JSON.parse(localStorage.getItem("rfr.mapLayers"))?.base; }catch(e){}
+  let saved = null; try{ saved = JSON.parse(localStorage.getItem("rfr.mapLayers"))?.base; }catch(e){ /* storage blocked (a private window): the default stands */ }
   if(saved && BASEMAPS[saved]?.own && mapPrefs().base !== saved){ mapPrefs().base = saved; if(S.tab === "map" && S.map) render(); }  // your map, picked last time
 }
 const msReady = msLoad();
 
-const msSave = () => { try{ localStorage.setItem("rfr.mapStyle", S.mapStyle); localStorage.setItem("rfr.mapLayers", JSON.stringify(mapPrefs())); }catch(e){} };
+const msSave = () => { try{ localStorage.setItem("rfr.mapStyle", S.mapStyle); localStorage.setItem("rfr.mapLayers", JSON.stringify(mapPrefs())); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
 function msPaintPicker(){
   const sel = $("#mapStyle"); if(!sel) return;
   const pref = mapPrefs(), cur = S.mapStyle==="atak" ? "atak" : BASEMAPS[pref.base]?.own ? "own:"+pref.base : "standard";

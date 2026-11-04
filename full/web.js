@@ -103,8 +103,8 @@ async function packPanels(v) {
       <div class="row" style="margin-top:10px"><button id="pkRemove" data-id="${esc(p.id)}">Remove from this browser</button></div>`
       : '<p class="status">No pack loaded yet. Load one below to start.</p>'}</div>
     <div class="panel"><h3>Load a pack</h3>
-      <p class="hint" style="margin-top:0">Packs are in the RF Recon folder in Google Drive, under <b>field packs</b>. Download one from Drive,
-        or pick it straight from your Google Drive folder, then choose it here. Only people the folder is shared with can see them.</p>
+      <p class="hint" style="margin-top:0">A pack made on Cody's PC is in the RF Recon folder in Google Drive, under <b>field packs</b> (only people the
+        folder is shared with see it); one made on the server is downloaded there by the admin. Pick the .rfpack file here.</p>
       <div class="row"><input type="file" id="pkFile" accept=".rfpack"><span class="hint" id="pkMsg"></span></div>
       <h3 style="margin-top:14px">Or a state from this site</h3>
       <p class="hint" style="margin-top:0">Every state's FCC data is kept on the RF Recon site. Search anywhere and its state loads by itself; or pick one here.</p>
@@ -113,12 +113,14 @@ async function packPanels(v) {
         <span><b>${esc(o.name)}</b> <span class="hint">${esc(area(o.area))} · made ${esc(o.made_at)} · ${(o.size / 1e6).toFixed(1)} MB</span></span>
         <span><button data-use="${esc(o.id)}">Use</button> <button data-rm="${esc(o.id)}">Remove</button></span></div>`).join("")}` : ""}</div>
   </div>
+  <div class="panel"><h3>With no signal</h3><p style="margin-top:0" id="offMsg">${esc(offlineNote())}</p>
+    <div class="row"><button id="offKeep">Keep it again</button><span class="hint">The page, its research, RF Recon's own code and the engine stay in this browser, so DAS jobs open, change and save in a basement. Your work is kept here either way.</span></div></div>
   <div class="panel"><h3>About the web version</h3>
     <p class="hint" style="margin-top:0">This is RF Recon in your browser, run by the PC app's own code: every tab, from search and the map's layers to
       missions, captures, the field log, labels, DAS jobs, talk groups, your own layers and crowd data with your own keys. The first time you keep
       something here, RF Recon's engine loads in this browser (about 15 MB, once). A pack and everything you do here stay in this browser.
-      Signal ID Wiki matches come from a copy on the RF Recon site: the facts only (frequencies, modes, bandwidths, where heard), each
-      linked to its page. Only these stay on the PC: live ships (aisstream allows its keys on a server only), Artemis (its database is for
+      Signal ID Wiki matches aren't here: the web version is the sold build, which leaves the wiki out until its terms are settled.
+      Only these stay on the PC: live ships (aisstream allows its keys on a server only), Artemis (its database is for
       internal use only), FCC ID grant lists (the FCC refuses web pages; the maker still shows and the grants open in your browser), live
       Push to ATAK over your network (here it hands the package to ATAK instead), and in DAS Materials, fetching a spec sheet from a maker's
       page or re-reading a supplier's price list link (most of their sites don't let a web page read their files: save the file and upload it
@@ -142,6 +144,8 @@ async function packPanels(v) {
     $("#pkUpdMsg").textContent = `Downloading ${upd.name}…`;
     try { await RFPack.loadSite(upd); reload(); } catch (err) { $("#pkUpdMsg").textContent = err.message; }
   };
+  $("#offKeep").onclick = async e => { e.currentTarget.disabled = true; $("#offMsg").textContent = "Keeping it…";
+    await RFOffline.keep().catch(() => {}); if ($("#offMsg")) { $("#offMsg").textContent = offlineNote(); $("#offKeep").disabled = false; } };
   $("#pkRemove") && ($("#pkRemove").onclick = async e => { await RFPack.remove(e.target.dataset.id); location.reload(); });
   v.querySelectorAll("[data-use]").forEach(b => b.onclick = async () => { await RFPack.use(b.dataset.use); reload(); });
   v.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { await RFPack.remove(b.dataset.rm); packPanels(v); });
@@ -160,5 +164,32 @@ const prSay = () => {
 };
 new MutationObserver(() => { if ($("#prSrc")) prSay(); }).observe(document.body, {childList: true, subtree: true});
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});  // opens with no signal next time
+// kept for use with no signal (11/4): every visit asks the service worker (../sw.js) to keep what full/offline.json
+// lists and isn't kept yet: the page, its research, the app's Python and the engine (about 16 MB, once; it outlives
+// builds). Data Saver on: only when asked (Packs, With no signal). What was kept is said in Packs.
+const OFF_KEY = "rfr.offline";
+function offlineNote() {
+  let s = null; try { s = JSON.parse(localStorage.getItem(OFF_KEY) || "null"); } catch (e) {}
+  if (!("serviceWorker" in navigator)) return "This browser can't keep the web version for use with no signal.";
+  if (!s) return navigator.connection?.saveData ? "Not kept for use with no signal: Data Saver is on. Keep it here when you're on Wi-Fi." : "Being kept for use with no signal…";
+  if (s.error) return `Not kept for use with no signal: ${s.error}.`;
+  const mb = n => (n / 1e6).toFixed(1);
+  return s.files < s.of ? `${s.files} of ${s.of} files kept for use with no signal; ${s.of - s.files} weren't reachable (${s.failed.join(", ")}). Keep it again with signal.`
+    : `Kept for use with no signal: ${s.files} files, ${mb(s.bytes)} MB, the engine ${mb(s.engine_bytes)} MB of it (checked ${s.at.slice(0, 16).replace("T", " ")}).`;
+}
+async function keepOffline() {
+  const reg = await navigator.serviceWorker.ready, ch = new MessageChannel();
+  const got = new Promise(ok => { ch.port1.onmessage = e => ok(e.data); });
+  reg.active.postMessage({kind: "keep-full", list: new URL("offline.json", location.href).href}, [ch.port2]);
+  const s = await got;
+  let was = null; try { was = JSON.parse(localStorage.getItem(OFF_KEY) || "null"); } catch (e) {}
+  if (!(s.error && was && !was.error)) try { localStorage.setItem(OFF_KEY, JSON.stringify(s)); } catch (e) {}  // offline: the last good word stays
+  return s;
+}
+window.RFOffline = {keep: keepOffline, note: offlineNote, ready: null};
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("../sw.js").catch(() => {});  // opens with no signal next time
+  if (!navigator.connection?.saveData) RFOffline.ready = (document.readyState === "complete" ? Promise.resolve() : new Promise(ok => addEventListener("load", ok))).then(keepOffline)
+    .then(() => { if ($("#offMsg")) $("#offMsg").textContent = offlineNote(); }).catch(e => console.warn("RF Recon: not kept for offline use", e));
+}
 })();

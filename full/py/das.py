@@ -20,6 +20,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import zipfile
 
+import dashist
 import geo
 import overture
 import paths
@@ -35,11 +36,12 @@ CREATE TABLE IF NOT EXISTS das_contact(id INTEGER PRIMARY KEY, name TEXT, org TE
     notes TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS das_part(id INTEGER PRIMARY KEY, supplier TEXT NOT NULL DEFAULT '', key TEXT NOT NULL, part TEXT,
     item TEXT, maker TEXT, cat TEXT, unit TEXT, price REAL, spec_url TEXT, spec_file TEXT, standard INTEGER DEFAULT 0,
-    std_qty REAL, updated_at TEXT, weight_lb REAL, UNIQUE(supplier, key));
+    std_qty REAL, updated_at TEXT, weight_lb REAL, fcc_id TEXT, grant_info TEXT, codes TEXT, pattern TEXT, UNIQUE(supplier, key));
 """
 TABLES = ("das_job", "das_log", "das_contact", "das_part", "das_supplier", "das_rfq", "das_quote", "das_rfq_supplier", "das_prospect",
           "das_mail", "das_mail_state")
-STAGES = ["Lead", "Pre-survey", "Design", "Install", "Commission", "Acceptance", "In service", "Closed"]
+SCHEMA, TABLES = SCHEMA + dashist.SCHEMA, TABLES + dashist.TABLES  # revisions, history, access lists, share links (dashist.py)
+STAGES =["Lead", "Pre-survey", "Design", "Install", "Commission", "Acceptance", "In service", "Closed"]
 
 # Public safety: the FCC's public safety radio services, and licensees the importer classed as public safety
 PS_CATEGORIES = {"Public Safety (Gov)", "Public Safety (Other)", "Law Enforcement", "Fire / EMS", "Emergency Mgmt / 911"}
@@ -60,9 +62,34 @@ def band_of(f):
     return uls_import.band_for(f) or "Other"
 
 
-def presurvey(con, lat, lon, radius_mi=15.0, loss_db=15.0, threshold_dbm=-95.0, cats=None):
+def building_entry_loss(data=None):
+    """The building entry loss for a job's building, dB, with its parts and basis: need.entry_loss (ITU-R P.2109-2 medians
+    at 770-850 MHz by construction year, plus deep-interior, core and below-grade terms), fed from the job's NSI record
+    (year built, stories, sq ft, basement), its OSM / Overture building (height, levels, footprint) and its floors."""
+    import need as need_mod  # imported here: presurvey() has a local named need
+    data = data or {}
+    b = data.get("building") or {}
+    floors = b.get("levels") or (len(data["floors"]) if isinstance(data.get("floors"), list) and data["floors"] else None)
+    label = " · ".join(x for x in ((f"{round(b['height_m'] * 3.281):,} ft" if b.get("height_m") else ""),
+                                   (f"{int(floors)} floors" if floors else "")) if x)
+    nsi = dict(data["nsi"]) if isinstance(data.get("nsi"), dict) and data["nsi"] else None
+    if nsi is not None and b.get("footprint_sqft") and not nsi.get("footprint_sqft"):
+        nsi["footprint_sqft"] = b["footprint_sqft"]
+    el = need_mod.entry_loss({"kind": data.get("kind") or "", "size_label": label}, nsi)
+    el["model"] = "ITU-R P.2109-2 building entry loss, medians at 770-850 MHz (need.entry_loss)"
+    el["source"] = "https://www.itu.int/dms_pubrec/itu-r/rec/p/R-REC-P.2109-2-202308-I!!PDF-E.pdf"
+    return el
+
+
+def presurvey(con, lat, lon, radius_mi=15.0, loss_db=None, threshold_dbm=-95.0, cats=None, building=None):
     """The public safety systems around a building, with downlink and uplink channels and the strongest sites.
-    Levels are free-space estimates from licensed ERP (best case, no terrain); inside = outside - loss_db."""
+    Levels are free-space estimates from licensed ERP (best case, no terrain); inside = outside - loss_db. With no
+    loss_db, the building's own ITU-R P.2109 entry loss (building_entry_loss, from the job's data in building) is used,
+    and the result says how it was reached (entry_loss)."""
+    entry = None
+    if loss_db is None:
+        entry = building_entry_loss(building)
+        loss_db = entry["db"]
     s, n, w, e = geo.bbox(lat, lon, radius_mi)
     ps = sorted(uls_import.PUBLIC_SAFETY_SERVICES)
     cat_list = sorted(cats or PS_CATEGORIES)
@@ -99,7 +126,7 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=15.0, threshold_dbm=-95.0, 
         if out is not None and (site["best_out"] is None or out > site["best_out"]):
             site["best_out"] = round(out, 1)
     if not systems:
-        return {"systems": [], "bands": [], "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db}
+        return {"systems": [], "bands": [], "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db, "entry_loss": entry}
 
     # uplink: the radios' transmit frequencies, from each licence's mobile rows (or the fixed 700/800 MHz offsets)
     calls = list(systems)
@@ -155,7 +182,7 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=15.0, threshold_dbm=-95.0, 
     bands = [{"band": b, "lo": min(fs), "hi": max(fs), "channels": len(set(fs))} for b, fs in need.items()]
     bands.sort(key=lambda x: x["lo"])
     return {"systems": out_systems, "bands": bands, "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db,
-            "radius_mi": radius_mi}
+            "radius_mi": radius_mi, "entry_loss": entry}
 
 
 # ---------------------------------------------------------------- the building's outline (OpenStreetMap)
@@ -317,10 +344,12 @@ def osm_outline(lat, lon, fresh=False):
 # ---------------------------------------------------------------- jobs and contacts
 
 def job_row(con, jid):
+    dashist.ensure(con)
     r = con.execute("SELECT * FROM das_job WHERE id=?", (jid,)).fetchone()
     if not r:
         return None
     j = dict(r)
+    j["rev"] = j.get("rev") or 0  # the revision a page sends back with its next save (dashist.py)
     j["data"] = json.loads(j["data"] or "{}")
     j["log"] = [dict(x) for x in con.execute("SELECT ts, kind, detail FROM das_log WHERE job_id=? ORDER BY id DESC LIMIT 200", (jid,))]
     j["lifecycle"] = lifecycle(j["data"], j["stage"])  # computed each time, never saved (das lifecycle helpers)
@@ -329,13 +358,14 @@ def job_row(con, jid):
 
 def list_jobs(con):
     import dasx  # licence changes and the existing-system audit, as "Needs you" lines
+    dashist.ensure(con)
     out = []
     for r in con.execute("SELECT * FROM das_job ORDER BY updated_at DESC").fetchall():  # read whole: the licence watch writes as it goes
         d = json.loads(r["data"] or "{}")
-        out.append({"id": r["id"], "name": r["name"], "stage": r["stage"], "updated_at": r["updated_at"],
+        out.append({"id": r["id"], "name": r["name"], "stage": r["stage"], "updated_at": r["updated_at"], "rev": r["rev"] or 0,
                     **{k: d.get(k) for k in ("address", "lat", "lon", "ahj", "due", "next_step", "floors", "accepted_on",
                                              "retest_due", "checks", "value", "client")},
-                    "lifecycle": lifecycle(d, r["stage"]), "watch": dasx.board(con, r["id"], d, r["stage"])})
+                    "lifecycle": lifecycle(d, r["stage"]), "scope": job_scope(d), "cell_only": cell_only(d), "watch": dasx.board(con, r["id"], d, r["stage"])})
     return out
 
 
@@ -349,34 +379,83 @@ def _flat(d, prefix=""):
     return out
 
 
-def save_job(con, d, jid=None):
+def save_job(con, d, jid=None, who=None, page=False, need_rev=False, note_=None):
+    """Make a job, or save sections of one. d: {name?, stage?, data: {section: value}, rev?, client?, resolve?}.
+    A save that says which revision it started from is merged with what others saved since, or refused with what
+    clashed (dashist.check); page=True keeps the sections only their own routes write (the AHJ's review); need_rev=True
+    (a team login) refuses a save that doesn't say. Every change is kept in the job's history (dashist.record)."""
+    dashist.ensure(con)
+    who = who or dashist.who_now()
+    client = str(d.get("client") or "")[:40]
     name, stage, data = d.get("name"), d.get("stage"), d.get("data") or {}
-    if jid is None:
-        jid = next_job_id(con)
-        con.execute("INSERT INTO das_job(id, name, stage, data, created_at, updated_at) VALUES(?,?,?,?,?,?)",
-                    (jid, name or "New job", stage if stage in STAGES else "Lead", json.dumps(data), now(), now()))
-        con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "created", name or ""))
-    else:
-        old = job_row(con, jid)
-        if old is None:
-            raise LookupError(f"Job {jid} was deleted. Reload to see the current jobs.")
-        new_data = dict(old["data"], **data)
-        changes = []
-        if name is not None and name != old["name"]:
-            changes.append(f"name: {old['name']} → {name}")
-        if stage is not None and stage != old["stage"]:
-            if stage not in STAGES:
+    if not isinstance(data, dict):
+        raise ValueError("A job's data is a set of named sections.")
+    if page:
+        data = {k: v for k, v in data.items() if k not in dashist.RESERVED}
+    dashist.begin(con)
+    try:
+        if jid is None:
+            jid = next_job_id(con)
+            nm, st = name or "New job", stage if stage in STAGES else "Lead"
+            con.execute("INSERT INTO das_job(id, name, stage, data, created_at, updated_at, rev) VALUES(?,?,?,?,?,?,1)",
+                        (jid, nm, st, json.dumps(data), now(), now()))
+            con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "created", name or ""))
+            dashist.record(con, jid, 1, who, client, {":name": (dashist.ABSENT, nm), ":stage": (dashist.ABSENT, st),
+                                                      **{k: (dashist.ABSENT, v) for k, v in data.items()}}, note="new job", fold=False)
+            dashist.on_create(con, jid, dashist.team_user())
+        else:
+            r = con.execute("SELECT * FROM das_job WHERE id=?", (jid,)).fetchone()
+            if r is None:
+                raise LookupError(f"Job {jid} was deleted. Reload to see the current jobs.")
+            old_data, cur_rev = json.loads(r["data"] or "{}"), r["rev"] or 0
+            if stage is not None and stage != r["stage"] and stage not in STAGES:
                 raise ValueError(f"Unknown stage {stage}.")
-            changes.append(f"stage: {old['stage']} → {stage}")
-        a, b = _flat(old["data"]), _flat(new_data)
-        changes += [f"{k}: {json.dumps(a.get(k))} → {json.dumps(b.get(k))}" for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)]
-        con.execute("UPDATE das_job SET name=?, stage=?, data=?, updated_at=? WHERE id=?",
-                    (name if name is not None else old["name"], stage if stage is not None else old["stage"],
-                     json.dumps(new_data), now(), jid))
-        for c in changes[:40]:
-            con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "change", c[:500]))
-    con.commit()
+            cur = dict(old_data, **{":name": r["name"], ":stage": r["stage"]})
+            patch = dict(data)
+            if name is not None:
+                patch[":name"] = name
+            if stage is not None:
+                patch[":stage"] = stage
+            patch = dashist.check(con, jid, cur, cur_rev, patch, d.get("rev", dashist.NO_REV), who, client, need_rev, d.get("resolve"))
+            changed = {s: (cur.get(s, dashist.ABSENT), v) for s, v in patch.items() if cur.get(s, dashist.ABSENT) != v}
+            if changed:
+                new_data = {k: v for k, v in dict(old_data, **{s: v for s, v in patch.items() if not s.startswith(":")}).items()
+                            if v is not dashist.ABSENT}
+                nm, st = patch.get(":name", r["name"]), patch.get(":stage", r["stage"])
+                changes = [f"name: {r['name']} → {nm}"] if nm != r["name"] else []
+                if st != r["stage"]:
+                    changes.append(f"stage: {r['stage']} → {st}")
+                a, b = _flat(old_data), _flat(new_data)
+                changes += [f"{k}: {json.dumps(a.get(k))} → {json.dumps(b.get(k))}" for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)]
+                con.execute("UPDATE das_job SET name=?, stage=?, data=?, updated_at=?, rev=? WHERE id=?",
+                            (nm, st, json.dumps(new_data), now(), cur_rev + 1, jid))
+                for c in changes[:40]:
+                    con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "change", c[:500]))
+                if note_:
+                    con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "restore", f"{note_} ({who})"))
+                dashist.record(con, jid, cur_rev + 1, who, client, changed, note=note_)
+                dashist.prune(con, jid)
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
     return job_row(con, jid)
+
+
+def restore_job(con, jid, rev, mode, who=None):
+    """Undo one revision, or put the job back as it was right after one: written as a new revision, history kept."""
+    r = job_row(con, jid)
+    if r is None:
+        raise LookupError(f"Job {jid} was deleted.")
+    cur = dict(r["data"], **{":name": r["name"], ":stage": r["stage"]})
+    patch = dashist.restore_patch(con, jid, cur, int(rev), mode)
+    d = {"data": {s: v for s, v in patch.items() if not s.startswith(":")}}
+    if ":name" in patch:
+        d["name"] = patch[":name"]
+    if ":stage" in patch:
+        d["stage"] = patch[":stage"]
+    what = f"undid revision {rev}" if mode == "undo" else f"restored the job as it was at revision {rev}"
+    return save_job(con, d, jid, who=who, note_=what)
 
 
 def note(con, jid, text):
@@ -403,6 +482,8 @@ def delete_job(con, jid):
         except OSError:
             pass  # a file open elsewhere: the folder keeps its name; ids still aren't reused (next_job_id)
     con.execute("DELETE FROM das_log WHERE job_id=?", (jid,))
+    dashist.ensure(con)
+    dashist.forget(con, jid)  # its history, access list and share links
     con.execute("DELETE FROM das_job WHERE id=?", (jid,))
     con.commit()
 
@@ -621,6 +702,184 @@ def _read_table(name, data):
     except csv.Error:
         dialect = csv.excel
     return ("tsv" if dialect.delimiter == "\t" else "csv",) + _records(list(csv.reader(io.StringIO(text), dialect)))
+
+
+# ---------- sweeps: a cable / antenna analyzer's trace (return loss, VSWR, distance to fault, insertion loss) ----------
+# Read from the layouts the makers publish for their exports: Anritsu Site Master / Line Sweep Tools CSV and text (a block
+# of "name, value" lines, then a header and the points), Keysight FieldFox CSV ("!" comment lines, BEGIN / END around the
+# data), Touchstone .s1p / .s2p (NanoVNA, RigExpert and most VNAs), and any plain table of x and y. dassweep.js grades it.
+SWEEP_MAX = 20001
+_NUM = re.compile(r"^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$")
+
+
+def _sweep_kind(text):
+    t = (text or "").lower()
+    if re.search(r"v\.?s\.?w\.?r|\bswr\b", t):
+        return "vswr"
+    if re.search(r"insertion|cable\s*loss|\bil\b|s21|s12|thru|transmission", t):
+        return "il"
+    if re.search(r"return\s*loss|\brl\b|s11|s22|log\s*mag|refl|dtf|distance.to.fault", t):
+        return "rl"
+    return ""
+
+
+def _sweep_x(head, vals, meta_text):
+    """The x column's kind, unit and the factor to MHz (frequency) or 1 (distance, in ft or m)."""
+    h = (head or "").lower()
+    if re.search(r"dist|length|range|\bft\b|feet|\(m\)|\bmeters?\b|\bmetres?\b", h) and not re.search(r"freq|hz", h):
+        if re.search(r"ft|feet", h):
+            return "dist", "ft", 1.0
+        if re.search(r"\(m\)|\bm\b|meter|metre", h):
+            return "dist", "m", 1.0
+        return "dist", "m" if re.search(r"units?\W+m(eter|etre)?s?\b", meta_text) else "ft", 1.0
+    for pat, f in ((r"ghz", 1000.0), (r"mhz", 1.0), (r"khz", 0.001), (r"\bhz\b|\(hz\)|hz\)", 1e-6)):
+        if re.search(pat, h):
+            return "freq", "MHz", f
+    big = max((abs(v) for v in vals if v is not None), default=0)
+    return "freq", "MHz", 1e-6 if big > 1e5 else 1.0  # no unit named: Hz when it looks like Hz, else MHz
+
+
+def _touchstone(text, two_port):
+    """Touchstone v1: '# <unit> S <RI|MA|DB> R <ohms>', then frequency and S-parameter pairs (S11; S11 S21 S12 S22)."""
+    unit, fmt = 1000.0, "MA"  # Touchstone's defaults: GHz, magnitude-angle
+    scale = {"hz": 1e-6, "khz": 1e-3, "mhz": 1.0, "ghz": 1000.0}
+    x, s11, s21, meta = [], [], [], {}
+
+    def db(a, b):
+        if fmt == "DB":
+            return a
+        mag = math.hypot(a, b) if fmt == "RI" else a
+        return 20 * math.log10(mag) if mag > 0 else -200.0
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("!"):
+            m = re.match(r"!\s*([^:=]{2,40})[:=]\s*(.+)", line)
+            if m and len(meta) < 40:
+                meta[m.group(1).strip()] = m.group(2).strip()[:200]
+            continue
+        line = line.split("!")[0].strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            for w in line[1:].lower().split():
+                if w in scale:
+                    unit = scale[w]
+                elif w in ("ri", "ma", "db"):
+                    fmt = w.upper()
+            continue
+        nums = [float(v) for v in line.split() if _NUM.match(v)]
+        if len(nums) < 3:
+            continue
+        x.append(nums[0] * unit)
+        s11.append(-db(nums[1], nums[2]))
+        if two_port and len(nums) >= 5:
+            s21.append(-db(nums[3], nums[4]))
+    series = [{"name": "Return loss (S11)", "kind": "rl", "y": s11}]
+    if s21 and len(s21) == len(x):
+        series.append({"name": "Insertion loss (S21)", "kind": "il", "y": s21})
+    return x, series, meta
+
+
+def _sweep_lines(text):
+    sample = "\n".join(text.split("\n")[:200])
+    delim = "\t" if sample.count("\t") > max(3, sample.count(",")) else ";" if sample.count(";") > sample.count(",") else ","
+    out = []
+    for raw in text.split("\n"):
+        s = raw.strip()
+        if s and delim in s:
+            out.append([c.strip() for c in next(csv.reader([s], delimiter=delim))])
+        else:  # no delimiter: numbers split on spaces, a text line kept whole ("Serial Number: 0987654")
+            w = s.split()
+            out.append(w if w and all(_NUM.match(c) for c in w) else [s] if s else [])
+    return out
+
+
+def read_sweep(name, data):
+    """A sweep export -> {format, meta, instrument, date, measurement, x_kind ("freq", in MHz, or "dist"), x_unit ("MHz",
+    "ft" or "m"), x, series: [{name, kind ("rl" and "il" as positive dB, "vswr", "" when the file doesn't say), y}],
+    points}. Raises ValueError when there's no trace in it."""
+    n = (name or "").lower()
+    if data[:2] == b"PK" and not n.endswith(".zip"):
+        text, lines = "", [[str(c).strip() for c in r] for r in _xlsx_table(data)]
+    else:
+        text = data.decode("utf-8-sig", "replace").replace("\r\n", "\n").replace("\r", "\n")
+        lines = None
+    meta = {}
+    if n.endswith((".s1p", ".s2p")) or re.search(r"^\s*#\s*(hz|khz|mhz|ghz)?\s*s\s+(ri|ma|db)\b", text, re.I | re.M):
+        two = n.endswith(".s2p") or bool(re.search(r"^\s*[-+\d.eE]+(\s+[-+\d.eE]+){8}\s*$", text, re.M))
+        x, series, meta = _touchstone(text, two)
+        fmt, xk, xu = "touchstone", "freq", "MHz"
+    else:
+        lines = lines if lines is not None else _sweep_lines(text)
+        num = lambda c: float(c.strip('"')) if _NUM.match((c or "").strip().strip('"')) else None  # noqa: E731
+        runs, run = [], None  # runs of rows that are all numbers, two or more, as wide as each other
+        for i, r in enumerate(lines + [[]]):
+            cells = [c for c in r if c != ""]
+            k = sum(num(c) is not None for c in cells)
+            if k >= 2 and k == len(cells):
+                if run and run[2] == k:
+                    run[1] = i
+                    continue
+                if run:
+                    runs.append(run)
+                run = [i, i, k]
+            else:
+                if run:
+                    runs.append(run)
+                run = None
+        if not runs or max(r[1] - r[0] for r in runs) < 2:
+            raise ValueError("No trace found: a sweep export has a column of frequencies or distances and one of readings.")
+        start, end, width = max(runs, key=lambda r: r[1] - r[0])
+        hi = next((i for i in range(start - 1, max(-1, start - 4), -1)  # the column names: the text line just above the data
+                   if lines[i] and not any(num(c) is not None for c in lines[i]) and len([c for c in lines[i] if c]) >= 2), None)
+        head = [c.lstrip("!#; ") for c in lines[hi]] if hi is not None else []
+        for r in lines[:start] if hi is None else lines[:hi]:  # "name, value" and "name: value" lines above them
+            cells = [c.lstrip("!#; ").strip() for c in r if c.strip()]
+            joined = ", ".join(cells)
+            if re.match(r"^[A-Za-z][^:,]{0,50}:\s*\S", joined):  # "Date: Tue, 04 Nov 2026" (a comma inside the value)
+                k, _, v = joined.partition(":")
+            elif len(cells) >= 3 and re.match(r"(keysight|agilent|anritsu)", cells[0], re.I):  # FieldFox: maker, model, serial, firmware
+                meta.update({"Maker": cells[0], "Model": cells[1], "Serial": cells[2]})
+                continue
+            elif len(cells) >= 2:
+                k, v = cells[0].rstrip(":"), " ".join(cells[1:])
+            elif cells and "Title" not in meta and len(cells[0]) < 80:  # "Site Master S332E" on a line of its own
+                k, v = "Title", cells[0]
+            else:
+                continue
+            k, v = k.strip(), v.strip()
+            if k and v and not _NUM.match(k) and k.upper() not in ("BEGIN", "END") and len(meta) < 40:
+                meta[k[:60]] = v[:200]
+        rows = [[c for c in lines[i] if c != ""] for i in range(start, end + 1)]
+        cols = [[num(r[c]) for r in rows] for c in range(width)]
+        names = [(head[c] if c < len(head) else "") for c in range(width)]
+        first = 0
+        if width > 2 and (re.match(r"^(pt|point|points|#|index|no\.?|n)$", names[0].strip(), re.I) or
+                          all(v == j + cols[0][0] for j, v in enumerate(cols[0]))):
+            first = 1  # a point-number column
+        meta_text = " ".join(f"{k} {v}" for k, v in meta.items()).lower()
+        xk, xu, xs = _sweep_x(names[first], cols[first], meta_text)
+        if xk == "freq" and not re.search(r"hz|freq", names[first].lower()) and re.search(r"\bdtf\b|distance\s*to\s*fault", meta_text):
+            xk, xu, xs = "dist", "m" if re.search(r"units?\W+m(eter|etre)?s?\b", meta_text) else "ft", 1.0
+        x = [v * xs for v in cols[first]]
+        said = " ".join(str(v) for k, v in meta.items() if re.search(r"^meas|^mode\b|trace|type|format", k, re.I))
+        series = []
+        for c in range(first + 1, width):
+            kind = _sweep_kind(names[c]) or _sweep_kind(said)
+            series.append({"name": names[c] or f"Trace {c - first}", "kind": kind, "y": [abs(v) if kind in ("rl", "il") else v for v in cols[c]]})
+        blob = meta_text + " " + text[:800].lower() + " " + " ".join(names).lower()
+        fmt = ("fieldfox" if re.search(r"fieldfox|keysight|agilent", blob) else
+               "anritsu" if re.search(r"anritsu|site\s*master|line\s*sweep|\bs3\d\d[a-z]\b|\bs4\d\d[a-z]\b|\bs8\d\d[a-z]\b", blob) else
+               "rigexpert" if "rigexpert" in blob else "nanovna" if "nanovna" in blob else "table")
+    if not x:
+        raise ValueError("No trace found in that file.")
+    keep = list(range(len(x)))
+    if len(keep) > SWEEP_MAX:
+        keep = [int(i * len(x) / SWEEP_MAX) for i in range(SWEEP_MAX)]
+    pick = lambda pat: next((v for k, v in meta.items() if re.search(pat, k, re.I)), "")  # noqa: E731
+    return {"format": fmt, "meta": meta, "instrument": " ".join(v for v in (pick(r"^(model|instrument|device)") or pick(r"^title$"), pick(r"serial")) if v),
+            "date": pick(r"date|time"), "measurement": pick(r"^meas") or pick(r"^mode\b"), "x_kind": xk, "x_unit": xu, "x": [round(x[i], 6) for i in keep],
+            "series": [{**s, "y": [round(s["y"][i], 4) for i in keep]} for s in series], "points": len(keep)}
 
 
 # column names other tools use for grid test fields (compared lower-case, letters and digits only)
@@ -872,34 +1131,151 @@ def import_parts(con, name, data, supplier=""):
             "total": con.execute("SELECT COUNT(*) FROM das_part").fetchone()[0]}
 
 
+# ERCES code fields on every part (11/4): what an AHJ checks on a submittal's parts, each with where its value came from
+# ("grant": the FCC's equipment authorization, "spec sheet": read off the maker's sheet, "typed": entered by hand)
+CODE_FIELDS = [("ul2524", "UL 2524", "edition and listing, e.g. 3rd ed., E123456"), ("booster_class", "Class", "A or B (47 CFR 90.219)"),
+               ("fcc_id", "FCC ID", "from the label"), ("nema", "NEMA", "e.g. 4X"),
+               ("rating_2h", "2-hour rating", "pathway or enclosure, e.g. UL 2196 2 h"), ("pim", "PIM", "e.g. -160 dBc @ 2x43 dBm")]
+CODE_SOURCES = ("grant", "spec sheet", "typed")
+GRANT_SUPPLIER = ""  # boosters from FCC grants have no supplier: a supplier's price list adds its own line for the same unit
+GRANT_CAT = "Signal booster (Part 90)"
+_SRC = {  # the rule behind each check, as rf_parts.json's research cites it
+    "nfpa1225": ("NFPA 1225 (2022) ch. 18", "https://oci.georgia.gov/document/document/nfpa-1225-chapter-18/download"),
+    "ifc2024": ("IFC 2024 510", "https://codes.iccsafe.org/content/IFC2024V2.0/chapter-5-fire-service-features"),
+    "90.219": ("47 CFR 90.219", "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-D/part-90/subpart-I/section-90.219"),
+    "intertek": ("Intertek: UL 2524 listings not updated to the 3rd edition by 2026-03-22 are withdrawn",
+                 "https://www.intertek.com/siteassets/resources/sun/2025/ul-2524-sun-rev-3-22-2024-ed-3-22-2026.pdf"),
+}
+
+
+def part_kind(r):
+    """What a part is, for which code fields its line must carry: booster (BDAs, repeaters, fiber DAS units), power
+    (battery backup, power supplies, chargers), annunciator, enclosure, cable (backbone cable and pathways), or passive."""
+    t = f"{r.get('cat') or ''} {r.get('item') or ''}".lower()
+    if r.get("grant_info"):
+        return "booster"
+    if re.search(r"battery|\bbbu\b|power suppl|charger", t):  # before boosters: "BDA battery backup unit" is power
+        return "power"
+    if re.search(r"booster|\bbda\b|repeater|fiber das|optic(?:al)? unit|head.?end|remote unit|master unit", t):
+        return "booster"
+    if re.search(r"annunciator|monitoring panel", t):
+        return "annunciator"
+    if re.search(r"enclosure|cabinet", t):
+        return "enclosure"
+    if re.search(r"cable|coax|pathway|riser|backbone|heliax|radiating", t):
+        return "cable"
+    return "passive"
+
+
+def part_checks(r, codes=None):
+    """The code checks for one part: [{field, status ("missing": required and not recorded, "problem": recorded and
+    short of the rule, "check": depends on the building or a later step), text, source: [{label, url}]}]. None for
+    passives."""
+    codes = codes if codes is not None else _codes(r)
+    v = lambda f: str((codes.get(f) or {}).get("v") or "").strip()
+    kind, out = part_kind(r), []
+
+    def add(field, status, text, *keys):
+        out.append({"field": field, "status": status, "text": text,
+                    "source": [{"label": _SRC[k][0], "url": _SRC[k][1]} for k in keys]})
+    if kind in ("booster", "power", "annunciator"):
+        if not v("ul2524"):
+            add("ul2524", "missing", "UL 2524 listing not recorded: NFPA 1225 (2022) 18.12.1.3, IFC 2024 510.4", "nfpa1225", "ifc2024")
+        elif re.search(r"\b(1st|2nd|first|second)\b|\bed(ition)?\.?\s*[12]\b", v("ul2524"), re.I):
+            add("ul2524", "problem", "Not the 3rd edition: listings not updated by 2026-03-22 are withdrawn", "intertek")
+    if kind == "booster":
+        n = re.sub(r"type", "", v("nema"), flags=re.I).strip().upper()
+        if not n:
+            add("nema", "missing", "NEMA 4 or 4X enclosure not recorded: NFPA 1225 (2022) 18.3.1.1, IFC 2024 510.4.2.4", "nfpa1225", "ifc2024")
+        elif not re.fullmatch(r"4X?(\s*/\s*4X?)*", n):
+            add("nema", "problem", f"NEMA {v('nema')}: boosters need NEMA 4 or 4X (NFPA 1225 (2022) 18.3.1.1)", "nfpa1225")
+        if not v("fcc_id"):
+            add("fcc_id", "missing", "FCC ID not recorded: a Part 90 booster carries one on its label (47 CFR 90.219)", "90.219")
+        if not v("booster_class"):
+            add("booster_class", "missing", "Class A or B not recorded (47 CFR 90.219)", "90.219")
+        elif "B" in v("booster_class").upper():
+            add("booster_class", "check", "Class B: registered with the FCC before it's switched on (47 CFR 90.219(d)(5))", "90.219")
+    if kind == "power" and not v("nema"):
+        add("nema", "check", "Batteries in NEMA 3R or better: NFPA 1225 (2022) 18.3.1.2", "nfpa1225")
+    if kind == "enclosure" and not v("nema"):
+        add("nema", "missing", "NEMA rating not recorded: NFPA 1225 (2022) 18.3.1", "nfpa1225")
+    if kind == "cable" and not v("rating_2h"):
+        add("rating_2h", "check", "2-hour rating not recorded: needed where the building isn't fully sprinklered and its frame is "
+            "rated 2 h (NFPA 1225 (2022) 18.12.3.3-18.12.3.6)", "nfpa1225")
+    return out
+
+
+def _json(v, default):
+    try:
+        return json.loads(v) if v else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _codes(r):
+    return _json(r.get("codes") if isinstance(r, dict) else r["codes"], {})
+
+
 def _part_row(r):
     d = dict(r)
     d.pop("key", None)
     d["standard"] = bool(d.get("standard"))
+    d["codes"] = _codes(d)
+    d["grant"] = _json(d.pop("grant_info", None), None)
+    d["pattern"] = _json(d.get("pattern"), None)  # a Planet antenna pattern (save_pattern)
+    d["kind"] = part_kind(dict(d, grant_info=d["grant"]))
+    d["checks"] = part_checks(dict(d, grant_info=d["grant"]), d["codes"])
     return d
 
 
-def list_parts(con, q="", standard=False, ids=None, limit=200):
-    """Search the catalogue (part number, description, maker, supplier); or just the standard parts; or given ids."""
+def list_parts(con, q="", standard=False, ids=None, limit=200, grants=False):
+    """Search the catalogue (part number, description, maker, supplier, FCC ID); or just the standard parts; or the
+    boosters from FCC grants; or given ids."""
     where, args = [], []
     if ids:
         where.append(f"id IN ({','.join('?' * len(ids))})")
         args += list(ids)
     if standard:
         where.append("standard=1")
+    if grants:
+        where.append("grant_info IS NOT NULL")
     for w in (q or "").split()[:6]:
-        where.append("(part LIKE ? OR item LIKE ? OR maker LIKE ? OR supplier LIKE ? OR cat LIKE ?)")
-        args += [f"%{w}%"] * 5
+        where.append("(part LIKE ? OR item LIKE ? OR maker LIKE ? OR supplier LIKE ? OR cat LIKE ? OR fcc_id LIKE ?)")
+        args += [f"%{w}%"] * 6
     sql = "SELECT * FROM das_part" + (" WHERE " + " AND ".join(where) if where else "")
     total = con.execute(sql.replace("SELECT *", "SELECT COUNT(*)", 1), args).fetchone()[0]
     rows = con.execute(sql + " ORDER BY standard DESC, supplier, part LIMIT ?", args + [int(limit)]).fetchall()
     return {"parts": [_part_row(r) for r in rows], "total": total,
             "all": con.execute("SELECT COUNT(*) FROM das_part").fetchone()[0],
-            "suppliers": [r[0] for r in con.execute("SELECT DISTINCT supplier FROM das_part WHERE supplier<>'' ORDER BY supplier")]}
+            "grants": con.execute("SELECT COUNT(*) FROM das_part WHERE grant_info IS NOT NULL").fetchone()[0],
+            "suppliers": [r[0] for r in con.execute("SELECT DISTINCT supplier FROM das_part WHERE supplier<>'' ORDER BY supplier")],
+            "code_fields": [{"key": k, "label": lab, "hint": h} for k, lab, h in CODE_FIELDS], "code_sources": list(CODE_SOURCES)}
+
+
+def _merge_codes(old, new):
+    """A part's code fields with the ones given: {field: {"v": value, "src": "spec sheet" | "typed"}}; an empty value
+    removes the field. "grant" is only ever set by the FCC grant import."""
+    out = dict(old or {})
+    if not isinstance(new, dict):
+        raise ValueError("Code fields come as {field: {v, src}}.")
+    keys = {k for k, _, _ in CODE_FIELDS}
+    for f, x in new.items():
+        if f not in keys:
+            raise ValueError(f"Unknown code field {f}: one of {', '.join(sorted(keys))}.")
+        x = x if isinstance(x, dict) else {"v": x}
+        v = re.sub(r"\s+", " ", str(x.get("v") if x.get("v") is not None else "")).strip()[:120]
+        src = x.get("src") or "typed"
+        if src not in CODE_SOURCES[1:]:
+            raise ValueError(f"Where a value came from is one of: {', '.join(CODE_SOURCES[1:])}.")
+        if v:
+            out[f] = {"v": v, "src": src}
+        else:
+            out.pop(f, None)
+    return out
 
 
 def save_part(con, d, pid=None):
-    """A part added by hand, or a kept part's star, default quantity, price, link or description changed."""
+    """A part added by hand, or a kept part's star, default quantity, price, link, description or code fields changed."""
     f = {k: d[k] for k in ("supplier", "part", "item", "maker", "cat", "unit", "spec_url") if k in d}
     if "price" in d:
         f["price"] = _price(d["price"])
@@ -909,6 +1285,16 @@ def save_part(con, d, pid=None):
         f["std_qty"] = _price(d["std_qty"])
     if "weight_lb" in d:
         f["weight_lb"] = _price(d["weight_lb"])
+    cur, old_codes = None, {}
+    if pid is not None:
+        cur = con.execute("SELECT part, item, codes FROM das_part WHERE id=?", (pid,)).fetchone()
+        if not cur:
+            raise LookupError("That part was deleted.")
+        old_codes = _codes(cur)
+    if "codes" in d:
+        codes = _merge_codes(old_codes, d["codes"])
+        f["codes"] = json.dumps(codes) if codes else None
+        f["fcc_id"] = (codes.get("fcc_id") or {}).get("v") or None
     f["updated_at"] = now()
     if pid is None:
         if not (f.get("part") or f.get("item")):
@@ -919,12 +1305,168 @@ def save_part(con, d, pid=None):
                           list(f.values()))
         pid = cur.lastrowid if cur.rowcount else con.execute("SELECT id FROM das_part WHERE supplier=? AND key=?", (f["supplier"], f["key"])).fetchone()[0]
     else:
-        cur = con.execute("SELECT part, item FROM das_part WHERE id=?", (pid,)).fetchone()
-        if not cur:
-            raise LookupError("That part was deleted.")
         if "part" in f or "item" in f:
             f["key"] = _part_key(f.get("part", cur["part"]), f.get("item", cur["item"]))
         con.execute(f"UPDATE das_part SET {','.join(k + '=?' for k in f)} WHERE id=?", list(f.values()) + [pid])
+    con.commit()
+    return _part_row(con.execute("SELECT * FROM das_part WHERE id=?", (pid,)).fetchone())
+
+
+def _mhz(bands):
+    if not bands:
+        return ""
+    t = ", ".join(f"{lo:g}-{hi:g}" if lo != hi else f"{lo:g}" for lo, hi in bands[:6])
+    return t + (f" +{len(bands) - 6} more" if len(bands) > 6 else "") + " MHz"
+
+
+def grant_power(g):
+    """The FCC's power range for a booster: its weakest band's range low end to its strongest band's high end."""
+    w = g.get("watts")
+    if not w:
+        return ""
+    lo = g["watts_from"] if g.get("watts_from") is not None else w[0]
+    return f"{min(lo, w[0]):g}-{w[1]:g} W"
+
+
+def _grant_item(g):
+    return "; ".join(x for x in (f"{g['maker']} {g['model']}", g.get("class_name") or "signal booster", _mhz(g.get("bands") or []),
+                                 grant_power(g)) if x)
+
+
+def parts_from_grants(con):
+    """Every US public safety signal booster on the kept FCC grants (Part 90 Class A and B, fccid.booster_parts) as a
+    part: FCC ID as its part number, maker, model, class, bands, power, grant date and its FCC record. A part already
+    kept keeps its star, price, spec sheet and every code field typed or read off a spec sheet; the grant's own facts
+    (FCC ID, class, bands, dates) are brought up to date. Returns {devices, added, updated, total}."""
+    import fccid
+    devs = fccid.booster_parts(con)
+    added = updated = 0
+    for g in devs:
+        key = _part_key(g["fcc_id"], "")
+        info = dict(g, item=_grant_item(g), power=grant_power(g))
+        old = con.execute("SELECT id, item, codes, grant_info FROM das_part WHERE supplier=? AND key=?", (GRANT_SUPPLIER, key)).fetchone()
+        codes = _codes(old) if old else {}
+        for f, v in (("fcc_id", g["fcc_id"]), ("booster_class", g["booster_class"])):
+            if v and (f not in codes or codes[f].get("src") == "grant"):
+                codes[f] = {"v": v, "src": "grant"}
+        if old:
+            was = (_json(old["grant_info"], None) or {}).get("item")
+            item = info["item"] if not old["item"] or old["item"] == was else old["item"]  # a description edited by hand stays
+            con.execute("UPDATE das_part SET item=?, fcc_id=?, grant_info=?, codes=?, maker=COALESCE(NULLIF(maker,''), ?), "
+                        "cat=COALESCE(NULLIF(cat,''), ?), updated_at=? WHERE id=?",
+                        (item, g["fcc_id"], json.dumps(info), json.dumps(codes), g["maker"], GRANT_CAT, now(), old["id"]))
+            updated += 1
+        else:
+            con.execute("INSERT INTO das_part(supplier, key, part, item, maker, cat, unit, fcc_id, grant_info, codes, updated_at) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?)", (GRANT_SUPPLIER, key, g["fcc_id"], info["item"], g["maker"], GRANT_CAT, "ea",
+                                                          g["fcc_id"], json.dumps(info), json.dumps(codes), now()))
+            added += 1
+    con.commit()
+    return {"devices": len(devs), "added": added, "updated": updated,
+            "total": con.execute("SELECT COUNT(*) FROM das_part").fetchone()[0]}
+
+
+def sync_grant_parts(con):
+    """parts_from_grants when the kept grants changed since it last ran (a marker beside the spec sheets holds what it
+    saw), so a grant import shows in the catalogue without a click. A part deleted by hand comes back only when the
+    grants change again. Returns the parts_from_grants answer, or None when nothing changed."""
+    import fccid
+    src = fccid.grants_source(con)
+    if not src["devices"]:
+        return None
+    sig = json.dumps([src["devices"], src["lines"], src["at"], sorted(src["classes"].items())])
+    mark = os.path.join(spec_dir(), ".grants")
+    try:
+        with open(mark, encoding="utf-8") as fh:
+            if fh.read() == sig:
+                return None
+    except OSError:
+        pass
+    res = parts_from_grants(con)
+    with open(mark, "w", encoding="utf-8") as fh:
+        fh.write(sig)
+    return res
+
+
+# ---------------------------------------------------------------- antenna patterns (Planet .msi / .pln, 11/4)
+# The Planet format makers publish their antenna patterns in: keyword lines (NAME, MAKE, FREQUENCY, GAIN, H_WIDTH,
+# V_WIDTH, FRONT_TO_BACK, TILT, POLARIZATION, COMMENT), then HORIZONTAL 360 and VERTICAL 360, each followed by lines of
+# "angle loss": degrees, and dB below the peak. GAIN with no unit is dBd (the format's own default). Files come from
+# the maker or a person's own folder: nothing here fetches or republishes them.
+PATTERN_MAX = 2 * 1024 * 1024
+
+
+def parse_msi(text):
+    """A Planet .msi / .pln file -> {name, make, freq_mhz, gain_dbi, gain_given, h_width, v_width, front_to_back, tilt,
+    polarization, comment, horizontal: [360 dB losses, one per degree], vertical: [...], h_width_measured,
+    v_width_measured}. Refuses a file without both 360-point cuts."""
+    head, cuts, cur = {}, {}, None
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        m = re.match(r"(HORIZONTAL|VERTICAL)\s+(\d+)\s*$", s, re.I)
+        if m:
+            cur = cuts.setdefault(m.group(1).lower(), {})
+            continue
+        if cur is not None and re.match(r"^-?\d+(\.\d+)?\s+-?\d+(\.\d+)?$", s):
+            a, v = s.split()
+            cur[int(round(float(a))) % 360] = abs(float(v))
+            continue
+        k, _, v = s.partition(" ")
+        if re.fullmatch(r"[A-Z_]+", k.upper()) and cur is None:
+            head[k.upper()] = v.strip()
+    for c in ("horizontal", "vertical"):
+        if len(cuts.get(c) or {}) < 360:
+            raise ValueError(f"No {c} pattern of 360 points in the file ({len(cuts.get(c) or {})} read): not a Planet .msi / .pln file.")
+    num = lambda k: (lambda m: float(m.group(0)) if m else None)(re.search(r"-?\d+(\.\d+)?", head.get(k, "")))
+    g = num("GAIN")
+    unit = "dBi" if re.search(r"dbi", head.get("GAIN", ""), re.I) else "dBd"
+    h = [cuts["horizontal"][a] for a in range(360)]
+    v = [cuts["vertical"][a] for a in range(360)]
+    return {"name": head.get("NAME", ""), "make": head.get("MAKE", ""), "freq_mhz": num("FREQUENCY"),
+            "gain_dbi": None if g is None else round(g + (2.15 if unit == "dBd" else 0), 2), "gain_given": head.get("GAIN", ""),
+            "h_width": num("H_WIDTH"), "v_width": num("V_WIDTH"), "front_to_back": num("FRONT_TO_BACK"),
+            "tilt": head.get("TILT", ""), "polarization": head.get("POLARIZATION", ""), "comment": head.get("COMMENT", "")[:300],
+            "horizontal": h, "vertical": v, "h_width_measured": beamwidth(h), "v_width_measured": beamwidth(v)}
+
+
+def beamwidth(cut, down=3.0):
+    """The -3 dB width (degrees) around the cut's peak, from the 1-degree points; 360 for an omni cut."""
+    peak = min(range(360), key=lambda a: cut[a])
+    lim = cut[peak] + down
+    if all(x <= lim for x in cut):
+        return 360
+    w = 1
+    for step in (1, -1):
+        a = peak
+        while cut[(a + step) % 360] <= lim:
+            a += step
+            w += 1
+    return w
+
+
+def save_pattern(con, pid, name, data):
+    """A Planet pattern file onto a part (pid), or a new antenna part named by the file's NAME and MAKE (pid None; the
+    same name again updates it). Returns the part."""
+    if len(data) > PATTERN_MAX:
+        raise ValueError("That pattern file is over 2 MB: a Planet .msi is a few kB.")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        text = data.decode("cp1252", "replace")
+    pat = dict(parse_msi(text), file=os.path.basename(name or "")[:120])
+    if pid is None:
+        part = pat["name"] or os.path.splitext(pat["file"])[0]
+        if not part:
+            raise ValueError("The file names no antenna (NAME line), and has no file name.")
+        p = save_part(con, {"part": part, "item": f"Antenna{', ' + str(round(pat['freq_mhz'])) + ' MHz' if pat['freq_mhz'] else ''}"
+                                                   f"{', ' + str(pat['gain_dbi']) + ' dBi' if pat['gain_dbi'] is not None else ''}",
+                            "maker": pat["make"], "cat": "Antenna", "unit": "ea"})
+        pid = p["id"]
+    elif not con.execute("SELECT 1 FROM das_part WHERE id=?", (pid,)).fetchone():
+        raise LookupError("That part was deleted.")
+    con.execute("UPDATE das_part SET pattern=?, updated_at=? WHERE id=?", (json.dumps(pat), now(), pid))
     con.commit()
     return _part_row(con.execute("SELECT * FROM das_part WHERE id=?", (pid,)).fetchone())
 
@@ -1103,25 +1645,49 @@ def build_specsheets(con, jid, job, fetch=None):
     return {"parts": out, "ok": ok, "of": len(out)}
 
 
+BOM_FIELDS = ["category", "item", "part", "supplier", "qty", "unit", "price", "line_total", "note",
+              "ul_2524", "class", "fcc_id", "nema", "rating_2h", "pim", "code_checks"]
+_BOM_CODE = {"ul2524": "ul_2524", "booster_class": "class", "fcc_id": "fcc_id", "nema": "nema", "rating_2h": "rating_2h", "pim": "pim"}
+
+
+def with_part_codes(con, job):
+    """The job with each bill-of-materials line's code fields and checks from its catalogue part (the AHJ packet's parts
+    list carries them): line["codes"], line["checks"]. A line with no catalogue part is checked as typed."""
+    bom = (job.get("data") or {}).get("bom") or []
+    out = []
+    for x in bom:
+        r = _match_part(con, x)
+        row = _part_row(r) if r else {"codes": {}, "checks": part_checks({"cat": x.get("cat"), "item": x.get("item")}, {})}
+        out.append(dict(x, codes=row["codes"], checks=row["checks"]))
+    return dict(job, data=dict(job.get("data") or {}, bom=out))
+
+
 def bom_rows(bom):
-    """The bill of materials as rows for a CSV or the submittal: quantity times price per line, and the total."""
+    """The bill of materials as rows for a CSV or the submittal: quantity times price per line, and the total; with
+    with_part_codes, each line's code fields as "value [where it came from]" and its open checks."""
     rows, total = [], 0.0
     for x in bom:
         q, p = _price(x.get("qty")), _price(x.get("price"))
         line = round(q * p, 2) if q is not None and p is not None else None
         total += line or 0
-        rows.append({"category": x.get("cat") or "", "item": x.get("item") or "", "part": x.get("part") or "",
-                     "supplier": x.get("supplier") or "", "qty": x.get("qty") or "", "unit": x.get("unit") or "",
-                     "price": "" if p is None else f"{p:.2f}", "line_total": "" if line is None else f"{line:.2f}", "note": x.get("note") or ""})
+        row = {"category": x.get("cat") or "", "item": x.get("item") or "", "part": x.get("part") or "",
+               "supplier": x.get("supplier") or "", "qty": x.get("qty") or "", "unit": x.get("unit") or "",
+               "price": "" if p is None else f"{p:.2f}", "line_total": "" if line is None else f"{line:.2f}", "note": x.get("note") or ""}
+        for f, col in _BOM_CODE.items():
+            c = (x.get("codes") or {}).get(f)
+            row[col] = f"{c['v']} [{c.get('src') or 'typed'}]" if c and c.get("v") else ""
+        row["code_checks"] = "; ".join(f"{c['status']}: {c['text']}" for c in x.get("checks") or [])
+        rows.append(row)
     return rows, round(total, 2)
 
 
 def packet_zip(jid, job):
-    """One download for the AHJ packet's parts: the bill of materials (CSV, with prices and the total) and every
-    spec sheet gathered into the job's folder."""
+    """One download for the AHJ packet's parts: the bill of materials (CSV, with prices and the total), every
+    spec sheet gathered into the job's folder, and each test instrument's calibration certificate (the Overview's
+    certificate register names the file; Charlotte and Durham ask for it in the packet)."""
     rows, total = bom_rows((job.get("data") or {}).get("bom") or [])
     buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=["category", "item", "part", "supplier", "qty", "unit", "price", "line_total", "note"])
+    w = csv.DictWriter(buf, fieldnames=BOM_FIELDS)  # with each part's code fields (with_part_codes, 11/4)
     w.writeheader()
     w.writerows(rows)
     if rows:
@@ -1134,7 +1700,177 @@ def packet_zip(jid, job):
             for f in sorted(os.listdir(d)):
                 if f.startswith("Spec sheet - ") and f.lower().endswith(".pdf"):
                     z.write(os.path.join(d, f), "Spec sheets/" + f)
+            seen = set()
+            for inst in ((job.get("data") or {}).get("testing") or {}).get("instruments") or []:
+                cert = inst.get("cert") if isinstance(inst, dict) else None
+                if not cert or cert in seen:
+                    continue
+                try:
+                    fp = file_path(jid, job["name"], cert)
+                except ValueError:
+                    continue
+                if os.path.isfile(fp):
+                    seen.add(cert)
+                    z.write(fp, "Calibration certificates/" + os.path.basename(fp))
     return out.getvalue()
+
+
+# ---------------------------------------------------------------- sealed reports (lane A, 11/4)
+# A report printed as final is sealed: the server keeps the SHA-256 of its text, the job's data as it was (and that
+# data's own SHA-256), and a short verify code that prints on every page. Verifying a code shows what was sealed and
+# whether the job changed since. Signed in only; the public (signed-out) page is built but stays off until the
+# setting das_verify_public is true, which waits on Cody's yes (no switch for it in the app).
+SEAL_SCHEMA = """CREATE TABLE IF NOT EXISTS das_seal(code TEXT PRIMARY KEY, job_id INTEGER, at TEXT, by TEXT, title TEXT, result TEXT,
+    sha256 TEXT, job_sha256 TEXT, job_updated TEXT, job_data TEXT, content TEXT)"""
+TABLES = TABLES + ("das_seal",)  # backed up with the rest of the DAS work
+SEAL_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"  # Crockford base 32: no I, L, O or U to misread
+PUBLIC_VERIFY_SETTING = "das_verify_public"
+SEAL_MAX_TEXT = 2_000_000
+
+
+def _seal_table(con):
+    con.execute(SEAL_SCHEMA)
+
+
+def _canon(d):
+    return json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _sha(s):
+    import hashlib
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def seal_code_norm(code):
+    """What a person types back: any case, with or without the dash; O read as 0, I and L as 1."""
+    s = re.sub(r"[^0-9A-Za-z]", "", code or "").upper().translate(str.maketrans("OIL", "011"))
+    return f"{s[:4]}-{s[4:8]}" if len(s) == 8 else s
+
+
+def seal_report(con, jid, text, title="", result="", by=""):
+    """Seal a report's text for job jid: {code, at, sha256, job_sha256}. The text is what printed (static/dasahj.js)."""
+    import secrets
+    _seal_table(con)
+    job = job_row(con, jid)
+    if job is None:
+        raise LookupError(f"Job {jid} was deleted.")
+    text = str(text or "")
+    if not text.strip():
+        raise ValueError("Nothing to seal: the report is empty.")
+    if len(text) > SEAL_MAX_TEXT:
+        raise ValueError("The report is too long to seal.")
+    for _ in range(20):
+        raw = "".join(secrets.choice(SEAL_ALPHABET) for _ in range(8))
+        code = f"{raw[:4]}-{raw[4:]}"
+        if not con.execute("SELECT 1 FROM das_seal WHERE code=?", (code,)).fetchone():
+            break
+    else:
+        raise RuntimeError("No free verify code: try again.")
+    data = _canon(job["data"])
+    row = {"code": code, "job_id": jid, "at": now(), "by": by or "", "title": str(title or "")[:300], "result": str(result or "")[:80],
+           "sha256": _sha(text), "job_sha256": _sha(data), "job_updated": job.get("updated_at") or "", "job_data": data, "content": text}
+    con.execute(f"INSERT INTO das_seal({', '.join(row)}) VALUES({', '.join('?' * len(row))})", tuple(row.values()))
+    con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "sealed", f"{row['title']}: verify code {code}, SHA-256 {row['sha256'][:16]}"))
+    con.commit()
+    return {k: row[k] for k in ("code", "at", "sha256", "job_sha256")}
+
+
+def _changes(old, new):
+    """The top-level parts of a job's data that differ, and inside them the fields (as das_log names them)."""
+    out = []
+    for k in sorted(set(old) | set(new)):
+        if _canon(old.get(k)) == _canon(new.get(k)):
+            continue
+        a, b = old.get(k), new.get(k)
+        if isinstance(a, dict) and isinstance(b, dict):
+            fa, fb = _flat(a, f"{k}."), _flat(b, f"{k}.")
+            sub = [x for x in sorted(set(fa) | set(fb)) if fa.get(x) != fb.get(x)]
+            out += sub or [k]
+        else:
+            out.append(k)
+    return out
+
+
+def seal_verify(con, code):
+    """What was sealed under a code, and whether the job changed since: {found: False} for an unknown code."""
+    _seal_table(con)
+    r = con.execute("SELECT * FROM das_seal WHERE code=?", (seal_code_norm(code),)).fetchone()
+    if not r:
+        return {"found": False}
+    s = dict(r)
+    job = job_row(con, s["job_id"])
+    old = json.loads(s["job_data"] or "{}")
+    out = {"found": True, **{k: s[k] for k in ("code", "job_id", "at", "by", "title", "result", "sha256", "job_sha256", "content")},
+           "content_ok": _sha(s["content"] or "") == s["sha256"], "job_deleted": job is None}
+    if job is not None:
+        out["job_name"] = job["name"]
+        out["job_updated"] = job.get("updated_at") or ""
+        out["job_changed"] = _sha(_canon(job["data"])) != s["job_sha256"]
+        out["changes"] = _changes(old, job["data"]) if out["job_changed"] else []
+    return out
+
+
+def seal_list(con, jid):
+    _seal_table(con)
+    job = job_row(con, jid)
+    now_sha = _sha(_canon(job["data"])) if job else ""
+    return [{"code": r["code"], "at": r["at"], "by": r["by"], "title": r["title"], "result": r["result"], "sha256": r["sha256"],
+             "changed": r["job_sha256"] != now_sha}
+            for r in con.execute("SELECT code, at, by, title, result, sha256, job_sha256 FROM das_seal WHERE job_id=? ORDER BY at DESC", (jid,))]
+
+
+def seal_route(con, method, p, qs, body_json, by=""):
+    """/api/das/seal (POST: seal; GET ?job=: a job's seals) and /api/das/seal/verify?code= (signed in). (status, body)"""
+    q = lambda k: (qs.get(k) or [""])[0]
+    if p == "/api/das/seal" and method == "POST":
+        b = body_json()
+        return 200, seal_report(con, int(b.get("job_id") or 0), b.get("text"), b.get("title"), b.get("result"), by)
+    if p == "/api/das/seal" and method == "GET":
+        return 200, {"seals": seal_list(con, int(q("job") or 0))}
+    if p == "/api/das/seal/verify":
+        return 200, seal_verify(con, q("code"))
+    raise LookupError("No such page.")
+
+
+CELL_TECH = re.compile(r"\b(LTE|NR|5G|4G|3G|UMTS|WCDMA|HSPA|GSM|CDMA|EV-?DO)\b", re.I)
+PS_ONLY_LIFE = ("ul2524", "quant5")  # UL 2524 (public safety boosters) and the NFPA 1225 five-year retest
+
+
+def cell_only(d):
+    """A carrier-only (commercial cellular) job: cellular and not public safety, by job_scope. Public-safety-only asks
+    (Part 90 consent and registration, UL 2524, IFC 510 dates and wording) stay off it; a job with both keeps both."""
+    sc = job_scope(d)
+    return sc["cell"] and not sc["ps"]
+
+
+def public_verify_on(get_setting):
+    """The signed-out verify page answers only when Cody has switched it on (setting das_verify_public)."""
+    try:
+        return get_setting(PUBLIC_VERIFY_SETTING, False) is True
+    except Exception:
+        return False
+
+
+def public_verify_page(con, code):
+    """The signed-out verify page (off by default): the code's report, date and result, and whether the job changed.
+    Nothing else of the job: no readings, no contacts, and no product name (customer-facing outputs never name it)."""
+    import html as H
+    v = seal_verify(con, code) if code else {"found": None}
+    e = H.escape
+    if v.get("found"):
+        state = ("The job has been deleted since." if v.get("job_deleted") else
+                 "The job has changed since it was sealed: ask the tester for the current report." if v.get("job_changed") else
+                 "The job is unchanged since it was sealed.")
+        body = (f"<h1>Sealed report {e(v['code'])}</h1><dl><dt>Report</dt><dd>{e(v['title'])}</dd><dt>Building</dt><dd>{e(v.get('job_name') or '')}</dd>"
+                f"<dt>Result</dt><dd>{e(v['result'])}</dd><dt>Sealed</dt><dd>{e(v['at'])}</dd><dt>SHA-256</dt><dd class=m>{e(v['sha256'])}</dd></dl><p><b>{e(state)}</b></p>")
+    elif v.get("found") is False:
+        body = f"<h1>No sealed report has the code {e(seal_code_norm(code))}</h1><p>Check the code in the report's footer.</p>"
+    else:
+        body = "<h1>Verify a sealed report</h1>"
+    return ("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width, initial-scale=1'><title>Report verification</title>"
+            "<style>body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#111}dt{color:#555;font-size:13px}dd{margin:0 0 8px}"
+            ".m{font-family:monospace;overflow-wrap:anywhere}input,button{font:inherit;padding:8px 12px}</style></head><body>"
+            f"{body}<form method=get action=/verify><input name=code placeholder='verify code' value='{e(seal_code_norm(code) if code else '')}'> <button>Verify</button></form></body></html>")
 
 
 RESEARCH_PARTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "research", "rf_parts.json")
@@ -1186,8 +1922,8 @@ def seed_parts(con, path=RESEARCH_PARTS):
 RFQ_SCHEMA = """
 CREATE TABLE IF NOT EXISTS das_supplier(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, email TEXT, phone TEXT, website TEXT,
     contact TEXT, notes TEXT, updated_at TEXT, price_url TEXT, price_checked TEXT, price_result TEXT, ship_from TEXT);
-CREATE TABLE IF NOT EXISTS das_rfq(id INTEGER PRIMARY KEY, job_id INTEGER, title TEXT, lines TEXT, suppliers TEXT, need_by TEXT,
-    ship_to TEXT, notes TEXT, status TEXT, created_at TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS das_rfq(id INTEGER PRIMARY KEY AUTOINCREMENT, job_id INTEGER, title TEXT, lines TEXT, suppliers TEXT,
+    need_by TEXT, ship_to TEXT, notes TEXT, status TEXT, created_at TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS das_quote(id INTEGER PRIMARY KEY, rfq_id INTEGER, supplier TEXT, key TEXT, unit_price REAL, qty REAL,
     lead_days REAL, note TEXT, updated_at TEXT, UNIQUE(rfq_id, supplier, key));
 CREATE TABLE IF NOT EXISTS das_rfq_supplier(id INTEGER PRIMARY KEY, rfq_id INTEGER, supplier TEXT, ship_cost REAL, ship_days REAL,
@@ -1409,13 +2145,54 @@ def rfq_email(q, supplier, sender=""):
 def migrate(con):
     """Columns added after a table was first made (CREATE TABLE IF NOT EXISTS leaves an old table as it was)."""
     add = {"das_supplier": (("price_url", "TEXT"), ("price_checked", "TEXT"), ("price_result", "TEXT"), ("ship_from", "TEXT")),
-           "das_part": (("weight_lb", "REAL"),), "das_rfq_supplier": (("ship_est", "TEXT"),),
+           "das_part": (("weight_lb", "REAL"), ("fcc_id", "TEXT"), ("grant_info", "TEXT"), ("codes", "TEXT"), ("pattern", "TEXT")), "das_rfq_supplier": (("ship_est", "TEXT"),),
            "das_prospect": (("email", "TEXT"), ("email_source", "TEXT")), "das_mail": (("counterpart_name", "TEXT"),)}
     for table, cols in add.items():
         have = {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
         for c, typ in cols:
             if have and c not in have:
                 con.execute(f"ALTER TABLE {table} ADD COLUMN {c} {typ}")
+    con.commit()
+    rfq_ids_never_reused(con)
+    dashist.ensure(con)  # the job's revision column; existing jobs shared with the whole team, as before
+
+
+def rfq_ids_never_reused(con):
+    """Quote request ids are never handed out twice (11/4: a new request took a deleted one's id and with it the old
+    request's quotes and its mail, whose subjects still carry [RFR Q<id>.<n>]). An older das_rfq (plain INTEGER PRIMARY
+    KEY, which reuses the highest id once it's deleted) is rebuilt with AUTOINCREMENT, every row keeping its id; then the
+    counter is raised past every id anything has used: requests, quotes, suppliers' terms and mail, by column and by tag."""
+    import sqlite3
+    row = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='das_rfq'").fetchone()
+    if not row:
+        return
+    if "AUTOINCREMENT" not in (row[0] or "").upper():
+        new = re.search(r"CREATE TABLE IF NOT EXISTS das_rfq\(.*?\);", RFQ_SCHEMA, re.S).group(0)
+        old_cols = [r[1] for r in con.execute("PRAGMA table_info(das_rfq)")]
+        con.execute("ALTER TABLE das_rfq RENAME TO das_rfq_pre_autoinc")
+        con.execute(new)
+        new_cols = {r[1] for r in con.execute("PRAGMA table_info(das_rfq)")}
+        cols = ", ".join(c for c in old_cols if c in new_cols)
+        con.execute(f"INSERT INTO das_rfq({cols}) SELECT {cols} FROM das_rfq_pre_autoinc")
+        con.execute("DROP TABLE das_rfq_pre_autoinc")
+    hi = con.execute("SELECT COALESCE(MAX(id), 0) FROM das_rfq").fetchone()[0]
+    for t in ("das_quote", "das_rfq_supplier", "das_mail"):
+        try:
+            hi = max(hi, con.execute(f"SELECT COALESCE(MAX(rfq_id), 0) FROM {t}").fetchone()[0] or 0)
+        except sqlite3.Error:
+            pass  # a table this copy doesn't have yet
+    try:
+        for (tag,) in con.execute("SELECT DISTINCT tag FROM das_mail WHERE tag LIKE 'Q%'"):
+            m = re.fullmatch(r"Q(\d+)\.\d+", tag or "")
+            if m:
+                hi = max(hi, int(m.group(1)))
+    except sqlite3.Error:
+        pass
+    seq = con.execute("SELECT seq FROM sqlite_sequence WHERE name='das_rfq'").fetchone()
+    if seq is None:
+        con.execute("INSERT INTO sqlite_sequence(name, seq) VALUES('das_rfq', ?)", (hi,))
+    elif (seq[0] or 0) < hi:
+        con.execute("UPDATE sqlite_sequence SET seq=? WHERE name='das_rfq'", (hi,))
     con.commit()
 
 
@@ -1519,8 +2296,12 @@ def refresh_price_lists(con, fetch=None):
 LIFE_SOURCES = {
     "annual": ("IFC 510.6.1 / NFPA 1225 20.3.10: tested and signed at acceptance and every 12 months",
                "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
-    "quant5": ("NFPA 1225 20.3.10.2.3.3: a full quantitative retest at least every five years (per the SBC ERCES Primer; the "
-               "IFC has no five-year rule; NYC ARCS: 5-year recertification)", "https://saferbuildings.org/erces-primer/"),
+    # the five-year rule is cited through the SBC primer: NFPA 1225's chapter 18 / 20.3.10 text read on 11/4 doesn't show it
+    # (beat-par). A job whose AHJ has its own five-year rule (static/research/ahj_deadlines.json) shows that one instead
+    "quant5": ("NFPA 1225 20.3.10.2.3.3: a full quantitative retest at least every five years (per the SBC ERCES Primer; not "
+               "in the NFPA 1225 text read, so confirm it; the IFC has no five-year rule). Local five-year rules read: Clark "
+               "County FPAN, Douglas County App. H, Denver 510-1, FDNY ARCS, Seattle SFC 510.6.1.1",
+               "https://saferbuildings.org/erces-primer/"),
     "auth": ("Licensee authorization: IFC 2024 510.5.2.1 / NFPA 1225 18.7.2; the term is the licensee's (Requirements, "
              "Licensee consent)", "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
     "op_permit": ("Operational permit where the fire code official requires one, renewable: IFC 2024 510.3.2 / NFPA 1225 "
@@ -1529,8 +2310,97 @@ LIFE_SOURCES = {
                "https://www.intertek.com/siteassets/resources/sun/2025/ul-2524-sun-rev-3-22-2024-ed-3-22-2026.pdf"),
     "remodel": ("IFC 2024 510.6.1: retest after structural changes (additions, remodels); the code gives no deadline",
                 "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
+    # the firm's own dates (lane D 11/4, beat-par lifecycle "firm certificates"): the instruments and the tester
+    "cal": ("Instrument calibration: Grid test scores a reading only when its instrument was calibrated within the 12 months "
+            "before it (RF Recon's rule, the usual annual cycle; check the AHJ). AHJs ask for each instrument's model, serial "
+            "and calibration date (San Diego FD C-1 Appendix D; FDNY ARCS procedures)",
+            "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf"),
+    "nicet": ("NICET Policy 30: a certification runs three years and loses Active Status on the first day of the expiration "
+              "month printed on it (San Diego FD C-1 asks for NICET Level II)", "https://www.nicet.org/about-us/policies/policy30/"),
+    "mfr": ("A certificate of in-building system training from a recognized organization or the equipment's manufacturer is "
+            "a minimum tester qualification (IFC 2021 510.5.3; Seattle FD CAM 5123, Section 2); the term is the issuer's",
+            "https://seattle.gov/documents/Departments/Fire/Business/CAM5123_EmerRespondRadioSys.pdf"),
+    "b03": ("FDNY: the ARCS tester holds a B-03 Certificate of Fitness (FDNY ARCS submission procedures, rev 7/11/2024); "
+            "the date is the one on the certificate",
+            "https://www.nyc.gov/assets/fdny/downloads/pdf/business/arcs-submission-and-approval-procedures.pdf"),
+    # a carrier (commercial cellular) DAS: none of IFC 510 / NFPA 1225 / UL 2524 / Part 90 applies (lane H 11/4)
+    "carrier_consent": ("47 CFR 20.21(c): an industrial signal booster runs only with each carrier's express consent. The rule "
+                        "sets no term: a renewal date is the one in the carrier's letter",
+                        "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/part-20/section-20.21"),
+    "carrier_retest": ("The carrier's own acceptance and retest terms (its consent letter or DAS agreement), as entered on the "
+                       "job: no FCC rule sets a retest interval for a carrier DAS",
+                       "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/part-20/section-20.21"),
+    "maintenance": ("The owner's maintenance or service agreement, as entered on the job: no code sets a term for a carrier DAS",
+                    None),
 }
 LIFE_SOON_DAYS = 60
+CAL_MONTHS = 12  # static/das.js DAS.cal_months: change both together
+LIFE_CERTS = (("nicet", "NICET certification"), ("mfr", "Manufacturer training certificate"), ("b03", "FDNY B-03 certificate of fitness"))
+TEST_KIND = {"acceptance": "acceptance test", "annual": "annual test", "five_year": "five-year test"}
+_AHJ_RULES = None
+
+
+def ahj_rules():
+    """The AHJ filing windows and local retest rules, by AHJ (static/research/ahj_deadlines.json, each with its source)."""
+    global _AHJ_RULES
+    if _AHJ_RULES is None:
+        try:
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "research", "ahj_deadlines.json"),
+                      encoding="utf-8") as fh:
+                _AHJ_RULES = json.load(fh).get("ahjs") or {}
+        except (OSError, ValueError):  # the web version may not carry the file: the generic rules still apply
+            _AHJ_RULES = {}
+    return _AHJ_RULES
+
+
+def ahj_rule(d):
+    """A job's AHJ rules: (key, rule, how it matched), or (None, None, ""). The DAS profile's name first (DAS_PROFILES
+    names in static/das.js), then the job's AHJ field."""
+    d = d or {}
+    prof = str((d.get("profile") or {}).get("name") or "")
+    ahj = str(d.get("ahj") or "")
+    rules = ahj_rules()
+    for key, r in rules.items():
+        if prof and (prof == key or (r.get("profiles") and re.search(r["profiles"], prof, re.I))):
+            return key, r, f"the job's AHJ profile ({prof})"
+    for key, r in rules.items():
+        if ahj and r.get("ahj") and re.search(r["ahj"], ahj, re.I):
+            return key, r, f"the job's AHJ ({ahj})"
+    return None, None, ""
+
+
+def job_scope(d):
+    """What a job covers: {"ps": public-safety ERCES (IFC 510 / NFPA 1225), "cell": commercial cellular}. One rule for the
+    whole app (static/das.js dasScope says the same; cell_only below is built on it). Cellular when carriers are set
+    (data.cellular: a target, donor readings or carrier approvals). Public safety when it has a public-safety channel plan,
+    systems picked, licensee authorizations or consents, or a public-safety reading in the grid or a named critical area;
+    and every job with no cellular part (every job before cellular existed). An AHJ profile alone decides nothing: a
+    carrier job can carry one too (lanes A and D, 11/4)."""
+    d = d or {}
+    C, ps = d.get("cellular") or {}, d.get("presurvey") or {}
+    cell = any(isinstance(C.get(k), dict) and C.get(k) for k in ("profile", "donor", "approvals"))
+    sign = bool(ps.get("plan") or ps.get("include") or (d.get("life") or {}).get("auths") or d.get("consents") or _ps_reading(d))
+    return {"ps": sign or not cell, "cell": bool(cell)}
+
+
+def _ps_reading(d):
+    """A public-safety reading anywhere in the grid (a downlink, DAQ or SINR that isn't a cellular reading), or in a
+    named critical area."""
+    has = lambda v: v is not None and v != ""
+    for r in ((d.get("grid") or {}).get("results") or {}).values():
+        rs = r.get("readings") if isinstance(r, dict) and isinstance(r.get("readings"), list) else [r]
+        for x in rs:
+            if not isinstance(x, dict):
+                continue
+            cell = (has(x.get("tech")) and CELL_TECH.search(str(x.get("tech")))) or has(x.get("rsrp")) or has(x.get("rsrq"))
+            if not cell and (has(x.get("dl")) or has(x.get("daq")) or has(x.get("sinr"))):
+                return True
+    for r in ((d.get("grid") or {}).get("critical") or {}).values():
+        if isinstance(r, dict) and (has(r.get("dl")) or has(r.get("daq"))):
+            return True
+    return False
+
+
 UL2524_WITHDRAWN = "2026-03-22"
 _POST_DESIGN = ("Install", "Commission", "Acceptance", "In service")
 
@@ -1556,22 +2426,70 @@ def lifecycle(d, stage=None, today=None):
     """A job's lifecycle items: [{key, label, due, done, state, days, source, url}]. state: "overdue", "due" (within
     60 days), "ok", "open" (to do, no date in the code), "done", or "n/a" (not reached yet). d is the job's data;
     d["life"] holds what the person entered: annual_last, quant5_last, op_permit_expires, ul2524_checked, remodel,
-    auths [{who, granted, renews, term}]."""
+    auths [{who, granted, renews, term}], report_filed (the last test report filed with the AHJ). Where the job's AHJ has
+    rules in static/research/ahj_deadlines.json (ahj_rule), items "report" (due to the AHJ N days after a test) and
+    "annual_ahj" (OCSD's 13 months) are added and the five-year item takes the AHJ's own rule; those carry ahj and
+    matched. Items "cal" (d["testing"]["instruments"] cal + CAL_MONTHS) and "cert" (testing nicet_expires, mfr_expires,
+    b03_expires) are the firm's own dates. Each item has an id, unique within the job (reminders key on it).
+    A carrier-only job (job_scope) has none of the public-safety items: it gets "carrier_consent" (each carrier with
+    consent in data.cellular.approvals; renews when entered), "carrier_retest" (approvals retest_due) and "maintenance"
+    (life.maintenance_renews), plus the firm's dates. A job with both has both."""
     d = d or {}
     life = d.get("life") or {}
     today = today or datetime.now().date()
     accepted = _day(d.get("accepted_on") or (d.get("checks") or {}).get("accepted_on"))
     out = []
 
-    def item(key, label, due=None, done=None, state=None, src_key=None, note=""):
+    def item(key, label, due=None, done=None, state=None, src_key=None, note="", source=None, url=None, iid=None, **extra):
         days = (due - today).days if due else None
         if state is None:
             state = "n/a" if due is None else "overdue" if days < 0 else "due" if days <= LIFE_SOON_DAYS else "ok"
-        text, url = LIFE_SOURCES[src_key or key]
-        out.append({"key": key, "label": label, "due": due.isoformat() if due else None,
-                    "done": done.isoformat() if done else None, "state": state, "days": days, "source": text, "url": url,
-                    "note": note})
+        text, link = (source, url) if source else LIFE_SOURCES[src_key or key]
+        out.append({"key": key, "id": iid or key, "label": label, "due": due.isoformat() if due else None,
+                    "done": done.isoformat() if done else None, "state": state, "days": days, "source": text, "url": link,
+                    "note": note, **extra})
 
+    scope = job_scope(d)
+    if scope["ps"]:
+        _life_erces(d, life, stage, accepted, item, out)
+    if scope["cell"]:  # a carrier DAS: the carriers' consent and terms, the owner's maintenance
+        C = d.get("cellular") or {}
+        for car, a in sorted((C.get("approvals") or {}).items()):
+            a = a or {}
+            if a.get("consent"):
+                renews = _day(a.get("renews"))
+                item("carrier_consent", f"Carrier consent renewal: {car}", due=renews, done=_day(a.get("consent")),
+                     state=None if renews else "ok", iid=f"carrier_consent:{car}", carrier=car, contact=a.get("contact") or "",
+                     note=f"consent {a['consent']}" if renews else f"consent {a['consent']}; no renewal date on file (enter one if the carrier's letter has one)")
+            rt = _day(a.get("retest_due"))
+            if rt:
+                item("carrier_retest", f"Carrier retest: {car}", due=rt, iid=f"carrier_retest:{car}", carrier=car)
+        mt = _day(life.get("maintenance_renews"))
+        if mt:
+            item("maintenance", "Owner's maintenance agreement renewal", due=mt)
+
+    # the firm's own dates: each instrument's calibration, the tester's certificates (an FCC GROL is for life: 47 CFR 13.15)
+    t = d.get("testing") or {}
+    cal_m = int((d.get("profile") or {}).get("cal_months") or CAL_MONTHS)
+    for n, ins in enumerate(t.get("instruments") or []):
+        c = _day((ins or {}).get("cal"))
+        if not c:
+            continue
+        nm = " ".join(x for x in (ins.get("model"), f"(serial {ins['serial']})" if ins.get("serial") else "") if x) or f"instrument {n + 1}"
+        # the certificate's own expiry first (lane A's instrument register), else the calibration date + cal_m months
+        item("cal", f"Calibration runs out: {nm}", due=_day(ins.get("expires")) or _add_months(c, cal_m), done=c,
+             note=f"calibrated {c.isoformat()}", iid=f"cal:{n}:{ins.get('serial') or ins.get('model') or ''}", instrument=nm)
+    for k, lbl in LIFE_CERTS:
+        e = _day(t.get(f"{k}_expires"))
+        if e:
+            item("cert", f"{lbl} expires: {t.get('tester') or 'the tester'}", due=e, src_key=k, iid=f"cert:{k}", cert=lbl,
+                 tester=t.get("tester") or "")
+    return out
+
+
+def _life_erces(d, life, stage, accepted, item, out):
+    """The public-safety items: IFC 510 / NFPA 1225 retests, Part 90 licensee renewals, the permit, UL 2524, remodels,
+    and the AHJ's own windows."""
     annual_last = _day(life.get("annual_last"))
     base = max([x for x in (accepted, annual_last) if x], default=None)
     if base:
@@ -1585,10 +2503,11 @@ def lifecycle(d, stage=None, today=None):
     q_base = max([x for x in (accepted, q_last) if x], default=None)
     item("quant5", "Five-year full quantitative retest", due=_add_months(q_base, 60) if q_base else None, done=q_last,
          note="where NFPA 1225 applies" if q_base else "starts at acceptance")
-    for a in life.get("auths") or []:
+    for n, a in enumerate(life.get("auths") or []):
         renews = _day(a.get("renews"))
         item("auth", f"Licensee authorization renewal: {a.get('who') or 'licensee'}", due=renews, done=_day(a.get("granted")),
-             state=None if renews else "open", note=a.get("term") or ("" if renews else "no renewal date entered"))
+             state=None if renews else "open", note=a.get("term") or ("" if renews else "no renewal date entered"),
+             iid=f"auth:{n}:{a.get('who') or ''}", who=a.get("who") or "")
     op = _day(life.get("op_permit_expires"))
     if op or life.get("op_permit"):
         item("op_permit", "Operational permit renewal", due=op, state=None if op else "open",
@@ -1605,7 +2524,53 @@ def lifecycle(d, stage=None, today=None):
         tests = [x for x in (accepted, annual_last, q_last) if x and x >= rem]
         item("remodel", f"Retest after the addition or remodel of {rem.isoformat()}", done=min(tests) if tests else None,
              state="done" if tests else "open")
-    return out
+
+    # the AHJ's own windows (lane D 11/4): when the test report is due to it, its annual limit, its five-year rule
+    rkey, rule, how = ahj_rule(d)
+    if rule:
+        short = rule.get("short") or rkey
+        tag = {"ahj": short, "ahj_key": rkey, "matched": how}
+        filed = _day(life.get("report_filed"))
+        tests = {"acceptance": accepted, "annual": annual_last, "five_year": q_last}
+        for n, rp in enumerate(rule.get("report") or []):
+            days, src = rp.get("days"), f"{short}: {rp.get('text')} ({rp.get('section')})"
+            if not days:
+                continue
+            if rp.get("after") == "five_year_interval":  # Denver: within N days of each five-year anniversary of installation
+                if not accepted:
+                    continue
+                k = 1
+                while filed and _add_months(accepted, 60 * k - 12) <= filed:  # a report filed in that interval's last year covers it
+                    k += 1
+                anniv = _add_months(accepted, 60 * k)
+                item("report", f"Five-year documents to {short}", due=_add_days(anniv, days), source=src, url=rp.get("source"),
+                     note=f"{days} days after the five-year interval of {anniv.isoformat()} (counted from acceptance)",
+                     iid=f"report:{n}", rule_days=days, **tag)
+                continue
+            kinds = [(tests[t], t) for t in rp.get("tests") or [] if tests.get(t)]
+            if not kinds:
+                continue
+            base, kind = max(kinds)
+            is_done = bool(filed and filed >= base)
+            item("report", f"Test report due to {short}", due=_add_days(base, days), done=filed if is_done else None,
+                 state="done" if is_done else None, source=src, url=rp.get("source"),
+                 note=f"{days} days after the {TEST_KIND[kind]} of {base.isoformat()}" + (f"; filed {filed.isoformat()}" if is_done else ""),
+                 iid=f"report:{n}", test_date=base.isoformat(), test_kind=kind, rule_days=days, **tag)
+        months = rule.get("annual_months")
+        last = max([x for x in (accepted, annual_last, q_last) if x], default=None)
+        if months and last:
+            item("annual_ahj", f"{short}: annual report from a test in the last {months} calendar months", due=_add_months(last, months),
+                 note=f"from the test of {last.isoformat()}", source=f"{short}: {rule.get('annual_text')} ({rule.get('annual_section')})",
+                 url=rule.get("annual_source"), **tag)
+        fy = rule.get("five_year")
+        for x in out:
+            if fy and x["key"] == "quant5":
+                x.update({"label": fy.get("label") or x["label"], "source": f"{short}: {fy.get('text')} ({fy.get('section')})",
+                          "url": fy.get("source"), "note": f"{short} rule" if x["due"] else x["note"], **tag})
+
+
+def _add_days(d, n):
+    return d.fromordinal(d.toordinal() + int(n))
 
 
 # ---------------------------------------------------------------- prospects (Cody 11/3): who to approach, and where each stands

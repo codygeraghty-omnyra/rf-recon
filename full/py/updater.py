@@ -39,7 +39,7 @@ SOURCES = {
     "faa": ("FAA aviation frequencies (NASR)", "reference", 168, "Towers, ATIS, approach, CTAF, navaids, ILS; new cycle every 28 days"),
     "wigle": ("WiGLE (Wi-Fi/BT/cell)", "crowd", 168, "Needs your WiGLE API name + token"),
     "opencellid": ("OpenCelliD (cell towers)", "crowd", 336, "Needs your OpenCelliD key"),
-    "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs your RepeaterBook token"),
+    "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs a RepeaterBook token, which Your API keys doesn't take (RepeaterBook's policy discourages tools that mix sources)"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
     "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,600 call centres at town level; the FCC last updated its rows in 2017"),
@@ -52,7 +52,7 @@ SOURCES = {
     "wspr": ("WSPR stations (wspr.live)", "crowd", 24, "Stations heard or transmitting in the last 24 h (no key)"),
     "pskreporter": ("PSKReporter monitors", "crowd", 24, "Digital-mode monitors and stations heard in the last hour (no key)"),
     "meshtastic": ("Meshtastic mesh radios (meshmap.net)", "crowd", 24, "Mesh radios that share their position (no key; a 4 MB list)"),
-    "tiles": ("Map tiles + terrain for mission areas", "reference", 720, "The four USGS base maps (to zoom 16) and terrain for each mission area, kept for use with no signal (about 1.3 GB an area; tiles already kept aren't fetched again)"),
+    "tiles": ("Map tiles + terrain for mission areas", "reference", 720, "The four USGS base maps (to zoom 16; shaded relief to zoom 13) and terrain for each mission area, kept for use with no signal (about 1.3 GB an area; tiles already kept aren't fetched again)"),
     "das_prospects": ("DAS prospect lists (schools, colleges, hospitals, malls, arenas, hotels, high-rises and more)", "reference", 720, "Buildings that often need emergency responder radio coverage, with phones, websites and emails where published: NCES schools, IPEDS colleges, CMS hospitals (US government, public domain); malls, stadiums and arenas, hotels, venues, casinos, airports, transit, government buildings, warehouses and parking garages from Overture Maps places (CDLA-Permissive-2.0 / Apache-2.0 / CC0); high-rises around each mission area from Overture buildings (ODbL)"),
     "part_prices": ("DAS part prices (price list links, Mouser, Digi-Key)", "reference", 168, "Each supplier's price list re-read from its link, and the online prices of the parts on open requests for quote (Mouser and Digi-Key, with your keys)"),
     "helium": ("Helium IoT hotspots", "crowd", 168, "Active LoRaWAN hotspots (no key; reads the whole network, about 190 MB a pass)"),
@@ -593,7 +593,7 @@ class Updater:
                         total += connectors.fetch_opencellid(con, lat, lon, radius, creds["opencellid_key"])
                     elif job == "repeaterbook":
                         if not creds.get("repeaterbook_token"):
-                            raise RuntimeError("add your RepeaterBook token in Settings")
+                            raise RuntimeError("no RepeaterBook token: Your API keys doesn't take one (RepeaterBook's policy discourages tools that mix sources)")
                         total += connectors.fetch_repeaterbook(con, lat, lon, radius, creds["repeaterbook_token"], state)
                     else:  # the no-key open sources; an area fetched recently is skipped (-1), not downloaded again
                         import opensources

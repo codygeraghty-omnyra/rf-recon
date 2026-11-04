@@ -196,8 +196,60 @@ window.dasCellReport = d => {
     ${donors.length?`<h3>Rooftop donor</h3><table><thead><tr><th>Carrier</th><th class="n">RSRP dBm</th><th class="n">SINR dB</th><th>Band</th><th class="n">Azimuth</th><th class="n">Height ft</th><th>Measured</th><th>Against Providence §3.9</th></tr></thead><tbody>
       ${donors.map(([c,v])=>`<tr><td>${esc(c)}</td><td class="n">${v.rsrp}</td><td class="n">${v.sinr??""}</td><td>${esc(v.band||"")}</td><td class="n">${v.az!=null?v.az+"°":""}</td><td class="n">${v.height_ft??""}</td><td class="mono">${esc(v.at||"")}</td><td>${{target:"meets −85 dBm target", minimum:"minimum only (−95 dBm)", below:"below minimum"}[donorVerdict(v)]||""}</td></tr>`).join("")}</tbody></table>`:""}
     ${appr.length?`<h3>Carrier approvals</h3><table><thead><tr><th>Carrier</th><th>Path</th><th>Asked</th><th>Consent</th><th>Contact / reference</th></tr></thead><tbody>
-      ${appr.map(([c,v])=>`<tr><td>${esc(c)}</td><td>${esc((APPROVAL_PATHS.find(([k])=>k===v.path)||[,""])[1].split(":")[0])}</td><td class="mono">${esc(v.asked||"")}</td><td class="mono">${esc(v.consent||"not yet")}</td><td>${esc(v.contact||"")}</td></tr>`).join("")}</tbody></table>`:""}</div>`;
+      ${appr.map(([c,v])=>`<tr><td>${esc(c)}</td><td>${esc((APPROVAL_PATHS.find(([k])=>k===v.path)||[,""])[1].split(":")[0])}</td><td class="mono">${esc(v.asked||"")}</td><td class="mono">${esc(v.consent||"not yet")}</td><td>${esc(v.contact||"")}</td></tr>`).join("")}</tbody></table>`:""}
+    ${floors.map(f=>cellFloorPage(d, f, ((S.das||{}).ogPick||{})[f.name]||"all")).join("")}</div>`;
 };
+
+/* ---------- one grid, two technologies (beat-par 11/4): per floor, the same plan twice (the ERCES result; the cellular
+   result for every required carrier, or one carrier and layer), and one table per square with the public-safety channels
+   and each carrier's RSRP, SINR, PCI and band. Two verdicts, kept apart: cellular never counts toward the ERCES result. ---------- */
+const OG_LETTER = {pass:"pass", fail:"fail", none:"untested"};
+const ogR = v => isFinite(+v) ? String(Math.round(+v*10)/10) : String(v);  // a tool's 2.9000000000000004 shown as 2.9
+// one square, both technologies
+function cellSqRow(d, f, g){ const raw=((d.grid||{}).results||{})[`${f.name}|${g}`], rs=readingsOf(raw), e=eff(d, raw);
+  const ps=rs.filter(x=>!isCell(x)&&(has(x.dl)||has(x.daq)||has(x.sinr)));
+  const layers=cellLayers(d).map(L=>({L, s:cellSquare(d, raw, L.key)})), req=layers.filter(x=>x.L.required), anyCell=rs.some(x=>isCell(x));
+  return {g, ps, erces:scored(d, e), nc:notCounted(d, e), dl:e&&has(e.dl)?e.dl:null, layers, cell:!anyCell?null:req.length?req.every(x=>x.s&&x.s.pass):null}; }
+// the floor's two verdicts
+function cellFloorVerdicts(d, f){ const st=floorStats(d, f), L=cellLayers(d), per=L.map(x=>({L:x, s:cellFloor(d, f, x.key)})), req=per.filter(x=>x.L.required&&(x.s.tested||x.s.untested));
+  return {st, per, cellOk:req.length?req.every(x=>x.s.ok):null, cellTested:per.some(x=>x.s.tested)}; }
+const ogState = (row, pick) => pick==="all" ? row.cell : (row.layers.find(x=>x.L.key===pick)?.s||null)?.pass ?? null;
+function ogMap(d, f, rows, kind, pick){ const n=f.grids||DAS.grids, cols=dasCols(f), rr=Math.ceil(n/cols), by=new Map(rows.map(r=>[r.g, r]));
+  const cellOf=g=>{ const r=by.get(g), sk=(f.skip||[]).includes(g), c=(f.critical||[]).includes(g);
+    if(sk||!r) return `<div style="border:1px solid #999;background:repeating-linear-gradient(45deg,#ddd 0 5px,transparent 5px 10px);font-size:10px;display:flex;align-items:center;justify-content:center"><b>${esc(f.name)}-${g}</b></div>`;
+    const p=kind==="ps"?r.erces:ogState(r, pick), grey=kind==="ps"&&r.nc, L=pick!=="all"?r.layers.find(x=>x.L.key===pick):null;
+    const val=kind==="ps"?(r.dl!=null?`${r.dl} dBm`:""):L?.s?.best?`${L.s.best.rsrp} dBm`:"";
+    return `<div style="border:${c?"2px solid #b8860b":"1px solid #999"};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;background:${grey?"rgba(140,149,159,.45)":p==null?"rgba(255,255,255,.55)":p?"rgba(60,207,122,.55)":"rgba(229,83,75,.6)"}"><b>${esc(f.name)}-${g}${c?" ★":""}</b>${esc(val)}</div>`; };
+  return `<div style="position:relative;width:100%;${f.plan?"":`aspect-ratio:${cols}/${rr};`}border:1px solid #999;overflow:hidden">
+    ${f.plan?`<img data-plan="${esc(f.plan)}" data-ar="${cols}/${rr}" alt="Floor ${esc(f.name)} plan" style="display:block;width:100%;height:auto;min-height:120px">`:""}
+    <div style="position:absolute;${boxCss(f)};display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rr},1fr)">${Array.from({length:n},(_,i)=>cellOf(i+1)).join("")}</div></div>`; }
+function cellFloorPage(d, f, pick){ const n=f.grids||DAS.grids, skip=new Set(f.skip||[]), rows=[];
+  for(let g=1; g<=n; g++) if(!skip.has(g)) rows.push(cellSqRow(d, f, g));
+  if(!rows.some(r=>r.layers.some(x=>x.s))) return "";  // no cellular reading on this floor: nothing to put beside the ERCES grid
+  const V=cellFloorVerdicts(d, f), L=cellLayers(d), P=cellProfile(d); if(pick!=="all"&&!L.some(x=>x.key===pick)) pick="all";
+  const co=typeof dasCellOnly==="function"&&dasCellOnly(d);  // a cellular job (das.js): its floor page carries the cellular result only (lane A, 11/4)
+  const pickName=pick==="all"?`every required carrier (${esc(L.filter(x=>x.required).map(x=>x.label).join("; ")||"none set")})`:esc(L.find(x=>x.key===pick).label);
+  const res=s=>!s.tested?"untested":s.ok?"pass":"fail";
+  const psTxt=r=>r.ps.length?r.ps.map(x=>`${has(x.freq)?`${esc(x.freq)}: `:""}${has(x.dl)?`${ogR(x.dl)} dBm`:""}${has(x.daq)?` DAQ ${ogR(x.daq)}`:""}${has(x.sinr)?` SINR ${ogR(x.sinr)}`:""}`).join("<br>"):'<span class="hint">–</span>';
+  const clTxt=x=>!x.s?'<span class="hint">no cellular reading</span>':!x.s.best?`<span style="color:#cf222e">none</span>`
+    :`${ogR(x.s.best.rsrp)} dBm${has(x.s.best.sinr)?` · SINR ${ogR(x.s.best.sinr)}`:""}${has(x.s.best.pci)?` · PCI ${esc(x.s.best.pci)}`:""}${has(x.s.best.band)?` · B${esc(String(x.s.best.band).replace(/^b/i,""))}`:""} <b style="color:${x.s.pass?"#1a7f37":"#cf222e"}">${x.s.pass?"✓":"✗"}</b>`;
+  return `<div class="og-page" data-ogfloor="${esc(f.name)}" style="break-before:page;margin-top:16px">
+    <h3>Floor ${esc(f.name)}: ${co?"cellular coverage":"one grid, two technologies"}</h3>
+    <div class="row no-print" style="gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0 0 6px"><label class="inl">Cellular map shows <select data-ogpick="${esc(f.name)}"><option value="all" ${pick==="all"?"selected":""}>Every required carrier</option>${L.map(x=>`<option value="${esc(x.key)}" ${x.key===pick?"selected":""}>${esc(x.label)}</option>`).join("")}</select></label>
+      <button data-ogprint="${esc(f.name)}">⎙ Print this floor</button></div>
+    ${co?"":`<p style="margin:2px 0"><b>Emergency responder (ERCES): ${V.st.untested?"incomplete":V.st.ok?"PASS":"FAIL"}</b> · ${V.st.genPass}/${V.st.gen} general${V.st.crit?`, ${V.st.critPass}/${V.st.crit} critical`:""} · ${esc(V.st.rule)}: ${esc(V.st.why)}</p>`}
+    <p style="margin:2px 0"><b>Cellular (${esc(P.name)}): ${V.cellOk==null?"no required carrier tested":V.cellOk?"PASS":"FAIL"}</b> · ${V.per.filter(x=>x.s.tested||x.s.untested).map(x=>`${esc(x.L.label)}${x.L.required?"":" (not required)"}: ${x.s.pass}/${x.s.tested} (${x.s.tested?x.s.pct:0}%) ${res(x.s)}`).join(" · ")} · target RSRP ≥ ${P.rsrp} dBm${P.sinr!=null?`, SINR ≥ ${P.sinr} dB`:""} on ${P.pct}%</p>
+    ${co?"":`<p class="hint" style="margin:2px 0 8px">Cellular never counts toward the ERCES result: the two verdicts are judged apart, on the same squares.</p>`}
+    <div class="og-maps" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px">
+      ${co?"":`<figure style="margin:0"><figcaption class="hint" style="margin-bottom:4px">ERCES, by the job's AHJ profile</figcaption>${ogMap(d, f, rows, "ps", pick)}</figure>`}
+      <figure style="margin:0"><figcaption class="hint" style="margin-bottom:4px">Cellular: ${pickName}</figcaption>${ogMap(d, f, rows, "cell", pick)}</figure></div>
+    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Square</th>${co?"":"<th>Public-safety channels</th><th>ERCES</th>"}${L.map(x=>`<th>${esc(x.label)}${x.required?"":" (not required)"}</th>`).join("")}<th>Cellular</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${esc(f.name)}-${r.g}${(f.critical||[]).includes(r.g)?" ★":""}</td>${co?"":`<td>${psTxt(r)}</td><td>${r.nc?"not counted":OG_LETTER[r.erces==null?"none":r.erces?"pass":"fail"]}</td>`}${r.layers.map(x=>`<td>${clTxt(x)}</td>`).join("")}<td>${r.cell==null?"–":r.cell?"pass":"fail"}</td></tr>`).join("")}</tbody></table></div></div>`; }
+// the floor page's picker and print button live in the Report (das.js draws it): one listener for both
+if(typeof document!=="undefined"&&document.addEventListener){
+  document.addEventListener("change", e=>{ const s=e.target&&e.target.closest&&e.target.closest("[data-ogpick]"); if(!s) return; S.das.ogPick={...(S.das.ogPick||{}), [s.dataset.ogpick]:s.value}; render(); });
+  document.addEventListener("click", e=>{ const b=e.target&&e.target.closest&&e.target.closest("[data-ogprint]"); if(!b) return; const pg=b.closest(".og-page"); if(!pg) return;
+    const w=document.createElement("div"); w.className="panel"; w.appendChild(pg.cloneNode(true)); w.querySelectorAll(".no-print").forEach(x=>x.remove()); dasPrintCopy(w); }); }
 
 /* ---------- LTE / 5G bands for the link budget (DAS-Cellular research, bands.csv) ---------- */
 // [id, label, UL MHz, DL MHz, carriers, default channel MHz, NR at 30 kHz]

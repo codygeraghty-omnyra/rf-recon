@@ -5,6 +5,7 @@
    "file": "erces-office.json",
    "name": "Example: public safety ERCES, 3-storey office (example)",
    "kind": "erces",
+   "complete": false,
    "plans": [
     "example-office-floor-1.png",
     "example-office-floor-2.png",
@@ -15,9 +16,38 @@
    "file": "cellular-warehouse.json",
    "name": "Example: carrier cellular DAS, warehouse (example)",
    "kind": "cellular",
+   "complete": false,
    "plans": [
     "example-warehouse-floor-1.png"
    ]
+  },
+  {
+   "file": "erces-office-complete.json",
+   "name": "Example: public safety ERCES, 3-storey office (completed example)",
+   "kind": "erces",
+   "complete": true,
+   "plans": [
+    "example-office-floor-1.png",
+    "example-office-floor-2.png",
+    "example-office-floor-3.png"
+   ],
+   "files": {
+    "Example office - architectural plans (example).pdf": "example-office-plan-set.pdf",
+    "Consent to retransmit - KNIQ704 KIC338 (example).pdf": "example-office-consent-letter.pdf",
+    "ERCES acceptance test report (example).pdf": "example-office-acceptance-report.pdf"
+   }
+  },
+  {
+   "file": "cellular-warehouse-complete.json",
+   "name": "Example: carrier cellular DAS, warehouse (completed example)",
+   "kind": "cellular",
+   "complete": true,
+   "plans": [
+    "example-warehouse-floor-1.png"
+   ],
+   "files": {
+    "Cellular acceptance report (example).pdf": "example-warehouse-acceptance-report.pdf"
+   }
   }
  ]
 }
