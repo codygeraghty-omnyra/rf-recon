@@ -19,8 +19,9 @@ import time
 
 import das
 import geo
+import paths
 
-RESEARCH_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "research", "DAS-ERCES", "das_research.db")
+RESEARCH_DB = os.path.join(paths.ROOT, "docs", "research", "DAS-ERCES", "das_research.db")
 INDEX = {"state": "idle", "error": None}
 _LOCK = threading.Lock()
 RESEARCH_TABLES = {  # table: (label, the columns searched / shown)

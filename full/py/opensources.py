@@ -4,6 +4,9 @@ Open sources that need no key, fetched for an area into the crowd database besid
   satnogs      SatNOGS satellite ground stations (one list of every station, kept to the area)
   wspr         WSPR stations heard or transmitting in the area in the last 24 hours (wspr.live)
   pskreporter  PSKReporter monitors and the stations they heard in the area in the last hour
+  meshtastic   Meshtastic mesh radios that share their position (meshmap.net: one file of every node)
+  helium       Active Helium IoT (LoRaWAN) hotspots (the network's entities API: every page, kept to the area; about
+               190 MB a pass, so it is off by default and on for the 24/7 server)
 
 Every request is HTTPS only, has a timeout and a size cap, and is parsed as data (JSON, or XML with any DOCTYPE
 refused); coordinates are checked; text stays text (the page escapes it). Before downloading, an area this source
@@ -28,14 +31,21 @@ SOURCES = {  # id: (layer label, how long a fetched area counts as fresh, attrib
     "satnogs": ("SatNOGS ground stations", 24 * 7, "SatNOGS Network, CC BY-SA 4.0"),
     "wspr": ("WSPR stations", 6, "WSPR spots from wspr.live (non-commercial)"),
     "pskreporter": ("PSKReporter stations", 1, "PSKReporter (pskreporter.info)"),
+    "meshtastic": ("Meshtastic nodes", 24, "Meshtastic map (meshmap.net)"),
+    "helium": ("Helium IoT hotspots", 24 * 7, "Helium Network (entities.nft.helium.io)"),
 }
+# Meshtastic's default (LongFast) channel per region, in MHz: a node's region is in the channels it was heard on
+MESH_FREQ = {"US": 906.875, "EU_868": 869.525, "EU_433": 433.875, "CA": 906.875, "ANZ": 919.875}
+HELIUM_MAX_PAGES = 200  # about 1 to 2 million hotspots at 10,000 a page: a whole pass, about 190 MB
 
 
 def get(url, timeout=40):
     if not url.startswith("https://"):
         raise ValueError("Only HTTPS sources are allowed.")
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-        data = r.read(MAX_BYTES + 1)
+    def once():  # a timed-out request is tried twice more (connectors.retry: PSKReporter timed out on the server 11/2)
+        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+            return r.read(MAX_BYTES + 1)
+    data = connectors.retry(once)
     if len(data) > MAX_BYTES:
         raise ValueError("The source sent more than RF Recon accepts in one answer.")
     return data
@@ -146,6 +156,33 @@ def fetch(con, source, lat, lon, radius_mi, force=False):
                 f"Heard on PSKReporter ({a.get('mode', '')})", a.get("mode") or "Unknown", "", time.strftime("%Y-%m-%d %H:%M", time.gmtime(int(a.get("flowStartSeconds", "0") or 0))),
                 {"callsign": a.get("senderCallsign"), "locator": a.get("senderLocator"), "heard_by": a.get("receiverCallsign"), "snr": a.get("sNR"), "mode": a.get("mode")},
                 layer="PSKReporter stations heard")
+    elif source == "meshtastic":  # one file of every node that shares its position (meshmap.net, about 10,000)
+        for nid, nd in json.loads(get("https://meshmap.net/nodes.json", timeout=90)).items():
+            if not isinstance(nd, dict) or nd.get("latitude") is None:
+                continue
+            seen_by = nd.get("seenBy") or {}
+            region = next((k.split("/")[1] for k in seen_by if k.count("/") >= 2), "")
+            last = max(seen_by.values()) if seen_by else 0
+            add(f"mesh:{nid}", ok_ll(nd["latitude"] / 1e7, nd["longitude"] / 1e7), "Meshtastic", nd.get("longName") or nd.get("shortName"),
+                MESH_FREQ.get(region), f"Meshtastic {nd.get('role') or 'node'} ({nd.get('hwModel') or '?'}, {region or 'region ?'})", "LoRa",
+                "", time.strftime("%Y-%m-%d %H:%M", time.gmtime(last)) if last else "",
+                {"id": nid, "short": nd.get("shortName"), "hardware": nd.get("hwModel"), "role": nd.get("role"), "region": region,
+                 "altitude_m": nd.get("altitude"), "position_precision_bits": nd.get("precision"),
+                 "channels_heard_on": sorted(seen_by)[:5]})
+    elif source == "helium":  # the whole network in pages of 10,000 (no area search); only active hotspots in the area
+        cursor, pages = None, 0
+        while pages < HELIUM_MAX_PAGES:
+            q = {"subnetwork": "iot", **({"cursor": cursor} if cursor else {})}
+            page = json.loads(get("https://entities.nft.helium.io/v2/hotspots?" + urllib.parse.urlencode(q), timeout=90))
+            pages += 1
+            for h in page.get("items") or []:
+                if h.get("is_active"):
+                    add(f"helium:{h.get('entity_key_str')}", ok_ll(h.get("lat"), h.get("long")), "LoRaWAN", "Helium IoT hotspot",
+                        915.0, "Helium IoT hotspot (active; position blurred by the network)", "LoRa", "", "",
+                        {"entity_key": h.get("entity_key_str")})
+            cursor = page.get("cursor")
+            if not cursor or not page.get("items"):
+                break
     seen = {}
     for r in rows:  # one record per ID per fetch (a station can appear many times in one answer)
         seen[(r[0], r[2])] = r
@@ -156,7 +193,7 @@ def fetch(con, source, lat, lon, radius_mi, force=False):
 
 # ---------------------------------------------------------------- one entry per real emitter when the map draws
 
-PRIORITY = ["captures", "opencellid", "wigle", "repeaterbook", "ttn", "satnogs", "wspr", "pskreporter", "custom"]
+PRIORITY = ["captures", "opencellid", "wigle", "repeaterbook", "ttn", "helium", "meshtastic", "satnogs", "wspr", "pskreporter", "custom"]
 COMPARE = ("freq_mhz", "label", "mode", "channel", "dbm", "kind", "first_seen", "last_seen")
 
 

@@ -1,10 +1,10 @@
 /* RF Recon (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "643d6d9776";
+const VERSION = "18ad0642e3";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glass.css", "theme/skins.js", "theme/look.js",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/sqljs/sql-wasm.js", "vendor/sqljs/sql-wasm.wasm",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js", "notes.js", "das.js"];
+  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js", "notes.js", "das.js", "geofix.js", "wmm.js", "hunt.js"];
 // USGS tiles only: they're public domain. OpenStreetMap's tile policy says "Offline use is not permitted", so its tiles
 // go through the browser's own cache (their caching headers) and are never saved here; the app shows Topo with no signal.
 const TILE_HOSTS = ["basemap.nationalmap.gov"];

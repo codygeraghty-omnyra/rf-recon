@@ -114,6 +114,69 @@ def error_ellipse(lines, fx, fy, lat0, lon0, kx, ky, conf=0.95):
             "bearing_err_deg": round(err, 1), "conf": conf, "ring": ring}
 
 
+SHADOW_DB = 6.0  # how much a level reading wanders from the path loss model (walls, cars, the body): one sigma, dB
+
+
+def level_fix(readings, grid=70):
+    """Where a transmitter probably is from signal levels alone (no direction finder): readings are
+    (lat, lon, dbm). The level falls off with distance as P = A - 10 n log10(d); for every spot on a grid around
+    the readings, and path loss exponents n from 2 (open ground) to 4 (built up), the best-fitting A is found
+    and the spot scored by how well the readings fit. The best spot is the estimate; the spots that fit nearly as
+    well (95%, with readings wandering SHADOW_DB or what they show) are the area it's probably in. Needs 3
+    readings spread at least 6 dB apart. Returns {lat, lon, n, radius_m, n_exp, quality, ring, strongest} or None."""
+    pts = [(float(a), float(o), float(p)) for a, o, p in readings if a is not None and o is not None and p is not None]
+    if len(pts) < 3 or max(p[2] for p in pts) - min(p[2] for p in pts) < 6:
+        return None
+    lat0, lon0 = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    kx = 1000 * EARTH_KM * math.radians(1) * math.cos(math.radians(lat0))
+    ky = 1000 * EARTH_KM * math.radians(1)
+    xy = [((o - lon0) * kx, (a - lat0) * ky, p) for a, o, p in pts]
+    xs, ys = [q[0] for q in xy], [q[1] for q in xy]
+    span = max(max(xs) - min(xs), max(ys) - min(ys), 100.0)
+    pad = max(300.0, span)  # the source can be outside the walked area, more so when the readings only rise one way
+    x0, x1, y0, y1 = min(xs) - pad, max(xs) + pad, min(ys) - pad, max(ys) + pad
+    step = max(x1 - x0, y1 - y0) / grid
+    exps = (2.0, 2.5, 3.0, 3.5, 4.0)
+    cells = []
+    for i in range(grid + 1):
+        for j in range(grid + 1):
+            cx, cy = x0 + i * step, y0 + j * step
+            best = None
+            for n in exps:
+                g = [-10 * n * math.log10(max(10.0, math.hypot(cx - x, cy - y))) for x, y, _p in xy]
+                a = sum(p - gi for (_x, _y, p), gi in zip(xy, g)) / len(xy)
+                sse = sum((p - a - gi) ** 2 for (_x, _y, p), gi in zip(xy, g))
+                if best is None or sse < best[0]:
+                    best = (sse, n)
+            cells.append((best[0], cx, cy, best[1]))
+    sse0, bx, by, bn = min(cells)
+    sigma2 = max(SHADOW_DB ** 2, sse0 / max(1, len(xy) - 2))
+    region = [c for c in cells if c[0] <= sse0 + 5.99 * sigma2]  # chi-square, 2 dof, 95%
+    radius = math.sqrt(len(region) * step * step / math.pi)
+    # the outline of the area it's probably in: the farthest region cell in each of 36 directions from the estimate
+    ring = []
+    for k in range(37):
+        t = math.radians(k * 10)
+        far = max((math.hypot(c[1] - bx, c[2] - by) for c in region
+                   if abs(((math.degrees(math.atan2(c[1] - bx, c[2] - by)) - k * 10) + 180) % 360 - 180) <= 6), default=step)
+        ring.append([round(lat0 + (by + far * math.cos(t)) / ky, 6), round(lon0 + (bx + far * math.sin(t)) / kx, 6)])
+    top = max(pts, key=lambda p: p[2])
+    quality = "good" if len(pts) >= 5 and radius < 250 else "fair" if radius < 700 else "poor"
+    return {"lat": lat0 + by / ky, "lon": lon0 + bx / kx, "n": len(pts), "radius_m": round(radius), "n_exp": bn,
+            "quality": quality, "ring": ring, "strongest": {"lat": top[0], "lon": top[1], "dbm": top[2]}}
+
+
+def combine_fixes(level, bearing):
+    """One best guess from a level estimate and a bearing fix: weighted by how small each one's area is."""
+    if not level or not bearing:
+        return level or bearing
+    rb = max(30.0, (bearing.get("ellipse") or {}).get("a_m") or bearing.get("rms_m") or 300.0)
+    rl = max(30.0, level["radius_m"])
+    wb, wl = 1 / rb ** 2, 1 / rl ** 2
+    return {"lat": (bearing["lat"] * wb + level["lat"] * wl) / (wb + wl), "lon": (bearing["lon"] * wb + level["lon"] * wl) / (wb + wl),
+            "radius_m": round(1 / math.sqrt(wb + wl)), "from": "levels and bearings"}
+
+
 def bbox(lat, lon, radius_mi):
     r = radius_mi * MI_KM
     dlat = r / 111.0

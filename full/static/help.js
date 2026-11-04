@@ -153,3 +153,8 @@ function openHelp(section) {
   const target = $("#help-" + section) || $("#help-start");
   setTimeout(() => target.scrollIntoView({block: "start"}), 30);
 }
+// the shared dialog (Help, details) closes on a press outside it, like every other layer; Escape already did (11/3)
+document.getElementById("dlg")?.addEventListener("click", e => {
+  const d = e.currentTarget, r = d.getBoundingClientRect();
+  if (e.target === d && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) d.close();
+});

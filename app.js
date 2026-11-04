@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "643d6d9776";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "18ad0642e3";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -421,7 +421,8 @@ function setTab(t, push = true) {
 function render() {
   if (S.tab === "map") return;
   const v = $("#page");
-  ({list: viewList, report: viewReport, log: viewLog, das: v => window.viewDas?.(v), packs: viewPacks})[S.tab]?.(v);  // das.js
+  ({list: viewList, report: viewReport, log: v => S.logView === "hunt" && window.viewHunt ? window.viewHunt(v) : viewLog(v),  // hunt.js
+    das: v => window.viewDas?.(v), packs: viewPacks})[S.tab]?.(v);  // das.js
   v.scrollTop = 0;
 }
 const noPack = () => `<div class="card glass empty" style="--i:1"><h2>No data pack yet</h2>
@@ -607,6 +608,7 @@ function viewLog(v) {
   const n = S.log.length;
   v.innerHTML = head("Field log", n ? `${n} signal${n === 1 ? "" : "s"} logged on this phone. Export saves them as a CSV you can put in Drive and import on the PC (Mission, Import captures).`
     : "Signals you hear or see, with where you were.")
+    + logSeg()
     + `<div class="row" style="margin:0 2px 12px"><button class="btn primary" data-act="newlog">＋ Log a signal</button>${n ? '<button class="btn" data-act="export">Export CSV</button>' : ""}</div>`
     + (n ? S.log.map((e, i) => { const c = e.check;
       return `<div class="card glass" style="--i:${Math.min(i, 8)}"><div class="row" style="justify-content:space-between;align-items:baseline">
@@ -618,6 +620,9 @@ function viewLog(v) {
           <button class="btn small danger" data-act="dellog" data-id="${e.id}">Delete</button><span class="hint">${e.lat != null ? `${e.lat.toFixed(5)}, ${e.lon.toFixed(5)}${e.acc != null ? ` ±${num(e.acc)} m` : ""}` : ""}</span></div></div>`; }).join("")
       : `<div class="card glass empty"><p>Nothing logged yet. Tap “Log a signal” when you hear or see one: it records where you are and says whether a licence in your pack explains it.</p></div>`);
 }
+// the Log tab's two screens: the field log, and Find a signal (hunt.js), whose stops are field log readings
+const logSeg = () => window.viewHunt ? `<div class="chips" style="margin:0 2px 12px">${[["log", "Field log"], ["hunt", "🎯 Find a signal"]].map(([k, l]) =>
+  `<button class="chip ${(S.logView || "log") === k ? "on" : ""}" data-act="logview" data-v="${k}">${l}</button>`).join("")}</div>` : "";
 const csvCell = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 function logCsv() {  // the columns RF Recon on the PC reads in Mission, Import captures
   const cols = ["time", "lat", "lon", "accuracy", "freq_mhz", "dbm", "bearing", "type", "label", "notes", "check", "pack"];
@@ -782,6 +787,7 @@ document.addEventListener("click", async e => {
     else if (act === "apply") applyFilters();
     else if (act === "clearf") { S.layerOn = new Set(Object.keys(LAYERS)); S.fmin = S.fmax = null; S.text = ""; kv.set("filters", null); $("#filterBtn").classList.remove("on"); closeSheet(); run(false); }
     else if (act === "newlog") logForm();
+    else if (act === "logview") { S.logView = a.dataset.v; kv.set("logView", S.logView); render(); }
     else if (act === "logthis") { const r = findRow(a.dataset.fid); logForm({freq_mhz: r?.freq_mhz, sig_type: r?.sig_type, label: r?.licensee || r?.label}); }
     else if (act === "export") exportLog();
     else if (act === "tak") sendToTak();
@@ -824,8 +830,9 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = 
 
 async function start() {
   DashLook.mount($("#lookSlot"), {onChange: () => drawMap(false), nav: false});  // the kit's display sheet; the phone has its own way back
-  const [base, filters, view, active] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack")]);
+  const [base, filters, view, active, logView] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack"), kv.get("logView")]);
   if (base) S.base = base;
+  if (logView) S.logView = logView;
   if (filters) { S.layerOn = new Set(filters.layers); S.fmin = filters.fmin; S.fmax = filters.fmax; S.text = filters.text || "";
     $("#filterBtn").classList.toggle("on", S.fmin != null || S.fmax != null || !!S.text || S.layerOn.size < Object.keys(LAYERS).length); }
   initMap();

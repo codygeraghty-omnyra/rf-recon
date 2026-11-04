@@ -216,25 +216,39 @@ def dms(deg, mins, secs, hemi):
 
 # ---------------------------------------------------------------- schema
 
+# The import's scratch copy of the FCC files: its own file beside the database (uls.db.import-scratch), attached as
+# "scratch" while an import runs and deleted after (11/3). Inside uls.db, emptying them meant reading every page:
+# 1 h 22 min of the server's 3 h 54 min rebuild on 11/2, with the main database's write lock held throughout.
+RAW_TABLES = {
+    "raw_license": "usi INTEGER PRIMARY KEY, call_sign TEXT, status TEXT, service TEXT, grant_date TEXT, expired_date TEXT, "
+                   "licensee TEXT, src TEXT",
+    "raw_location": "usi INTEGER, loc_num INTEGER, loc_type TEXT, loc_class TEXT, address TEXT, city TEXT, county TEXT, "
+                    "state TEXT, radius_km REAL, area_code TEXT, ground_elev_m REAL, lat REAL, lon REAL, tower_reg TEXT, "
+                    "PRIMARY KEY(usi, loc_num)",
+    "raw_antenna": "usi INTEGER, loc_num INTEGER, ant_num INTEGER, height_tip_m REAL, height_raat_m REAL, haat_m REAL, "
+                   "gain_dbi REAL, azimuth REAL, beamwidth REAL, polarization TEXT, make TEXT, model TEXT, max_erp REAL, "
+                   "PRIMARY KEY(usi, loc_num, ant_num)",
+    "raw_freq": "usi INTEGER, loc_num INTEGER, ant_num INTEGER, station_class TEXT, freq_mhz REAL, freq_upper_mhz REAL, "
+                "power_out_w REAL, erp_w REAL, units INTEGER, freq_number INTEGER, tolerance TEXT, tx_make TEXT, tx_model TEXT",
+    "raw_emission": "usi INTEGER, loc_num INTEGER, ant_num INTEGER, freq_mhz REAL, code TEXT, mod_rate TEXT, mod_type TEXT",
+    "raw_path": "usi INTEGER, path_num INTEGER, tx_loc INTEGER, tx_ant INTEGER, rx_loc INTEGER, rx_ant INTEGER, "
+                "path_type TEXT, passive TEXT, rx_call TEXT",
+}
+
+
+def create_raw(con, schema="main"):
+    for t, cols in RAW_TABLES.items():
+        con.execute(f"CREATE TABLE IF NOT EXISTS {schema}.{t}({cols})")
+
+
+def raw_schema(con):
+    """Where the scratch tables are: "scratch" during an import, "main" in tests that build them by hand."""
+    return "scratch" if any(r[1] == "scratch" for r in con.execute("PRAGMA database_list")) else "main"
+
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS raw_license(usi INTEGER PRIMARY KEY, call_sign TEXT, status TEXT,
-    service TEXT, grant_date TEXT, expired_date TEXT, licensee TEXT, src TEXT);
-CREATE TABLE IF NOT EXISTS raw_location(usi INTEGER, loc_num INTEGER, loc_type TEXT, loc_class TEXT,
-    address TEXT, city TEXT, county TEXT, state TEXT, radius_km REAL, area_code TEXT,
-    ground_elev_m REAL, lat REAL, lon REAL, tower_reg TEXT, PRIMARY KEY(usi, loc_num));
-CREATE TABLE IF NOT EXISTS raw_antenna(usi INTEGER, loc_num INTEGER, ant_num INTEGER,
-    height_tip_m REAL, height_raat_m REAL, haat_m REAL, gain_dbi REAL, azimuth REAL,
-    beamwidth REAL, polarization TEXT, make TEXT, model TEXT, max_erp REAL,
-    PRIMARY KEY(usi, loc_num, ant_num));
-CREATE TABLE IF NOT EXISTS raw_freq(usi INTEGER, loc_num INTEGER, ant_num INTEGER,
-    station_class TEXT, freq_mhz REAL, freq_upper_mhz REAL, power_out_w REAL, erp_w REAL,
-    units INTEGER, freq_number INTEGER, tolerance TEXT, tx_make TEXT, tx_model TEXT);
-CREATE TABLE IF NOT EXISTS raw_emission(usi INTEGER, loc_num INTEGER, ant_num INTEGER,
-    freq_mhz REAL, code TEXT, mod_rate TEXT, mod_type TEXT);
-CREATE TABLE IF NOT EXISTS raw_path(usi INTEGER, path_num INTEGER, tx_loc INTEGER, tx_ant INTEGER, rx_loc INTEGER,
-    rx_ant INTEGER, path_type TEXT, passive TEXT, rx_call TEXT);
 -- Microwave links (backhaul): each licensed path with both ends placed, from the microwave file's PA records
 CREATE TABLE IF NOT EXISTS mw_link(usi INTEGER, call_sign TEXT, licensee TEXT, service TEXT, path_num INTEGER,
     tx_lat REAL, tx_lon REAL, tx_city TEXT, tx_state TEXT, tx_reg TEXT, rx_lat REAL, rx_lon REAL, rx_city TEXT,
@@ -448,7 +462,7 @@ def build_links(con, log):
     if not con.execute("SELECT 1 FROM raw_path LIMIT 1").fetchone():
         con.commit()
         return 0
-    con.execute("CREATE INDEX IF NOT EXISTS fr_key ON raw_freq(usi, loc_num, ant_num)")
+    con.execute(f"CREATE INDEX IF NOT EXISTS {raw_schema(con)}.fr_key ON raw_freq(usi, loc_num, ant_num)")
     q = """SELECT p.usi, l.call_sign, l.licensee, l.service, p.path_num, p.tx_loc, p.tx_ant,
                   a.lat, a.lon, a.city, a.state, a.tower_reg, b.lat, b.lon, b.city, b.state, b.tower_reg, p.rx_call, p.path_type, p.passive,
                   (SELECT GROUP_CONCAT(DISTINCT printf('%.4f', f.freq_mhz)) FROM raw_freq f WHERE f.usi = p.usi AND f.loc_num = p.tx_loc AND f.ant_num = p.tx_ant)
@@ -485,7 +499,7 @@ def build_tx(con, log):
     ddl = con.execute("SELECT sql FROM sqlite_master WHERE name='tx'").fetchone()[0]
     # After the first swap SQLite stores this as CREATE TABLE "tx"(...), quoted, so match any form
     con.execute(re.sub(r'^CREATE TABLE (IF NOT EXISTS )?["`\[]?tx["`\]]?\s*\(', "CREATE TABLE tx_new(", ddl, count=1))
-    con.execute("CREATE INDEX IF NOT EXISTS em_key ON raw_emission(usi, loc_num, ant_num)")
+    con.execute(f"CREATE INDEX IF NOT EXISTS {raw_schema(con)}.em_key ON raw_emission(usi, loc_num, ant_num)")
     # emissions per (usi, loc, ant, freq)
     em, dmod = {}, {}
     for usi, loc, ant, fm, code, rate, mtype in con.execute(
@@ -655,33 +669,83 @@ def download(service, refresh, log, url=None, fname=None):
         return None
 
 
+def scratch_path(db_path):
+    return db_path + ".import-scratch"
+
+
+def drop_scratch(path):
+    for p in (path, path + "-journal", path + "-wal", path + "-shm"):
+        if os.path.exists(p):
+            os.remove(p)
+
+
+ARCHIVE_DIR = os.path.join(DATA_DIR, "fcc-archive")
+ARCHIVE_MIN_FREE_GB = 15
+
+
+def archive(path, log=print):
+    """Keep this week's copy of an FCC file in fcc-archive/<day it was downloaded>/ (Cody 11/2: "Weekly FCC file archive").
+    A hard link: no copying now, and the next download writes a new file, so the archived week stays as it was. Stops
+    when the disk has less than ARCHIVE_MIN_FREE_GB free, and says so. Returns the archived path or None."""
+    if not path or not os.path.exists(path):
+        return None
+    free = shutil.disk_usage(os.path.dirname(path)).free / 1e9
+    if free < ARCHIVE_MIN_FREE_GB:
+        log(f"FCC archive paused: {free:.0f} GB free, under {ARCHIVE_MIN_FREE_GB} GB")
+        return None
+    day = time.strftime("%Y-%m-%d", time.localtime(os.path.getmtime(path)))
+    dest = os.path.join(ARCHIVE_DIR, day, os.path.basename(path))
+    if os.path.exists(dest):
+        return dest
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    try:
+        os.link(path, dest)
+    except OSError:  # a disk without hard links: a real copy
+        shutil.copy2(path, dest)
+    return dest
+
+
 def run_import(db_path, paths, states=(), active_only=False, log=print):
     t0 = time.time()
     con = sqlite3.connect(db_path, timeout=60)
-    con.executescript(SCHEMA)
-    con.execute("PRAGMA synchronous=OFF")
-    for t in ("raw_license", "raw_location", "raw_antenna", "raw_freq", "raw_emission", "raw_path"):
-        con.execute(f"DELETE FROM {t}")
-    con.commit()
-    states = {s.upper() for s in states}
-    for p in paths:
-        log(f"Importing {p}")
-        load_zip(con, p, states, not active_only, log)
-    build_tx(con, log)
-    build_links(con, log)
-    con.execute("INSERT OR REPLACE INTO meta VALUES('sources', ?)", (",".join(os.path.basename(p) for p in paths),))
-    con.execute("INSERT OR REPLACE INTO meta VALUES('states', ?)", (",".join(sorted(states)) or "ALL",))
-    con.commit()
-    log("Clearing the import's scratch tables...")
-    for t in ("raw_freq", "raw_emission", "raw_path"):
-        con.execute(f"DELETE FROM {t}")
-    con.commit()
-    n = con.execute("SELECT COUNT(*) FROM tx").fetchone()[0]
-    try:  # a page being read can hold some back; the next import's checkpoint takes the rest
-        con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    except sqlite3.Error:
-        pass
-    con.close()
+    try:
+        con.executescript(SCHEMA)
+        con.execute("PRAGMA synchronous=OFF")
+        old = [t for t in RAW_TABLES if con.execute("SELECT 1 FROM main.sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()]
+        if old:  # a database from before 11/3 kept them inside: dropped once (their pages are read once more, then never)
+            log("Removing the old scratch tables from the database (once)...")
+            for t in old:
+                con.execute(f"DROP TABLE main.{t}")
+            con.commit()
+        scratch = scratch_path(db_path)
+        drop_scratch(scratch)  # a run that crashed leaves one: it's only ever a copy of the FCC files
+        con.execute("ATTACH DATABASE ? AS scratch", (scratch,))
+        try:
+            con.execute("PRAGMA scratch.journal_mode=OFF")  # scratch: a crash just means the next run starts it again
+            con.execute("PRAGMA scratch.synchronous=OFF")
+            create_raw(con, "scratch")
+            states = {s.upper() for s in states}
+            for p in paths:
+                log(f"Importing {p}")
+                load_zip(con, p, states, not active_only, log)
+            build_tx(con, log)
+            build_links(con, log)
+            con.execute("INSERT OR REPLACE INTO meta VALUES('sources', ?)", (",".join(os.path.basename(p) for p in paths),))
+            con.execute("INSERT OR REPLACE INTO meta VALUES('states', ?)", (",".join(sorted(states)) or "ALL",))
+            con.commit()
+        except BaseException:
+            con.rollback()  # a failed run leaves the last good search table as it was
+            raise
+        finally:
+            con.execute("DETACH DATABASE scratch")
+            drop_scratch(scratch)
+        n = con.execute("SELECT COUNT(*) FROM tx").fetchone()[0]
+        try:  # a page being read can hold some back; the next import's checkpoint takes the rest
+            con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except sqlite3.Error:
+            pass
+    finally:
+        con.close()
     log(f"ULS import done in {time.time()-t0:,.0f}s ({n:,} rows)")
     return n
 

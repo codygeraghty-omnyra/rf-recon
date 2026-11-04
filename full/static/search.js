@@ -130,8 +130,18 @@ window.writeUrlState = () => {
   for (const k of ["type", "band", "cat", "cls"]) if (S.chips[k].size) h.set(k, [...S.chips[k]].join("|"));
   if (S.placeLabel) h.set("place", S.placeLabel);
   const next = "#" + h.toString();
-  if (location.hash !== next) history.replaceState(null, "", next);
+  if (location.hash === next) return;
+  // a new tab is a step Back can return to; a new pin or filter replaces the step it's on. (11/3: every change replaced
+  // it, so Back left RF Recon, and in the app window it stayed greyed out.)
+  const was = new URLSearchParams(location.hash.slice(1)).get("tab");
+  if (was && was !== S.tab) { history.pushState(null, "", next); window.dispatchEvent(new Event("hashchange")); }  // the kit's Back button rechecks on hashchange
+  else history.replaceState(null, "", next);
 };
+// Back and Forward move between tabs
+window.addEventListener("popstate", () => {
+  const t = new URLSearchParams(location.hash.slice(1)).get("tab");
+  if (t && t !== S.tab) { S.tab = t; render(); }
+});
 window.applyUrlState = () => {
   const h = new URLSearchParams(location.hash.slice(1));
   if (!h.toString()) return false;

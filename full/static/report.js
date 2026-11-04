@@ -63,7 +63,7 @@ S.views.report = (v, rows) => {
     ${bands.map(b => `<tr><td>${esc(b.band)}</td><td class="mono">${fmtF(b.lo)}${b.hi > b.lo ? `–${fmtF(b.hi)}` : ""}</td>
       <td class="n" ${cellBar(b.freqs, maxF)}>${b.freqs.toLocaleString()}</td><td class="n" ${cellBar(b.lics, maxL)}>${b.lics.toLocaleString()}</td>
       <td style="min-width:180px"><div style="display:flex;height:9px;border-radius:5px;overflow:hidden;margin-bottom:3px">${b.techs.map(([t, n]) => `<span title="${esc(t)}: ${n}" style="width:${100 * n / b.rs.length}%;background:${typeColor(t)}"></span>`).join("")}</div>
-        <span class="hint">${b.techs.slice(0, 3).map(([t, n]) => `${esc(t)} ${n}`).join(" · ")}${b.techs.length > 3 ? ` · +${b.techs.length - 3}` : ""}</span></td>
+        <span class="hint">${b.techs.map(([t, n]) => `${esc(t)} ${n}`).join(" · ")}</span></td>
       <td class="n">${b.near < 1e9 ? num(b.near, 2) : ""}</td><td class="n">${b.best > -1e9 ? num(b.best, 0) : ""}</td>
       <td class="no-print"><button data-cov="${esc(b.band)}">Coverage</button></td></tr>`).join("")}</tbody></table></div>`
       : '<p class="hint">No licensed frequencies with the current layers and filters. Turn on the FCC licensed layer or clear filters.</p>'}
@@ -95,7 +95,7 @@ S.views.report = (v, rows) => {
   <div class="panel" id="rp_sig" style="margin-top:10px"><h3>Signals not on the FCC licence list</h3>
     <p class="hint">Your captures and the crowd layers (OpenCelliD and imported layers; WiGLE and RepeaterBook in the personal build) in this area. Each is checked against FCC licences on that frequency within 40 mi,
       then against bands where transmitting is allowed without a site licence (Part 15, Part 95, amateur, market-licensed cellular, broadcast, aviation, marine, federal).
-      Whatever is left is <b style="color:${authColor("Unlisted")}">Unlisted</b>: worth a second look on site.</p>
+      Whatever is left is <b style="color:var(--bad-ink)">Unlisted</b>: worth a second look on site.</p>
     <div id="rp_sigbody">${survey.length ? '<p class="status">Checking…</p>' : `<p class="status">No survey or crowd data in this area yet.</p>
       <div class="row no-print"><button data-goto="mission">Import captures (Mission)</button><button data-goto="data">Fetch crowd data (Data &amp; updates)</button></div>`}</div></div>
   ${(S.build||{}).notices ? `<p class="hint" style="margin-top:10px;font-size:11px">${esc(S.build.notices.fcc)} ${survey.some(r => r.layer === "opencellid") ? esc(S.build.notices.opencellid) : ""}</p>` : ""}`;
@@ -131,7 +131,7 @@ async function drawBandHeat(gen) {
     const h = await api("/api/heatmap?" + params({kind: "terrain", bands: S.reportBand, layers: "uls,broadcast,noaa", floor, size: 140, alpha: 200}));
     if (gen !== S.reportGen || !S.reportMap) return;
     S.reportHeat = L.imageOverlay("data:image/png;base64," + h.png, h.bounds, {opacity: .75, interactive: false}).addTo(map);
-    note.textContent = `${S.reportBand}: ${h.desc}. Scale ${num(h.vmin, 0)} to ${num(h.vmax, 0)} ${h.unit} (blue weak, red strong); clear where below ${floor} dBm.`;
+    note.textContent = `${S.reportBand}: ${String(h.desc||"").replace(/\.\s*$/,"")}. Scale ${num(h.vmin, 0)} to ${num(h.vmax, 0)} ${h.unit} (blue weak, red strong); clear where below ${floor} dBm.`;
   } catch (e) { if (gen === S.reportGen) note.textContent = "Coverage: " + e.message; }
 }
 
@@ -152,11 +152,11 @@ async function loadSignals(gen) {
     if (gen !== S.reportGen) return;
     const c = res.counts, n = res.rows.length, un = c["Unlisted"] || 0, lic = c["FCC licensed"] || 0;
     $("#rp_unlisted").textContent = un.toLocaleString();
-    $("#rp_unlisted").style.color = un ? authColor("Unlisted") : "";
+    $("#rp_unlisted").style.color = un ? "var(--bad-ink)" : "";  // text in the skin's own red: the map colour was 3.4:1 on Haze
     const cats = Object.entries(c).sort((a, b) => (b[0] === "Unlisted") - (a[0] === "Unlisted") || b[1] - a[1]);
     const shown = S.reportSigAll ? res.rows : res.rows.slice(0, 200);
     body.innerHTML = `<p>${n.toLocaleString()} points: <b>${lic.toLocaleString()}</b> match an FCC licence, <b>${(n - lic - un - (c["No frequency"] || 0)).toLocaleString()}</b> sit in bands allowed without a site licence,
-      <b style="color:${un ? authColor("Unlisted") : "inherit"}">${un.toLocaleString()} unlisted</b>${c["No frequency"] ? `, ${c["No frequency"]} without a frequency` : ""}.</p>
+      <b style="color:${un ? "var(--bad-ink)" : "inherit"}">${un.toLocaleString()} unlisted</b>${c["No frequency"] ? `, ${c["No frequency"]} without a frequency` : ""}.</p>
       <div class="chips">${cats.map(([k, m]) => `<span class="chip"><span class="dot" style="background:${authColor(k)}"></span>${esc(k)} <b>${m.toLocaleString()}</b></span>`).join("")}</div>
       <div class="tw" style="max-height:520px;margin-top:8px"><table><thead><tr><th>Finding</th><th title="How far to trust it: how many independent origins agree (words), and the source's own grade A-F">Claim</th><th>MHz</th><th>Type</th><th>dBm</th><th>Label / ID</th><th>Source</th><th>Distance</th><th>When</th><th>Why</th></tr></thead><tbody>
       ${shown.map(r => `<tr${r.stale ? ` style="opacity:.55" title="${r.age_days} days old: past its refresh age"` : ""}><td><span class="tag" style="border-color:${authColor(r.authority)};color:${authColor(r.authority)}">${esc(r.authority)}</span></td>

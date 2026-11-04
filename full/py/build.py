@@ -1,6 +1,8 @@
 """
-Which build this is. "personal" is Cody's own PC (the launcher sets RF_RECON_BUILD=personal). Anything else is the sold
-build: the install kit, the 24/7 server, and anything Josh sells or shows a customer.
+Which build this is. RF_RECON_BUILD=personal is set on Cody's own PC (the launcher) and on the 24/7 server (its service,
+11/2), and there it applies to the owner only: Cody, the copy's own background jobs, and the server's admin login. Team
+logins, and everything else (the install kit, the web version, anything Josh sells or shows a customer), get the sold
+build.
 
 The sold build leaves out every source whose terms bar commercial use or sharing (terms read 2026-11-02, research
 "RF Recon data sources and aggregation", section 9). The personal build keeps them all.
@@ -29,14 +31,27 @@ NOTICES = {
 }
 
 
+def _remote_user():
+    """Who is asking through the remote door (a team login), or None for the owner: this PC itself, the server's own
+    jobs, or the admin login (remote.py treats the admin as the owner)."""
+    import remote
+    return getattr(remote.ON, "user", None)
+
+
+def personal_now():
+    """The personal build applies to the owner only (Cody 11/2: "Per-login personal build"): on Cody's PC and on the
+    server alike, a team login gets the sold build, so a personal-use source is never shown to anyone else."""
+    return PERSONAL and not _remote_user()
+
+
 def name():
-    return "personal" if PERSONAL else "sold"
+    return "personal" if personal_now() else "sold"
 
 
 def allowed(source_id):
-    return PERSONAL or source_id not in PERSONAL_ONLY
+    return source_id not in PERSONAL_ONLY or personal_now()
 
 
 def info():
     """What the page needs: the build's name, what it leaves out and why, and the notices."""
-    return {"build": name(), "left_out": {} if PERSONAL else PERSONAL_ONLY, "notices": NOTICES}
+    return {"build": name(), "left_out": {} if personal_now() else PERSONAL_ONLY, "notices": NOTICES}

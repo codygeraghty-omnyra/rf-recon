@@ -1,0 +1,1834 @@
+{
+ "updated": "2026-11-03",
+ "note": "Facts were read on the cited page on the checked date. 'estimate' marks our judgement. Code text is model code; the local AHJ's adopted edition and amendments govern.",
+ "sources": [
+  {
+   "key": "ifc2018_510",
+   "title": "2018 International Fire Code Section 510 Emergency Responder Radio Coverage (text reproduction by callmc.com)",
+   "url": "https://callmc.com/wp-content/uploads/2021/10/IFC_510_Sheet-1.pdf",
+   "kind": "code",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "efs_ifc2021_vs_2024",
+   "title": "Engineered Fire Systems, International Fire Code 2021 vs 2024 (Section 510 changes summary)",
+   "url": "https://engineeredfiresystems.com/resources/international-fire-code-2021-vs-2024/",
+   "kind": "trade",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "sbc_ifc_codes_2022",
+   "title": "Safer Buildings Coalition, IFC code comparison table IFC 2015 / 2018 / 2021 / 2024 draft (2022)",
+   "url": "https://sbc.memberclicks.net/assets/docs/IFC-Codes-2022.pdf",
+   "kind": "trade",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nfpa1225_ch18",
+   "title": "NFPA 1225 (2022) Chapter 18 ERCES and 20.3.10 test and inspection - copy posted by Georgia Office of Commissioner of Insurance and Safety Fire",
+   "url": "https://oci.georgia.gov/document/document/nfpa-1225-chapter-18/download",
+   "kind": "standard",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "wac_51_54a_1103",
+   "title": "Washington WAC 51-54A-1103, 1103.2 Emergency responder communication enhancement in existing buildings",
+   "url": "https://app.leg.wa.gov/wac/default.aspx?cite=51-54A-1103",
+   "kind": "code",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "seattle_sfc_510",
+   "title": "Seattle Fire Code 2018 Section 510 amendments (Attach 1 2018 SFC Section 510)",
+   "url": "https://seattle.gov/Documents/Departments/Fire/Business/Attach 1 2018 SFC SECTION 510.pdf",
+   "kind": "code",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nac_477_283",
+   "title": "Nevada NAC 477.283 adoption of 2018 IFC with amendments (Cornell LII copy)",
+   "url": "https://law.cornell.edu/regulations/nevada/NAC-477-283",
+   "kind": "code",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "sdfd_c1",
+   "title": "San Diego Fire-Rescue Standard C-1, Emergency Responder Communication Enhancement Systems (ERCES), effective 06/01/2023, revised 01/22/2026",
+   "url": "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf",
+   "kind": "code",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "fairfax_erces",
+   "title": "Fairfax County (VA) Office of the Fire Marshal, ERCES Submittal and Permit Requirements Guidelines, Version 2, September 2025",
+   "url": "https://www.fairfaxcounty.gov/fire-ems/sites/fire-ems/files/Assets/Documents/PDF/fire%20marshal/ERCES%20Submittal%20and%20Permit%20Requirements%20Guidelines.pdf",
+   "kind": "code",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "tx_19tac_103_1215",
+   "title": "Texas Education Agency, adopted new 19 TAC 103.1215 School Safety Requirements (implements HB 3 / SB 838 2023, HB 33 / HB 121 2025)",
+   "url": "https://tea.texas.gov/laws-and-rules/commissioner-rules-tac/coe-adopted/26-08-103-1215.pdf",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "mi_hb5561",
+   "title": "Michigan HB 5561 (2021-2022), introduced Nov 10, 2021: emergency responder radio coverage in school buildings",
+   "url": "https://www.legislature.mi.gov/documents/2021-2022/billintroduced/House/htm/2021-HIB-5561.htm",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cfr_90_219",
+   "title": "47 CFR 90.219 Use of signal boosters (Cornell LII copy of eCFR)",
+   "url": "https://www.law.cornell.edu/cfr/text/47/90.219",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cfr_20_21",
+   "title": "47 CFR 20.21 Signal boosters (consumer and industrial; Cornell LII copy of eCFR)",
+   "url": "https://www.law.cornell.edu/cfr/text/47/20.21",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cfr_96_11",
+   "title": "47 CFR 96.11 Citizens Broadband Radio Service frequencies (Cornell LII copy of eCFR)",
+   "url": "https://www.law.cornell.edu/cfr/text/47/96.11",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "fr_2025_06865",
+   "title": "Federal Register 2025-06865 (May 7, 2025), FCC Wireless E911 Location Accuracy Requirements (govinfo PDF)",
+   "url": "https://www.govinfo.gov/content/pkg/FR-2025-05-07/pdf/2025-06865.pdf",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "firstnet_res113",
+   "title": "FirstNet Authority press release: Board approves network investment to enhance in-building coverage, resiliency (May 4, 2022)",
+   "url": "https://firstnet.gov/newsroom/press-releases/firstnet-authority-board-approves-network-investment-enhance-building",
+   "kind": "government",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "saferbuildings_erces",
+   "title": "Safer Buildings Coalition, ERCES Primer",
+   "url": "https://saferbuildings.org/erces-primer/",
+   "kind": "trade",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "wia_2026_predictions",
+   "title": "Wireless Infrastructure Association, 2026 Predictions: How Wireless Experts See In-Building Connectivity Evolving (Jan 20, 2026)",
+   "url": "https://wia.org/2026-predictions-how-wireless-experts-see-in-building-connectivity-evolving/",
+   "kind": "trade",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "wia_ibw_landscape_2023",
+   "title": "Wireless Infrastructure Association, New Report: The U.S. In-building Wireless Landscape (May 2, 2023)",
+   "url": "https://wia.org/new-report-the-u-s-in-building-wireless-landscape/",
+   "kind": "trade",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "commscope_2016_value",
+   "title": "Smart Buildings Magazine, Indoor wireless coverage could increase a property's value by 28% (CommScope study by Coleman Parkes, Feb 11, 2016)",
+   "url": "https://smartbuildingsmagazine.com/news/indoor-wireless-coverage-could-increase-a-propertys-value-by-28",
+   "kind": "news",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "proptivity_2026",
+   "title": "Proptivity, Better coverage drives higher rents and longer stays (472 London Grade A/B offices; Ookla + CoStar; Aug 2026)",
+   "url": "https://proptivity.com/2026/08/25/better-coverage-drives-higher-rents-and-longer-stays/",
+   "kind": "study",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "spok_2019",
+   "title": "Spok, Ninth Annual Spok Survey Reveals Slow Progress for Mobile Infrastructure in Healthcare (Sep 10, 2019)",
+   "url": "https://www.spok.com/news-releases/9-10-2019/",
+   "kind": "study",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "boingo_exec_das",
+   "title": "Boingo, The Executive's Guide to a Distributed Antenna System (DAS) (Sep 16, 2026)",
+   "url": "https://www.boingo.com/good-stuff/the-executives-guide-to-a-distributed-antenna-system-das-the-what-why-and-how/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "extenet_nh_venues",
+   "title": "Extenet, Neutral-Host DAS: Why Multi-Carrier Networks Matter for Stadiums, Arenas, and Convention Centers (Mar 6, 2026)",
+   "url": "https://extenet.com/neutral-host-das-stadiums-arenas/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "boldyn_us",
+   "title": "Boldyn Networks US home page",
+   "url": "https://www.boldyn.com/us",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cts_ps_das",
+   "title": "Communication Technology Services (CTS), Public Safety DAS and ERRCS Systems",
+   "url": "https://www.cts1.com/public-safety-das",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cts_das_small_cell",
+   "title": "Communication Technology Services (CTS), DAS and Small Cell Solutions",
+   "url": "https://www.cts1.com/das-small-cell-solutions",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "bearcom_bda",
+   "title": "BearCom, BDA and DAS Installations and Requirements (blog)",
+   "url": "https://bearcom.com/blog/bi-directional-amplifiers/bda-das-installations-requirements",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "pyebarker_bda",
+   "title": "Pye-Barker Fire & Safety, Bi-Directional Amplifier (BDA) Emergency Communication Systems for Buildings",
+   "url": "https://pyebarkerfs.com/services/code_compliance_reporting/bi-directional-amplifier-bda/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "airwavz_home",
+   "title": "Airwavz Solutions home page",
+   "url": "https://airwavz.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "aircomm_ps_das",
+   "title": "Air Comm, ERCES/ERRC Public Safety DAS Solutions",
+   "url": "https://www.aircomm.com/in-building-public-safety-bda-das",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "mss_erces",
+   "title": "MSS Solutions, ERCES / BDA Systems - Survey, Installation, Inspections",
+   "url": "https://msssolutions.com/erces-bda/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "bdasystemsco",
+   "title": "BDA Systems Co home page",
+   "url": "https://www.bdasystemsco.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "adrf_home",
+   "title": "ADRF (Advanced RF Technologies) home page",
+   "url": "https://www.adrftech.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "sbc_adrf_profile",
+   "title": "Safer Buildings Coalition member showcase: Advanced RF Technologies (ADRF) - USA",
+   "url": "https://www.saferbuildings.us/showcase/profile/advanced-rf-technologies-adrf-usa",
+   "kind": "trade",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "jma_home",
+   "title": "JMA Wireless home page",
+   "url": "https://jmawireless.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "solid_home",
+   "title": "SOLiD home page",
+   "url": "https://www.solid.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nextivity_home",
+   "title": "Nextivity (CEL-FI) home page",
+   "url": "https://nextivityinc.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "andrew_era",
+   "title": "ANDREW (an Amphenol company), ERA digital distributed antenna system",
+   "url": "https://www.andrew.com/era/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "ibwave_home",
+   "title": "iBwave home page (products and company figures)",
+   "url": "https://www.ibwave.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "pctel_ps_kit",
+   "title": "PCTEL, Public Safety Network Testing Solution (SeeHawk Touch + IBflex)",
+   "url": "https://pctel.com/products/test-measurement/public-safety-network-testing-solution/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "anritsu_erces_nfpa1225",
+   "title": "Anritsu Test Talk, How to select a test solution to ensure ERCES is compliant with NFPA 1225",
+   "url": "https://resources.goanritsu.com/anritsu-test-talk/selecting-a-test-solution-to-ensure-erces-is-compliant-with-nfpa-1225-standard",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "ventev_home",
+   "title": "Ventev (a Hubbell company) home page (ventev.com redirects here)",
+   "url": "https://ventevinfra.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "ranplan_home",
+   "title": "Ranplan Wireless home page",
+   "url": "https://www.ranplanwireless.com/",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_ccd_sch_2425",
+   "title": "NCES Common Core of Data, school directory file SY 2024-25 v1a (ccd_sch_029_2425_w_1a_073025.zip; header and rows read by us)",
+   "url": "https://nces.ed.gov/ccd/Data/zip/ccd_sch_029_2425_w_1a_073025.zip",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_ccd_files",
+   "title": "NCES Common Core of Data, Data Files page",
+   "url": "https://nces.ed.gov/ccd/files.asp",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_ccd_release_2425",
+   "title": "NCES 2026-005, SY 2024-25 CCD Nonfiscal Universe 1a release notes (copy hosted by reason.com)",
+   "url": "https://reason.com/wp-content/uploads/2026/07/SY_2024-25_Universe_1a_CCD_Nonfiscal_Release_Notes.pdf",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_edge_locations",
+   "title": "NCES EDGE, School and postsecondary geocode (location) files",
+   "url": "https://nces.ed.gov/programs/edge/Geographic/SchoolLocations",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_edge_public_current",
+   "title": "NCES Public School Locations - Current (ArcGIS Hub dataset record)",
+   "url": "https://hub.arcgis.com/api/v3/datasets?filter[slug]=nces::public-school-locations-current",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_pss_data",
+   "title": "NCES Private School Universe Survey (PSS) data files page",
+   "url": "https://nces.ed.gov/surveys/pss/pssdata.asp",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "nces_pss_2324_csv",
+   "title": "NCES PSS 2023-24 public-use CSV (pss2324_pu_csv.zip; header and rows read by us)",
+   "url": "https://nces.ed.gov/surveys/pss/zip/pss2324_pu_csv.zip",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "ipeds_hd2024",
+   "title": "IPEDS HD2024 institutional directory file (HD2024.zip; header and rows read by us)",
+   "url": "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "datagov_open_licenses",
+   "title": "resources.data.gov, Open Licenses (US government works public domain; open data use for any purpose)",
+   "url": "https://resources.data.gov/open-licenses/",
+   "kind": "government",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cms_hgi_meta",
+   "title": "CMS Provider Data Catalog metastore record, Hospital General Information (xubh-q36u)",
+   "url": "https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items/xubh-q36u",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cms_hgi_csv",
+   "title": "CMS Hospital General Information CSV (header and rows read by us)",
+   "url": "https://data.cms.gov/provider-data/sites/default/files/resources/893c372430d9d71a1c52737d01239d47_1785189955/Hospital_General_Information.csv",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cms_data_everyone",
+   "title": "CMS, Data Available to Everyone (open data websites)",
+   "url": "https://www.cms.gov/data-research/cms-data/data-available-everyone",
+   "kind": "government",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "fgdc_hifld",
+   "title": "FGDC, Homeland Infrastructure Foundation-Level Data Subcommittee page (retired; HIFLD Open decommissioned)",
+   "url": "https://www.fgdc.gov/organization/working-groups-subcommittees/hifld/index_html",
+   "kind": "government",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "atcoordinates_hifld",
+   "title": "At These Coordinates, HIFLD Open GIS Portal Shuts Down Aug 26 2025 (Aug 8, 2025)",
+   "url": "https://atcoordinates.info/2025/08/08/hifld-open-gis-portal-shuts-down-aug-26-2025/",
+   "kind": "news",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "overture_attribution",
+   "title": "Overture Maps Foundation, Attribution and licensing (per theme)",
+   "url": "https://docs.overturemaps.org/attribution/",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "overture_places",
+   "title": "Overture Maps Foundation, Places guide (Oct 2026 release)",
+   "url": "https://docs.overturemaps.org/guides/places/",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "osm_copyright",
+   "title": "OpenStreetMap copyright and license (ODbL)",
+   "url": "https://www.openstreetmap.org/copyright",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "osm_overpass",
+   "title": "OpenStreetMap Wiki: Overpass API (public endpoints and usage policy)",
+   "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "osm_shop_mall",
+   "title": "OpenStreetMap Wiki: Tag:shop=mall",
+   "url": "https://wiki.openstreetmap.org/wiki/Tag:shop=mall",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "osm_amenity_parking",
+   "title": "OpenStreetMap Wiki: Tag:amenity=parking (parking=multi-storey / underground)",
+   "url": "https://wiki.openstreetmap.org/wiki/Tag:amenity=parking",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "faa_airports_hub",
+   "title": "FAA Aeronautical Information Services, Airports (ADDS ArcGIS Hub dataset record)",
+   "url": "https://hub.arcgis.com/api/v3/datasets?filter[slug]=faa::airports-1",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "fema_usa_structures_hub",
+   "title": "USA Structures (FEMA/ORNL/USGS), Esri US Federal Datasets ArcGIS Hub record",
+   "url": "https://hub.arcgis.com/api/v3/datasets?filter[slug]=fedmaps::usa-structures",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "usa_structures_paper",
+   "title": "A baseline structure inventory with critical attribution for the US and its territories (Scientific Data 2024, PMC copy)",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11099081/",
+   "kind": "study",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "ms_us_footprints",
+   "title": "Microsoft USBuildingFootprints (GitHub, archived)",
+   "url": "https://github.com/microsoft/USBuildingFootprints",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "census_cbp",
+   "title": "US Census Bureau, County Business Patterns: About",
+   "url": "https://www.census.gov/programs-surveys/cbp/about.html",
+   "kind": "government",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "chicago_permits_meta",
+   "title": "City of Chicago Data Portal, Building Permits dataset metadata (ydr8-5enu)",
+   "url": "https://data.cityofchicago.org/api/views/ydr8-5enu.json",
+   "kind": "dataset",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "ftc_canspam",
+   "title": "FTC, CAN-SPAM Act: A Compliance Guide for Business",
+   "url": "https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business",
+   "kind": "government",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cfr_64_1200",
+   "title": "47 CFR 64.1200 Delivery restrictions (TCPA rules; Cornell LII copy of eCFR)",
+   "url": "https://www.law.cornell.edu/cfr/text/47/64.1200",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "cfr_16_310_6",
+   "title": "16 CFR 310.6 Exemptions (FTC Telemarketing Sales Rule; Cornell LII copy of eCFR)",
+   "url": "https://www.law.cornell.edu/cfr/text/16/310.6",
+   "kind": "regulation",
+   "checked": "2026-11-03"
+  },
+  {
+   "key": "google_sender_guidelines",
+   "title": "Google Workspace Admin Help, Email sender guidelines (answer 81126)",
+   "url": "https://support.google.com/a/answer/81126",
+   "kind": "vendor",
+   "checked": "2026-11-03"
+  }
+ ],
+ "code_triggers_common": {
+  "text": "Model IFC: approved coverage in all new buildings (IFC 2018 510.1), with exceptions; IFC 2024 adds Exception 4 for one-story buildings up to 12,000 sq ft with no below-ground area. Existing buildings: when a wired system cannot be repaired or is replaced, or within a time frame the adopting authority sets (1103.2).",
+  "sources": [
+   "ifc2018_510",
+   "sbc_ifc_codes_2022",
+   "efs_ifc2021_vs_2024",
+   "wac_51_54a_1103"
+  ]
+ },
+ "value_beyond_code": [
+  {
+   "item": "Cellular coverage for tenants and visitors",
+   "claim": "Owners now carry indoor cellular themselves: WIA experts describe an industry-wide 'carrier no' posture toward broadly funded in-building builds, and 'carriers are increasingly reluctant to fund in-building systems'.",
+   "who_cares": [
+    "owner",
+    "tenants",
+    "facilities"
+   ],
+   "sources": [
+    "wia_2026_predictions",
+    "cts_das_small_cell"
+   ]
+  },
+  {
+   "item": "Few buildings have it",
+   "claim": "CommScope/Coleman Parkes (2016) estimated only about 2% of commercial buildings have dedicated technology for strong indoor mobile coverage and capacity. Survey estimate, 2016.",
+   "who_cares": [
+    "owner"
+   ],
+   "sources": [
+    "commscope_2016_value"
+   ]
+  },
+  {
+   "item": "Leasing and rent",
+   "claim": "Measured (Ookla indoor readings + CoStar): large Grade A London offices with reliable indoor mobile coverage ask about 10% more rent than poor-coverage peers after local peer adjustment; no consistent gap in Grade B. UK data; US effect not measured.",
+   "who_cares": [
+    "owner",
+    "leasing"
+   ],
+   "sources": [
+    "proptivity_2026"
+   ]
+  },
+  {
+   "item": "Tenant retention",
+   "claim": "Same study: within three years about 16% of space in the worst-connected large Grade A buildings reaches a lease event vs under 2% in the best-connected (exposure to lease events, not measured move-outs).",
+   "who_cares": [
+    "owner",
+    "asset manager"
+   ],
+   "sources": [
+    "proptivity_2026"
+   ]
+  },
+  {
+   "item": "Property value",
+   "claim": "Estimates only: building professionals surveyed for CommScope (2016) put the value uplift at 28% on average; a Nextivity executive (WIA, 2026) says a 5-10% premium is possible.",
+   "who_cares": [
+    "owner",
+    "investor"
+   ],
+   "sources": [
+    "commscope_2016_value",
+    "wia_2026_predictions"
+   ]
+  },
+  {
+   "item": "911 calls from inside the building",
+   "claim": "The FCC (2025) restates that consumers keep replacing landlines with wireless phones and 'a majority of wireless calls are now made indoors'; cellular coverage indoors is where occupants' 911 calls start.",
+   "who_cares": [
+    "owner",
+    "facilities",
+    "tenants",
+    "fire marshal"
+   ],
+   "sources": [
+    "fr_2025_06865"
+   ]
+  },
+  {
+   "item": "Responder broadband (FirstNet Band 14) and code scope",
+   "claim": "Public safety names in-building coverage a top FirstNet priority; NFPA 1225 (2022) and IFC 2024 bring cellular services into ERCES scope where local agencies use them.",
+   "who_cares": [
+    "fire marshal",
+    "owner"
+   ],
+   "sources": [
+    "firstnet_res113",
+    "saferbuildings_erces"
+   ]
+  },
+  {
+   "item": "Owner liability and schedule",
+   "claim": "ERCES compliance falls on the owner; FCC forfeitures can exceed $100,000 per continuing violation; late discovery can move the ribbon-cutting months; San Diego holds the TCO until the ERCES is permitted, installed and tested.",
+   "who_cares": [
+    "owner",
+    "developer",
+    "GC"
+   ],
+   "sources": [
+    "saferbuildings_erces",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "item": "Workforce and BYOD",
+   "claim": "Hospitals: 75% use smartphones as the main communication tool and 39% still call cellular coverage a challenge (Spok 2019, 450+ respondents). Building pros surveyed for CommScope cited workforce productivity (77%) and recruiting (46%).",
+   "who_cares": [
+    "IT",
+    "tenants",
+    "HR"
+   ],
+   "sources": [
+    "spok_2019",
+    "commscope_2016_value"
+   ]
+  },
+  {
+   "item": "Guest and visitor experience",
+   "claim": "Venue neutral-host DAS is sized for tens of thousands of devices at once (Extenet); 39% of building pros surveyed cited attracting more visitors.",
+   "who_cares": [
+    "venue operator",
+    "hotel GM",
+    "retail landlord"
+   ],
+   "sources": [
+    "extenet_nh_venues",
+    "commscope_2016_value"
+   ]
+  },
+  {
+   "item": "IoT and building systems",
+   "claim": "Current DAS platforms carry cellular IoT (ANDREW ERA lists LTE Cat-M1 and NB-IoT); integrators run IoT on the same fiber backbone as cellular and Wi-Fi (Airwavz); Nextivity sells IoT sensor networks.",
+   "who_cares": [
+    "facilities",
+    "IT"
+   ],
+   "sources": [
+    "andrew_era",
+    "airwavz_home",
+    "nextivity_home"
+   ]
+  },
+  {
+   "item": "Private LTE/5G and CBRS readiness",
+   "claim": "CBRS is 3550-3700 MHz; General Authorized Access users may operate across the band (47 CFR 96.11). OEMs sell private-network platforms (JMA private wireless, Nextivity WAVE CBRS NaaS); ADRF expects broader private 5G adoption.",
+   "who_cares": [
+    "IT",
+    "operations"
+   ],
+   "sources": [
+    "cfr_96_11",
+    "jma_home",
+    "nextivity_home",
+    "wia_2026_predictions"
+   ]
+  },
+  {
+   "item": "Neutral-host revenue or no capex",
+   "claim": "Third-party neutral hosts can fund, build and run the DAS, with recurring revenue often shared with the venue at an agreed rate; other models are venue-funded or a monthly managed fee (NaaS).",
+   "who_cares": [
+    "owner",
+    "CFO"
+   ],
+   "sources": [
+    "boingo_exec_das",
+    "extenet_nh_venues",
+    "cts_das_small_cell"
+   ]
+  },
+  {
+   "item": "Plan once, avoid retrofit",
+   "claim": "Reserving pathways, riser space, power and wall space early costs far less than retrofitting after finishes; reserved space can be reused if no ERCES is needed.",
+   "who_cares": [
+    "developer",
+    "architect",
+    "GC"
+   ],
+   "sources": [
+    "saferbuildings_erces",
+    "sdfd_c1"
+   ]
+  }
+ ],
+ "process": [
+  {
+   "phase": "Lead / qualification",
+   "what": "Confirm which code edition and local amendment the AHJ enforces, the frequency license holder, and the construction stage.",
+   "duration": "Days (estimate)",
+   "customer_provides": "Address, occupancy, floors above/below grade, square footage, construction schedule, AHJ contact if known.",
+   "sources": [
+    "saferbuildings_erces",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "phase": "Site walk / RF survey (benchmark grid test)",
+   "what": "Measure public safety signal into and out of the building on the AHJ's grid (20 areas per floor, center of each) and donor signal at the roof; for new builds, a baseline assessment first and detailed measurements once the building is closed in.",
+   "duration": "1-3 days on site for a typical building (estimate)",
+   "customer_provides": "Access to every floor incl. stairs, elevators, roof and basements; escort; floor plans.",
+   "sources": [
+    "ifc2018_510",
+    "nfpa1225_ch18",
+    "saferbuildings_erces",
+    "cts_ps_das"
+   ]
+  },
+  {
+   "phase": "Design (iBwave, Ranplan or similar)",
+   "what": "Predictive coverage maps, donor link budget, isolation calculations, riser and cable diagrams, backup power calculations, FACU monitoring design, test grids; preliminary, updated and final designs. SBC: an ERCES design cannot be finalized until the building is substantially complete.",
+   "duration": "A few weeks for a standard enterprise building; several months for airports/stadiums (CTS)",
+   "customer_provides": "CAD/PDF floor plans and elevations, construction type per floor, riser and pathway locations.",
+   "sources": [
+    "nfpa1225_ch18",
+    "saferbuildings_erces",
+    "cts_das_small_cell",
+    "ibwave_home",
+    "ranplan_home"
+   ]
+  },
+  {
+   "phase": "Licensee review and consent (public safety)",
+   "what": "Design goes to the frequency license holder (often the county radio shop) with a retransmission authorization; non-licensee operation needs the licensee's express consent kept in a recordable form.",
+   "duration": "Varies by licensee; not published by the AHJs read (no source)",
+   "customer_provides": "Owner signature on retransmission authorization / agreement.",
+   "sources": [
+    "nfpa1225_ch18",
+    "cfr_90_219",
+    "fairfax_erces"
+   ]
+  },
+  {
+   "phase": "AHJ submittal and permits",
+   "what": "Construction permit for the ERCES; in Fairfax: radio shop approval, then building permit (fire-rated penetrations), low-voltage permit and fire alarm permit, in that order.",
+   "duration": "2-6 weeks per review cycle (estimate; Fairfax and San Diego publish no review times)",
+   "customer_provides": "Owner authorization, permit fees, fire alarm contractor coordination.",
+   "sources": [
+    "ifc2018_510",
+    "fairfax_erces",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "phase": "Carrier approvals (commercial cellular DAS only)",
+   "what": "Each carrier reviews the design and provides or approves a signal source; carrier-direct sources are not guaranteed.",
+   "duration": "Carrier-direct timelines can run 12 to 24 months per carrier with no guaranteed outcome (CTS)",
+   "customer_provides": "Carrier relationships, signed agreements, rack space for carrier equipment.",
+   "sources": [
+    "cts_das_small_cell",
+    "wia_2026_predictions"
+   ]
+  },
+  {
+   "phase": "Procurement",
+   "what": "UL 2524-listed active equipment (IFC 2024), NEMA 4 cabinets for boosters and NEMA 3R battery cabinets, cable and passives.",
+   "duration": "Weeks (estimate; lead times not published)",
+   "customer_provides": "PO / deposit approval.",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2018_510"
+   ]
+  },
+  {
+   "phase": "Install",
+   "what": "Donor antenna and surge protection, headend/BDA, backbone and distribution cabling, antennas, power, FACU interface; pathway survivability where required.",
+   "duration": "Weeks for a mid-size building (estimate); CTS says a few months to deploy for standard enterprise DAS",
+   "customer_provides": "Roof and riser access, dedicated power and generator connection, ceiling access, firestop coordination.",
+   "sources": [
+    "nfpa1225_ch18",
+    "cts_das_small_cell",
+    "fairfax_erces"
+   ]
+  },
+  {
+   "phase": "Commissioning",
+   "what": "Set gains, filters and AGC; isolation test; check for oscillation with a spectrum analyzer; BDA commissioning tests (e.g., PCTEL BDA suite).",
+   "duration": "1-2 days (estimate)",
+   "customer_provides": "Access, FACU technician on site.",
+   "sources": [
+    "ifc2018_510",
+    "nfpa1225_ch18",
+    "pctel_ps_kit"
+   ]
+  },
+  {
+   "phase": "Acceptance test / AHJ witness",
+   "what": "Grid test to 95% two-way coverage per floor (20 areas; up to 40 if two fail); San Diego requires a third-party tester (FCC GROL + NICET IB-PSC Level II) not related to the installer and an SDFD inspection before TCO; Fairfax: radio shop first, then fire alarm, building and coverage inspections.",
+   "duration": "Days, plus AHJ scheduling (estimate)",
+   "customer_provides": "Building access, radios or loaner radios coordinated with the agency.",
+   "sources": [
+    "ifc2018_510",
+    "nfpa1225_ch18",
+    "sdfd_c1",
+    "fairfax_erces"
+   ]
+  },
+  {
+   "phase": "FCC registration (Class B)",
+   "what": "Register Class B signal booster installations in the FCC signal booster database; SBC lists this as part of acceptance.",
+   "duration": "Same day online (estimate)",
+   "customer_provides": "Owner/operator contact details for the registration.",
+   "sources": [
+    "cfr_90_219",
+    "saferbuildings_erces"
+   ]
+  },
+  {
+   "phase": "Closeout package",
+   "what": "Acceptance documentation (equipment list, data sheets, as-builts, measurements, power calcs, frequencies, isolation results, settings); San Diego returns a stamped report that is uploaded to The Compliance Engine, starting the annual cycle.",
+   "duration": "1-2 weeks after test (estimate)",
+   "customer_provides": "Place to keep originals; on-site document holder at the BDA.",
+   "sources": [
+    "nfpa1225_ch18",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "phase": "Monitoring",
+   "what": "Supervisory signals to a listed fire alarm control unit (AC loss, charger failure, donor antenna, active device failure, low battery at 70%, link to FACU); commercial DAS often adds 24/7 NOC monitoring.",
+   "duration": "Ongoing",
+   "customer_provides": "FACU points and central station account.",
+   "sources": [
+    "ifc2018_510",
+    "nfpa1225_ch18",
+    "cts_das_small_cell"
+   ]
+  },
+  {
+   "phase": "Annual retest and maintenance",
+   "what": "Test, document and sign by an AHJ-approved person at acceptance and every 12 months: coverage test, gain check, 1-hour battery load test, active components; report to the fire code official. SBC: full quantitative retest at least every five years. San Diego adds semiannual visual inspections; Fairfax requires annual re-submission of retransmission authorization.",
+   "duration": "Annually; 1-2 days per building (estimate)",
+   "customer_provides": "Maintenance agreement, access, prior test report and gain values.",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2018_510",
+    "saferbuildings_erces",
+    "sdfd_c1",
+    "fairfax_erces"
+   ]
+  }
+ ],
+ "customer_needs": {
+  "supply_or_decide": [
+   {
+    "need": "Plans",
+    "detail": "Site plan, floor plans for every level incl. ones the system does not cover, elevations, construction type per floor; San Diego wants graduated scale and compass on sheets.",
+    "sources": [
+     "nfpa1225_ch18",
+     "sdfd_c1"
+    ]
+   },
+   {
+    "need": "Access",
+    "detail": "Every floor, stairs, elevators, roof, basements; agency staff may enter at any reasonable time for field testing, and San Diego requires 24/7 access to investigate interference.",
+    "sources": [
+     "ifc2018_510",
+     "sdfd_c1"
+    ]
+   },
+   {
+    "need": "Roof rights",
+    "detail": "Donor antenna mounting, line of sight to the agency site, isolation from inside antennas (20 dB above system gain), discharge units on donor coax.",
+    "sources": [
+     "ifc2018_510",
+     "nfpa1225_ch18"
+    ]
+   },
+   {
+    "need": "Power",
+    "detail": "12 hours at 100% from dedicated battery, or 2-hour battery plus generator that can carry the load for 12 hours.",
+    "sources": [
+     "nfpa1225_ch18",
+     "ifc2018_510"
+    ]
+   },
+   {
+    "need": "Riser / pathways",
+    "detail": "Riser design shown on building plans with listed firestop systems for penetrations; pathway survivability per design.",
+    "sources": [
+     "fairfax_erces",
+     "nfpa1225_ch18"
+    ]
+   },
+   {
+    "need": "Fire alarm tie-in",
+    "detail": "Full ERCES needs a fire alarm permit showing ERCES signals monitored by the FACU.",
+    "sources": [
+     "fairfax_erces",
+     "ifc2018_510"
+    ]
+   },
+   {
+    "need": "IT network",
+    "detail": "Commercial DAS and private networks share fiber backbone and may need network ports for NOC monitoring; public safety supervision goes to the FACU, not IT.",
+    "sources": [
+     "airwavz_home",
+     "cts_das_small_cell",
+     "ifc2018_510"
+    ]
+   },
+   {
+    "need": "Budget and approvals",
+    "detail": "Owner pays for code-required ERCES and later frequency changes; site assessment usually comes before a budget can be set.",
+    "sources": [
+     "saferbuildings_erces",
+     "ifc2018_510",
+     "cts_ps_das"
+    ]
+   },
+   {
+    "need": "Carrier relationships",
+    "detail": "Commercial DAS needs each carrier's approval and a signal source; owners cannot assume a carrier will fund one.",
+    "sources": [
+     "cts_das_small_cell"
+    ]
+   },
+   {
+    "need": "Signatures",
+    "detail": "Retransmission authorization / annual testing-maintenance-retransmission agreement (Fairfax) and licensee consent records.",
+    "sources": [
+     "fairfax_erces",
+     "cfr_90_219"
+    ]
+   }
+  ],
+  "objections": [
+   {
+    "objection": "Our radios already work in here.",
+    "answer": "Then prove it: San Diego accepts a Proof of Acceptable Coverage grid test instead of a system; if coverage passes, no ERCES is needed.",
+    "sources": [
+     "sdfd_c1",
+     "saferbuildings_erces"
+    ]
+   },
+   {
+    "objection": "The carriers will pay for it.",
+    "answer": "Not for most buildings now: carrier-direct timelines run 12-24 months per carrier with no guarantee, and WIA experts report carriers pulling back from funding.",
+    "sources": [
+     "cts_das_small_cell",
+     "wia_2026_predictions"
+    ]
+   },
+   {
+    "objection": "The fire marshal approved it, so we can switch it on.",
+    "answer": "The frequency license holder must also approve the design, and a non-licensee needs the licensee's express consent before operating a booster.",
+    "sources": [
+     "nfpa1225_ch18",
+     "cfr_90_219",
+     "efs_ifc2021_vs_2024"
+    ]
+   },
+   {
+    "objection": "We will deal with it after we open.",
+    "answer": "San Diego will not release a TCO until the ERCES is permitted, installed and tested; SBC: late discovery moves the opening months.",
+    "sources": [
+     "sdfd_c1",
+     "saferbuildings_erces"
+    ]
+   },
+   {
+    "objection": "Why pay for a test every year?",
+    "answer": "Code: tested at acceptance and every 12 months, with a report to the fire code official; lost gain records force a rerun of the acceptance test.",
+    "sources": [
+     "nfpa1225_ch18",
+     "ifc2018_510"
+    ]
+   },
+   {
+    "objection": "Can one system do cellular and public safety?",
+    "answer": "Platforms exist that carry both (ANDREW ERA, Airwavz); some AHJs require a public safety dedicated ERCES, so check the local standard first.",
+    "sources": [
+     "andrew_era",
+     "airwavz_home",
+     "sdfd_c1"
+    ]
+   },
+   {
+    "objection": "Will a booster cause problems?",
+    "answer": "It can: licensees must fix interference, operation may be ordered to stop, and non-public-safety amplifiers that degrade the ERCES must be corrected or removed. Design and commissioning tests exist to prevent this.",
+    "sources": [
+     "cfr_90_219",
+     "ifc2018_510"
+    ]
+   },
+   {
+    "objection": "Can we just buy a cell booster off the shelf?",
+    "answer": "A consumer booster needs the subscriber's carrier consent and registration; an industrial booster (labelled NOT a CONSUMER device, for FCC licensees and qualified installers) needs a licence or the licensees' express consent.",
+    "sources": [
+     "cfr_20_21"
+    ]
+   },
+   {
+    "objection": "What will it cost?",
+    "answer": "No cost figures in the code bodies or SBC; integrators price after a site assessment. Early pathways are the cheapest lever.",
+    "sources": [
+     "saferbuildings_erces",
+     "cts_ps_das"
+    ]
+   }
+  ]
+ },
+ "deliverables": [
+  {
+   "item": "As-built drawings",
+   "line": "All equipment locations; AHJ may require as-built design documents in its format.",
+   "sources": [
+    "nfpa1225_ch18",
+    "ifc2018_510"
+   ]
+  },
+  {
+   "item": "Acceptance test report",
+   "line": "Measurements at all covered locations, isolation results, measured signal source levels, all channel/gain/filter/AGC settings, signed by an AHJ-approved person.",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Equipment list and spec sheets",
+   "line": "All system equipment and manufacturer data sheets in the acceptance package.",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Power calculations",
+   "line": "Secondary power calculations for 12-hour operation.",
+   "sources": [
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Gain records",
+   "line": "Amplifier gain values kept on file with the owner for annual comparison.",
+   "sources": [
+    "ifc2018_510"
+   ]
+  },
+  {
+   "item": "AHJ acceptance",
+   "line": "Stamped/approved report and inspection sign-off (San Diego: stamped report uploaded to The Compliance Engine).",
+   "sources": [
+    "sdfd_c1"
+   ]
+  },
+  {
+   "item": "Licensee consent / authorization",
+   "line": "Written consent of the frequency licensee in a recordable form; Fairfax retransmission agreement renewed annually.",
+   "sources": [
+    "cfr_90_219",
+    "fairfax_erces",
+    "saferbuildings_erces"
+   ]
+  },
+  {
+   "item": "FCC registration (Class B)",
+   "line": "Class B booster installation registered in the FCC signal booster database.",
+   "sources": [
+    "cfr_90_219"
+   ]
+  },
+  {
+   "item": "On-site document box",
+   "line": "Approved plans, latest annual report, authorization to operate, maintenance log at the BDA/BBU (San Diego).",
+   "sources": [
+    "sdfd_c1"
+   ]
+  },
+  {
+   "item": "Monitoring",
+   "line": "Supervisory signals on the fire alarm panel; commercial DAS may add NOC monitoring.",
+   "sources": [
+    "ifc2018_510",
+    "cts_das_small_cell"
+   ]
+  },
+  {
+   "item": "Maintenance plan",
+   "line": "Maintenance agreement for monitoring and periodic testing; annual test schedule.",
+   "sources": [
+    "saferbuildings_erces",
+    "nfpa1225_ch18"
+   ]
+  },
+  {
+   "item": "Warranty",
+   "line": "Equipment and workmanship warranty terms are set by the maker and integrator; no code requirement found (estimate).",
+   "sources": []
+  }
+ ],
+ "competitors": {
+  "national_integrators": [
+   {
+    "name": "Boldyn Networks",
+    "url": "https://www.boldyn.com/us",
+    "offers": "DAS, private 5G, small cells and towers, Wi-Fi, fibre, network design and management; neutral host.",
+    "scale": "North America, Europe, Asia; no US counts on page.",
+    "differentiators": "Shared-infrastructure model; global experience.",
+    "sources": [
+     "boldyn_us"
+    ]
+   },
+   {
+    "name": "Extenet",
+    "url": "https://extenet.com/",
+    "offers": "Neutral-host DAS, small cells, private wireless, fiber for venues.",
+    "scale": "Las Vegas resort and convention properties; systems for tens of thousands of devices.",
+    "differentiators": "Owns and operates the infrastructure; works with all major carriers; one partner and ops team.",
+    "sources": [
+     "extenet_nh_venues"
+    ]
+   },
+   {
+    "name": "Airwavz Solutions",
+    "url": "https://airwavz.com/",
+    "offers": "Design, build, own and operate in-building cellular (neutral host), ERRCS on the fiber backbone, Wi-Fi, IoT.",
+    "scale": "Over 154 million sq ft under agreement; offices Charlotte, Atlanta, Houston, Dallas; founded 2013.",
+    "differentiators": "Owner does not have to own or manage the system; one backbone for all services.",
+    "sources": [
+     "airwavz_home"
+    ]
+   },
+   {
+    "name": "Communication Technology Services (CTS)",
+    "url": "https://www.cts1.com/public-safety-das",
+    "offers": "Public safety DAS/ERRCS/ERCES RF grid testing, design, install, acceptance testing, maintenance; commercial DAS, Forte neutral source, NaaS.",
+    "scale": "Nationwide deployment (no counts).",
+    "differentiators": "Vendor agnostic (ADRF, FlipX by Honeywell, Comba, SOLiD); founding member of SBC; 24/7 NOC.",
+    "sources": [
+     "cts_ps_das",
+     "cts_das_small_cell"
+    ]
+   },
+   {
+    "name": "BearCom",
+    "url": "https://bearcom.com/",
+    "offers": "BDA/DAS design, testing, installation alongside two-way radio.",
+    "scale": "80+ locations and 1,300+ team members across North America; 350+ certified technicians.",
+    "differentiators": "Free consultations with signal analysis; largest two-way radio rental fleet in North America.",
+    "sources": [
+     "bearcom_bda"
+    ]
+   },
+   {
+    "name": "Pye-Barker Fire & Safety",
+    "url": "https://pyebarkerfs.com/",
+    "offers": "BDA installation, testing and maintenance inside a fire/life-safety service line.",
+    "scale": "Directory of roughly 250 US addresses on the page (our count).",
+    "differentiators": "Testing, documentation and ongoing maintenance with fire alarm and monitoring.",
+    "sources": [
+     "pyebarker_bda"
+    ]
+   }
+  ],
+  "regional_integrators": [
+   {
+    "name": "Air Comm",
+    "url": "https://www.aircomm.com/in-building-public-safety-bda-das",
+    "offers": "Grid testing, ERCES design and install, integration with staff two-way radio.",
+    "scale": "Phoenix/Tempe, Salt Lake City, Houston, Dallas; radio systems since 1973.",
+    "differentiators": "Helps buildings qualify for occupancy permit; NFPA-compliant engineers.",
+    "sources": [
+     "aircomm_ps_das"
+    ]
+   },
+   {
+    "name": "MSS Solutions",
+    "url": "https://msssolutions.com/erces-bda/",
+    "offers": "Signal surveys, public safety DAS install, acceptance testing, annual testing.",
+    "scale": "8 cities listed in North and South Carolina.",
+    "differentiators": "One firm for fire alarm, life safety, security, building automation and low voltage.",
+    "sources": [
+     "mss_erces"
+    ]
+   },
+   {
+    "name": "BDA Systems Co",
+    "url": "https://www.bdasystemsco.com/",
+    "offers": "BDA, DAS, ERRCS, two-way radio; 20-grid RF surveys; turnkey design.",
+    "scale": "Miami HQ; says it deploys nationwide.",
+    "differentiators": "Self-reported '100% of projects close with a positive result'; minority-owned.",
+    "sources": [
+     "bdasystemsco"
+    ]
+   }
+  ],
+  "oems_with_services": [
+   {
+    "name": "ADRF (Advanced RF Technologies)",
+    "url": "https://www.adrftech.com/",
+    "offers": "Public safety repeaters (PSR NEO, PSR-U1), SDR repeaters, ADXV DAS, battery backups, passives; events and training schedules.",
+    "scale": "Burbank, CA; serves large service providers and enterprises.",
+    "differentiators": "UL 2524 certified repeaters (2nd edition listed).",
+    "sources": [
+     "adrf_home",
+     "sbc_adrf_profile"
+    ]
+   },
+   {
+    "name": "ANDREW (an Amphenol company)",
+    "url": "https://www.andrew.com/era/",
+    "offers": "ERA digital DAS for public, private and public safety networks, 2G-5G, Cat-M1/NB-IoT.",
+    "scale": "Operator-approved globally (no counts).",
+    "differentiators": "Only DAS digitally connecting every major RAN vendor via CPRI and O-RAN (vendor claim).",
+    "sources": [
+     "andrew_era"
+    ]
+   },
+   {
+    "name": "JMA Wireless",
+    "url": "https://jmawireless.com/",
+    "offers": "JMA Jazz in-building, DAS, private wireless; partner network of integrators.",
+    "scale": "Not stated.",
+    "differentiators": "Low-loss connectors (0.05 dB per connector claimed).",
+    "sources": [
+     "jma_home"
+    ]
+   },
+   {
+    "name": "SOLiD",
+    "url": "https://www.solid.com/",
+    "offers": "GENESIS and ALLIANCE DAS, optical transport, Open RAN.",
+    "scale": "Not stated.",
+    "differentiators": "2G to 5G; ROI claims.",
+    "sources": [
+     "solid_home"
+    ]
+   },
+   {
+    "name": "Nextivity (CEL-FI)",
+    "url": "https://nextivityinc.com/",
+    "offers": "QUATRA/GO cellular coverage, public safety DAS/BDA and ERCES, FirstNet Band 14, WAVE private 5G/CBRS NaaS, IoT sensors.",
+    "scale": "Used by 200+ mobile operators in 100+ countries.",
+    "differentiators": "IntelliBoost; 'unconditionally network safe'; Made in USA, TAA compliant.",
+    "sources": [
+     "nextivity_home"
+    ]
+   }
+  ],
+  "software_and_tools": [
+   {
+    "name": "iBwave",
+    "url": "https://www.ibwave.com/",
+    "offers": "Design, Mobile Survey (incl. Public Safety), Public Safety (P25/TETRA surveys, grid tests, design), Unity cloud, Viewer+.",
+    "scale": "3,000+ customers in 100 countries; 500,000+ networks designed; 40,000+ part database.",
+    "differentiators": "Industry-standard design software; vendor-neutral component database.",
+    "sources": [
+     "ibwave_home"
+    ]
+   },
+   {
+    "name": "PCTEL SeeHawk Touch + IBflex",
+    "url": "https://pctel.com/products/test-measurement/public-safety-network-testing-solution/",
+    "offers": "Grid testing and BDA commissioning suite; SeeHawk Central cloud approvals; P25, DMR, TETRA, analog FM, LTE/FirstNet, 5G.",
+    "scale": "Not stated.",
+    "differentiators": "Reports to NFPA 72/1221/1225, IFC 510 and local codes in minutes; synced uplink testing.",
+    "sources": [
+     "pctel_ps_kit"
+    ]
+   },
+   {
+    "name": "Anritsu LMR Master S412E + mapping",
+    "url": "https://resources.goanritsu.com/anritsu-test-talk/selecting-a-test-solution-to-ensure-erces-is-compliant-with-nfpa-1225-standard",
+    "offers": "Spectrum analyzer, VNA, power meter, signal generator; P25/DMR/LTE analysis; Map Master and NEON in-building maps.",
+    "scale": "Not stated.",
+    "differentiators": "Used by many GROL-licensed inspectors (Anritsu claim).",
+    "sources": [
+     "anritsu_erces_nfpa1225"
+    ]
+   },
+   {
+    "name": "Ranplan",
+    "url": "https://www.ranplanwireless.com/",
+    "offers": "Professional (indoor + outdoor), In-Building, Public Safety planning.",
+    "scale": "Not stated.",
+    "differentiators": "Unified indoor/outdoor modeling; AI-assisted planning (v7.4).",
+    "sources": [
+     "ranplan_home"
+    ]
+   },
+   {
+    "name": "Ventev (Hubbell)",
+    "url": "https://ventevinfra.com/",
+    "offers": "DAS antennas, power systems and UPS, battery test remote monitors (BTRM), enclosures, surge protection, site survey battery packs.",
+    "scale": "Acquired by Hubbell from Tessco.",
+    "differentiators": "Radio-agnostic power and protection; does not list ERCES test equipment.",
+    "sources": [
+     "ventev_home"
+    ]
+   }
+  ],
+  "market_context": {
+   "text": "WIA: US in-building wireless (DAS, indoor small cells, private LTE/5G; not Wi-Fi) was $567 million in 2022, $274 million to build and $293 million to operate; 747,400 indoor small-cell nodes in operation at end of 2022.",
+   "sources": [
+    "wia_ibw_landscape_2023"
+   ]
+  },
+  "compare_dimensions": [
+   {
+    "dimension": "Speed to permit",
+    "buyer_asks": "How fast can you get through the AHJ and licensee?",
+    "rf_recon_firm_shows": "FCC data pre-survey and link budget before the site walk, so the first submittal has donor path and isolation numbers the AHJ asks for.",
+    "sources": [
+     "nfpa1225_ch18"
+    ]
+   },
+   {
+    "dimension": "Test reporting quality",
+    "buyer_asks": "Will the report pass first time?",
+    "rf_recon_firm_shows": "Grid test and AHJ report laid out to the 20-area grid, 95% rule and DAQ fields the code names.",
+    "sources": [
+     "ifc2018_510",
+     "nfpa1225_ch18",
+     "pctel_ps_kit"
+    ]
+   },
+   {
+    "dimension": "Closeout package",
+    "buyer_asks": "What do we keep for the fire marshal and annual tests?",
+    "rf_recon_firm_shows": "Spec sheet packets and the acceptance-document list (equipment, data sheets, settings) assembled from the BOM.",
+    "sources": [
+     "nfpa1225_ch18"
+    ]
+   },
+   {
+    "dimension": "Licensee consent",
+    "buyer_asks": "Who handles the radio shop?",
+    "rf_recon_firm_shows": "Consent letters drafted for the licensee, as 90.219 requires.",
+    "sources": [
+     "cfr_90_219"
+    ]
+   },
+   {
+    "dimension": "Price model",
+    "buyer_asks": "Capex, NaaS, or neutral-host revenue share?",
+    "rf_recon_firm_shows": "Supplier quotes attached to the bid so the price is itemized; no claim on financing.",
+    "sources": [
+     "boingo_exec_das",
+     "cts_das_small_cell"
+    ]
+   },
+   {
+    "dimension": "Multi-carrier",
+    "buyer_asks": "Will all carriers be on it?",
+    "rf_recon_firm_shows": "FCC licence data shows which carriers and bands serve the site before design.",
+    "sources": [
+     "cts_das_small_cell"
+    ]
+   },
+   {
+    "dimension": "Monitoring",
+    "buyer_asks": "Who watches it after acceptance?",
+    "rf_recon_firm_shows": "Supervision through the fire alarm panel as the code requires, and the annual retest on the calendar from the acceptance date.",
+    "sources": [
+     "ifc2018_510"
+    ]
+   },
+   {
+    "dimension": "Interference response",
+    "buyer_asks": "What if the county says we are causing interference?",
+    "rf_recon_firm_shows": "DF hunting to find the source quickly.",
+    "sources": [
+     "cfr_90_219"
+    ]
+   },
+   {
+    "dimension": "Warranty",
+    "buyer_asks": "How long and what is covered?",
+    "rf_recon_firm_shows": "Our workmanship warranty and the equipment makers' warranties, in writing with the closeout package.",
+    "sources": []
+   },
+   {
+    "dimension": "Coverage guarantee",
+    "buyer_asks": "Will you guarantee we pass?",
+    "rf_recon_firm_shows": "Link budget and grid test data make the guarantee measurable against the 95% per-floor rule.",
+    "sources": [
+     "ifc2018_510"
+    ]
+   }
+  ]
+ },
+ "prospect_types": [
+  {
+   "type": "K-12 schools",
+   "why": "New construction under 510.1. Texas 19 TAC 103.1215 requires school systems to ensure law enforcement and emergency responder two-way radios operate effectively within each instructional facility. Michigan HB 5561 (introduced 2021; status not checked) would require ERRC in school buildings.",
+   "priority": "high",
+   "decision_maker": "District facilities director / director of safety and security (estimate)",
+   "sources": [
+    "ifc2018_510",
+    "tx_19tac_103_1215",
+    "mi_hb5561"
+   ]
+  },
+  {
+   "type": "Colleges and universities",
+   "why": "Many buildings, often over local size triggers (e.g., Seattle 50,000 sq ft total area, San Diego 20,000 sq ft or 3+ stories); campus-wide cellular and private networks.",
+   "priority": "high",
+   "decision_maker": "Director of facilities / campus IT / campus fire marshal (estimate)",
+   "sources": [
+    "seattle_sfc_510",
+    "sdfd_c1",
+    "ibwave_home"
+   ]
+  },
+  {
+   "type": "Hospitals",
+   "why": "Large, often below grade; 39% of Spok's healthcare respondents still call cellular coverage a challenge; Fairfax's owner statement commits to maintenance per NFPA and Joint Commission standards.",
+   "priority": "high",
+   "decision_maker": "Director of facilities / plant operations; IT telecom manager (estimate)",
+   "sources": [
+    "spok_2019",
+    "fairfax_erces",
+    "seattle_sfc_510"
+   ]
+  },
+  {
+   "type": "High-rise office and residential",
+   "why": "High-rise is a direct trigger in local amendments (Seattle, Nevada: floor more than 55 ft above lowest fire department access; San Diego: all new high-rises must have an ERCES; existing high-rises without phone-jack systems must test and install within 3 years if they fail). Leasing value from cellular coverage.",
+   "priority": "high",
+   "decision_maker": "Property manager / chief engineer; asset manager for cellular (estimate)",
+   "sources": [
+    "seattle_sfc_510",
+    "nac_477_283",
+    "sdfd_c1",
+    "proptivity_2026"
+   ]
+  },
+  {
+   "type": "Warehouses and distribution centers",
+   "why": "Large single-story floor plates exceed local area triggers (Seattle 50,000 sq ft; San Diego 20,000 sq ft); IFC 2024 one-story exemption stops at 12,000 sq ft.",
+   "priority": "high",
+   "decision_maker": "Developer / GC project manager during construction; facilities manager (estimate)",
+   "sources": [
+    "seattle_sfc_510",
+    "sdfd_c1",
+    "sbc_ifc_codes_2022"
+   ]
+  },
+  {
+   "type": "Parking garages (below grade)",
+   "why": "Below-grade triggers: Nevada (any floor below the lowest exit discharge), Seattle (occupied floors 30+ ft below exit discharge, basements 10,000+ sq ft), San Diego (basement over 2,500 sq ft).",
+   "priority": "medium",
+   "decision_maker": "Parking operator / property manager (estimate)",
+   "sources": [
+    "nac_477_283",
+    "seattle_sfc_510",
+    "sdfd_c1"
+   ]
+  },
+  {
+   "type": "Malls and retail centers",
+   "why": "Size triggers plus shopper cellular demand; neutral-host revenue share possible.",
+   "priority": "medium",
+   "decision_maker": "General manager / landlord property management (estimate)",
+   "sources": [
+    "seattle_sfc_510",
+    "boingo_exec_das"
+   ]
+  },
+  {
+   "type": "Stadiums and arenas",
+   "why": "Large assembly occupancy; neutral-host DAS for tens of thousands of devices; usually served by national neutral hosts.",
+   "priority": "low",
+   "decision_maker": "VP of technology / venue operations (estimate)",
+   "sources": [
+    "extenet_nh_venues"
+   ]
+  },
+  {
+   "type": "Convention centers",
+   "why": "Size triggers and peak cellular load; neutral-host market.",
+   "priority": "medium",
+   "decision_maker": "Director of operations / IT director (estimate)",
+   "sources": [
+    "extenet_nh_venues",
+    "seattle_sfc_510"
+   ]
+  },
+  {
+   "type": "Airports",
+   "why": "Large footprint and below-grade areas; vendors pitch one platform for public cellular, private networks, IoT and public safety.",
+   "priority": "low",
+   "decision_maker": "Airport IT / telecom manager; airport fire marshal (estimate)",
+   "sources": [
+    "andrew_era",
+    "cts_das_small_cell"
+   ]
+  },
+  {
+   "type": "Hotels",
+   "why": "High-rise and size triggers; guest cellular expectations.",
+   "priority": "medium",
+   "decision_maker": "Chief engineer / director of engineering; GM (estimate)",
+   "sources": [
+    "seattle_sfc_510",
+    "commscope_2016_value"
+   ]
+  },
+  {
+   "type": "Casinos and resorts",
+   "why": "Very large floor plates and concrete; Extenet runs neutral-host DAS for Las Vegas resort and convention properties.",
+   "priority": "medium",
+   "decision_maker": "Director of facilities / IT (estimate)",
+   "sources": [
+    "extenet_nh_venues"
+   ]
+  },
+  {
+   "type": "Government buildings",
+   "why": "New construction under 510.1; FirstNet in-building focus on police HQs, fire stations and 911 centers.",
+   "priority": "medium",
+   "decision_maker": "Facilities or public works director (estimate)",
+   "sources": [
+    "ifc2018_510",
+    "firstnet_res113"
+   ]
+  },
+  {
+   "type": "Transit stations (below grade)",
+   "why": "Below-grade triggers; Boldyn cites a deployment 173 ft under New York City.",
+   "priority": "low",
+   "decision_maker": "Transit agency communications / systems engineering (estimate)",
+   "sources": [
+    "nac_477_283",
+    "boldyn_us"
+   ]
+  }
+ ],
+ "prospect_sources": [
+  {
+   "name": "NCES Common Core of Data (CCD) school directory",
+   "url": "https://nces.ed.gov/ccd/files.asp",
+   "download": "https://nces.ed.gov/ccd/Data/zip/ccd_sch_029_2425_w_1a_073025.zip",
+   "format": "ZIP with CSV and SAS (13.4 MB zip; 41 MB CSV)",
+   "coverage": "All US public schools; 102,178 rows in SY 2024-25 v1a (98,507 operating)",
+   "fields": "SCH_NAME, LEA_NAME, mailing and location address, PHONE (filled on all rows), WEBSITE (70,314 rows filled), NCESSCH, SCH_TYPE, CHARTER, grades, LEVEL. No lat/lon (join EDGE by NCESSCH); no enrollment (separate membership file).",
+   "update": "Annual (v0a preliminary then v1a final)",
+   "terms": "US government work, public domain in the US (17 USC 105); open data may be used for any purpose, commercial or not. The NCES pages read carry no separate terms.",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "nces_ccd_sch_2425",
+    "nces_ccd_files",
+    "nces_ccd_release_2425",
+    "datagov_open_licenses"
+   ]
+  },
+  {
+   "name": "NCES EDGE public school locations",
+   "url": "https://nces.ed.gov/programs/edge/Geographic/SchoolLocations",
+   "download": "https://nces.ed.gov/programs/edge/data/EDGE_GEOCODE_PUBLICSCH_2425.zip ; FeatureServer https://services1.arcgis.com/Ua5sjt3LWTPigjyD/arcgis/rest/services/Public_School_Locations_Current/FeatureServer/0",
+   "format": "Zipped shapefile (29 MB); ArcGIS web service",
+   "coverage": "102,178 public schools (2024-25)",
+   "fields": "NCESSCH, NAME, STREET, CITY, STATE, ZIP, LAT, LON, LOCALE, county, CBSA",
+   "update": "Annual",
+   "terms": "Hub record points to resources.data.gov open licenses (US government work, public domain).",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "nces_edge_locations",
+    "nces_edge_public_current",
+    "datagov_open_licenses"
+   ]
+  },
+  {
+   "name": "NCES Private School Universe Survey (PSS)",
+   "url": "https://nces.ed.gov/surveys/pss/pssdata.asp",
+   "download": "https://nces.ed.gov/surveys/pss/zip/pss2324_pu_csv.zip",
+   "format": "CSV (also SAS, SPSS); 4 MB zip",
+   "coverage": "22,510 private schools, 2023-24 (2025-26 expected spring 2027)",
+   "fields": "PINST (name), PADDRS, PCITY, PSTABB, PZIP, PPHONE, LATITUDE24, LONGITUDE24, NUMSTUDS (enrollment); 359 columns",
+   "update": "Every two years",
+   "terms": "US government work, public domain; no separate terms on the page.",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "nces_pss_data",
+    "nces_pss_2324_csv",
+    "datagov_open_licenses"
+   ]
+  },
+  {
+   "name": "IPEDS institutional directory (HD)",
+   "url": "https://nces.ed.gov/ipeds/",
+   "download": "https://nces.ed.gov/ipeds/datacenter/data/HD2024.zip",
+   "format": "CSV in ZIP (1.1 MB)",
+   "coverage": "6,072 postsecondary institutions (2024)",
+   "fields": "INSTNM, ADDR, CITY, STABBR, ZIP, CHFNM and CHFTITLE (chief administrator name and title), GENTELE (phone), WEBADDR, LATITUDE, LONGITUD, SECTOR, CONTROL, HOSPITAL, MEDICAL, INSTSIZE, Carnegie size",
+   "update": "Annual",
+   "terms": "US government work, public domain.",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "ipeds_hd2024",
+    "datagov_open_licenses"
+   ]
+  },
+  {
+   "name": "CMS Hospital General Information",
+   "url": "https://data.cms.gov/provider-data/dataset/xubh-q36u",
+   "download": "https://data.cms.gov/provider-data/sites/default/files/resources/893c372430d9d71a1c52737d01239d47_1785189955/Hospital_General_Information.csv ; API base https://data.cms.gov/provider-data/api/1",
+   "format": "CSV (1.45 MB); JSON API",
+   "coverage": "5,419 Medicare-registered hospitals",
+   "fields": "Facility ID, name, address, city, state, ZIP, county, Telephone Number, Hospital Type, Ownership, Emergency Services, overall rating. No lat/lon, no bed count.",
+   "update": "Modified 2026-07-22 (refreshed with Care Compare releases)",
+   "terms": "Metastore record carries no licence field; CMS says its public data products are freely available; US government work (17 USC 105).",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "cms_hgi_meta",
+    "cms_hgi_csv",
+    "cms_data_everyone",
+    "datagov_open_licenses"
+   ]
+  },
+  {
+   "name": "HIFLD Open (hospitals, sport venues, etc.)",
+   "url": "https://www.fgdc.gov/organization/working-groups-subcommittees/hifld/index_html",
+   "download": "None live",
+   "format": "-",
+   "coverage": "-",
+   "fields": "-",
+   "update": "Stopped",
+   "terms": "HIFLD Open is decommissioned (portal closed Aug 26, 2025); many layers moved behind HIFLD Secure or back to source agencies.",
+   "commercial_or_marketing_restriction": "Not usable as a live source",
+   "flag": "DECOMMISSIONED",
+   "sources": [
+    "fgdc_hifld",
+    "atcoordinates_hifld"
+   ]
+  },
+  {
+   "name": "OpenStreetMap via Overpass API",
+   "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
+   "download": "https://overpass-api.de/api/interpreter",
+   "format": "JSON / XML / CSV query output",
+   "coverage": "Global, crowd-sourced; completeness varies",
+   "fields": "Tags such as amenity=school/hospital/university, shop=mall, amenity=parking + parking=multi-storey/underground (capacity), tourism=hotel, leisure=stadium; name, phone, website, operator where mapped; building:levels, height.",
+   "update": "Continuous",
+   "terms": "ODbL: free to copy, distribute and adapt with credit to OpenStreetMap contributors; altered data may be distributed only under the same licence. Public Overpass: under 10,000 queries and 1 GB a day; commercial use should use self-hosted or paid Overpass servers.",
+   "commercial_or_marketing_restriction": "Commercial use allowed under ODbL with attribution and share-alike; public Overpass server asks commercial users to self-host or pay.",
+   "sources": [
+    "osm_copyright",
+    "osm_overpass",
+    "osm_shop_mall",
+    "osm_amenity_parking"
+   ]
+  },
+  {
+   "name": "Overture Maps Places",
+   "url": "https://docs.overturemaps.org/guides/places/",
+   "download": "s3://overturemaps-us-west-2/release/2026-10-21.0/theme=places/type=place/* (also Azure)",
+   "format": "Parquet",
+   "coverage": "Global; about 88 million records (about 60 million from Meta, 16 million from BrightQuery)",
+   "fields": "names, basic_category, taxonomy, websites, phones, emails, socials, addresses, confidence, brand",
+   "update": "Monthly; taxonomy quarterly",
+   "terms": "Per-source licences: CDLA Permissive 2.0 (Meta, Microsoft and others), Apache 2.0 (Foursquare, keep NOTICE), CC0 (AllThePlaces). No OSM data in Places. Overture warns of duplicates, high junk rate and low completeness.",
+   "commercial_or_marketing_restriction": "None stated on the attribution page",
+   "sources": [
+    "overture_places",
+    "overture_attribution"
+   ]
+  },
+  {
+   "name": "FAA airports (ADDS)",
+   "url": "https://adds-faa.opendata.arcgis.com/",
+   "download": "https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/US_Airport/FeatureServer/0",
+   "format": "ArcGIS FeatureServer; CSV/GeoJSON/KML/shapefile via hub",
+   "coverage": "19,558 charted airports (US, PR, VI, some border facilities)",
+   "fields": "IDENT, ICAO_ID, NAME, LATITUDE, LONGITUDE, TYPE_CODE, SERVCITY, STATE, OPERSTATUS, PRIVATEUSE",
+   "update": "Every 8 weeks (current 29 Oct - 24 Dec 2026)",
+   "terms": "Custom licence text: 'The data provided is for public use'; not an official source for non-US airports.",
+   "commercial_or_marketing_restriction": "None found",
+   "sources": [
+    "faa_airports_hub"
+   ]
+  },
+  {
+   "name": "FEMA USA Structures",
+   "url": "https://gis-fema.hub.arcgis.com/pages/usa-structures-data",
+   "download": "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/USA_Structures_View/FeatureServer/0 ; Figshare DOI 10.6084/m9.figshare.c.6895333.v1",
+   "format": "Polygons (FeatureServer; state geodatabases)",
+   "coverage": "146,381,550 structures over 450 sq ft, US and territories",
+   "fields": "OCC_CLS (e.g., Commercial, Education, Government, Industrial, Assembly), PRIM_OCC, SQFEET, HEIGHT (only for NGA 133-city LiDAR), LATITUDE/LONGITUDE, FIPS. No names or contacts.",
+   "update": "Layer modified about 2026-10-29",
+   "terms": "CC BY 4.0 (attribution).",
+   "commercial_or_marketing_restriction": "None (attribution required)",
+   "sources": [
+    "fema_usa_structures_hub",
+    "usa_structures_paper"
+   ]
+  },
+  {
+   "name": "Microsoft US Building Footprints",
+   "url": "https://github.com/microsoft/USBuildingFootprints",
+   "download": "Per-state GeoJSON zips linked from the repo",
+   "format": "GeoJSON (EPSG:4326)",
+   "coverage": "129,591,852 footprints, 50 states + DC",
+   "fields": "Footprint polygon, capture date where known; no height, no names",
+   "update": "None (repo archived; imagery mostly 2019-2020)",
+   "terms": "ODbL.",
+   "commercial_or_marketing_restriction": "Allowed with attribution and share-alike",
+   "sources": [
+    "ms_us_footprints"
+   ]
+  },
+  {
+   "name": "Census County Business Patterns",
+   "url": "https://www.census.gov/programs-surveys/cbp/about.html",
+   "download": "data.census.gov / CBP API",
+   "format": "Tables / API",
+   "coverage": "Establishment counts, employment and payroll by industry and size class, by county and ZIP",
+   "fields": "Counts only; no business names (disclosure avoidance)",
+   "update": "Annual",
+   "terms": "US government work, public domain.",
+   "commercial_or_marketing_restriction": "None; not a contact list",
+   "sources": [
+    "census_cbp",
+    "datagov_open_licenses"
+   ]
+  },
+  {
+   "name": "City building permit data (example: Chicago Building Permits)",
+   "url": "https://data.cityofchicago.org/",
+   "download": "https://data.cityofchicago.org/api/views/ydr8-5enu.json (metadata); Socrata API",
+   "format": "Socrata API / CSV",
+   "coverage": "Chicago permits 2006 to present",
+   "fields": "PERMIT_TYPE, WORK_DESCRIPTION, address, LATITUDE/LONGITUDE, REPORTED_COST, CONTACT_1..15_NAME and type (contractors, owners)",
+   "update": "Daily-ish (rows updated 2026-11-02)",
+   "terms": "Licence field says 'See Terms of Use'; the chicago.gov terms page returned 403, so not read.",
+   "commercial_or_marketing_restriction": "UNVERIFIED - read the city's terms before marketing use",
+   "flag": "TERMS NOT READ",
+   "sources": [
+    "chicago_permits_meta"
+   ]
+  }
+ ],
+ "outreach_rules": [
+  {
+   "rule": "CAN-SPAM covers B2B",
+   "detail": "No exception for business-to-business email; applies to any message whose primary purpose is commercial.",
+   "sources": [
+    "ftc_canspam"
+   ]
+  },
+  {
+   "rule": "Honest headers and subject",
+   "detail": "From, To, Reply-To and routing must identify the sender; subject must reflect the content. Send from a real, named person at the firm.",
+   "sources": [
+    "ftc_canspam"
+   ]
+  },
+  {
+   "rule": "Identify as an ad",
+   "detail": "Clearly disclose the message is an advertisement (format is flexible).",
+   "sources": [
+    "ftc_canspam"
+   ]
+  },
+  {
+   "rule": "Physical address",
+   "detail": "Include a valid physical postal address.",
+   "sources": [
+    "ftc_canspam"
+   ]
+  },
+  {
+   "rule": "Opt-out",
+   "detail": "Clear way to stop all marketing email; must work at least 30 days after sending; honour within 10 business days; no fee or extra data to opt out.",
+   "sources": [
+    "ftc_canspam"
+   ]
+  },
+  {
+   "rule": "You are liable for vendors",
+   "detail": "Hiring a sender does not move responsibility; penalties up to $53,088 per violating email.",
+   "sources": [
+    "ftc_canspam"
+   ]
+  },
+  {
+   "rule": "Gmail sender rules",
+   "detail": "All senders: SPF or DKIM, valid forward/reverse DNS, TLS, spam rate under 0.3% (aim under 0.1%). Over 5,000/day to Gmail: SPF + DKIM + DMARC, From alignment, one-click unsubscribe.",
+   "sources": [
+    "google_sender_guidelines"
+   ]
+  },
+  {
+   "rule": "TCPA: autodialed or prerecorded calls/texts to cell phones",
+   "detail": "Need prior express consent; telemarketing ones need prior express written consent. Hand-dialed calls are outside (a)(1).",
+   "sources": [
+    "cfr_64_1200"
+   ]
+  },
+  {
+   "rule": "TCPA: do-not-call",
+   "detail": "National DNC protects residential subscribers; honour company-specific do-not-call requests within 10 business days and keep them 5 years; residential calls only 8 am-9 pm local.",
+   "sources": [
+    "cfr_64_1200"
+   ]
+  },
+  {
+   "rule": "FTC Telemarketing Sales Rule B2B exemption",
+   "detail": "Calls between a telemarketer and a business are exempt except 310.3(a)(2) and (4); calls selling nondurable office or cleaning supplies are not exempt.",
+   "sources": [
+    "cfr_16_310_6"
+   ]
+  },
+  {
+   "rule": "Cadence (practice norm)",
+   "detail": "One first email plus one follow-up about a week later, then stop unless they reply; a call only by hand-dial to a business line (estimate; house norm, no legal source).",
+   "sources": []
+  }
+ ]
+}

@@ -6,9 +6,11 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const fmtF = f => f == null || f === "" ? "" : Number(f).toFixed(5).replace(/0{1,2}$/, "");
 // a booster's power from the FCC's grant search (fccid.py POWER_RANGES): the range its strongest band falls in
 const wattsTxt = x => !x?.watts ? "" : x.watts[1] >= 10000 ? `over ${x.watts[0]} W` : `${x.watts[0]}–${x.watts[1]} W`;
-const num = (v, d=0) => v == null || v === "" || isNaN(v) ? "" : Number(v).toFixed(d);
+const num = (v, d=0) => v == null || v === "" || isNaN(v) ? "" : Number(v).toFixed(d).replace(/^-(0(\.0+)?)$/, "$1");  // never "-0"
 const api = async (path, opts) => { const r = await fetch(path, opts);
-  if(r.status===401 && document.body.classList.contains("remote")){ location.href="/remote/login"; throw new Error("Signed out."); }  // the remote link's session ended
+  // a session that ended: to the sign-in page, for every login (11/3: only non-admin logins went there; admins were left
+  // with an error line wherever they were). The PC's own copy never answers 401.
+  if(r.status===401){ location.href="/remote/login"; throw new Error("Signed out."); }
   const t = await r.text(); let j; try { j = JSON.parse(t); } catch(e){ throw new Error(t.slice(0,200) || r.statusText); }
   if(!r.ok || j.error) throw new Error(j.error || r.statusText); return j; };
 const post = (path, body) => api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{})});
@@ -22,10 +24,11 @@ const LAYERS = {
   repeaterbook:{label:"RepeaterBook", color:"#1f6feb"}, custom:{label:"Imported layers", color:"#bf8700"},
   ttn:{label:"LoRaWAN gateways (TTN)", color:"#0a7c66"}, satnogs:{label:"SatNOGS ground stations", color:"#6639ba"},
   wspr:{label:"WSPR stations", color:"#b35900"}, pskreporter:{label:"PSKReporter", color:"#a40e26"},
-  psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}, fss:{label:"Satellite earth stations (FCC)", color:"#0b6e99"}};
+  psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}, fss:{label:"Satellite earth stations (FCC)", color:"#0b6e99"},
+  meshtastic:{label:"Meshtastic mesh radios", color:"#67ea94"}, helium:{label:"Helium IoT hotspots", color:"#474dff"}};
 
 const S = { mode:"point", rows:[], center:null, radius:5, tab:"map",
-  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter","psap","fss"]),
+  layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter","psap","fss","meshtastic","helium"]),
   chips:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set()},
   sort:{k:"dist_mi", dir:1}, shown:600, lib:{}, mission:null, missionId:null, heat:{kind:"off", opacity:.75},
   sel:null, filterExpr:"", views:{} };
@@ -457,11 +460,17 @@ function heatParams(kind){
     ...(kind==="measured"?{files:[...(S.heat.files||[])].join("|"), ident:S.heat.ident||"", freq:S.heat.freq??""}:{}),
     ...(kind==="carrier"?{provider:(S.heat.carrier||":").split(":")[0], tech:(S.heat.carrier||":").split(":")[1], ...(S.heat.env!==undefined&&S.heat.env!==""?{env:S.heat.env}:{})}:{})};
 }
+// the measured heatmap's Files list floats over the map: Escape or a press outside closes it, like every other layer
+// (11/3: only its own summary did)
+document.addEventListener("keydown", e=>{ const d=$("#heatFiles"); if(e.key==="Escape" && d?.open) d.open=false; });
+document.addEventListener("pointerdown", e=>{ const d=$("#heatFiles"); if(d?.open && !d.contains(e.target)) d.open=false; }, true);
 async function loadHeat(){
   if(S.heatLayer && S.map){ S.map.removeLayer(S.heatLayer); } S.heatLayer=null; S.heatImg=null;
   if(S.heatLegend && S.map){ S.map.removeControl(S.heatLegend); S.heatLegend=null; }
   if(S.heat.kind==="off") return;
   if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; }
+  // no carrier to draw: say so instead of asking the server (11/3: it answered HTTP 500 and a raw "ValueError")
+  if(S.heat.kind==="carrier" && !S.heat.carrier){ $("#status").textContent="No carrier coverage is loaded for this area yet (Data & updates, FCC carrier coverage)."; return; }
   $("#status").textContent="Building heatmap…";
   try{ const h=await api("/api/heatmap?"+params(heatParams(S.heat.kind))); S.heatImg=h; $("#status").textContent=""; addHeatLayer(); }
   catch(e){ $("#status").textContent="Heatmap: "+e.message; }
@@ -475,6 +484,24 @@ function addHeatLayer(){
 
 /* ---------- detail ---------- */
 function kvg(pairs){ return `<div class="kvg">${pairs.filter(p=>p[1]!==""&&p[1]!=null&&p[1]!==undefined).map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join("")}</div>`; }
+// a DMR or NXDN reading that decoded a radio ID: who it belongs to, from RadioID.net, one look-up when asked (radioid.py)
+function radioIdLookup(r){
+  const kind=/NXDN/i.test(`${r.sig_type||""} ${r.kind||""}`)?"nxdn":/DMR/i.test(`${r.sig_type||""} ${r.kind||""}`)?"dmr":null;
+  if(!kind) return;
+  let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){}
+  const fromExtra=Object.entries(extra).find(([k,v])=>/^(radio_?id|src(_?id)?|source_?id|unit(_?id)?|rid|from)$/i.test(k)&&/^\d{3,8}$/.test(String(v).trim()));
+  const rid=fromExtra?String(fromExtra[1]).trim():(/^\d{6,8}$/.test(String(r.ident||"").trim())?String(r.ident).trim():null);
+  if(!rid) return;
+  const box=document.createElement("div"); box.className="sec";
+  box.innerHTML=`<h3>Radio ID ${esc(rid)}</h3><div id="ridOut"><button id="ridGo">Who is it? (RadioID.net)</button></div>`;
+  $("#dlgBody").appendChild(box);
+  $("#ridGo").onclick=async()=>{ $("#ridOut").textContent="Asking RadioID.net…";
+    try{ const a=await api(`/api/radioid?kind=${kind}&id=${encodeURIComponent(rid)}`);
+      $("#ridOut").innerHTML=a.found?kvg([["Call sign",`<span class="mono">${esc(a.callsign||"")}</span>`],["Name",esc(a.name||"")],["Place",esc([a.city,a.state,a.country].filter(Boolean).join(", "))],["Source",`RadioID.net, looked up ${esc(a.looked_up||"")}`]])
+        :`<p class="hint">RadioID.net has no ${kind.toUpperCase()} radio ID ${esc(rid)}.</p>`; }
+    catch(e){ $("#ridOut").innerHTML=`<p class="hint">${esc(e.message)}</p>`; } };
+}
+
 function openDetail(fid){
   const r=S.rows.find(x=>x.fid===fid); if(!r) return;
   const uls = r.layer==="uls"||r.layer==="uls_hist";
@@ -532,6 +559,7 @@ function openDetail(fid){
       ${Object.keys(extra).length?`<div class="sec"><h3>All fields</h3>${kvg(Object.entries(extra).map(([k,v])=>[esc(k),`<span class="mono">${esc(typeof v==="object"?JSON.stringify(v):v)}</span>`]))}</div>`:""}`;
   }
   $("#dlgBody").innerHTML=html;
+  radioIdLookup(r);
   if(r.also_in?.length){  // the same emitter from several sources: who reported it, and where they disagree
     const box=document.createElement("div"); box.className="sec"; const cf=Object.entries(r.conflicts||{});
     const ind=r.independent||1;  // independent origins, not rows (provenance.py): copies of one source count once

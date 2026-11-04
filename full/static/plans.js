@@ -60,13 +60,20 @@ window.dasPlans = async (el, j, save) => {
   if(!rm.empty) frMaterialCalcWire(rm, "plmat");
   if($("#plCopy")) $("#plCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(`${$("#plSubj").value}\n\n${$("#plBody").value}`); $("#plCopied").textContent="Copied."; }catch(e){ $("#plCopied").textContent="Select the text and copy it."; } };
   // OpenStreetMap: footprint, levels, height and any material tags
-  if(d.lat!=null&&d.lon!=null) api(`/api/das/building?lat=${d.lat}&lon=${d.lon}`).then(b=>{
-    if(!$("#plOsm")) return;  // the Plans view was left while OpenStreetMap answered
-    const row=(k,v)=>v!=null&&v!==""?`<div>${k}</div><div>${esc(String(v))}</div>`:"";
-    $("#plOsm").innerHTML=`<div class="kvg">${row("Name",b.name)}${row("Kind",b.kind)}${row("Levels",b.levels)}${row("Levels below ground",b.levels_below)}${row("Height",b.height_m!=null?`${b.height_m} m`:"")}
+  // The building the job already has (Overview's outline) shows at once; OpenStreetMap is asked only when there's none,
+  // or on Refresh. Its public servers can take most of a minute from the server, so the panel says so and offers Try
+  // again on a failure (11/3: it sat on "Looking…" and asked again on every visit).
+  const osmShow=b=>{ const row=(k,v)=>v!=null&&v!==""?`<div>${k}</div><div>${esc(String(v))}</div>`:"";
+    $("#plOsm").innerHTML=`<div class="kvg">${row("Name",b.name)}${row("Kind",b.kind)}${row("Levels",b.levels)}${row("Levels below ground",b.levels_below)}${row("Height",b.height_m!=null?`${b.height_m} m${b.height_est?" (estimate)":""}`:"")}
       ${row("Footprint",b.footprint_sqft?`${b.footprint_sqft.toLocaleString()} sq ft`:"")}${row("Wall material",b.material)}${row("Facade",b.facade)}${row("Roof",b.roof)}${row("Built",b.built)}</div>
-      <p class="hint" style="margin:6px 0 0">${b.material||b.facade?"":"OpenStreetMap has no material for this building. "}${esc(b.source)}, <a href="https://www.openstreetmap.org/${esc(b.osm)}" target="_blank" rel="noopener">${esc(b.osm)} ↗</a></p>`;
-  }).catch(e=>{ if($("#plOsm")) $("#plOsm").innerHTML=`<p class="hint">${esc(e.message)}</p>`; });
+      <p class="hint" style="margin:6px 0 0">${b.note?`${esc(b.note)}. `:""}${b.material||b.facade?"":"No material is recorded for this building. "}${esc(b.source||"")}${b.osm?`, <a href="https://www.openstreetmap.org/${esc(b.osm)}" target="_blank" rel="noopener">${esc(b.osm)} ↗</a>`:""}${b.fetched?` · as of ${esc(String(b.fetched).slice(0,10))}`:""}
+        <button id="plOsmGo" style="margin-left:6px">Refresh from OpenStreetMap</button></p>`;
+    $("#plOsmGo").onclick=()=>osmLook(true); };
+  const osmLook=fresh=>{ if(!$("#plOsm")) return;
+    $("#plOsm").innerHTML=`<p class="hint">Asking OpenStreetMap… Its public servers can take up to a minute when they're busy.</p>`;
+    api(`/api/das/building?lat=${d.lat}&lon=${d.lon}${fresh?"&fresh=1":""}`).then(b=>{ if($("#plOsm")) osmShow(b); })  // the view may have been left meanwhile
+      .catch(e=>{ if(!$("#plOsm")) return; $("#plOsm").innerHTML=`<p class="hint">${esc(e.message)}</p><button id="plOsmGo">Try again</button>`; $("#plOsmGo").onclick=()=>osmLook(true); }); };
+  if(d.lat!=null&&d.lon!=null){ if(d.building&&(d.building.footprint_sqft||d.building.levels)) osmShow(d.building); else osmLook(false); }
   // a PDF: pages as thumbnails, each with a floor to save it under
   const open=async name=>{
     $("#plMsg").textContent=`Opening ${name}…`; $("#plPages").innerHTML="";

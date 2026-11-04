@@ -20,6 +20,7 @@ import json
 import math
 import sqlite3
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -81,10 +82,31 @@ def migrate(con):
     return len(missing)
 
 
+def timed_out(e):
+    """A request that ran out of time (worth trying again), as opposed to one the server refused."""
+    return isinstance(e, TimeoutError) or (isinstance(e, urllib.error.URLError) and isinstance(getattr(e, "reason", None), TimeoutError))
+
+
+def retry(fn, waits=(3, 8)):
+    """fn(), tried again after each wait when it times out (11/2: one slow OpenCelliD answer failed a whole run on the
+    PC and the server). A refusal (an HTTP error such as WiGLE's 429) isn't retried: asking again makes it worse."""
+    for w in waits:
+        try:
+            return fn()
+        except OSError as e:  # URLError and TimeoutError are both OSErrors
+            if not timed_out(e):
+                raise
+            time.sleep(w)
+    return fn()
+
+
 def http_json(url, headers=None, timeout=40):
     req = urllib.request.Request(url, headers=dict({"User-Agent": UA, "Accept": "application/json"}, **(headers or {})))
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+
+    def once():
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+    return retry(once)
 
 
 def pick(d, *keys, default=None):
@@ -200,12 +222,18 @@ def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40
     # nearest tiles first, so a request cap still covers the middle of the area
     tiles.sort(key=lambda t: geo.haversine_km(lat, lon, (t[0] + t[2]) / 2, (t[1] + t[3]) / 2))
     now = time.strftime("%Y-%m-%d %H:%M")
-    total, reqs = 0, 0
+    total, reqs, stopped = 0, 0, None
     for la0, lo0, la1, lo1 in tiles:
         offset = 0
         while reqs < max_requests:
             q = dict(key=key, BBOX=f"{la0},{lo0},{la1},{lo1}", format="json", limit=50, offset=offset)
-            data = http_json("https://opencellid.org/cell/getInArea?" + urllib.parse.urlencode(q))
+            try:
+                data = http_json("https://opencellid.org/cell/getInArea?" + urllib.parse.urlencode(q))
+            except OSError as e:  # still no answer after the retries: keep what came in, nearest tiles first
+                if not total:
+                    raise
+                stopped = f"stopped after {reqs} requests ({e}); the cells already in are kept"
+                break
             reqs += 1
             if isinstance(data, dict) and data.get("error"):
                 raise RuntimeError(str(data.get("error")))
@@ -226,9 +254,9 @@ def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40
             if len(cells) < 50:
                 break
             offset += 50
-        if reqs >= max_requests:
+        if reqs >= max_requests or stopped:
             break
-    log_fetch(con, "opencellid", lat, lon, radius_mi, total, f"{reqs} requests")
+    log_fetch(con, "opencellid", lat, lon, radius_mi, total, stopped or f"{reqs} requests")
     return total
 
 

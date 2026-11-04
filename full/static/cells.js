@@ -7,9 +7,9 @@ S.views.cells = async v => {
   if(!S.center){ v.innerHTML='<p class="status">Drop a pin (or search an address) first: cell sites are found around it.</p>'; return; }
   const C=S.cellsView=S.cellsView||{op:"", radio:"", q:""};
   v.innerHTML='<p class="status">Finding cell sites…</p>';
-  let r, cov={carriers:[], loaded:false};
-  try{ [r, cov]=await Promise.all([api(`/api/cells?lat=${S.center[0]}&lon=${S.center[1]}&radius=${S.radius}${S.missionId?`&mission=${S.missionId}`:""}`),
-    api(`/api/bdc/at?lat=${S.center[0]}&lon=${S.center[1]}`).catch(()=>cov)]); }
+  let r, cov={carriers:[], loaded:false}, nb={cell:null, checks:[], fixed_wireless:[]};
+  try{ [r, cov, nb]=await Promise.all([api(`/api/cells?lat=${S.center[0]}&lon=${S.center[1]}&radius=${S.radius}${S.missionId?`&mission=${S.missionId}`:""}`),
+    api(`/api/bdc/at?lat=${S.center[0]}&lon=${S.center[1]}`).catch(()=>cov), api(`/api/bdc/near?lat=${S.center[0]}&lon=${S.center[1]}`).catch(()=>nb)]); }
   catch(e){ v.innerHTML=`<p class="status err">Cell sites: ${esc(e.message)}</p>`; return; }
   const all=r.sites, ops=[...new Set(all.map(s=>s.operator))].sort(), radios=[...new Set(all.map(s=>s.radio))].sort();
   const q=C.q.trim().toLowerCase();
@@ -22,12 +22,24 @@ S.views.cells = async v => {
       <button id="csCsv">⇩ CSV</button><button id="csKml">⇩ KML</button><button id="csTak">⇩ ATAK</button></div>
     <p style="margin:2px 2px 10px"><b>${list.length}</b> cell site${list.length===1?"":"s"} (${r.cells.toLocaleString()} cells) within ${S.radius} mi · ${onTower} matched to an FCC-registered tower · ${r.towers_nearby.toLocaleString()} registered towers nearby</p>
     <div class="panel"><h3>Carrier coverage at the pin <span class="hint">· FCC Broadband Map${cov.as_of?`, data as of ${esc(cov.as_of)}`:""}</span></h3>
-      ${!cov.loaded?'<p class="hint" style="margin:0">Not loaded: set the carrier-coverage states in Data &amp; updates, then run FCC carrier coverage.</p>'
+      ${cov.reloading?'<p class="hint" style="margin:0">Carrier coverage is reloading (a new FCC release or more states); Data &amp; updates shows its progress.</p>'
+      :!cov.loaded?'<p class="hint" style="margin:0">Not loaded: set the carrier-coverage states in Data &amp; updates, then run FCC carrier coverage.</p>'
       :!cov.carriers.length?'<p class="hint" style="margin:0">No loaded carrier reports coverage here (or the pin is outside your carrier-coverage states).</p>'
-      :`<div class="tw"><table><thead><tr><th>Carrier</th><th>Technology</th><th>Speeds (down/up Mbps)</th><th class="n">Strongest modelled signal</th><th>Holds</th></tr></thead><tbody>
+      :`<div class="tw"><table><thead><tr><th>Carrier</th><th>Technology</th><th>Speeds (down/up Mbps)</th><th class="n">Strongest modelled signal</th><th>Holds</th><th></th></tr></thead><tbody>
         ${cov.carriers.map(c=>`<tr><td><b>${esc(c.brand)}</b></td><td>${esc(c.tech)}</td><td class="mono">${c.speeds.map(esc).join(", ")}</td>
-          <td class="n">${c.signal!=null?`${c.signal} dBm`:""}</td><td class="hint">${c.envs.map(esc).join("; ")}</td></tr>`).join("")}</tbody></table></div>
-        <p class="hint" style="margin:6px 0 0">What each carrier tells the FCC it covers, modelled, not measured. Map tab, Heatmap: Carrier coverage draws it.</p>`}</div>
+          <td class="n">${c.signal!=null?`${c.signal} dBm`:""}</td><td class="hint">${c.envs.map(esc).join("; ")}</td>
+          <td><button class="sm" data-model="${c.provider}" title="The frequencies in this carrier's filed link budgets and the tool it modelled coverage with">How modelled</button></td></tr>
+          <tr hidden data-modelrow="${c.provider}"><td colspan="6" class="hint"></td></tr>`).join("")}</tbody></table></div>
+        <p class="hint" style="margin:6px 0 0">What each carrier tells the FCC it covers, modelled, not measured. Map tab, Heatmap: Carrier coverage draws it.</p>`}
+      ${nb.checks.length?`<h4 style="margin:12px 0 4px">FCC checks of that coverage here <span class="hint">· resolved challenges, verifications and audits in this 0.7 km² cell</span></h4>
+        <div class="tw"><table><thead><tr><th>Check</th><th>Carrier</th><th>Technology</th><th>Speed</th><th>Where</th><th>Outcome</th><th>Date</th></tr></thead><tbody>
+        ${nb.checks.map(c=>`<tr><td>${esc(c.kind)}</td><td><b>${esc(c.carrier)}</b></td><td>${esc(c.tech)}</td><td class="mono">${esc(c.speed||"")}</td><td class="hint">${esc(c.setting||"")}</td>
+          <td>${esc(c.outcome||"")}${c.detail?`<div class="hint">${esc(c.detail)}</div>`:""}</td><td class="mono">${esc(c.date||"")}</td></tr>`).join("")}</tbody></table></div>`:""}
+      ${nb.fixed_wireless.length?`<h4 style="margin:12px 0 4px">Fixed wireless offered here <span class="hint">· FCC Broadband Map, this 0.7 km² cell</span></h4>
+        <div class="tw"><table><thead><tr><th>Provider</th><th>Kind</th><th class="n">Best speed (down/up Mbps)</th><th class="n">Locations</th></tr></thead><tbody>
+        ${nb.fixed_wireless.map(f=>`<tr><td><b>${esc(f.provider)}</b>${f.holding&&f.holding!==f.provider?`<div class="hint">${esc(f.holding)}</div>`:""}</td><td>${esc(f.tech)}</td>
+          <td class="n mono">${f.down}/${f.up}</td><td class="n">${f.locations.toLocaleString()}</td></tr>`).join("")}</tbody></table></div>
+        <p class="hint" style="margin:6px 0 0">Licensed (CBRS, 3.5 GHz and the like), unlicensed (5 GHz, 900 MHz) and LBR fixed wireless: emitters a survey may hear.</p>`:""}</div>
     ${all.length?"":`<div class="panel"><h3>No cells here yet</h3><p class="hint" style="margin-top:0">Cell data comes from the crowd and from your own surveys:</p>
       <ul class="hint"><li><b>OpenCelliD</b>: add your free key in Data &amp; updates and fetch for the pin, or import a whole-country download below (free account at <a href="https://opencellid.org/downloads.php" target="_blank" rel="noopener">opencellid.org/downloads.php</a>; the US files are 310 to 316).</li>
         <li><b>WiGLE</b>: add your API name and token in Data &amp; updates, then fetch for the pin (cells come with Wi-Fi and Bluetooth).</li>
@@ -42,6 +54,27 @@ S.views.cells = async v => {
         <td class="n">${s.tower?.overall_agl_m!=null?`${Math.round(s.tower.overall_agl_m*3.281)} ft`:""}</td><td class="n">${s.tower?s.tower.licensees.length:""}</td>
         <td class="n">${s.samples?s.samples.toLocaleString():""}</td><td>${esc(s.last||"")}</td><td class="n">${num(s.dist_mi,2)} mi</td></tr>`).join("")}</tbody></table></div>
       <p class="hint">Click a site for its sectors, its estimated coverage and its tower. Sector directions are estimates from the crowd positions. ${esc(Object.values(r.sources).join(" · "))}.</p>`:""}`;
+  v.querySelectorAll("[data-model]").forEach(b=>b.onclick=async()=>{ const rows=v.querySelectorAll(`[data-modelrow="${b.dataset.model}"]`), td=rows[0].firstElementChild;
+    if(!rows[0].hidden){ rows.forEach(x=>x.hidden=true); return; }
+    td.textContent="Reading the carrier's filing…"; rows[0].hidden=false;
+    try{ const m=await api(`/api/bdc/modelled?provider=${b.dataset.model}`);
+      // a header with Close at the top and the detail in its own scroll box (both ways), frequencies grouped by
+      // technology and repeated model lines shown once with a count: a big carrier's filing was hundreds of lines
+      // with nothing to close it but scrolling back up (Cody 11/3)
+      const brand=b.closest("tr")?.querySelector("td")?.textContent.trim()||"This carrier";
+      const byTech=new Map(); for(const f of m.frequencies){ const s=`${f.direction} ${f.mhz} MHz${f.bw_mhz?` (${f.bw_mhz} MHz wide)`:""}`; (byTech.get(f.tech)||byTech.set(f.tech,new Set()).get(f.tech)).add(s); }
+      const lines=new Map(); for(const x of m.models){ const s=`${x.tool||""}${x.developer?` (${x.developer})`:""}, ${x.resolution_m??"?"} m grid, receiver at ${x.rx_height_m??"?"} m, terrain ${x.terrain||"?"}, clutter ${x.clutter||"?"}, ${x.calibrated?`calibrated${x.calibration_date?` ${x.calibration_date}`:""}`:"not calibrated"}`;
+        const k=`${x.tech}|${s}`; lines.set(k,{tech:x.tech, s, n:(lines.get(k)?.n||0)+1}); }
+      td.style.whiteSpace="normal";
+      td.innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+          <b>How ${esc(brand)} modelled its coverage</b><button class="sm" data-modelclose title="Close (or press How modelled again)">✕ Close</button></div>
+        <div style="max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px 10px">${!m.models.length&&!m.frequencies.length?"No link budget filed for this carrier is loaded (Data &amp; updates: FCC broadband extras).":
+          `${byTech.size?`<p style="margin:0 0 6px"><b>Frequencies in its link budgets</b></p>${[...byTech].map(([t,s])=>`<p style="margin:0 0 4px"><b>${esc(t)}:</b> ${[...s].map(esc).join(" · ")}</p>`).join("")}`:""}
+          ${lines.size?`<p style="margin:8px 0 6px"><b>Propagation models</b> <span class="hint">(${m.models.length.toLocaleString()} filed, ${lines.size} different)</span></p>
+            <div style="white-space:nowrap">${[...lines.values()].map(x=>`<div><b>${esc(x.tech)}</b>: ${esc(x.s)}${x.n>1?` <span class="hint">×${x.n}</span>`:""}</div>`).join("")}</div>`:""}`}</div>
+        <p class="hint" style="margin:6px 0 0">What the carrier filed with the FCC (Broadband Data Collection, supporting data).</p>`;
+      td.querySelector("[data-modelclose]").onclick=()=>rows.forEach(x=>x.hidden=true); }
+    catch(e){ td.textContent=e.message; } });
   $("#csOp").onchange=e=>{ C.op=e.target.value; render(); };
   $("#csRadio").onchange=e=>{ C.radio=e.target.value; render(); };
   let t; $("#csQ").oninput=e=>{ clearTimeout(t); t=setTimeout(()=>{ C.q=e.target.value; render(); const i=$("#csQ"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },350); };

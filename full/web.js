@@ -119,8 +119,11 @@ async function packPanels(v) {
       something here, RF Recon's engine loads in this browser (about 15 MB, once). A pack and everything you do here stay in this browser.
       Signal ID Wiki matches come from a copy on the RF Recon site: the facts only (frequencies, modes, bandwidths, where heard), each
       linked to its page. Only these stay on the PC: live ships (aisstream allows its keys on a server only), Artemis (its database is for
-      internal use only), FCC ID grant lists (the FCC refuses web pages; the maker still shows and the grants open in your browser), and live
-      Push to ATAK over your network (here it hands the package to ATAK instead). It works on a phone too; for one state kept on the phone with no
+      internal use only), FCC ID grant lists (the FCC refuses web pages; the maker still shows and the grants open in your browser), live
+      Push to ATAK over your network (here it hands the package to ATAK instead), and in DAS Materials, fetching a spec sheet from a maker's
+      page or re-reading a supplier's price list link (most of their sites don't let a web page read their files: save the file and upload it
+      here). DAS Prospects' schools, colleges and hospitals come in the pack (packs made since 11/4), not the PC's monthly download. Online
+      part prices from Mouser and Digi-Key work here with your own keys. It works on a phone too; for one state kept on the phone with no
       signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`);
   $("#pkFile").onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -142,6 +145,19 @@ async function packPanels(v) {
   v.querySelectorAll("[data-use]").forEach(b => b.onclick = async () => { await RFPack.use(b.dataset.use); reload(); });
   v.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => { await RFPack.remove(b.dataset.rm); packPanels(v); });
 };
+
+// DAS Prospects (dasprospects.js): here the lists come in the pack (fieldpack.py, webhost.py), not the PC's monthly
+// download. Its own words are swapped as it writes them (each is gone once swapped, so this never loops).
+const prSay = () => {
+  const src = $("#prSrc"), p = RFPack.info();
+  if (src?.textContent.includes("aren't downloaded on this computer yet"))
+    src.innerHTML = `The pack in use (${esc(p?.name || "none")}) has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use RF Recon on the PC or server, which downloads the lists itself.`;
+  else if (src?.textContent.includes("refreshes them monthly"))
+    src.innerHTML = src.innerHTML.replace(/; the "DAS prospect lists" update refreshes them monthly\./, `; they came with the pack in use (${esc(p?.name || "")}, made ${esc(p?.made_at || "")}), so a newer pack brings newer lists.`);
+  const none = [...document.querySelectorAll("#prBody p.hint")].find(x => x.textContent.includes("(the lists aren't downloaded yet)"));
+  if (none) none.textContent = none.textContent.replace("(the lists aren't downloaded yet)", "(this pack has no prospect lists)");
+};
+new MutationObserver(() => { if ($("#prSrc")) prSay(); }).observe(document.body, {childList: true, subtree: true});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});  // opens with no signal next time
 })();

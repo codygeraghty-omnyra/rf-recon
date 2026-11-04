@@ -9,7 +9,7 @@ async function loadMission(id, applyArea){
   const m=await api("/api/missions/"+id); S.mission=m; S.missionId=m.id;
   try{ const t=await api(`/api/missions/${id}/tracks`); S.mission.tracks=t.tracks; }catch(e){}
   $("#missionName").textContent=`${m.name} · ${m.status}`;
-  const lay=m.settings.layers||{}; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !(k==="uls_hist"&&!lay[k])));
+  const lay=m.settings.layers||{}; S.layerSolo=S.layerPrev=null; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !(k==="uls_hist"&&!lay[k])));
   $("#hideMobile").checked=m.settings.fixed_sites_only!==false;
   if(applyArea && m.lat!=null){ setMode("point"); $("#loc").value=`${m.lat}, ${m.lon}`; $("#radius").value=m.radius_mi||5; $("#radiusSlider").value=m.radius_mi||5; }
 }
@@ -33,6 +33,9 @@ window.missionBoot = async () => {
 };
 $("#missionChip").onclick=()=>setTab("mission");
 $("#netChip").onclick=()=>setTab("data");
+
+// a line under the mission form, once the (async) view has drawn it; gives up after 3 s (the user left the tab)
+function missionSay(t, tries=30){ const m=$("#mMsg"); if(m) m.textContent=t; else if(tries>0) setTimeout(()=>missionSay(t, tries-1), 100); }
 
 /* ---------- mission view ---------- */
 S.views.mission = async (v) => {
@@ -138,6 +141,7 @@ S.views.mission = async (v) => {
           <h3>Changed level</h3>${table(c.changed,[["Before",s=>num(s.before_dbm,0)],["Now",s=>num(s.max_dbm,0)],["Change dB",s=>`<b style="color:${s.delta_db>0?"var(--bad)":"var(--good)"}">${s.delta_db>0?"+":""}${s.delta_db}</b>`]])}`;
       }catch(e){ out.innerHTML=`<p class="status err">${esc(e.message)}</p>`; }
     };
+    if(window.missionHunt) window.missionHunt(v, m);  // Find a signal, at the top (hunt.js)
     if(window.missionTools) window.missionTools(v, m);  // replay, when heard, lines of bearing (missiontools.js)
   }
   // list
@@ -160,13 +164,18 @@ S.views.mission = async (v) => {
       settings:{target_types:[...v.querySelectorAll("[data-mt].on")].map(x=>x.dataset.mt), target_bands:[...v.querySelectorAll("[data-mb].on")].map(x=>x.dataset.mb), watch, layers,
         fixed_sites_only:$("#m_fixed").checked, auto_refresh_crowd:$("#m_autocrowd").checked, gps_max_accuracy_m:nn("#m_gps"), min_dbm:nn("#m_mindbm"),
         sweep_threshold_db:nn("#m_sweep")??10, track_match_s:nn("#m_track")??30, heat_size:+$("#m_hsize").value, heat_metric:$("#m_hmetric").value, heat_combine:$("#m_hcomb").value, heat_alpha:+$("#m_halpha").value}};
+    // one press, one mission: a double click made two (11/3); the button comes back if the save fails
+    if($("#mSave").disabled) return; $("#mSave").disabled=true;
     try{
       const res = editing==="new" ? await post("/api/missions", d) : await post(`/api/missions/${m.id}`, d);
       if(editing==="new") await post(`/api/missions/${res.id}/activate`);
       S.missionEdit=null; await loadMission(res.id, editing==="new"); render();
-      $("#mMsg").textContent = editing==="new"?"Mission created and set active.":"Saved — changes logged.";
-      if(editing==="new" && parseLoc($("#loc").value)) runSearch(); else if(S.rows.length) runSearch();
-    }catch(e){ $("#mMsg").textContent="Error: "+e.message; }
+      // search first: the view redraws on its own time, so #mMsg isn't there yet; writing to it threw and the search
+      // never ran, leaving every tab on the old area under the new mission's name (11/3)
+      const said=editing==="new"?"Mission created and set active.":"Saved — changes logged.";
+      const search=(editing==="new" && parseLoc($("#loc").value)) || S.rows.length ? runSearch() : null;
+      Promise.resolve(search).catch(()=>{}).then(()=>missionSay(said));  // after the search's redraw, which would wipe it
+    }catch(e){ missionSay("Error: "+e.message); if($("#mSave")) $("#mSave").disabled=false; }
   };
   if(!m||editing==="new") return;
   // the import's progress and summary live in S.capNote, so a re-render (the search that follows, a tab change) keeps them
@@ -225,6 +234,12 @@ const API_KEYS=[
    fields:[["opencellid_key","Access token","pk.…"]], how:"The access token on your account page. 1,000 requests a day; CC BY-SA 4.0."},
   {id:"aisstream", name:"aisstream", what:"live ships (the Ships map overlay)", get:"https://aisstream.io/apikeys",
    fields:[["aisstream_key","API key","40 characters"]], how:"Sign in, then API Keys. Ships stream only while the overlay is on."},
+  {id:"mouser", name:"Mouser", what:"online prices, stock and lead times for DAS parts (Materials, Quotes)", src:"part_prices", get:"https://www.mouser.com/api-hub/",
+   fields:[["mouser_key","Search API key","36 characters"]], how:"Sign in at mouser.com, API Hub, Search API: the key it gives. Free."},
+  {id:"digikey", name:"Digi-Key", what:"online prices, stock and lead times for DAS parts (Materials, Quotes)", src:"part_prices", get:"https://developer.digikey.com/",
+   fields:[["digikey_id","Client ID","text"],["digikey_secret","Client secret","from your app"]], how:"developer.digikey.com: make an organization and a production app with Product Information v4; its Client ID and secret. Free."},
+  {id:"shippo", name:"Shippo", what:"shipping estimates on DAS supplier quotes (UPS, FedEx, USPS rates from each supplier to the job)", get:"https://portal.goshippo.com/api-config/api",
+   fields:[["shippo_token","API token","shippo_live_… or shippo_test_…"]], how:"Make a free Shippo account, then Settings, API (or the API portal, Developer keys). A test token works at once, for trying it; a live token, for real prices, is approved by Shippo first. Rate quotes create no label and cost nothing."},
   {id:"fccbdc", name:"FCC Broadband Map", what:"carrier coverage (the Carrier coverage layer and the DAS cellular pre-survey)", src:"bdc", get:"https://broadbandmap.fcc.gov/manage-api-access",
    fields:[["fcc_bdc_username","FCC sign-in email","text"],["fcc_bdc_token","API token","from Manage API Access"]],
    how:"Sign in at broadbandmap.fcc.gov, then Manage API Access → Generate. The FCC's API terms apply."},
@@ -247,15 +262,16 @@ const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"]
 // Ways in: every way people get this version or its data, and whether it needs this PC on. The remote link's row
 // (#wayRemote) and the two site links (#wayWeb, #wayLite) are filled in live; the panel shows on the copy with the remote door.
 const WAYS=[
-  ["This PC","Everything","No","localhost:8765; starts with Windows"],
-  ["Remote link","This full version, live: view and search after signing in, nothing changed","No: it runs on this PC and its connection",'<span id="wayRemote">Checking…</span>'],
+  ["24/7 server","The main RF Recon, always on. Cody's admin login sees every source; team logins (Josh, Doug, Hunter, Joe, Josh Trigg) see the sold build. The whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes live here","Yes, 24/7 on AWS ($24 a month)",'<a href="https://44-207-142-90.sslip.io/" target="_blank" rel="noopener">44-207-142-90.sslip.io ↗</a>; installs as an app'],
+  ["Cody's PC","A second full copy for working with no signal: its own data and DAS jobs, separate from the server's","No","localhost:8765; starts with Windows"],
+  ["Remote link","Cody's PC copy, live, for people signed in: a backup way in now the server is up","No: it runs on Cody's PC and its connection",'<span id="wayRemote">Checking…</span>',"wayRemoteRow"],
   ["Full web version","Nearly every tab in any browser. Each state's FCC data loads from the RF Recon site; each person's work stays in their browser","Yes, 24/7 on GitHub's servers",'<a id="wayWeb" target="_blank" rel="noopener">The web version ↗</a>'],
   ["RF Recon lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>'],
   ["Field packs","One area's public data in a file, for the web version or RF Recon lite","Yes","Phone app: field packs, below"],
   ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of RF Recon, below; install kit in the Drive folder"],
   ["Drive folder","The docs, install kit, field packs and backups","Yes","Google Drive › RF Recon, for the people it's shared with"],
   ["Exports","CSV, KML and ATAK data packages of what's on the map","Yes, once made","The export buttons beside the results"],
-  ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK on this PC's networks, or your TAK Server","No","Push to ATAK, below"],
+  ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK: from Cody's PC to TAK apps on its networks; from either copy to your TAK Server","Yes, from the server to a TAK Server","Push to ATAK, below"],
 ];
 S.views.data = async (v) => {
   if(S.remote){ v.innerHTML='<p class="status">Data &amp; updates stays on Cody\'s PC.</p>'; return; }
@@ -281,14 +297,15 @@ S.views.data = async (v) => {
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
   <div class="panel" id="waysPanel" hidden><h3>Ways in: who can use this version and its data</h3>
-    <div class="tw wrap"><table><thead><tr><th>Way</th><th>What they get</th><th>With this PC off</th><th>Where</th></tr></thead><tbody>${
-      WAYS.map(([w,what,off,where])=>`<tr><td><b>${w}</b></td><td>${what}</td><td>${off}</td><td>${where}</td></tr>`).join("")}</tbody></table></div>
-    <p class="hint">Kept on this PC on purpose: the FCC database and its downloads, your API keys, the crowd data and the Signal ID Wiki catalog. Only the remote link shows them, live.
-      To have this full version up 24/7 with this PC off, it has to run on a computer that's always on: a small cloud server (about $5 to $15 a month) or an always-on mini PC at home, with the same sign-ins. Neither is set up.</p></div>
+    <div class="tw wrap"><table><thead><tr><th>Way</th><th>What they get</th><th>With Cody's PC off</th><th>Where</th></tr></thead><tbody>${
+      WAYS.map(([w,what,off,where,id])=>`<tr${id?` id="${id}"`:""}><td><b>${w}</b></td><td>${what}</td><td>${off}</td><td>${where}</td></tr>`).join("")}</tbody></table></div>
+    <p class="hint">RF Recon lives on the 24/7 server (AWS Lightsail, since 11/2): the FCC database and its downloads, the crowd data, the keys it uses and the team's DAS jobs are there. Team logins get the sold build (no WiGLE, Signal ID Wiki, Artemis, ships, RepeaterBook or WSPR).
+      Cody's PC keeps its own copy for work with no signal. The two don't sync: a DAS job made on one isn't on the other.</p></div>
   <div class="panel"><h3>This copy of RF Recon</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
   <div class="panel"><h3>Phone app: field packs</h3>
     <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for RF Recon lite (beta), the phone app, which works with no signal.
-      Packs are saved in <span class="mono" id="fpDir"></span>, so anyone the Drive folder is shared with can load them. Phone app: <a id="fpUrl" target="_blank" rel="noopener"></a></p>
+      ${S.me?`Packs made here are saved on the RF Recon server, not in Google Drive<span id="fpDir" hidden></span>: download one (⇩ below) to load it on a phone or share it.`  /* a signed-in copy (the 24/7 server): no Drive folder, and no server paths shown (11/3) */
+        :`Packs are saved in <span class="mono" id="fpDir"></span>, so anyone the Drive folder is shared with can load them.`} Phone app: <a id="fpUrl" target="_blank" rel="noopener"></a></p>
     <div class="row"><label class="grow">States<input id="fpStates" placeholder="VA,MD,DC" value="${esc(settings.states||"")}"></label>
       <label class="grow">Name (optional)<input id="fpName" placeholder="e.g. Northern Virginia"></label></div>
     <div class="row" style="margin-top:8px"><button class="primary" id="fpMake">Make a pack for these states</button><button id="fpPin">Make a pack around the pin</button><span class="hint" id="fpMsg"></span></div>
@@ -390,9 +407,10 @@ S.views.data = async (v) => {
   $("#tkSave").onclick=async()=>{ try{ await post("/api/tak/settings",{multicast:$("#tkMc").checked, group:$("#tkGroup").value, server:$("#tkServer").value}); $("#tkMsg").textContent="Saved."; }
     catch(e){ $("#tkMsg").textContent=e.message; } };
   const fpPaint=async()=>{ if(!$("#fpList")) return; const f=await api("/api/fieldpacks"), j=f.job;
+    if(!$("#fpList")) return;  // left the tab while it loaded (11/3: threw on fast tab switching)
     $("#fpDir").textContent=f.folder; $("#fpUrl").href=f.phone_url; $("#fpUrl").textContent=f.phone_url;
     if($("#wayLite")){ const lite=new URL(f.phone_url, location.href); $("#wayLite").href=lite.href; $("#wayWeb").href=new URL("full/", lite).href; }  // the web version's is "../"
-    $("#fpList").innerHTML=f.packs.map(p=>`<tr><td>${esc(p.file)}</td><td class="n">${p.mb} MB</td><td class="mono">${esc(p.made)}</td></tr>`).join("")||'<tr><td colspan="3" class="hint">None yet.</td></tr>';
+    $("#fpList").innerHTML=f.packs.map(p=>`<tr><td><a href="/api/fieldpacks/file?name=${encodeURIComponent(p.file)}" download title="Download this pack to load on a phone or share">⇩ ${esc(p.file)}</a></td><td class="n">${p.mb} MB</td><td class="mono">${esc(p.made)}</td></tr>`).join("")||'<tr><td colspan="3" class="hint">None yet.</td></tr>';
     $("#fpMsg").textContent=j.running?(j.log[j.log.length-1]||"Starting…"):j.error?`Error: ${j.error}`:j.result?`Done: ${j.result.name}, ${j.result.mb} MB, ${j.result.counts.licences.toLocaleString()} licences.${j.result.big?" That's large for a phone: a pack around the pin keeps it smaller.":""}`:"";
     $("#fpMake").disabled=$("#fpPin").disabled=j.running;
     if(j.running) setTimeout(fpPaint,1000); };
@@ -402,6 +420,7 @@ S.views.data = async (v) => {
   fpPaint();
   // this copy's version and updates (kitupdate.py): a kit copy installs a newer kit zip and restarts
   api("/api/kit").catch(()=>new Promise(ok=>setTimeout(ok,2000)).then(()=>api("/api/kit"))).then(k=>{  // one retry: just after a restart
+    if(!$("#kitBody")) return;  // left the tab while it loaded
     if(!k.kit){ $("#kitBody").innerHTML='<p class="hint" style="margin:0">This copy runs from the RF Recon folder in Google Drive and updates with it.</p>'; return; }
     const c=k.current, L=k.latest;
     $("#kitBody").innerHTML=`<p style="margin:0 0 8px">Version <span class="mono">${esc(c.version)}</span>, built ${esc(c.built)}. ${k.update?`<b>A newer kit is out: <span class="mono">${esc(L.version)}</span>, built ${esc(L.built)}.</b>`:L?"This is the newest kit.":'<span class="hint">Couldn\'t check for a newer kit (offline?).</span>'}</p>
@@ -416,12 +435,14 @@ S.views.data = async (v) => {
         for(let i=0;i<60;i++){ try{ if((await api("/api/kit")).current?.version===r.to){ location.reload(); return; } }catch(err){} await new Promise(ok=>setTimeout(ok,1000)); }  // the old server can still answer while it shuts down
         $("#kitMsg").textContent="It didn't come back by itself: double-click Start RF Recon."; }
       catch(err){ $("#kitMsg").textContent=err.message; } };
-  }).catch(()=>{ $("#kitBody").innerHTML='<p class="hint" style="margin:0">Couldn\'t read this copy\'s version.</p>'; });
+  }).catch(()=>{ if($("#kitBody")) $("#kitBody").innerHTML='<p class="hint" style="margin:0">Couldn\'t read this copy\'s version.</p>'; });
   // remote access (remote.py): the Tailscale Funnel link, and the people who can sign in at it
-  const raPaint=async()=>{ if(!$("#raList")) return; let r; try{ r=await api("/api/remote"); }catch(e){ $("#raLink").innerHTML=`<p class="hint">${esc(e.message)}</p>`; return; }
+  const raPaint=async()=>{ if(!$("#raList")) return; let r; try{ r=await api("/api/remote"); }catch(e){ if($("#raLink")) $("#raLink").innerHTML=`<p class="hint">${esc(e.message)}</p>`; return; }
+    if(!$("#raList")) return;  // left the tab while it loaded
     $("#raList").closest(".panel").hidden=!r.door;  // a copy without the remote door (the install kit) has nothing to show here
     $("#waysPanel").hidden=!r.door;  // and Ways in is about sharing that copy
     const L=r.link||{}, n=r.people.length, ts={NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running";
+    if(L.server && $("#wayRemoteRow")) $("#wayRemoteRow").hidden=true;  // the PC's Tailscale link means nothing on the server
     $("#wayRemote").textContent=`${!L.installed?"Tailscale isn't installed":L.state!=="Running"?`Off: Tailscale is ${ts}`:L.on?"On":"Off"} · ${n?`${n} ${n===1?"person":"people"} can sign in`:"no one can sign in yet"}. Remote access, below`;
     if(L.server){ $("#raHow").textContent="The server is always on. People you add open the link in any browser (or install it as an app from there), sign in, and do what their login allows: View only looks and searches; Full also works DAS jobs, missions and notes; Admin also has the keys, updates and people."; }
     $("#raLink").innerHTML=L.server?`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><b>Link</b><span class="mono">${esc(L.url||"")}</span><span class="tag">Always on</span><button id="raCopy">Copy link</button></div>`
@@ -499,7 +520,7 @@ function paintSources(){
   $("#srcList").innerHTML=Object.entries(u.sources).map(([id,s])=>`<div class="srcrow">
     <label class="switch"><input type="checkbox" data-src="${esc(id)}" ${s.enabled?"checked":""}><span></span></label>
     <div><b>${esc(s.label)}</b><div class="hint">${esc(s.description)}</div>
-      ${s.access?.key?`<div class="hint" title="${esc(s.access.terms||"")}">${acc(s.access)}</div>`:""}
+      ${s.access?.key?`<div class="hint">${acc(s.access)}${s.access.terms?`<br>Terms: ${esc(s.access.terms)}`:""}</div>`:""}
       ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}${DAS_USES[id]?dasNote(DAS_USES[id]):""}</div>
     <select data-int="${esc(id)}" class="hide-m">${INTERVALS.map(([h,l])=>`<option value="${h}" ${+s.interval_h===h?"selected":""}>${l}</option>`).join("")}</select>
     <div class="hide-m" style="font-size:12px">${s.running?'<span class="tag w">running</span> ':""}${s.state==="error"?'<span class="tag" style="color:var(--bad)">error</span> ':s.state==="ok"?'<span class="tag v">ok</span> ':""}${esc(s.message||"")}

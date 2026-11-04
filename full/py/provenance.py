@@ -33,6 +33,8 @@ ORIGIN = {
     "pskreporter": ("crowd hobby radio", "measured", "not stated"),
     "ttn": ("crowd registry", "declared", "not stated"),
     "satnogs": ("crowd registry", "declared", "CC BY-SA 4.0"),
+    "meshtastic": ("crowd registry", "declared", "not stated"),
+    "helium": ("crowd registry", "declared", "not stated"),
     "noaa": ("reference", "declared", "US government public data"),
     "faa": ("reference", "declared", "US government public data"),
     "psap": ("reference", "declared", "US government public data"),
@@ -40,7 +42,8 @@ ORIGIN = {
     "custom": ("imported", "unknown", "whatever the file's owner allows"),
 }
 PRECISION_M = {"opencellid": 1000, "wigle": 150, "repeaterbook": 1500, "wspr": 2500, "pskreporter": 2500, "ttn": 100,
-               "satnogs": 100, "uls": 30, "towers": 10, "broadcast": 30}  # how far a stated position can be off
+               "satnogs": 100, "uls": 30, "towers": 10, "broadcast": 30,
+               "meshtastic": 400, "helium": 1000}  # how far a stated position can be off (mesh nodes and Helium blur theirs)
 
 # A-F per source and claim (research table, section 3 rule 2). New users or instruments start at F: no track record
 GRADES = {
@@ -49,10 +52,11 @@ GRADES = {
     ("opencellid", "position"): "D", ("wigle", "position"): "D", ("opencellid", "on_air"): "C", ("wigle", "on_air"): "C",
     ("repeaterbook", "on_air"): "C", ("wspr", "on_air"): "B", ("pskreporter", "on_air"): "B",
     ("ttn", "on_air"): "C", ("satnogs", "on_air"): "C", ("custom", "on_air"): "F",
+    ("meshtastic", "on_air"): "C", ("helium", "on_air"): "C",
 }
 CLAIM_WORDS = {1: "Confirmed", 2: "Probably true", 3: "Possibly true", 4: "Doubtful", 5: "Improbable", 6: "Can't judge"}
 STALE_DAYS = {"captures": 365, "uls": 30, "opencellid": 60, "wigle": 60, "repeaterbook": 60, "ttn": 30, "satnogs": 60,
-              "wspr": 3, "pskreporter": 3, "custom": 365}
+              "wspr": 3, "pskreporter": 3, "custom": 365, "meshtastic": 7, "helium": 30}
 CALLSIGN = re.compile(r"^[A-Z]{1,3}[0-9][A-Z0-9]{1,4}$")
 
 

@@ -1,7 +1,9 @@
 "use strict";
 /* RF Recon phone app: DAS in the field. A grid test entered square by square with no signal (kept on this phone,
    exported as a CSV that RF Recon on the PC reads in a DAS job's Grid test, Import results), the PIM calculator,
-   and the code numbers at a glance. Profiles, pass rules and floor percentages match the PC's DAS tab (static/das.js). */
+   and the code numbers at a glance. Profiles, pass rules and floor percentages match the PC's DAS tab (static/das.js).
+   Prospects: the schools, colleges and hospitals near the pin from the pack's own lists (fieldpack.py, packs made since
+   11/4), to call or look up; their status, first emails and jobs are kept in RF Recon on the PC or the web version. */
 
 const DAS_PROFILES = {  // the PC's AHJ presets
   "IFC 2021 + NFPA 1225": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12},
@@ -14,7 +16,12 @@ const DAS_DAQ = ["", "1", "2", "2.5", "3", "3.4", "3.5", "4", "4.5", "5"];
 const DAS_RX = [["B71 600 UL", 663, 698], ["B12/17 700 UL", 699, 716], ["B13 700 UL", 777, 787], ["B14 FirstNet UL", 788, 798], ["700 public safety UL", 799, 805],
   ["800 public safety / SMR UL", 806, 824], ["B5 850 UL", 824, 849], ["B26 UL", 814, 849], ["B66/4 AWS UL", 1710, 1780], ["B2/25 PCS UL", 1850, 1915],
   ["B30 WCS UL", 2305, 2315], ["n41 2.5 GHz (TDD)", 2496, 2690]];
-const DAS = {tests: null, cur: null, floor: null, view: "grid"};
+const DAS = {tests: null, cur: null, floor: null, view: "grid", pkinds: null};
+// the kinds prospects.db carries (prospects.py: the US government lists, then Overture places and high-rises), in this order
+const DAS_PKINDS = [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"],
+  ["high_rise", "High-rises"], ["mall", "Malls"], ["stadium", "Stadiums and arenas"], ["hotel", "Hotels"], ["venue", "Venues"], ["casino", "Casinos"],
+  ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"]];
+const DAS_PCOLOR = {hospital: "#e5534b", college: "#a78bfa", school_k12: "#3d8bfd", school_private: "#3d8bfd", high_rise: "#fab219"};
 const dHas = v => v !== null && v !== undefined && v !== "" && !isNaN(v);
 const dProfile = t => DAS_PROFILES[t.profile] || DAS_PROFILES["IFC 2021 + NFPA 1225"];
 const dSave = () => kv.set("das.tests", DAS.tests);
@@ -43,8 +50,9 @@ window.viewDas = async v => {
   if (!DAS.tests) DAS.tests = (await kv.get("das.tests")) || [];
   const t = DAS.tests.find(x => x.id === DAS.cur);
   if (t) return dasTest(v, t);
-  const seg = `<div class="chips" style="margin:0 2px 12px">${[["grid", "Grid tests"], ["pim", "PIM calculator"], ["codes", "Code numbers"]].map(([k, l]) =>
-    `<button class="chip ${DAS.view === k ? "on" : ""}" data-act="dasview" data-v="${k}">${l}</button>`).join("")}</div>`;
+  const seg = `<div class="chips" style="margin:0 2px 12px">${[["grid", "Grid tests"], ["prospects", "Prospects"], ["pim", "PIM calculator"], ["codes", "Code numbers"]].map(([k, l]) =>
+    `<button class="chip ${DAS.view === k ? "on" : ""}" data-act="dasview" data-v="${k}">${l}</button>`).join("")}${window.viewHunt ? '<button class="chip" data-act="huntopen">🎯 Find a rogue booster</button>' : ""}</div>`;
+  if (DAS.view === "prospects") { v.innerHTML = head("DAS prospects", "Buildings near the pin that often must have emergency responder radio coverage, from the public lists in your pack.") + seg + dasProspects(); return; }
   if (DAS.view === "pim") { v.innerHTML = head("DAS", "Where the intermod products land, and the result in dBc.") + seg + dasPim(); dasPimWire(); return; }
   if (DAS.view === "codes") { v.innerHTML = head("DAS", "The numbers ERCES / BDA work is judged by.") + seg + dasCodes(); return; }
   v.innerHTML = head("DAS", "Grid tests square by square, with no signal. They stay on this phone; export one to RF Recon on the PC.") + seg
@@ -164,6 +172,47 @@ async function dasExport(t) {  // the columns the PC's Grid test import reads (d
   toast(`Saved ${rows.length - 1} readings. On the PC: the DAS job, Grid test, Import results.`);
 }
 
+function dasProspects() {  // read-only: the pack's prospect table (the columns prospects.near reads), within the radius of the pin
+  if (!S.db) return noPack();
+  if (!q("SELECT 1 FROM sqlite_master WHERE type='table' AND name='prospect'").length || !q("SELECT 1 FROM prospect LIMIT 1").length)
+    return `<div class="card glass empty" style="--i:1"><p>This pack has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use RF Recon on the PC.</p>
+      <button class="btn" data-act="map">Open the map</button></div>`;
+  const c = S.center || (S.me ? [S.me.lat, S.me.lon] : null);
+  if (!c) return `<div class="card glass empty" style="--i:1"><p>Set the pin first: tap the map, search a place or use where you are. Prospects are listed within the map's radius of it.</p>
+    <button class="btn primary" data-act="here">Use where I am</button> <button class="btn" data-act="map">Open the map</button></div>`;
+  const [s, n, w, e] = bbox(c[0], c[1], S.radius), label = Object.fromEntries(DAS_PKINDS);
+  const all = q("SELECT * FROM prospect WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", [s, n, w, e])
+    .map(r => ({...r, dist_mi: distKm(c[0], c[1], r.lat, r.lon) / MI_KM, brg: bearing(c[0], c[1], r.lat, r.lon)})).filter(r => r.dist_mi <= S.radius).sort((a, b) => a.dist_mi - b.dist_mi);
+  const here = [...new Set(all.map(r => r.kind))].sort((a, b) => (DAS_PKINDS.findIndex(k => k[0] === a) + 1 || 99) - (DAS_PKINDS.findIndex(k => k[0] === b) + 1 || 99));
+  const kinds = DAS.pkinds || new Set(DAS_PKINDS.slice(0, 5).map(k => k[0]));  // schools, colleges, hospitals and high-rises first; the rest a tap away
+  const rows = all.filter(r => kinds.has(r.kind)), by = k => all.filter(r => r.kind === k).length;
+  const tel = p => p.replace(/[^0-9+]/g, "");
+  const ov = rows.some(r => /^overture/.test(r.source || ""));
+  DAS.prows = rows;
+  return `<div class="chips" style="margin:0 2px 12px">${here.map(k => `<button class="chip ${kinds.has(k) ? "on" : ""}" data-act="daspkind" data-k="${esc(k)}">${esc(label[k] || k)} <span class="hint">${by(k)}</span></button>`).join("")}</div>
+    <div class="row" style="margin:0 2px 12px"><button class="btn small" data-act="daspcsv" ${rows.length ? "" : "disabled"}>Call list (CSV)</button>
+      <span class="hint">${rows.length} within ${S.radius} mi of the pin${rows.length > 200 ? ": the nearest 200 shown" : ""}</span></div>
+    <div class="card glass" style="--i:1">${rows.length ? rows.slice(0, 200).map(r => `<div class="item" style="cursor:default"><span class="dot" style="background:${DAS_PCOLOR[r.kind] || "#3ccf7a"};margin-top:6px"></span>
+        <div class="main"><div class="t" style="white-space:normal">${esc(r.name)}</div>
+          <div class="s">${esc([label[r.kind] || r.kind, `${num(r.dist_mi, r.dist_mi < 10 ? 1 : 0)} mi ${compass(r.brg)}`, r.city].filter(Boolean).join(" · "))}${r.precision === "zip" ? " (placed at its ZIP)" : ""}</div>
+          ${r.detail || r.size_label ? `<div class="s">${esc([r.size_label, r.detail].filter(Boolean).join(" · "))}</div>` : ""}
+          ${r.contact_name ? `<div class="s">${esc(r.contact_name)}${r.contact_title ? `, ${esc(r.contact_title)}` : ""}</div>` : ""}
+          <div class="row" style="margin-top:6px">${r.phone ? `<a class="btn small" href="tel:${esc(tel(r.phone))}">Call ${esc(r.phone)}</a>` : ""}
+            ${r.website ? `<a class="btn small" href="${esc(/^https?:/i.test(r.website) ? r.website : "https://" + r.website)}" target="_blank" rel="noopener">Website</a>` : ""}</div></div></div>`).join("")
+      : `<p class="hint" style="margin:0">None of these within ${S.radius} mi: pick another kind, or a bigger radius on the map.</p>`}</div>
+    <p class="hint" style="margin:4px">From the lists in the pack: NCES schools, IPEDS colleges and CMS hospitals (US government, public domain)${ov ? "; Overture Maps Foundation places and buildings (© OpenStreetMap contributors, Overture Maps Foundation)" : ""}.
+      Status, a first email and + Job are kept in RF Recon on the PC or the web version.</p>`;
+}
+async function dasProspectCsv() {
+  const cols = ["name", "kind", "address", "city", "state", "zip", "phone", "website", "contact_name", "contact_title", "dist_mi"], label = Object.fromEntries(DAS_PKINDS);
+  const text = [cols.join(","), ...(DAS.prows || []).map(r => cols.map(c => csvCell(c === "kind" ? label[r.kind] || r.kind : c === "dist_mi" ? num(r.dist_mi, 2) : r[c])).join(","))].join("\r\n") + "\r\n";
+  const file = new File([text], `DAS prospects ${S.radius} mi.csv`, {type: "text/csv"});
+  try { if (navigator.canShare?.({files: [file]})) { await navigator.share({files: [file], title: file.name}); return; } } catch (e) { if (e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast(`Saved ${DAS.prows.length} buildings as a call list.`);
+}
+
 function dasPim() {
   return `<div class="card glass" style="--i:1"><h2>PIM calculator</h2>
     <div class="two"><div class="field"><label for="pm_f1">F1, MHz</label><input id="pm_f1" inputmode="decimal" value="869"></div>
@@ -217,6 +266,8 @@ document.addEventListener("click", async e => {  // the DAS screen's buttons (ap
   const act = a.dataset.act, t = DAS.tests?.find(x => x.id === DAS.cur), f = t?.floors.find(x => x.name === DAS.floor);
   if (act === "dasview") { DAS.view = a.dataset.v; render(); }
   else if (act === "dasnew") dasNew();
+  else if (act === "daspkind") { const k = a.dataset.k, ks = DAS.pkinds || new Set(DAS_PKINDS.slice(0, 5).map(x => x[0])); ks.has(k) ? ks.delete(k) : ks.add(k); if (!ks.size) ks.add(k); DAS.pkinds = ks; render(); }
+  else if (act === "daspcsv") dasProspectCsv();
   else if (act === "dasopen") { DAS.cur = a.dataset.id; DAS.floor = null; render(); }
   else if (act === "dasback") { DAS.cur = null; render(); }
   else if (act === "dasfloor") { DAS.floor = a.dataset.f; render(); }

@@ -90,7 +90,7 @@ async function dasAddExamples(msg){
 
 // the board, list and Data & links: how a job moves, and the button that adds the examples
 window.dasBoardGuide = (el, D) => {
-  if(!el || D.view === "contacts") return;
+  if(!el || ["contacts","prospects","pitch"].includes(D.view)) return;  // the board's guide, not the outreach views
   const open = dasExPref("rfr.dasFlow", "1") === "1", hasEx = (D.jobs || []).some(j => /\(example\)$/.test(j.name));
   el.innerHTML = `<details class="panel" id="dxFlow" ${open ? "open" : ""} style="margin-bottom:10px">
     <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none">

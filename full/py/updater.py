@@ -46,13 +46,19 @@ SOURCES = {
     "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the RF Recon site (FCC open data of March 2021 if the site can't be reached)"),
     "artemis": ("Artemis signal database (waterfalls and audio)", "reference", 720, "A waterfall picture and an audio clip for each Signal ID Wiki signal, shown beside its matches (Ares Valley; about 300 MB; checked monthly, downloaded only when there's a new release)"),
     "bdc": ("FCC carrier coverage (Broadband Map)", "fcc", 720, "Each carrier's modelled 3G / 4G / 5G coverage and signal, for the carrier-coverage states; new release twice a year"),
+    "bdc_extra": ("FCC broadband extras (coverage checks, fixed wireless, link budgets)", "fcc", 720, "The FCC's resolved coverage challenges, verifications and audits, who offers fixed wireless where, and each carrier's filed link budgets and propagation tools (about 2.5 GB of download a release, about 1 GB kept)"),
     "ttn": ("The Things Network LoRaWAN gateways", "crowd", 168, "Gateways near the area (no key)"),
     "satnogs": ("SatNOGS satellite ground stations", "crowd", 720, "Ground stations and their antennas (no key)"),
     "wspr": ("WSPR stations (wspr.live)", "crowd", 24, "Stations heard or transmitting in the last 24 h (no key)"),
     "pskreporter": ("PSKReporter monitors", "crowd", 24, "Digital-mode monitors and stations heard in the last hour (no key)"),
+    "meshtastic": ("Meshtastic mesh radios (meshmap.net)", "crowd", 24, "Mesh radios that share their position (no key; a 4 MB list)"),
+    "tiles": ("Map tiles + terrain for mission areas", "reference", 720, "The four USGS base maps (to zoom 16) and terrain for each mission area, kept for use with no signal (about 1.3 GB an area; tiles already kept aren't fetched again)"),
+    "das_prospects": ("DAS prospect lists (schools, colleges, hospitals, malls, arenas, hotels, high-rises and more)", "reference", 720, "Buildings that often need emergency responder radio coverage, with phones, websites and emails where published: NCES schools, IPEDS colleges, CMS hospitals (US government, public domain); malls, stadiums and arenas, hotels, venues, casinos, airports, transit, government buildings, warehouses and parking garages from Overture Maps places (CDLA-Permissive-2.0 / Apache-2.0 / CC0); high-rises around each mission area from Overture buildings (ODbL)"),
+    "part_prices": ("DAS part prices (price list links, Mouser, Digi-Key)", "reference", 168, "Each supplier's price list re-read from its link, and the online prices of the parts on open requests for quote (Mouser and Digi-Key, with your keys)"),
+    "helium": ("Helium IoT hotspots", "crowd", 168, "Active LoRaWAN hotspots (no key; reads the whole network, about 190 MB a pass)"),
 }
-DEFAULT_ENABLED = {"uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
-                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss"}
+DEFAULT_ENABLED = {"part_prices", "das_prospects", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
+                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic"}
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
 LINK_NAMES = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "cellular": "cellular / phone tether"}
@@ -290,7 +296,12 @@ class Updater:
             src[sid] = s
         return {"auto": auto, "links": self.links(), "wifi_only": "cellular" not in self.links(),
                 "net": self.net, "client_hint": self.client_hint, "link": link, "sources": src,
-                "catalog": [c for c in cat if not c.get("updater")]}
+                "catalog": [c for c in cat if not c.get("updater")], "archive": bool(self.get("update.archive", False))}
+
+    def archive(self, path):
+        """Each week's FCC files kept in fcc-archive/ when update.archive is on (the server, Cody 11/2)."""
+        if self.get("update.archive", False):
+            uls_import.archive(path, log=lambda m: self._mark([], message=m))
 
     def _why(self, s, a, need, creds, auto, link):
         """Why a source isn't downloading right now, in a sentence; empty when nothing is in its way."""
@@ -393,6 +404,8 @@ class Updater:
                     p = uls_import.download(svc, svc in stale, lambda m, end="\n": None)
                     if p:
                         paths.append(p)
+                        if svc in stale:
+                            self.archive(p)
                     else:
                         raise RuntimeError(f"could not download l_{svc}.zip from the FCC")
                 self._mark(ids, message="rebuilding database…")
@@ -415,6 +428,7 @@ class Updater:
                     return
                 states = [s for s in (self.get("update.states", "") or "").split(",") if s]
                 n = towers.run(self.db, refresh=True, states=states, log=lambda m, end="\n": None)
+                self.archive(os.path.join(uls_import.DATA_DIR, "r_tower.zip"))
                 self._mark(ids, state="ok", message=f"{n:,} towers", last_checked=now(), last_updated=now(),
                            rows=n, remote=rm)
             elif job == "bcast":
@@ -477,6 +491,7 @@ class Updater:
                     n = mw_pending.run(con, log=lambda m: self._mark(ids, message=m.strip()))
                 finally:
                     con.close()
+                self.archive(os.path.join(uls_import.DATA_DIR, "a_micro.zip"))  # a week already archived is skipped
                 self._mark(ids, state="ok", message=f"{n:,} pending links", last_checked=now(), last_updated=now(), rows=n)
             elif job == "fss":  # the FCC's protected C-band earth stations (fss.py)
                 import fss
@@ -486,11 +501,57 @@ class Updater:
                 finally:
                     con.close()
                 self._mark(ids, state="ok", message=f"{n:,} earth stations", last_checked=now(), last_updated=now(), rows=n)
+            elif job == "bdc_extra":  # the rest of the FCC Broadband Data Collection that helps RF work (bdc_extra.py)
+                import bdc_extra
+                r = bdc_extra.run(uls_import.DATA_DIR, self.get("creds", {}) or {}, log=lambda m: self._mark(ids, message=m))
+                self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=r["checks"] + r["fixed_wireless_cells"] + r["link_budgets"],
+                           message=f"release {r['release']}: {r['checks']:,} coverage checks, {r['fixed_wireless_cells']:,} fixed wireless cells, "
+                                   f"{r['link_budgets']:,} link budget lines, {r['providers']:,} providers")
             elif job == "artemis":  # waterfalls and audio for the Signal ID Wiki signals (artemis.py)
                 import artemis
                 st = artemis.fetch(log=lambda m: self._mark(ids, message=m))
                 self._mark(ids, state="ok", message=f"{st['signals']:,} signals, release v{st['version']} ({st['date']})",
                            last_checked=now(), last_updated=now(), rows=st["signals"])
+            elif job == "das_prospects":  # the public building lists the DAS Prospects view searches (prospects.py)
+                import prospects
+                r = prospects.refresh(uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m)[:200]))
+                bad = sorted((r.pop("errors", None) or {}))
+                n = sum(v for v in r.values() if isinstance(v, int))
+                for a in self.active_area() or []:  # high-rises (75 ft / 7 floors and up) around each mission area
+                    try:
+                        n += prospects.highrises(uls_import.DATA_DIR, a[0], a[1], min(10, a[2] or 10),
+                                                 log=lambda m: self._mark(ids, message=str(m)[:200]))
+                    except Exception as e:
+                        bad.append(f"high-rises ({str(e)[:80]})")
+                self._mark(ids, state="error" if bad and not n else "ok", last_checked=now(), last_updated=now(), rows=n,
+                           message=f"{n:,} buildings" + (f"; failed: {', '.join(bad)}" if bad else ""))
+            elif job == "part_prices":  # DAS part prices: price list links and online prices on open requests (das.py, prices.py)
+                import das as dasmod
+                con = sqlite3.connect(self.db, timeout=60)
+                con.row_factory = sqlite3.Row
+                try:
+                    dasmod.migrate(con)
+                    lists = dasmod.refresh_price_lists(con)
+                    creds = self.get("creds", {}) or {}
+                    open_q = [r["id"] for r in con.execute("SELECT id FROM das_rfq WHERE status='open' AND created_at >= datetime('now','-60 days')")]
+                    online = [dasmod.online_quotes(con, rid, creds)["online"] for rid in open_q] if open_q else []
+                finally:
+                    con.close()
+                srcs = sorted({x for o in online for x in o["keys"]})
+                self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=len(lists) + len(open_q),
+                           message=f"{len(lists)} price list link{'s' if len(lists) != 1 else ''} re-read; {len(open_q)} open request{'s' if len(open_q) != 1 else ''}"
+                                   + (f" priced online ({', '.join(srcs)})" if srcs else " (no Mouser or Digi-Key key saved)"))
+            elif job == "tiles":  # base maps and terrain kept for each mission area (tilecache.py)
+                import tilecache
+                areas = self.active_area()
+                if not areas:
+                    self._mark(ids, state="skipped", message="no active mission area", last_checked=now())
+                    return
+                c = tilecache.prefetch([(a[0], a[1], a[2]) for a in areas], log=lambda m: self._mark(ids, message=m))
+                self._mark(ids, state="ok" if not c["missed"] else "error", last_checked=now(), last_updated=now(), rows=c["new"] + c["kept"],
+                           message=f"{c['new'] + c['kept']:,} tiles kept for {len(areas)} area(s) ({c['new']:,} new)"
+                                   + (f"; {c['none']:,} have no USGS tile (open sea or a map's gap)" if c.get("none") else "")
+                                   + (f"; {c['missed']:,} didn't download (tried again next run)" if c["missed"] else ""))
             elif job == "sigwiki":  # reference catalog, not tied to an area
                 import connectors
                 import sigwiki
@@ -552,7 +613,7 @@ class Updater:
         if re.fullmatch(r"\d{1,2}-\d{1,2}", win):
             a, b = (int(x) for x in win.split("-"))
             if not (a <= time.localtime().tm_hour < b):
-                for sid in [s for s in due if s.startswith("uls:") or s in ("bdc", "mw_pending")]:
+                for sid in [s for s in due if s.startswith("uls:") or s in ("bdc", "bdc_extra", "mw_pending", "tiles")]:
                     due.remove(sid)
                     if self.status[sid].get("state") != "running":  # one already running (Run now) keeps its progress line
                         self.status[sid]["message"] = f"due: runs in the night window ({a}:00 to {b}:00)"

@@ -1,11 +1,22 @@
 "use strict";
 /* RF Recon — views: table, analyzer (Wireshark-style), dashboard (Kibana-style), topology, profile, agencies, spectrum. */
 
+// with nothing to count a chart says so (11/3: the donut read "1" and the bar panels were empty boxes)
+const NO_DATA=`<p class="hint" style="margin:6px 0">Nothing here for this search: widen the radius, or change the filters or layers.</p>`;
 const countBy=(rows,fn)=>{ const m=new Map(); for(const r of rows) for(const k of [].concat(fn(r))) m.set(k,(m.get(k)||0)+1); return [...m].sort((a,b)=>b[1]-a[1]); };
-function bars(entries, colorFn, click){ const max=Math.max(1,...entries.map(e=>e[1]));
+function bars(entries, colorFn, click){ if(!entries.length) return NO_DATA; const max=Math.max(1,...entries.map(e=>e[1]));
   return `<div class="bars">${entries.map(([k,n])=>`<div ${click?`data-click="${esc(click)}" data-v="${esc(k)}"`:""}><span title="${esc(k)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span><span class="bar" style="width:${Math.max(2,100*n/max)}%;${colorFn?`background:${colorFn(k)}`:""}"></span><span class="mono" style="text-align:right">${n.toLocaleString()}</span></div>`).join("")}</div>`; }
 document.addEventListener("click", e=>{ const b=e.target.closest("[data-click]"); if(!b) return;
-  const k=b.dataset.click, v=b.dataset.v; if(k==="layer"){ const id=Object.keys(LAYERS).find(x=>LAYERS[x].label===v)||v; S.layerOn.has(id)?S.layerOn.delete(id):S.layerOn.add(id); render(); } else toggleChip(k,v); });
+  const k=b.dataset.click, v=b.dataset.v;
+  // a source bar shows only that source on every tab (as the panel's hint says); the same bar again puts the layers
+  // back. It used to switch the source off, so every tab dropped to 0 and the bar to undo it vanished (11/3).
+  if(k==="layer"){ const id=Object.keys(LAYERS).find(x=>LAYERS[x].label===v)||v;
+    if(S.layerSolo===id && S.layerPrev){ S.layerOn=new Set(S.layerPrev); S.layerSolo=S.layerPrev=null; }
+    else { if(!S.layerSolo) S.layerPrev=new Set(S.layerOn); S.layerOn=new Set([id]); S.layerSolo=id; }
+    render(); }
+  else toggleChip(k,v); });
+// a bar that doesn't filter: a tap shows its whole name (cut short in the row, and a hover tip can't be reached by touch)
+document.addEventListener("click", e=>{ const r=e.target.closest(".bars > div:not([data-click])"); if(r) r.classList.toggle("full"); });
 const typeColor = t => S.lib[t]?.color || (t==="Tower / structure"?"#57606a":"#8c959f");
 
 /* ---------- generic sortable table ---------- */
@@ -27,7 +38,8 @@ S.views.freqTable = (rows, compact, cols) => {
     list=rows.slice().sort((a,b)=>{ const x=a[key],y=b[key]; if(x==null) return 1; if(y==null) return -1; return (x>y?1:x<y?-1:0)*dir; }); }
   const shown=compact?list:list.slice(0,S.shown);
   return `<div class="tw" style="max-height:70vh"><table><thead><tr>${cols.map(c=>`<th ${compact?"":`data-sort="${c}"`}>${COLS[c][0]}${!compact&&S.sort.k===c?(S.sort.dir>0?" ▲":" ▼"):""}</th>`).join("")}</tr></thead><tbody>`+
-    shown.map(r=>`<tr data-fid="${esc(r.fid)}">${cols.map(c=>`<td class="${COLS[c][2]}">${COLS[c][1](r)}</td>`).join("")}</tr>`).join("")+
+    // compact tables (Site profile) wrap the name, so a long licensee doesn't push the level columns out of the panel (11/3)
+    shown.map(r=>`<tr data-fid="${esc(r.fid)}">${cols.map(c=>`<td class="${COLS[c][2]}"${compact&&c==="title"?' style="white-space:normal;min-width:10em;max-width:20em"':""}>${COLS[c][1](r)}</td>`).join("")}</tr>`).join("")+
     `</tbody></table></div>`+(!compact&&list.length>shown.length?`<button id="moreTbl" style="margin:8px">Show more (${(list.length-shown.length).toLocaleString()})</button>`:"");
 };
 document.addEventListener("click", e=>{ const th=e.target.closest("th[data-sort]"); if(th){ const k=th.dataset.sort; S.sort={k,dir:S.sort.k===k?-S.sort.dir:1}; render(); }
@@ -129,15 +141,22 @@ S.views.analyzer = (v, rowsIn) => {
     dist:r=>`<td class="n" style="${r.dist_mi!=null?bar(r.dist_mi/dmax,"#8250df"):""}">${num(r.dist_mi,2)}</td>`, band:r=>`<td data-fk="band" data-fv="${esc(r.band||"")}">${esc(r.band||"")}</td>`, info:r=>`<td>${esc(infoOf(r))}</td>`};
   const body=shown.map((r,i)=>`<tr data-i="${i}" style="background:color-mix(in srgb, ${colorOf(r)} 13%, transparent)">${cols.map(([k])=>cell[k](r,i)).join("")}</tr>`).join("");
   $("#anBody").innerHTML=`<div class="tw pkts"><table id="pktTable"><thead><tr>${cols.map(([,l])=>`<th>${l}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>
-    <p class="hint">Alt + click a source, type, frequency, ident or band cell to keep only that value; Alt + Shift + click to drop it.</p>
+    <p class="hint">Alt + click a source, type, frequency, ident or band cell to keep only that value; Alt + Shift + click to drop it. On a touch screen, tap the cell and use the buttons that appear.</p>
+    <div id="anAct" class="row" style="gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap"></div>
     ${rows.length>lim?`<button id="anMore" style="margin:6px 0">Show ${Math.min(3000,rows.length-lim).toLocaleString()} more</button>`:""}
     <div class="pane2"><div class="tw tree" id="anTree"><span class="hint">Select a record to see its fields.</span></div><div class="tw"><pre class="raw" id="anRaw"></pre></div></div>`;
   if($("#anMore")) $("#anMore").onclick=()=>{ S.anLimit=(S.anLimit||3000)+3000; render(); };
+  // filter in / out from a cell (Wireshark's "apply as filter")
+  const applyF=(k,raw,drop)=>{ const val=k==="freq"&&raw?raw:`"${raw.replace(/"/g,'\\"')}"`, term=`${k} ${drop?"!=":"=="} ${val}`;
+    S.filterExpr=S.filterExpr.trim()?`(${S.filterExpr}) && ${term}`:term; render(); };
   $("#pktTable").onclick=e=>{
     const td=e.target.closest("td[data-fk]");
-    if(e.altKey && td){  // filter in / out from the cell (Wireshark's "apply as filter")
-      const k=td.dataset.fk, raw=td.dataset.fv, val=k==="freq"&&raw?raw:`"${raw.replace(/"/g,'\\"')}"`, term=`${k} ${e.shiftKey?"!=":"=="} ${val}`;
-      S.filterExpr=S.filterExpr.trim()?`(${S.filterExpr}) && ${term}`:term; render(); return; }
+    if(e.altKey && td){ applyF(td.dataset.fk, td.dataset.fv, e.shiftKey); return; }
+    // a plain click or tap on a filterable cell offers the same two filters as buttons (11/3: Alt + click was the only
+    // way, and a touch screen has no Alt)
+    const act=$("#anAct");
+    if(act) act.innerHTML=td&&td.dataset.fv?`<span class="hint">${esc(td.dataset.fk)} ${esc(td.dataset.fv)}:</span><button data-af="keep">Keep only this</button><button data-af="drop">Drop this</button>`:"";
+    if(act&&td) act.onclick=ev=>{ const b=ev.target.closest("[data-af]"); if(b) applyF(td.dataset.fk, td.dataset.fv, b.dataset.af==="drop"); };
     const tr=e.target.closest("tr[data-i]"); if(!tr) return; $$("#pktTable tr.sel").forEach(x=>x.classList.remove("sel")); tr.classList.add("sel"); showTree(S.anRows[+tr.dataset.i]); };
   $("#pktTable").ondblclick=e=>{ const tr=e.target.closest("tr[data-i]"); if(tr) openDetail(S.anRows[+tr.dataset.i].fid); };
   $("#pktTable").tabIndex=0;
@@ -192,7 +211,7 @@ function ioGraph(rows){
   const line=b.map((x0,i)=>x0.c?`${x(i)},${H-P-(H-2*P)*((x0.s/x0.c)-lmin)/((lmax-lmin)||1)}`:null).filter(Boolean).join(" ");
   const fmt=t=>new Date(t).toISOString().replace("T"," ").slice(5,16);
   const ticks=[0,.25,.5,.75,1].map(f=>t0+span*f);  // dated ticks across the range, counts left, average dBm right
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-size:10px"><line x1="${P}" x2="${W-P}" y1="${H-P}" y2="${H-P}" stroke="var(--muted)"/>
+  return `<svg class="dchart" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-size:10px"><line x1="${P}" x2="${W-P}" y1="${H-P}" y2="${H-P}" stroke="var(--muted)"/>
     ${[0,.5,1].map(f=>`<line x1="${P}" x2="${W-P}" y1="${H-P-(H-2*P)*f}" y2="${H-P-(H-2*P)*f}" stroke="var(--line)" opacity=".5"/><text x="${P-4}" y="${H-P-(H-2*P)*f+3}" text-anchor="end" fill="var(--muted)">${Math.round(maxN*f)}</text>`).join("")}
     ${barsSvg}${line?`<polyline points="${line}" fill="none" stroke="#cf222e" stroke-width="2"/>`:""}
     ${ticks.map(t=>`<line x1="${P+(W-2*P)*(t-t0)/span}" x2="${P+(W-2*P)*(t-t0)/span}" y1="${H-P}" y2="${H-P+4}" stroke="var(--muted)"/><text x="${P+(W-2*P)*(t-t0)/span}" y="${H-P+14}" text-anchor="middle" fill="var(--muted)">${fmt(t)}</text>`).join("")}
@@ -207,19 +226,20 @@ function niceTicks(lo, hi, n=6){ const span=(hi-lo)||1, raw=span/n, p=10**Math.f
 function histogram(vals, bins, color, unit, label){
   if(!vals.length) return '<p class="hint">No values.</p>';
   const lo=Math.min(...vals), hi=Math.max(...vals), w=(hi-lo)/bins||1; const b=new Array(bins).fill(0); for(const v of vals) b[Math.min(bins-1,Math.floor((v-lo)/w))]++;
-  const max=Math.max(1,...b), W=560,H=210,Lm=44,Rm=12,Tm=16,Bm=40, pw=W-Lm-Rm, ph=H-Tm-Bm;
+  const max=Math.max(1,...b), W=560,H=222,Lm=44,Rm=12,Tm=28,Bm=40, pw=W-Lm-Rm, ph=H-Tm-Bm;
   const X=v=>Lm+pw*(v-lo)/((hi-lo)||1), Y=n=>Tm+ph-ph*n/max;
   const sorted=vals.slice().sort((a,c)=>a-c), med=sorted[Math.floor(sorted.length/2)], mean=vals.reduce((a,v)=>a+v,0)/vals.length;
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-size:11px">
+  return `<svg class="dchart" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-size:11px">
     ${niceTicks(0,max,4).map(t=>`<line x1="${Lm}" x2="${W-Rm}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--line)" opacity=".6"/><text x="${Lm-6}" y="${Y(t)+4}" text-anchor="end" fill="var(--muted)">${t}</text>`).join("")}
     ${b.map((n,i)=>`<rect x="${Lm+i*pw/bins+1}" y="${Y(n)}" width="${Math.max(1,pw/bins-2)}" height="${Tm+ph-Y(n)}" fill="${color}" opacity=".85"><title>${num(lo+i*w,1)}–${num(lo+(i+1)*w,1)} ${unit}: ${n}</title></rect>`).join("")}
     <line x1="${Lm}" x2="${W-Rm}" y1="${Tm+ph}" y2="${Tm+ph}" stroke="var(--muted)"/>
     ${niceTicks(lo,hi,6).map(t=>`<line x1="${X(t)}" x2="${X(t)}" y1="${Tm+ph}" y2="${Tm+ph+5}" stroke="var(--muted)"/><text x="${X(t)}" y="${Tm+ph+17}" text-anchor="middle" fill="var(--muted)">${t}</text>`).join("")}
-    ${[["median",med,"#bf8700"],["mean",mean,"#cf222e"]].map(([k,v,c],j)=>`<line x1="${X(v)}" x2="${X(v)}" y1="${Tm}" y2="${Tm+ph}" stroke="${c}" stroke-dasharray="4 3"/><text x="${Math.min(X(v)+4,W-Rm-70)}" y="${Tm+10+j*12}" fill="${c}">${k} ${num(v,1)}</text>`).join("")}
+    ${[["median",med,"#bf8700"],["mean",mean,"#cf222e"]].map(([k,v,c],j)=>`<line x1="${X(v)}" x2="${X(v)}" y1="${Tm}" y2="${Tm+ph}" stroke="${c}" stroke-dasharray="4 3"/><text x="${W-Rm-(j?0:130)}" y="14" text-anchor="end" fill="${c}">┄ ${k} ${num(v,1)}</text>`).join("")}
     <text x="${Lm+pw/2}" y="${H-4}" text-anchor="middle" fill="var(--muted)">${esc(label||unit)} · ${vals.length.toLocaleString()} values</text>
     <text x="12" y="${Tm+ph/2}" transform="rotate(-90 12 ${Tm+ph/2})" text-anchor="middle" fill="var(--muted)">count</text></svg>`;
 }
 function donut(entries, colorFn){
+  if(!entries.length) return NO_DATA;
   const tot=entries.reduce((a,e)=>a+e[1],0)||1; let a0=-Math.PI/2; const R=70,r=42,c=80;
   const arcs=entries.map(([k,n])=>{ const a1=a0+2*Math.PI*n/tot, large=a1-a0>Math.PI?1:0, p=(a,rr)=>`${c+rr*Math.cos(a)},${c+rr*Math.sin(a)}`;
     const d=`M${p(a0,R)} A${R},${R} 0 ${large} 1 ${p(a1,R)} L${p(a1,r)} A${r},${r} 0 ${large} 0 ${p(a0,r)} Z`; a0=a1; return `<path d="${d}" fill="${colorFn(k)}" data-click="band" data-v="${esc(k)}" style="cursor:pointer"><title>${esc(k)}: ${n}</title></path>`; }).join("");
@@ -281,7 +301,7 @@ S.views.topology = (v, rows) => {
     <button id="topoOut" title="Zoom out">−</button><span class="mono hint" id="topoZoom" style="min-width:44px;text-align:center"></span><button id="topoIn" title="Zoom in">+</button>
     <button id="topoFit" title="Fit everything">Fit</button><button id="topoOne" title="Actual size">1:1</button><button id="topoFull" title="Full screen">⛶</button><button id="topoPng">⇩ PNG</button></div>
     <div id="cyWrap" style="position:relative"><div id="cy"></div>
-      <div class="panel" style="position:absolute;left:8px;bottom:8px;padding:6px 8px;font-size:11px;line-height:1.6;opacity:.92">
+      <div class="panel cyLegend" style="margin-top:6px;padding:6px 8px;font-size:11px;line-height:1.6">
         <b>Legend</b><br>▬ licensee / group &nbsp;◆ licence (call sign) &nbsp;● frequency (colour = signal type)<br>▲ tower &nbsp;★ pin &nbsp;<span style="color:#bf8700">┅</span> repeater output → input &nbsp;<span style="color:#cf222e">━</span> shared frequency</div></div>
     <p class="hint">Drag to pan. <b>Ctrl + wheel</b> (or pinch) zooms at the cursor; the plain wheel scrolls the page. Click a node to light up its links; click the background to clear.</p>
     <p class="hint">${{logical:"Licensee → license (call sign) → frequencies, with repeater output → input pairs. Wi-Fi SSID → access points. Cell operator → cells. Repeater groups from RepeaterBook.",
@@ -296,7 +316,7 @@ S.views.topology = (v, rows) => {
   const LIMIT=S.topoLimit||900;
   if(mode==="logical"){
     for(const r of rows){ if(N.size>LIMIT) break;
-      if(r.layer==="uls"||r.layer==="uls_hist"){ const lic=add("L:"+r.licensee, r.licensee, "licensee",{color:catColor2(r.category)}); const cs=add("C:"+r.call_sign, r.call_sign, "license"); edge(lic,cs,"holds");
+      if(r.layer==="uls"||r.layer==="uls_hist"){ const lic=add("L:"+r.licensee, r.licensee, "licensee",{color:catColor2(r.category)}); const cs=add("C:"+r.call_sign, r.call_sign, "license"); if(!E.some(e=>e.data.source===lic&&e.data.target===cs)) edge(lic,cs,"holds");  /* once per pair: it was one per row (421 edges, 231 real; 11/3) */
         const f=add("F:"+fmtF(r.freq_mhz), fmtF(r.freq_mhz), "freq",{color:colorOf(r)}); if(!E.some(e=>e.data.source===cs&&e.data.target===f)) edge(cs,f,"uses");
         if(r.freq_upper_mhz && r.station_class==="FB2"){ const fi=add("F:"+fmtF(r.freq_upper_mhz), fmtF(r.freq_upper_mhz)+" in","freq",{color:"#8c959f"}); if(!E.some(e=>e.data.source===f&&e.data.target===fi)) edge(f,fi,"pair"); } }
       else if(r.sig_type==="Wi-Fi" && r.label){ const s=add("S:"+r.label, r.label, "ssid",{color:typeColor("Wi-Fi")}); const ap=add("A:"+(r.ident||r.fid), r.ident||"AP","ap"); if(!E.some(e=>e.data.target===ap)) edge(s,ap,"bssid"); }
@@ -483,7 +503,7 @@ S.views.agencies = (v, rows) => {
     [...ags].sort(order).map(([name,rs])=>{ const byF=new Map(); for(const r of rs){ const k=fmtF(r.freq_mhz)+"|"+r.call_sign; if(!byF.has(k)) byF.set(k,[]); byF.get(k).push(r); }
       const list=[...byF.values()].map(g=>Object.assign({},g.sort((a,b)=>(a.dist_mi??0)-(b.dist_mi??0))[0],{_sites:g.length})).sort((a,b)=>a.freq_mhz-b.freq_mhz);
       const nearest=nearestOf(rs);
-      return `<details class="panel ag" style="padding:0;margin-bottom:8px" ${ags.size<=6||q?"open":""}><summary style="padding:9px 12px;cursor:pointer"><b>${esc(name)}</b> <span class="hint">${byF.size} freq · ${new Set(rs.map(r=>r.call_sign)).size} licenses${isFinite(nearest)?` · nearest ${nearest.toFixed(1)} mi`:""} · ${esc([...new Set(rs.map(r=>r.service_name))].slice(0,2).join(" · "))}</span></summary>
+      return `<details class="panel ag" style="padding:0;margin-bottom:8px" ${ags.size<=6||q?"open":""}><summary style="padding:9px 12px;cursor:pointer"><b>${esc(name)}</b> <span class="hint">${byF.size} freq · ${(n=>`${n} licence${n===1?"":"s"}`)(new Set(rs.map(r=>r.call_sign)).size)}${isFinite(nearest)?` · nearest ${nearest.toFixed(1)} mi`:""} · ${esc([...new Set(rs.map(r=>r.service_name))].slice(0,2).join(" · "))}</span></summary>
         <div class="tw" style="border:0;border-top:1px solid var(--line);border-radius:0"><table><thead><tr><th>MHz</th><th>Input / upper</th><th>Band</th><th>Type</th><th>Alpha tag</th><th>Mode</th><th>Tone</th><th>Description</th><th>Sites</th><th>Nearest</th><th>ERP W</th><th>Call sign</th></tr></thead><tbody>`+
         list.map(r=>`<tr data-fid="${esc(r.fid)}"><td class="f">${fmtF(r.freq_mhz)}</td><td class="mono">${fmtF(r.freq_upper_mhz)}</td><td>${esc(r.band||"")}</td><td>${esc(classLabel(r.station_class))}</td><td>${esc(r.ov_alpha_tag||"")} ${r.ov_verified?'<span class="tag v">✓</span>':""}</td><td>${esc(r.ov_mode||r.mode||"")}</td><td class="mono">${esc(r.ov_tone||"")}</td><td>${esc(r.ov_description||"")}</td><td class="n">${r._sites}</td><td class="n">${r.dist_mi!=null?`${num(r.dist_mi,2)} mi ${esc(r.compass||"")}`:""}</td><td class="n">${num(erpOf(r))}</td><td class="mono">${esc(r.call_sign)}</td></tr>`).join("")+
         `</tbody></table></div></details>`; }).join("")).join("");

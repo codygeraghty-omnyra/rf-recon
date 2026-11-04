@@ -67,6 +67,7 @@ mark{background:color-mix(in srgb,var(--accent) 38%,transparent);color:inherit;b
 .gtag.fixed{background:var(--serious);color:#1c0d05}
 .gtag.data{background:var(--wash-2);box-shadow:inset 0 0 0 1px var(--line)}
 .gtag.where-it-is{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2)}
+.gtag.costs{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2)}
 ul{margin:0;padding-left:20px}
 li{margin:5px 0;line-height:1.5}
 li b{font-weight:650}
@@ -133,17 +134,78 @@ li b{font-weight:650}
 <main>
   <section class="panel intro">
     <h3>What RF Recon is</h3>
-    <p>RF Recon (beta) shows the radio picture of a place before you get there: every FCC-licensed frequency, tower and technology around a pin, predicted coverage by band, your own field captures, and the signals nothing explains.</p><p>It runs in-building public safety and cellular DAS jobs from the pre-survey to design, grid test, PIM and the AHJ report.</p><p>It comes as the PC app, a full web version, RF Recon lite for phones with no signal, and an always-on online version for invited people.</p>
+    <p>RF Recon (beta) shows the radio picture of a place before you get there: every FCC-licensed frequency, tower and technology around a pin, predicted coverage by band, your own field captures, and the signals nothing explains.</p><p>It runs in-building public safety and cellular DAS jobs from the pre-survey to design, grid test, PIM and the AHJ report.</p><p>It lives on an always-on server for invited people, with a PC app for work with no signal, a full web version and RF Recon lite for phones.</p>
     <div class="find">
       <input id="q" type="search" placeholder="Search these notes: ATAK, grid test, web..." aria-label="Search the release notes" autocomplete="off">
       <button id="openAll" type="button">Open all</button>
       <button id="closeAll" type="button">Close all</button>
     </div>
-    <div class="hint" id="count" style="margin-top:8px">176 changes, October 27 to November 2, 2026. Newest first.</div>
+    <div class="hint" id="count" style="margin-top:8px">208 changes, October 27 to November 4, 2026. Newest first.</div>
     <h3 style="margin-top:14px">Contents</h3>
-    <nav class="chips" aria-label="Days"><a class="chip" href="#d-2026-11-02">November 2, 2026</a><a class="chip" href="#d-2026-10-31">October 31, 2026</a><a class="chip" href="#d-2026-10-29">October 29, 2026</a><a class="chip" href="#d-2026-10-28">October 28, 2026</a><a class="chip" href="#d-2026-10-27">October 27, 2026</a></nav>
+    <nav class="chips" aria-label="Days"><a class="chip" href="#d-2026-11-04">November 4, 2026</a><a class="chip" href="#d-2026-11-03-pm">November 3, 2026, evening</a><a class="chip" href="#d-2026-11-03">November 3, 2026</a><a class="chip" href="#d-2026-11-02">November 2, 2026</a><a class="chip" href="#d-2026-10-31">October 31, 2026</a><a class="chip" href="#d-2026-10-29">October 29, 2026</a><a class="chip" href="#d-2026-10-28">October 28, 2026</a><a class="chip" href="#d-2026-10-27">October 27, 2026</a></nav>
   </section>
-  <details class="panel day" id="d-2026-11-02" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, your keys leave the database, and RF Recon now says how far to trust each finding.</span></span><span class="tag n">48 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+  <details class="panel day" id="d-2026-11-04" open data-default="1"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 4, 2026</h2><span class="sum">Prospects gains malls, arenas, hotels, venues, high-rises and more with their published emails; shipping estimates on supplier quotes; a true-north phone compass for Find a signal; the web and phone versions catch up.</span></span><span class="tag n">8 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>Prospects: large and high-traffic buildings.</b> Beside the schools, colleges and hospitals: 327,000 malls, stadiums and arenas, hotels, convention centres and venues, casinos, airports, transit stations, government buildings, warehouses and parking garages from Overture Maps places, 38% of them with a published email. Each is ranked by the market research and says who to approach.</li>
+<li><b>High-rises.</b> Buildings 75 ft or 7 floors and up from Overture building heights: kept for each mission area and found anywhere with Find high-rises here (90 within 3 miles of downtown Birmingham, AL in 22 seconds). A hotel or office in a tall building is one row, with the business&#x27;s own contacts; a building known only by a tenant inside gets no email, and its phone is marked as the tenant&#x27;s.</li>
+<li><b>Find email.</b> For a building with a website and no email, Find email reads its home and contact pages (robots.txt honoured) for the address it publishes, and puts it on the row. Nothing is guessed; when a site publishes none, it says so.</li>
+<li><b>Shipping estimates.</b> Estimate shipping on a request for quote asks Shippo for UPS, FedEx and USPS rates from each supplier&#x27;s ship-from address to the job, for the parts&#x27; weights, and puts the cheapest on the quote marked est., with the fastest beside it. A shipping price a supplier gave is never replaced, and one typed in later replaces the estimate. Each part has a shipping weight and each supplier a ship-from address; over 150 lb is said to be freight (LTL), not priced.</li>
+<li><b>A compass you can trust on a phone.</b> Find a signal reads the phone&#x27;s compass flat (the top edge) or upright (the camera side, tilt-compensated), with the screen turned either way; averages the last second and shows how steady it is; says when iOS reports it uncalibrated or the reading jumps (figure 8, away from cars and metal); stops using a compass that went quiet; and turns every bearing to true north with NOAA&#x27;s World Magnetic Model 2025 at your position (about 10.7 degrees in Arlington, VA). Typed bearings say whether they&#x27;re magnetic or true.</li>
+<li><b>Web and phone versions.</b> The full web version now has Materials (catalogue, spec sheets, packet), supplier quotes with online prices, the Pitch deck, Prospects from the pack and Find a signal. The phone app gains Find a signal, worked out on the phone (it matches the server&#x27;s estimate to the metre), and a read-only Prospects list.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>Names in capitals.</b> Lists that shout their names keep state codes and initials: VA Medical Center, not Va Medical Center.</li>
+<li><b>A status change kept the email.</b> Changing a prospect&#x27;s status no longer blanks an email found for it.</li>
+</ul></section>
+<section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
+<li><b>Server.</b> Deployed and checked on the server (8e71739): the view-only checks pass. Overture places and high-rises go live there once its tools Python (DuckDB) is set up; until then the server&#x27;s Prospects shows the school, college and hospital lists. The web and phone builds are made and tested here, not yet published.</li>
+</ul></section>
+<section class="grp g-costs"><h3><span class="gtag costs">Costs</span></h3><ul>
+<li><b>No change.</b> Overture Maps and NOAA&#x27;s model are free. Shippo rate quotes are free with its own key; no key is saved yet.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-11-03-pm" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 3, 2026, evening</h2><span class="sum">DAS gains a parts catalogue, supplier quotes, a pitch deck and a prospect finder; Find a signal hunts a rogue booster from a phone; a full UI sweep found and fixed 41 faults.</span></span><span class="tag n">14 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>DAS Prospects.</b> Buildings that often must have emergency responder radio coverage near a town, a job or the search pin: 100,252 public schools, 22,510 private schools, 5,977 colleges and 5,419 hospitals from US government lists (NCES, IPEDS, CMS), refreshed monthly. Each is ranked by the market research&#x27;s priority, says who to approach and why, and has a status (new, contacted, replied, meeting, won, not interested, do not contact). A first email opens in your own mail, never sent by RF Recon, with your mailing address and an opt-out as US CAN-SPAM requires; Do not contact takes the Email button away. + Job puts the building on the board as a Lead. A call list downloads as CSV.</li>
+<li><b>DAS Pitch.</b> A deck a DAS firm shows a building owner, built from 74 cited sources: why in-building coverage, value beyond the code minimum, the process and timeline, what we need from the customer and answers to common objections, the deliverables, the tools, and a compare section against national and regional integrators. Your firm&#x27;s details go on every slide; pick a job and a slide shows that building&#x27;s own pre-survey and design. Prints one slide per page.</li>
+<li><b>Supplier quotes.</b> One request for quote from a bill of materials to several suppliers at once: an email in your own mail per supplier, with need-by date and ship-to. Quotes are typed in or imported from the supplier&#x27;s sheet, then compared on price, shipping, lead time and arrival: cheapest, fastest and the best split across suppliers, with Use to put the winner&#x27;s prices on the bill of materials. Check online prices asks Mouser and Digi-Key when their free keys are saved.</li>
+<li><b>Parts catalogue.</b> A catalogue of parts with supplier price-list import, search, starred standard parts and a default quantity. Each part can carry its spec sheet (upload, or a link RF Recon fetches from the maker&#x27;s public page). Build spec sheets gathers every part&#x27;s sheet for the AHJ; the closeout packet downloads them with the bill of materials in one file.</li>
+<li><b>Find a signal.</b> A guided hunt for a rogue booster or interferer from a phone: stand, read the level (and the direction, if the phone has a compass), save; after three or more spots RF Recon shows where the source probably is, with a region that shrinks as you add readings, warmer or colder as you walk, and Put the pin there.</li>
+<li><b>System diagram for the AHJ.</b> The report and design submittal draw the system from donor antenna to the farthest antenna on each floor, with the bands, gains and losses from the link budget.</li>
+<li><b>More instruments.</b> Taken with lists every common grid-test instrument, and Add an instrument adds your own with its make, model, serial and calibration date.</li>
+<li><b>UI sweep.</b> A test that drives every tab at desktop, phone and phone-on-its-side sizes, for the faults found by hand and every class of fault our bug lists and testing research record: 685 checks, each with where the idea came from. It runs in the nightly check too.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>Pre-survey warnings.</b> A channel&#x27;s warning triangle opens a small pop-up that says what it means and what to do; it did nothing on click before. The pre-survey map fills its panel at every size.</li>
+<li><b>Building look-up.</b> The OpenStreetMap building panel shows the job&#x27;s own building first, asks two mirrors at once and says when it&#x27;s still asking, with Try again.</li>
+<li><b>41 faults from the sweep.</b> 8 high and 19 medium faults (saves that failed without a word, double presses that made two of a thing, a date a day off after 7 pm, Back that left the app, pages that drew into a tab you had already left) and the 14 low ones, each with its own check so it can&#x27;t come back.</li>
+<li><b>Long pop-ups.</b> How modelled and the other long panels close from the top and scroll inside their own box.</li>
+<li><b>Signed out.</b> A session that ended sends you to the sign-in page instead of showing errors.</li>
+<li><b>Server memory and maps.</b> The FCC extras load row by row (one state&#x27;s file ran the server out of memory), and a map tile USGS doesn&#x27;t have no longer counts as a failure.</li>
+</ul></section>
+<section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
+<li><b>Server.</b> Deployed and checked on the server after each change (5f74286 and the Pitch and Prospects change after it). The server downloads the prospect lists on its first monthly update.</li>
+</ul></section>
+<section class="grp g-costs"><h3><span class="gtag costs">Costs</span></h3><ul>
+<li><b>No change.</b> The prospect lists, OpenStreetMap and the spec sheets are free. Mouser and Digi-Key price checks are free with their own keys. Automatic web search for spec sheets would need a paid search key (about $5 a month), not added.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-11-03" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 3, 2026</h2><span class="sum">RF Recon lives on the 24/7 server now; Meshtastic, Helium and RadioID arrive, and national carrier coverage loads in hours, not days.</span></span><span class="tag n">11 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+<li><b>The server is home.</b> RF Recon lives on the 24/7 AWS server: the whole-US FCC data, carrier coverage, crowd data and the team&#x27;s DAS jobs are there. Cody&#x27;s PC keeps a second copy for work with no signal; the two don&#x27;t sync. Data &amp; updates&#x27; Ways in now starts with the server.</li>
+<li><b>Per-login build on the server.</b> Cody&#x27;s admin login gets the personal build with every source; team logins get the sold build. The server holds the WiGLE, aisstream, OpenCelliD and FCC broadband keys; the app never shows a key.</li>
+<li><b>Meshtastic mesh radios.</b> A map layer of Meshtastic nodes that share their position (meshmap.net), with their region&#x27;s channel frequency. Refreshed daily for each mission area.</li>
+<li><b>Helium hotspots.</b> Active Helium IoT hotspots for each mission area, weekly. Positions are the network&#x27;s own, blurred by Helium.</li>
+<li><b>Radio ID look-ups.</b> A DMR or NXDN reading with a radio ID gets a Who is it? button: call sign, name, city and country from RadioID.net, one look-up at a time as its terms require, kept 30 days.</li>
+<li><b>Shakopee, MN.</b> A third mission area on the server (15 miles), with Jacksonville and Wilmington, NC: crowd and open sources refresh for all three.</li>
+<li><b>FCC coverage checks and fixed wireless.</b> Cell sites, under Carrier coverage at the pin, now lists the FCC&#x27;s resolved challenges, verifications and audits of carrier coverage in that spot&#x27;s 0.7 km2 cell, and the licensed, unlicensed and LBR fixed wireless offered there with best speeds. A How modelled button per carrier shows the frequencies in its filed link budgets and the propagation tool, terrain, clutter and calibration it used. From the FCC Broadband Data Collection, same key as carrier coverage.</li>
+<li><b>Maps kept for each mission area.</b> The server keeps the four USGS base maps (to zoom 16) and terrain for every mission area, so maps and coverage estimates there work with no signal from the first visit. USGS allows tile export; OpenStreetMap and Esri tiles are still never kept.</li>
+</ul></section>
+<section class="grp g-fixed"><h3><span class="gtag fixed">Fixed</span></h3><ul>
+<li><b>OpenCelliD and PSKReporter timeouts.</b> A request that times out is tried twice more, and OpenCelliD keeps what it already fetched if a later part fails. The server now holds 2,372 OpenCelliD cells.</li>
+<li><b>Ways in.</b> Data &amp; updates&#x27; Ways in starts with the server as the main copy; the PC&#x27;s Tailscale link shows only on the PC.</li>
+<li><b>National carrier coverage in hours.</b> Loading many carrier files at once kept the map index up row by row, and the server&#x27;s disk managed one file every 22 minutes (24 of 518 in 9 hours). A big load now drops the index, appends, and builds it once at the end; look-ups say reloading meanwhile. It stops by itself before the disk drops under 8 GB free.</li>
+</ul></section>
+<section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
+<li><b>Server.</b> The main copy, always on, per-login build (f6a1fd3). Loading the June 2026 FCC carrier coverage for all 56 states and territories, the FCC extras and the mission-area maps.</li>
+<li><b>PC app.</b> A second copy for no signal, as the personal build. Its saved FCC broadband token has stopped working (the server&#x27;s works).</li>
+</ul></section>
+<section class="grp g-costs"><h3><span class="gtag costs">Costs</span></h3><ul>
+<li><b>No change.</b> $24 a month for the server, $3 a month for the snapshot while kept. Today&#x27;s downloads are free and fit the disk: national carrier coverage about 30 GB, the FCC extras about 1 GB, maps about 1.3 GB a mission area.</li>
+</ul></section></div></details><details class="panel day" id="d-2026-11-02" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>November 2, 2026</h2><span class="sum">RF Recon goes online 24/7, the DAS tab gains a cellular side, a Screening step and example jobs, your keys leave the database, and RF Recon now says how far to trust each finding.</span></span><span class="tag n">48 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
 <li><b>Online 24/7.</b> RF Recon now runs around the clock for invited people, at its own web address. Each person has their own login with a role: View (look, search, leave notes), Full (also DAS jobs, missions and notes) or Admin (also keys, updates and people). Eight wrong passwords lock a name for 15 minutes.</li>
 <li><b>Install it as an app.</b> RF Recon installs as an app on a PC (the install icon in Chrome or Edge&#x27;s address bar) or on a phone (Add to Home Screen).</li>
 <li><b>DAS Screening step.</b> A new step after Grid test judges each Grid test reading with its instrument&#x27;s published accuracy: likely pass, too close to call or likely fail. It lists market instruments only: PCTEL IBflex, Anritsu S412E, Epiq PRiSM and Nextivity COMPASS XR. Readings marked not calibrated are listed but not judged. The Grid test score and the Report don&#x27;t change.</li>
@@ -201,9 +263,14 @@ li b{font-weight:650}
 </ul></section>
 <section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
 <li><b>PC app.</b> Runs today&#x27;s version, as the personal build.</li>
-<li><b>Online server.</b> Runs the morning&#x27;s version; it gets the trust grades, the new layers and the sold build after its first full-US download finishes. It is a separate copy: a DAS job made on one isn&#x27;t on the other.</li>
+<li><b>Online server.</b> Runs today&#x27;s version (5dad943) as the sold build, deployed at 22:10 after its first whole-US download finished: 11,195,439 licences, 30,768,648 carrier coverage hexagons for SC, NC, MN, VA, MD and DC, 469 earth stations, 8,557 call centres and the Overture building extracts. It is a separate copy: a DAS job made on one isn&#x27;t on the other.</li>
 <li><b>Web version.</b> Has the DAS changes, the example jobs, the fixes and the trust grades, as the sold build.</li>
-<li><b>Install kits.</b> Installed copies offer the update in Data &amp; updates.</li>
+<li><b>Install kits.</b> The kit in Drive (13361f1) is the sold build with the trust grades, the new layers and the Overture fallback; the ellipses, coverage check and track record come with the next kit. Installed copies offer the update in Data &amp; updates.</li>
+</ul></section>
+<section class="grp g-costs"><h3><span class="gtag costs">Costs</span></h3><ul>
+<li><b>Online server.</b> $24 a month (AWS Lightsail, 4 GB memory, 80 GB disk, 4 TB of transfer, fixed address included). The $12 server ran 1.1 hours before it was replaced: $0.02. Spent on AWS for RF Recon to 22:30 on November 2: about $0.19.</li>
+<li><b>Upsize snapshot.</b> 60 GB kept as a fallback from the move to $24: $3 a month while kept. Delete it once the server has proven itself.</li>
+<li><b>Everything else.</b> $0: FCC, FAA, NOAA, Census and Overture data, GitHub Pages, the note mailer and the server&#x27;s downloads (every source since 11/2 night: about 1.3 GB a week, plus national carrier coverage once, about 30 GB on its disk; all inside its 4 TB).</li>
 </ul></section></div></details><details class="panel day" id="d-2026-10-31" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 31, 2026</h2><span class="sum">The web version becomes the PC app in a browser and fits phones; notes, booster grants and calibrated grid scoring arrive.</span></span><span class="tag n">24 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
 <li><b>Web version fits phones.</b> The full app and the web version fit a phone, upright or on its side: one column, the header scrolls away, the tab bar sticks to the top, tabs scroll sideways and the filters start folded.</li>
 <li><b>RF Recon lite (beta).</b> The phone app is renamed RF Recon lite (beta).</li>
@@ -318,7 +385,7 @@ li b{font-weight:650}
 </ul></section>
 <section class="grp g-where-it-is"><h3><span class="gtag where-it-is">Where it is</span></h3><ul>
 <li><b>Web version.</b> Coverage and network work there. Cell sites, carrier coverage and DAS jobs stay on the PC for now.</li>
-</ul></section></div></details><details class="panel day" id="d-2026-10-27" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 27, 2026</h2><span class="sum">RF Recon (beta) arrives: the PC app, map layers, the Area report, the spectrum view, broadcast, NOAA and FAA layers, and the first phone app.</span></span><span class="tag n">41 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
+</ul></section></div></details><details class="panel day" id="d-2026-10-27" data-default="0"><summary><span class="chev" aria-hidden="true"></span><span class="sh"><h2>October 27, 2026</h2><span class="sum">RF Recon (beta) arrives: the PC app, map layers, the Area report, the spectrum view, broadcast, NOAA and FAA layers, and the first phone app.</span></span><span class="tag n">40 changes</span></summary><div class="body"><section class="grp g-new"><h3><span class="gtag new">New</span></h3><ul>
 <li><b>RF Recon (beta).</b> The first version: FCC licences and towers around a pin, with Map, Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, Mission and Data &amp; updates tabs, in its own window on the PC.</li>
 <li><b>Area report.</b> Everything licensed around a pin: a one-sentence summary that follows the filters, tiles you can drill into, a bands table, predicted coverage per band, technologies and every licensed frequency. It prints.</li>
 <li><b>Unlisted signals.</b> Every capture and crowd point is checked against FCC licences on that frequency within 40 miles and against known unlicensed uses. What&#x27;s left is Unlisted, sorted first and drawn in red.</li>
@@ -343,7 +410,6 @@ li b{font-weight:650}
 <li><b>Topology.</b> The plain mouse wheel scrolls the page; Ctrl+wheel or pinch zooms. Zoom buttons, find a node, layouts, full screen and a legend.</li>
 <li><b>Data freshness.</b> Every source shows how old its data is and when the next check comes.</li>
 <li><b>Smaller updates.</b> FCC licence and tower updates download only files newer than the saved copy.</li>
-<li><b>Phone tether.</b> A phone tethered over USB counts as cellular, so Wi-Fi-only updates wait.</li>
 <li><b>Filtered towers.</b> With a frequency or text filter on, towers show only when they carry a matching licence.</li>
 <li><b>Connection status.</b> Recovers by itself after a brief dropout.</li>
 <li><b>Tap targets.</b> Controls are at least 44 pixels on phones.</li>

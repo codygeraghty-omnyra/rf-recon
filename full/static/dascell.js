@@ -165,7 +165,7 @@ function dasCellConsent(j, carrier){
       <tr><td>Installer contact</td><td>${esc(me?[me.name, me.org, me.phone, me.email].filter(Boolean).join(" · "):blank)}</td></tr></tbody></table>
     <p>Gain, AGC, oscillation shutdown and band settings will be set to the FCC limits and your requirements, and the booster will be shut off at your request (47 CFR 20.21(d)). Please confirm by letter or email naming the bands you consent to, with any conditions (FCC 13-21 ¶112), or tell us your own process.${carrier==="T-Mobile"?" Our In-Building Telecommunications Agreement (Rebroadcast Agreement) with its Exhibit A is attached.":""}</p>
     <p>Consent given by: ______________________________ Title: ____________________ Date: ____________</p>
-    <p>Thank you,<br>${esc(me?[me.name, me.org, me.phone, me.email].filter(Boolean).join("<br>"):"")}</p></div>`;
+    <p>Thank you,<br>${me?[me.name, me.org, me.phone, me.email].filter(Boolean).map(esc).join("<br>"):""}</p></div>`;
   document.body.appendChild(box); document.body.classList.add("print-das"); window.print();
   setTimeout(()=>{ document.body.classList.remove("print-das"); box.remove(); },500);
 }

@@ -12,6 +12,7 @@ FCC sign-in email; the FCC's API terms apply.
 import io
 import json
 import os
+import shutil
 import sqlite3
 import struct
 import time
@@ -34,15 +35,30 @@ STATES = {"AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "C
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS bdc_hex(file_id INTEGER, state TEXT, provider INTEGER, tech INTEGER, mindown INTEGER, minup INTEGER,
     minsignal INTEGER, env INTEGER, h3 INTEGER, lat REAL, lon REAL);
-CREATE INDEX IF NOT EXISTS bdc_ll ON bdc_hex(lat, lon);
 CREATE TABLE IF NOT EXISTS bdc_provider(provider INTEGER PRIMARY KEY, brand TEXT, frn TEXT);
 CREATE TABLE IF NOT EXISTS bdc_file(file_id INTEGER PRIMARY KEY, as_of TEXT, state TEXT, provider INTEGER, tech INTEGER, speed TEXT,
     records INTEGER, loaded_at TEXT);
 """
+INDEX = "CREATE INDEX IF NOT EXISTS bdc_ll ON bdc_hex(lat, lon)"
+# A run with this many files to load (a new release, or more states) drops the lat/lon index, appends, and builds the
+# index once at the end. Kept up row by row, the index outgrew memory: on the server's 240 reads a second each file took
+# about 22 minutes (11/3, national coverage: 24 of 518 files in 9 hours). While the index is down, look-ups answer
+# "reloading" instead of scanning the whole table.
+BULK_FILES = 20
+DISK_FLOOR_GB = 8  # stop loading before the disk gets this low (national coverage is about 30 GB)
 
 
 def db_path(data_dir):
     return os.path.join(data_dir, "bdc.db")
+
+
+def loading_marker(data_dir):
+    return db_path(data_dir) + ".loading"
+
+
+def reloading(data_dir):
+    """True while a bulk load has the index down (see BULK_FILES)."""
+    return os.path.exists(loading_marker(data_dir))
 
 
 def connect(data_dir):
@@ -52,6 +68,8 @@ def connect(data_dir):
     con.execute("PRAGMA journal_mode=WAL")
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    if not reloading(data_dir):
+        con.execute(INDEX)
     return con
 
 
@@ -184,9 +202,26 @@ def run(data_dir, creds, states, log=print):
         done = {r[0] for r in con.execute("SELECT file_id FROM bdc_file WHERE as_of=?", (as_of,))}
         todo = [f for f in files if int(f["file_id"]) not in done]
         log(f"{len(files)} carrier files for {', '.join(states)} (release {as_of}); {len(todo)} to load")
+        bulk = len(todo) >= BULK_FILES or reloading(data_dir)  # a stopped bulk load resumes as one
+        if bulk:
+            with open(loading_marker(data_dir), "w", encoding="utf-8") as fh:
+                fh.write(as_of)
+            con.execute("DROP INDEX IF EXISTS bdc_ll")
+            con.execute("PRAGMA cache_size=-262144")  # 256 MB
+            # an older release of these states goes first: two national releases don't fit on the disk
+            old = [r[0] for r in con.execute("SELECT file_id FROM bdc_file WHERE as_of<>? AND state IN (%s)" % ",".join("?" * len(states)), (as_of, *states))]
+            if old:
+                log(f"clearing the older release ({len(old)} files) before loading {as_of}")
+                con.execute("DELETE FROM bdc_hex WHERE file_id IN (%s)" % ",".join("?" * len(old)), old)
+                con.execute("DELETE FROM bdc_file WHERE file_id IN (%s)" % ",".join("?" * len(old)), old)
+                con.commit()
         tmp = os.path.join(data_dir, "bdc_download.zip")
         total, missed = 0, []
         for i, f in enumerate(todo, 1):
+            free_gb = shutil.disk_usage(data_dir).free / 1e9
+            if free_gb < DISK_FLOOR_GB:
+                raise RuntimeError(f"Stopped at {i - 1} of {len(todo)} files: {free_gb:.1f} GB left on the disk (the floor is {DISK_FLOOR_GB} GB). "
+                                   "What loaded stays; free space or add disk, then run it again.")
             if _download(creds, f["file_id"], tmp):
                 total += load_file(con, tmp, f["state"], dict(f, as_of=as_of))
             else:
@@ -203,9 +238,13 @@ def run(data_dir, creds, states, log=print):
             con.execute("DELETE FROM bdc_hex WHERE file_id IN (%s)" % ",".join("?" * len(old)), old)
             con.execute("DELETE FROM bdc_file WHERE file_id IN (%s)" % ",".join("?" * len(old)), old)
             con.commit()
-        n = con.execute("SELECT COUNT(*) FROM bdc_hex").fetchone()[0]
+        n = con.execute("SELECT SUM(records) FROM bdc_file").fetchone()[0] or 0
         return {"as_of": as_of, "loaded": total, "hexagons": n, "states": states}
     finally:
+        if reloading(data_dir):  # the index goes back up however the run ended, so look-ups work again
+            log("building the coverage index (one pass; look-ups answer again when it's done)")
+            con.execute(INDEX)
+            os.remove(loading_marker(data_dir))
         con.close()
 
 
@@ -218,6 +257,8 @@ def at(data_dir, lat, lon):
     """Which carriers cover this spot: per carrier and technology, the best tier, the strongest modelled signal and where."""
     if not os.path.exists(db_path(data_dir)):
         return {"carriers": [], "loaded": False}
+    if reloading(data_dir):
+        return {"carriers": [], "loaded": False, "reloading": True}
     con = connect(data_dir)
     try:
         s, n, w, e = _box(lat, lon, 0.2)  # a hexagon is about 0.35 km across: its centre is within 0.2 km
@@ -252,7 +293,7 @@ def describe(data_dir, provider):
 
 def carriers(data_dir, s, n, w, e):
     """The carriers and technologies with coverage in a box (for the heatmap's pickers)."""
-    if not os.path.exists(db_path(data_dir)):
+    if not os.path.exists(db_path(data_dir)) or reloading(data_dir):
         return []
     con = connect(data_dir)
     try:
@@ -270,6 +311,8 @@ def paint(data_dir, grid, provider, tech, env=None, mindown=None):
     import math
     if not os.path.exists(db_path(data_dir)):
         raise ValueError("No carrier coverage loaded yet: pick states in Data & updates (FCC carrier coverage) and run it.")
+    if reloading(data_dir):
+        raise ValueError("Carrier coverage is reloading (a new FCC release or more states): back when the load finishes. Data & updates shows its progress.")
     con = connect(data_dir)
     try:
         q = "SELECT lat, lon, minsignal FROM bdc_hex WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND provider=? AND tech=?"

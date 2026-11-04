@@ -858,6 +858,8 @@ async function route(path, p, method, body) {
   }
   if (path === "/bdc/carriers") return {carriers: []};  // carrier coverage stays on the PC
   if (path === "/bdc/at") return {carriers: [], loaded: false};
+  if (path === "/bdc/near") return {cell: null, checks: [], fixed_wireless: []};
+  if (path === "/bdc/modelled") return {models: [], frequencies: []};
   if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
   if (path === "/sigwiki/match") return {candidates: await sigwikiMatch(fnum(p, "freq"), fnum(p, "bw"), fstr(p, "type"), fnum(p, "limit", 5))};
@@ -866,6 +868,8 @@ async function route(path, p, method, body) {
   if (path === "/build") { const r = await realFetch("build.json"); return r.ok ? r.json() : null; }  // publish.py writes it from build.py: the sold build
   if (path === "/net/hint") return STUB_STATUS();
   if (path === "/fieldpacks") return {packs: [], folder: "", phone_url: "../", job: {running: false, log: []}};  // packs are made on the PC
+  if (path === "/update/run" && /das_prospects/.test(typeof body === "string" ? body : ""))  // DAS Prospects' "Download them now"
+    throw new Error("The prospect lists download on the PC or server. Here they come in the field pack: load a pack made since 11/4 for this area (Packs).");
   const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;
 }
 
@@ -994,6 +998,9 @@ const realFetch = window.fetch.bind(window);
 window.fetch = async (input, opts) => {
   let u;
   try { u = new URL(typeof input === "string" ? input : input.url, location.href); } catch (e) { return realFetch(input, opts); }
+  // the PC's screens fetch their research as /static/...: here static/ sits beside this page (full/static/)
+  if (u.origin === location.origin && u.pathname.startsWith("/static/") && !location.pathname.startsWith("/static/"))
+    return realFetch(new URL(u.pathname.slice(1) + u.search, location.href), opts);
   if (u.origin !== location.origin || !u.pathname.startsWith("/api/")) return realFetch(input, opts);
   await ready;
   const reply = (status, obj) => new Response(JSON.stringify(obj), {status, headers: {"Content-Type": "application/json"}});

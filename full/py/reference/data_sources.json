@@ -163,7 +163,7 @@
    "cost": "Free",
    "terms": "No terms published; no direct browser connections",
    "area": "Yes (box, live stream only)",
-   "status": "In RF Recon: the map's Ships (AIS, live) layer, PC only; streams only while the layer is on",
+   "status": "In RF Recon: the map's Ships (AIS, live) layer, for the owner only (Cody's PC, and his admin login on the 24/7 server); streams only while the layer is on",
    "keys": [
     "aisstream_key"
    ]
@@ -209,6 +209,38 @@
    "where_key": "broadbandmap.fcc.gov > sign in > Manage API Access > Generate (the token pairs with your FCC sign-in email)"
   },
   {
+   "name": "FCC Broadband Data Collection: coverage checks, fixed wireless, link budgets",
+   "updater": [
+    "bdc_extra"
+   ],
+   "url": "https://broadbandmap.fcc.gov/data-download",
+   "what": "The FCC's resolved mobile coverage challenges, verifications and audits (where claimed coverage was tested on the ground), who offers licensed, unlicensed and LBR fixed wireless where, and each carrier's filed link budgets (frequencies, bandwidths, antennas) and propagation tools",
+   "key": "Free FCC account for the API (the same token as carrier coverage)",
+   "cost": "Free",
+   "terms": "US government data; the API allows 10 calls a minute",
+   "area": "H3 cells of about 0.7 km2 (checks, fixed wireless); per provider (link budgets)",
+   "status": "In RF Recon from 2026-11-03: Cell sites, under Carrier coverage at the pin, and How modelled per carrier. Left out: wired broadband, summaries, raw coverage polygons (about 82 GB), the Funding Map, and Location Fabric points (CostQuest licence)",
+   "keys": [
+    "fcc_bdc_username",
+    "fcc_bdc_token"
+   ],
+   "signup": "https://broadbandmap.fcc.gov/login",
+   "where_key": "broadbandmap.fcc.gov > sign in > Manage API Access > Generate"
+  },
+  {
+   "name": "Map tiles and terrain kept for mission areas",
+   "updater": [
+    "tiles"
+   ],
+   "url": "https://basemap.nationalmap.gov/arcgis/rest/services",
+   "what": "The four USGS base maps (to zoom 16) and AWS terrain tiles for each mission area, kept so maps and coverage estimates work there with no signal",
+   "key": "none",
+   "cost": "Free (about 1.3 GB of disk an area)",
+   "terms": "USGS: public domain, tile export allowed (checked 2026-11-03); terrain: AWS open data, credit Tilezen's sources. OpenStreetMap and Esri tiles are never kept",
+   "area": "Each mission area",
+   "status": "In RF Recon from 2026-11-03"
+  },
+  {
    "name": "FCC Equipment Authorization (FCC ID)",
    "url": "https://www.fcc.gov/oet/ea/fccid",
    "what": "A device's grants (look up any FCC ID), and every grantee code's company, kept on this PC",
@@ -243,7 +275,7 @@
    "cost": "Free",
    "terms": "No mirroring, bulk export or competing directory",
    "area": "No (city / state)",
-   "status": "Could add (look-ups only)"
+   "status": "In RF Recon from 2026-11-03: look-ups only, from a DMR or NXDN reading's details (one ID when asked, kept 30 days)"
   },
   {
    "name": "PSKReporter",
@@ -302,7 +334,10 @@
    "cost": "Free",
    "terms": "Not stated",
    "area": "No (paged list of about a million)",
-   "status": "Could add (bulk)"
+   "status": "In RF Recon from 2026-11-03: active Helium IoT hotspots for each mission area; reads the whole network (about 190 MB) a week, so on for the 24/7 server and off by default",
+   "updater": [
+    "helium"
+   ]
   },
   {
    "name": "Meshtastic map (meshmap.net)",
@@ -312,7 +347,10 @@
    "cost": "Free",
    "terms": "Data terms not stated",
    "area": "No (one file)",
-   "status": "Could add"
+   "status": "In RF Recon from 2026-11-03: the Meshtastic mesh radios layer, for each mission area (one 4 MB list a day)",
+   "updater": [
+    "meshtastic"
+   ]
   },
   {
    "name": "Ookla open data",

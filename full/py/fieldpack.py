@@ -3,7 +3,10 @@ Field packs: one area's public data for the RF Recon phone app.
 
 A pack is a gzip-compressed SQLite file (.rfpack) holding only what the phone needs, worked out in advance:
 active FCC licences (with band and signal type), towers, broadcast, NOAA Weather Radio, FAA, place names, 911 call
-centres and the microwave links with an end in the area. A history file (build_history) holds the area's expired,
+centres and the microwave links with an end in the area, and the DAS prospect lists' buildings in the area (every kind
+prospects.db has: schools, colleges and hospitals from US government lists, Overture places and high-rises), which
+the web version's DAS Prospects and the phone's read offline (web/webhost.py, phone/das.js), with the whole country's
+counts in meta (prospect_counts). A history file (build_history) holds the area's expired,
 cancelled and removed licences for the web version's history layer, and one grantee file (build_grantee) the FCC's
 equipment-maker codes for its FCC ID look-ups; the phone app reads neither.
 It never carries missions, captures, labels, settings or keys, and none of the crowd layers or the Signal ID
@@ -26,12 +29,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import faa  # noqa: E402
 import geo  # noqa: E402
+import paths  # noqa: E402
+import prospects  # noqa: E402
 import psap  # noqa: E402
 import sigid  # noqa: E402
 import uls_import  # noqa: E402
 
 PACK_VERSION = 1
-PACK_DIR = os.environ.get("RF_RECON_PACKS") or os.path.join(os.path.dirname(HERE), "field packs")
+PACK_DIR = os.environ.get("RF_RECON_PACKS") or os.path.join(paths.ROOT, "field packs")
 BIG_MB = 300  # unpacked size a phone can hold in memory comfortably; bigger packs get a warning
 
 SCHEMA = """
@@ -62,12 +67,39 @@ CREATE TABLE mw_link(usi INTEGER, call_sign TEXT, licensee TEXT, service TEXT, p
     rx_state TEXT, rx_reg TEXT, rx_call TEXT, dist_km REAL, freqs TEXT, path_type TEXT, passive TEXT,
     UNIQUE(usi, path_num, tx_lat, tx_lon, rx_lat, rx_lon));
 """
+# the DAS prospect lists' columns, as prospects.near / get / counts read them (prospects.COLS: kept in step by
+# importing it; the refresh's run number stays on the PC)
+PROSPECT_COLS = list(prospects.COLS)
+SCHEMA += "CREATE TABLE prospect(" + ", ".join(
+    c + (" TEXT PRIMARY KEY" if c == "id" else " REAL" if c in ("lat", "lon", "size") else " TEXT") for c in PROSPECT_COLS) + ");"
 INDEXES = """
 CREATE INDEX tx_latlon ON tx(lat, lon); CREATE INDEX tx_freq ON tx(freq_mhz); CREATE INDEX tx_call ON tx(call_sign);
 CREATE INDEX tower_latlon ON tower(lat, lon); CREATE INDEX bcast_latlon ON bcast(lat, lon);
 CREATE INDEX nwr_latlon ON nwr(lat, lon); CREATE INDEX faa_latlon ON faa(lat, lon); CREATE INDEX place_name ON place(name);
 CREATE INDEX psap_latlon ON psap(lat, lon); CREATE INDEX mw_tx ON mw_link(tx_lat, tx_lon); CREATE INDEX mw_rx ON mw_link(rx_lat, rx_lon);
+CREATE INDEX prospect_ll ON prospect(lat, lon);
 """
+# every kind prospects.db has for the area goes in (Cody 11/4). Packs go on the public site: the US government lists are
+# public domain, Overture places permissive with attribution, and the high-rises (prospects.highrises, Overture
+# buildings) ODbL, share-alike; a source named here would be left out
+PROSPECT_SKIP_SOURCES = ("overture_highrises",)  # ODbL share-alike, per mission area: kept off the public packs
+
+
+def prospects_db(src_path):
+    """The DAS prospect lists beside the FCC database (prospects.db_path: the same data folder), or None."""
+    p = os.path.join(os.path.dirname(os.path.abspath(src_path)), "prospects.db")
+    return p if os.path.isfile(p) else None
+
+
+def prospect_counts(con):
+    """The whole country's counts by kind and the lists' date, as prospects.counts gives them (DAS Prospects says
+    "N in the US" beside each kind)."""
+    skip = f" WHERE COALESCE(source, '') NOT IN ({','.join('?' * len(PROSPECT_SKIP_SOURCES))})" if PROSPECT_SKIP_SOURCES else ""
+    out = {k: n for k, n in con.execute(f"SELECT kind, COUNT(*) FROM prospect{skip} GROUP BY kind", PROSPECT_SKIP_SOURCES)}
+    out["updated"] = con.execute(f"SELECT MAX(updated) FROM prospect{skip}", PROSPECT_SKIP_SOURCES).fetchone()[0]
+    return out
+
+
 TX_COLS = ("id usi call_sign service service_name licensee category grant_date expired_date loc_num address city county state "
            "lat lon ground_elev_m radius_km is_mobile ant_num height_tip_m haat_m gain_dbi azimuth station_class freq_mhz "
            "freq_upper_mhz power_out_w erp_w units emissions bandwidth_khz mode tolerance tx_make tx_model digital_mod "
@@ -148,9 +180,12 @@ def trimmed_bbox(con, states=None, trim=0.002, pad=0.05):
     return [round(lats[k] - pad, 5), round(lats[-1 - k] + pad, 5), round(lons[k] - pad, 5), round(lons[-1 - k] + pad, 5)]
 
 
-def build(src_path, out_path, states=None, center=None, radius_mi=None, name=None, log=print, areas=None):
+def build(src_path, out_path, states=None, center=None, radius_mi=None, name=None, log=print, areas=None, prospects="auto"):
     """Write one pack: states, or a centre and radius, or several of those (`areas`, a list of {"states": [...]} or
-    {"center": (lat, lon), "radius_mi": r, "label": "..."}). Returns its summary (counts, sizes)."""
+    {"center": (lat, lon), "radius_mi": r, "label": "..."}). prospects: the DAS prospect lists' file ("auto": the
+    prospects.db beside src_path, when there is one; None: none). Returns its summary (counts, sizes)."""
+    if prospects == "auto":
+        prospects = prospects_db(src_path)
     if not areas:
         if states:
             areas = [{"states": states}]
@@ -164,6 +199,13 @@ def build(src_path, out_path, states=None, center=None, radius_mi=None, name=Non
     t0 = time.time()
     src = sqlite3.connect(f"file:{src_path}?mode=ro", uri=True)
     src.row_factory = sqlite3.Row
+    pros = None
+    if prospects and os.path.isfile(prospects):
+        pros = sqlite3.connect(f"file:{prospects}?mode=ro", uri=True)  # read only: its refresh may be writing (WAL)
+        pros.row_factory = sqlite3.Row
+        if not has_table(pros, "prospect"):
+            pros.close()
+            pros = None
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     tmp_db = os.path.join(uls_import.DATA_DIR, "fieldpack.building.db")  # built on this PC, not in the Drive folder
     for p in (tmp_db, out_path + ".part"):
@@ -207,6 +249,11 @@ def build(src_path, out_path, states=None, center=None, radius_mi=None, name=Non
                 for side in ("tx", "rx"):
                     w, a2, k = side_where(side, states, center, radius_mi)
                     copy_rows(src, dst, "mw_link", MW_COLS, w, a2, k)
+            if pros:  # the buildings DAS Prospects finds near a spot: placed ones only (near() needs a position)
+                have = {r[1] for r in pros.execute("PRAGMA table_info(prospect)")}  # an older list may lack a newer column
+                skip = f" AND COALESCE(source, '') NOT IN ({','.join('?' * len(PROSPECT_SKIP_SOURCES))})" if PROSPECT_SKIP_SOURCES else ""
+                copy_rows(pros, dst, "prospect", [c for c in PROSPECT_COLS if c in have],
+                          f"({where}) AND lat IS NOT NULL AND lon IS NOT NULL{skip}", args + list(PROSPECT_SKIP_SOURCES), keep)
         if bboxes:  # towns are averages of licence sites, so a misfiled licence makes a stray one ("Boston, MD")
             dst.execute("DELETE FROM place WHERE NOT (" + " OR ".join(["(lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?)"] * len(bboxes)) + ")",
                         [v for b in bboxes for v in b])
@@ -214,7 +261,7 @@ def build(src_path, out_path, states=None, center=None, radius_mi=None, name=Non
         dst.executescript(INDEXES)
         counts = {k: dst.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
                   for k, t in (("licences", "tx"), ("towers", "tower"), ("broadcast", "bcast"), ("noaa", "nwr"), ("faa", "faa"), ("places", "place"),
-                               ("psap", "psap"), ("mw_links", "mw_link"))}
+                               ("psap", "psap"), ("mw_links", "mw_link"), ("prospects", "prospect"))}
         bb = [min(b[0] for b in bboxes), max(b[1] for b in bboxes), min(b[2] for b in bboxes), max(b[3] for b in bboxes)] if bboxes else None
 
         def area_meta(a):
@@ -241,12 +288,16 @@ def build(src_path, out_path, states=None, center=None, radius_mi=None, name=Non
             "services": uls_import.SERVICE_NAMES,
             "psap_source_date": psap.SOURCE_DATE,  # the 911 registry's date, shown in each call centre's details
         }
+        if pros:
+            meta["prospect_counts"] = prospect_counts(pros)
         dst.executemany("INSERT INTO meta VALUES(?, ?)", [(k, json.dumps(v)) for k, v in meta.items()])
         dst.commit()
         dst.execute("VACUUM")
     finally:
         dst.close()
         src.close()
+        if pros:
+            pros.close()
 
     raw, size = compress(tmp_db, out_path, log)
     out = {"name": name, "file": out_path, "counts": counts, "raw_mb": round(raw / 1e6, 1), "mb": round(size / 1e6, 1),
@@ -361,6 +412,7 @@ def main():
                     help="an area around a point; repeat it, and add --states, for one pack of several areas")
     ap.add_argument("--name")
     ap.add_argument("--out", help=f"file to write (default: {PACK_DIR}\\<name>.rfpack)")
+    ap.add_argument("--prospects", default="auto", help="the DAS prospect lists (default: prospects.db beside --db); 'none' to leave them out")
     a = ap.parse_args()
     areas = [{"states": a.states.split(",")}] if a.states else []
     if a.center and a.radius:
@@ -373,7 +425,7 @@ def main():
     name = a.name or " + ".join(", ".join(x["states"]).upper() if x.get("states") else x.get("label") or
                                 f"{x['center'][0]:.3f}, {x['center'][1]:.3f} {x['radius_mi']:g} mi" for x in areas)
     out = a.out or os.path.join(PACK_DIR, f"RF Recon pack - {safe_name(name)}.rfpack")
-    r = build(a.db, out, name=name, areas=areas)
+    r = build(a.db, out, name=name, areas=areas, prospects=None if a.prospects.lower() == "none" else a.prospects)
     print(json.dumps(r, indent=1))
     if r["big"]:
         print(f"Note: {r['raw_mb']} MB unpacked is large for a phone; a radius pack keeps it smaller.")

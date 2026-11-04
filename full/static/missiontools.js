@@ -39,6 +39,7 @@ window.missionTools = async (v, m) => {
   for(const p of T.points) p.t = mtTime(p.ts);
   T.points = T.points.filter(p => p.t != null).sort((a, b) => a.t - b.t);
   T.track = T.track.map(([ts, lat, lon]) => [mtTime(ts), lat, lon]).filter(x => x[0] != null).sort((a, b) => a[0] - b[0]);
+  if(!box.isConnected) return;  // the Mission tab was left while this loaded (11/3: threw on fast tab switching)
   box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
       <h3 style="margin:0">This mission over time</h3>
       <div class="seg" id="mtSeg">${MT_VIEWS.map(([k, l]) => `<button data-v="${k}" class="${M.view === k ? "on" : ""}">${l}</button>`).join("")}</div></div>

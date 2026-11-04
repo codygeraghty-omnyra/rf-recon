@@ -54,14 +54,29 @@ const DAS_ROLES = [["ahj", "AHJ / fire marshal"], ["owner", "Building owner"], [
 
 // the AHJ report prints on its own (the rest of the page is hidden while it prints)
 document.head.insertAdjacentHTML("beforeend", `<style>@media print{body.print-das *{visibility:hidden}body.print-das #dasPrint,body.print-das #dasPrint *{visibility:visible}
-  body.print-das #dasPrint{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;border:0;box-shadow:none}body.print-das #dasPrint .hint{color:#444}}</style>`);
+  body.print-das #dasPrint{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;border:0;box-shadow:none}body.print-das #dasPrint .hint{color:#444}
+  body.print-das #dasPrint td,body.print-das #dasPrint th{white-space:normal;overflow-wrap:anywhere}}</style>`);  /* tables wrap on paper: the app's td nowrap cut letters' uplink channels off the page (11/3) */
+// a short line at the foot of the window for a DAS save that failed; it stays 8 s (no toast existed before 11/3)
+function dasSay(t){ let b=document.getElementById("dasSay");
+  if(!b){ b=Object.assign(document.createElement("div"), {id:"dasSay", role:"alert"}); b.className="status err"; b.style.cssText="position:fixed;left:16px;bottom:16px;z-index:3000;max-width:min(520px,calc(100vw - 32px));margin:0;box-shadow:var(--g-shadow-up)"; document.body.appendChild(b); }
+  b.textContent=t; b.style.display="block"; clearTimeout(dasSay.t); dasSay.t=setTimeout(()=>{ b.style.display="none"; }, 8000); }  // display, not hidden: .status sets its own
+// Print one page of a job (the AHJ report, the design submittal) the way the consent letters print: a copy attached
+// to <body>. Printed in place it sat inside #view, which the Search print sheet's rule hides, and came out blank (11/3).
+function dasPrintCopy(el){
+  const box=el.cloneNode(true); el.removeAttribute("id"); box.id="dasPrint";
+  document.body.appendChild(box); document.body.classList.add("print-das"); window.print();
+  setTimeout(()=>{ document.body.classList.remove("print-das"); box.remove(); el.id="dasPrint"; },500);
+}
 const dasDl = (name, text, type) => { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),10000); };
 const csvOf = rows => { const keys=[]; for(const r of rows) for(const k of Object.keys(r)) if(!keys.includes(k)) keys.push(k);
   const c=v=>{ const s=v==null?"":String(v); return /[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
   return [keys.join(","), ...rows.map(r=>keys.map(k=>c(r[k])).join(","))].join("\r\n")+"\r\n"; };
 const fileSafe = s => (s||"job").replace(/[\\/:*?"<>|]+/g,"-").slice(0,80);
-const today = () => new Date().toISOString().slice(0,10);
-const addYear = d => { if(!d) return ""; const t=new Date(d+"T12:00:00"); t.setFullYear(t.getFullYear()+1); return t.toISOString().slice(0,10); };
+// the calendar date where the user is: toISOString() is the UTC date, which after 7 PM Eastern is tomorrow (11/3:
+// consent letters, reports and grid baselines were dated a day ahead in the evening)
+const ymd = t => `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+const today = () => ymd(new Date());
+const addYear = d => { if(!d) return ""; const t=new Date(d+"T12:00:00"); t.setFullYear(t.getFullYear()+1); return ymd(t); };
 const daysTo = d => d ? Math.round((Date.parse(d+"T12:00:00")-Date.now())/864e5) : null;
 
 S.views.das = async v => {
@@ -82,11 +97,12 @@ S.views.das = async v => {
   need.sort((a,b)=>a[2]-b[2]);
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <button class="primary" id="dsNew">+ New job</button>
-      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["prospects","Prospects"],["pitch","Pitch"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
       <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
       <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>
       <span class="hint">${(D.folder||"").startsWith("/rfr/") ? "Files for each job are kept in this browser."  /* the web version (web/webhost.py) */
+        : S.me ? "Files for each job are kept on the RF Recon server: open them from the job's Files."  /* a signed-in login never sees the server's folders (11/3) */
         : `Files for each job are kept in <span class="mono">${esc(D.folder||"")}</span>.`}</span></div>
     <p style="margin:2px 2px 10px"><b>${D.jobs.length} job${D.jobs.length===1?"":"s"}</b>${need.length?` · <b style="color:var(--warn)">${need.length} need${need.length===1?"s":""} you</b>`:" · nothing waiting on you"}</p>
     ${need.length?`<div class="panel"><h3>Needs you</h3>${need.slice(0,8).map(([j,t])=>`<div class="row" style="justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(j.name)}</b> <span class="hint">${esc(j.stage)}</span> · ${esc(t)}</span><button data-open="${j.id}">Open</button></div>`).join("")}</div>`:""}
@@ -100,7 +116,9 @@ S.views.das = async v => {
     api(`/api/das/search?q=${encodeURIComponent(D.q.trim())}`).then(res=>{ if(S.das!==D||D.q.trim().toLowerCase()!==q) return;
       box.innerHTML='<div class="panel"><h3 style="margin:0">Everything in DAS matching “'+esc(D.q.trim())+'”</h3><div id="dsFindOut"></div></div>'; findRender($("#dsFindOut"), res, D.q.trim()); })
       .catch(e=>{ box.innerHTML=`<p class="status err">${esc(e.message)}</p>`; }); }
-  if(D.view==="contacts") dasContacts(body);
+  if(D.view==="pitch"&&window.dasPitch) window.dasPitch(body);  // daspitch.js
+  else if(D.view==="prospects") window.dasProspects?window.dasProspects(body):(body.innerHTML='<p class="hint">Prospects is loading.</p>');  // dasprospects.js
+  else if(D.view==="contacts") dasContacts(body);
   else if(D.view==="data") dasData(body);
   else if(D.view==="list") body.innerHTML=jobs.length?`<div class="tw"><table><thead><tr><th>Job</th><th>Stage</th><th>Address</th><th>AHJ</th><th>Next step</th><th>Due</th><th>Retest due</th><th>Updated</th></tr></thead><tbody>${
       jobs.map(j=>`<tr data-open="${j.id}" style="cursor:pointer"><td><b>${esc(j.name)}</b></td><td>${esc(j.stage)}</td><td>${esc(j.address||"")}</td><td>${esc(j.ahj||"")}</td><td>${esc(j.next_step||"")}</td><td class="mono">${esc(j.due||"")}</td><td class="mono">${esc(j.retest_due||"")}</td><td class="mono">${esc((j.updated_at||"").slice(0,16))}</td></tr>`).join("")}</tbody></table></div>`
@@ -120,10 +138,12 @@ S.views.das = async v => {
       col.addEventListener("drop",async e=>{ e.preventDefault(); col.style.outline=""; if(dragId==null) return; const j=D.jobs.find(x=>x.id===dragId);
         if(j&&j.stage!==col.dataset.stage){ await post(`/api/das/jobs/${dragId}`,{stage:col.dataset.stage}); render(); } dragId=null; }); });
   }
-  v.querySelectorAll("[data-open]").forEach(el=>el.addEventListener("click",()=>{ D.job=+el.dataset.open; D.sub="overview"; render(); }));
+  v.querySelectorAll("[data-open]").forEach(el=>el.addEventListener("click",()=>{ D.job=+el.dataset.open; D.sub="overview"; D.rview=null; render(); }));
   $("#dsView").onclick=e=>{ const b=e.target.closest("button"); if(b){ D.view=b.dataset.v; render(); } };
   let t; $("#dsQ").oninput=e=>{ clearTimeout(t); t=setTimeout(()=>{ D.q=e.target.value; render(); const i=$("#dsQ"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },300); };
-  $("#dsNew").onclick=async()=>{ const p=parseLoc($("#loc").value); const j=await post("/api/das/jobs",{name:"New job",stage:"Lead",data:p?{lat:p[0],lon:p[1]}:{}}); D.job=j.id; D.sub="overview"; render(); };
+  $("#dsNew").onclick=async e=>{ const b=e.currentTarget; if(b.disabled) return; b.disabled=true;  // one press, one job (a double click made two, 11/3)
+    try{ const p=parseLoc($("#loc").value); const j=await post("/api/das/jobs",{name:"New job",stage:"Lead",data:p?{lat:p[0],lon:p[1]}:{}}); D.job=j.id; D.sub="overview"; render(); }
+    catch(err){ b.disabled=false; dasSay("The job wasn't made: "+err.message); } };
   $("#dsExpCsv").onclick=()=>dasDl("RF Recon DAS jobs.csv", csvOf(D.jobs.map(j=>({id:j.id,name:j.name,stage:j.stage,address:j.address,lat:j.lat,lon:j.lon,ahj:j.ahj,client:j.client,
     next_step:j.next_step,due:j.due,floors:Array.isArray(j.floors)?j.floors.length:"",accepted_on:j.accepted_on,retest_due:j.retest_due,...Object.fromEntries(DAS_CHECKS.map(([k])=>[k,(j.checks||{})[k]||""])),updated_at:j.updated_at}))), "text/csv");
   $("#dsExpJson").onclick=async()=>{ const full=[]; for(const j of D.jobs) full.push(await api(`/api/das/jobs/${j.id}`));
@@ -244,7 +264,8 @@ function dasContacts(el){
   el.querySelectorAll("tr[data-cid] input").forEach(i=>i.onchange=async()=>{ const tr=i.closest("tr"), d={}; tr.querySelectorAll("input").forEach(x=>d[x.dataset.f]=x.value);
     await post(`/api/das/contacts/${tr.dataset.cid}`, d); $("#dcMsg").textContent="Saved."; });
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{ await post(`/api/das/contacts/${b.dataset.del}/delete`); render(); });
-  $("#dcAdd").onclick=async()=>{ const d={}; $$("#dcNewRow input").forEach(x=>d[x.dataset.f]=x.value); if(!d.name&&!d.org) return; await post("/api/das/contacts", d); render(); };
+  $("#dcAdd").onclick=async()=>{ const d={}; $$("#dcNewRow input").forEach(x=>d[x.dataset.f]=x.value); if(!d.name&&!d.org) return;
+    try{ await post("/api/das/contacts", d); render(); }catch(e){ dasSay("The contact wasn't saved: "+e.message); } };  // a refusal shows (11/3)
   $("#dcImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const r=await api(`/api/das/contacts/import?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()});
       $("#dcMsg").textContent=`${r.found} found, ${r.added} added (the rest were already here).`; setTimeout(render,900); }catch(err){ $("#dcMsg").textContent="Import: "+err.message; } };
   $("#dcCsv").onclick=()=>dasDl("RF Recon contacts.csv", csvOf(cs.map(({id,updated_at,...c})=>c)), "text/csv");
@@ -257,7 +278,8 @@ async function dasJob(v, id){
   try{ j=await api(`/api/das/jobs/${id}`); }catch(e){ if(gen===D.gen){ D.job=null; render(); } return; }
   if(gen!==D.gen) return;  // the board or another job was drawn while this waited
   DASJ={...DAS, ...(((j.data||{}).profile)||{})};
-  const d=j.data||{}, save=async(patch,extra)=>{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); return j; };
+  // a refused save says so on screen and leaves the job as it was (11/3: it failed silently, only an unhandled rejection)
+  const d=j.data||{}, save=async(patch,extra)=>{ try{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch}); }catch(e){ dasSay("Not saved: "+e.message); } return j; };
   const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],["design","Design"],["materials","Materials"],["grid","Grid test"],["screen","Screening"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px"><button id="djBack">← All jobs</button>
       <input id="djName" value="${esc(j.name)}" style="font-size:18px;font-weight:700;min-width:260px">
@@ -333,8 +355,11 @@ function dasTerrainCell(s, t){
   const st=s.sites[0]; if(!t||!st||t.site!==`${st.lat},${st.lon}`) return "";
   if(t.error) return `<span class="hint">${esc(t.error)}</span>`;
   const word=t.status==="clear"?["clear","var(--good)"]:t.status.startsWith("Fresnel")?["partly blocked","var(--warn)"]:["blocked by terrain","var(--bad)"];
-  return `<span style="color:${word[1]}" title="${esc(`${t.status}; clearance ${t.clearance_f1} of the first Fresnel zone${t.worst_at_km!=null?`; worst point ${num(t.worst_at_km/1.609344,1)} mi from the site, ${t.worst_above_los_m} m above the line`:""}`)}">${word[0]}</span>`
-    + `${t.loss_db?` −${num(t.loss_db,0)} dB`:""}${s.best_in!=null?`<div class="hint">${num(s.best_in-(t.loss_db||0),0)} dBm inside</div>`:""}`;
+  // the detail shows under the word, not only on hover: a touch screen can't reach a hover tip (11/3)
+  const why=`clearance ${t.clearance_f1} of the first Fresnel zone${t.worst_at_km!=null?`; worst point ${num(t.worst_at_km/1.609344,1)} mi from the site, ${t.worst_above_los_m} m above the line`:""}`;
+  return `<span style="color:${word[1]}">${word[0]}</span>`
+    + `${t.loss_db?` −${num(t.loss_db,0)} dB`:""}${t.status!=="clear"?`<div class="hint" style="white-space:normal;max-width:240px">${esc(why)}</div>`:""}`
+    + `${s.best_in!=null?`<div class="hint">${num(s.best_in-(t.loss_db||0),0)} dBm inside</div>`:""}`;
 }
 const dasBuildingLine = b => `${esc(b.name||"Building")} · ${(b.footprint_sqft||0).toLocaleString()} sq ft footprint${b.levels?` · ${b.levels} floors`:""}${b.height_m?` · ${Math.round(b.height_m)} m tall${b.height_est?` <span class="hint" title="${esc(b.height_source||"")}: machine-learned heights read low on tall buildings">(estimate)</span>`:""}`:""}`
   + `${b.contains_pin?"":` · nearest outline, ${b.dist_m} m from the pin`} · ${esc(b.source)} ${esc(b.osm||"")}${b.gers_id?` <span class="hint mono" title="Overture GERS id, release ${esc(b.release||b.overture_release||"")}">${esc(b.gers_id.slice(0,8))}</span>`:""}`
@@ -342,6 +367,47 @@ const dasBuildingLine = b => `${esc(b.name||"Building")} · ${(b.footprint_sqft|
   + `${b.footprint_sqft>DAS.sector_sqft?` · <b style="color:var(--warn)">over ${DAS.sector_sqft.toLocaleString()} sq ft a floor: NFPA 1225 splits each floor into sectors of ${DAS.grids} grids</b>`:""}`;
 // the donor antenna's height: the building's height (or floors x 3.5 m) plus a 3 m mast
 const dasRoof = d => (d.building?.height_m || ((d.building?.levels || (Array.isArray(d.floors)?d.floors.length:0) || 3) * 3.5)) + 3;
+
+// A channel's ⚠: a click opens what the warning means and what to do (Cody 11/3: the hover tip alone "doesn't show or
+// do anything" on click). One pop-up at a time; Escape, a press outside or a scroll closes it.
+const DAS_FLAGS = [
+  { key: "simulcast", test: f => f.startsWith("simulcast"), title: f => `Simulcast from ${(f.match(/from (\d+) sites/)||[])[1]||"several"} sites`,
+    means: "The agency sends this channel from several towers at the same moment. A booster that hears two or more passes them all, slightly out of step, and radios inside get garbled or dropped audio even with full bars: time delay interference (TDI). Digital (P25) suffers most.",
+    todo: "Aim a directional donor antenna at one site, keep the booster's delay low, and ask the agency's radio shop which site to use: many simulcast systems set this.",
+    note: "Counted from the licence: the channel is listed at more than one site. On a conventional licence these can be separate repeaters or receive-only sites rather than simulcast, so confirm with the agency." },
+  { key: "esmr", test: f => f.startsWith("ESMR"), title: () => "Commercial ESMR band (862–869 MHz)",
+    means: "This channel sits in the commercial ESMR band next to public safety 800 MHz. A public safety booster must keep that band out.",
+    todo: "Leave it out of the booster's passband. If the agency still needs it covered inside, raise it with them." },
+  { key: "band14", test: f => f.startsWith("FirstNet"), title: () => "FirstNet Band 14 (758–768 MHz)",
+    means: "Band 14 is licensed to FirstNet (run by AT&T), not to the agency, and its sites aren't in the FCC data.",
+    todo: "Get FirstNet / AT&T's written authorization before the booster passes Band 14." },
+];
+function dasFlagPop(btn, sys){
+  const old = document.getElementById("dasFlagPop");
+  if(old){ old._close(); if(old._btn === btn) return; }  // a second click on the same ⚠ just closes it
+  const c = sys.down[+btn.dataset.i], same = k => sys.down.filter(x => (x.flags||[]).some(k.test)).map(x => fmtF(x.freq));
+  const pop = document.createElement("div");
+  pop.id = "dasFlagPop"; pop.className = "das-flagpop"; pop.setAttribute("role", "dialog"); pop._btn = btn;
+  pop.innerHTML = `<button type="button" class="x" aria-label="Close">×</button><div class="hint mono">${fmtF(c.freq)} MHz · ${esc(sys.call_sign)}</div>`
+    + (c.flags||[]).map(f => { const k = DAS_FLAGS.find(k => k.test(f)); if(!k) return `<h4>⚠ ${esc(f)}</h4>`;
+        const on = same(k);
+        return `<h4>⚠ ${esc(k.title(f))}</h4><p>${esc(k.means)}</p><p><b>Do:</b> ${esc(k.todo)}</p>${k.note?`<p class="hint">${esc(k.note)}</p>`:""}`
+          + (on.length > 1 ? `<p class="hint">${on.length} of this system's channels have it: <span class="mono">${on.map(esc).join(", ")}</span></p>` : ""); }).join("");
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+  pop.style.top = (r.bottom + 6 + h > innerHeight - 8 ? Math.max(8, r.top - h - 6) : r.bottom + 6) + "px";
+  requestAnimationFrame(() => pop.classList.add("on"));
+  btn.setAttribute("aria-expanded", "true");
+  const down = e => { if(!pop.contains(e.target) && e.target !== btn) close(); };
+  const key = e => { if(e.key === "Escape"){ close(); btn.focus(); } };
+  const scroll = e => { if(!pop.contains(e.target)) close(); };
+  function close(){ pop.remove(); btn.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", down, true); document.removeEventListener("keydown", key); removeEventListener("scroll", scroll, true); removeEventListener("resize", close); }
+  pop._close = close;
+  pop.querySelector(".x").onclick = close;
+  document.addEventListener("pointerdown", down, true); document.addEventListener("keydown", key); addEventListener("scroll", scroll, true); addEventListener("resize", close);
+}
 
 /* ---------- pre-survey: the agency systems serving the building ---------- */
 async function dasPresurvey(el, j, save){
@@ -373,17 +439,17 @@ async function dasPresurvey(el, j, save){
       <button id="psPlan" ${plan.length?"":"disabled"}>⇩ Channel plan CSV</button><button id="psCsv">⇩ Systems CSV</button><button id="psKml">⇩ KML</button><button id="psTak">⇩ ATAK</button>
       <button id="psLet" ${chosen.length?"":"disabled"} title="One letter per licensee asking consent to retransmit (47 CFR 90.219(b)(1)); print or save as PDF">⎙ Consent letters</button></div>
     <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi. ${esc(verdict)}</p>
-    <div class="grid2" style="margin-top:0">
+    <div class="grid2" style="margin-top:0;align-items:stretch">
       <div class="panel"><h3>Bands a booster must pass <span class="hint">· chosen systems, downlink and uplink</span></h3>${bands.size?`<table><thead><tr><th>Band</th><th>From MHz</th><th>To MHz</th><th class="n">Channels</th></tr></thead><tbody>${[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([b,x])=>`<tr><td>${esc(b)}</td><td class="mono">${fmtF(x.lo)}</td><td class="mono">${fmtF(x.hi)}</td><td class="n">${x.n}</td></tr>`).join("")}</tbody></table>
-        <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) needs FirstNet / AT&amp;T authorization and isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI).</p>
+        <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) needs FirstNet / AT&amp;T authorization and isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI). Click one for what it means.</p>
         <div id="psBoost"></div>`:'<p class="hint">Tick systems below.</p>'}</div>
-      <div class="panel" style="padding:0;overflow:hidden"><div id="psMap" style="height:300px"></div></div></div>
+      <div class="panel" style="padding:0;overflow:hidden;display:flex;min-height:300px"><div id="psMap" style="flex:1;min-height:300px"></div></div></div>
     <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· strongest first · levels are free-space estimates from licensed power: best case, no terrain</span></h3>
       <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Best site</th><th class="n">Outside dBm</th><th class="n">Inside dBm</th><th class="n">Margin dB</th><th>Terrain to the roof</th></tr></thead><tbody>
       ${r.systems.map(s=>{ const st=s.sites[0]; return `<tr><td><input type="checkbox" data-cs="${esc(s.call_sign)}" ${inc.has(s.call_sign)?"checked":""}></td><td><b>${esc(s.licensee)}</b><div class="hint">${esc(s.category||"")}</div></td>
         <td class="mono">${s.usi?`<a href="https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${s.usi}" target="_blank" rel="noopener">${esc(s.call_sign)}</a>`:esc(s.call_sign)}</td>
         <td>${esc(s.trunked?"Trunked":"Conventional")} · ${esc(s.tech.join(", "))}<div class="hint">${esc(s.service_name||"")}</div></td>
-        <td class="mono">${s.down.slice(0,6).map(c=>`${fmtF(c.freq)}${(c.flags||[]).length?` <span title="${esc(c.flags.join("; "))}" style="color:var(--warn);cursor:help">⚠</span>`:""}`).join("<br>")}${s.down.length>6?`<br><span class="hint">+${s.down.length-6}</span>`:""}</td>
+        <td class="mono">${s.down.slice(0,6).map((c,i)=>`${fmtF(c.freq)}${(c.flags||[]).length?` <button type="button" class="das-flag" data-flag-cs="${esc(s.call_sign)}" data-i="${i}" title="${esc(c.flags.join("; "))} (click for what it means)" aria-haspopup="dialog" aria-expanded="false">⚠</button>`:""}`).join("<br>")}${s.down.length>6?`<br><span class="hint">+${s.down.length-6}</span>`:""}</td>
         <td class="mono">${s.up.slice(0,6).map(fmtF).join("<br>")||'<span class="hint">ask licensee</span>'}${s.up.length>6?`<br><span class="hint">+${s.up.length-6}</span>`:""}
           <div class="hint" style="font-family:var(--font)">${esc([...new Set(s.down.map(c=>c.up_src).filter(Boolean))].join(", "))}</div></td>
         <td>${st?`${num(st.dist_mi,2)} mi ${esc(st.compass)} (${st.bearing}°)<div class="hint">${s.n_sites} site${s.n_sites===1?"":"s"}</div>`:""}</td>
@@ -396,6 +462,7 @@ async function dasPresurvey(el, j, save){
   const store=async patch=>{ const incl=new Set(patch.include??[...inc]);
     j=await save({presurvey:{...(j.data.presurvey||{}),...P,...patch, plan:planOf(r.systems.filter(s=>incl.has(s.call_sign)))}}); dasPresurvey(el, j, save); };
   $("#psLet").onclick=()=>dasConsent(j, chosen);
+  el.querySelectorAll("[data-flag-cs]").forEach(b=>b.onclick=()=>dasFlagPop(b, r.systems.find(s=>s.call_sign===b.dataset.flagCs)));
   el.querySelectorAll("[data-cs]").forEach(c=>c.onchange=()=>{ c.checked?inc.add(c.dataset.cs):inc.delete(c.dataset.cs); store({include:[...inc]}); });
   // the agencies an ERCES is for: fire, EMS, police, 911 and emergency management (not every government radio user)
   // whole words in the licensee's name (the importer's categories also match "Firebird" and "Marshall Academy"), plus
@@ -421,7 +488,8 @@ async function dasPresurvey(el, j, save){
   const CLS={"B9A,B9B":"Part 90 boosters (Class A or B)", "B9A":"Part 90 Class A (channelized)", "B9B":"Part 90 Class B (wideband)", "B2I,B2P,B2W":"Part 20 (cellular) boosters", "":"any device kept"};
   const short=cs=>[...new Set((cs||[]).map(c=>({B9A:"Class A", B9B:"Class B", B2I:"Part 20", B2P:"Part 20", B2W:"Part 20", BOS:"other booster"})[c]).filter(Boolean))].join(" / ");
   const boost=()=>{ const cls=pref("rfr.boostCls","B9A,B9B"), w=pref("rfr.boostW","");
-    api(`/api/fccid/boosters?${byBand.join("&")}&cls=${encodeURIComponent(cls)}&watts=${encodeURIComponent(w)}`).then(b=>{ const box=$("#psBoost"), kept=b.kept||{}; if(!box?.isConnected||!kept.devices) return;
+    api(`/api/fccid/boosters?${byBand.join("&")}&cls=${encodeURIComponent(cls)}&watts=${encodeURIComponent(w)}`).then(b=>{ const box=$("#psBoost"), kept=b.kept||{}; if(!box?.isConnected) return;
+      if(!kept.devices){ box.innerHTML=`<p class="hint" style="margin:8px 0 0">No FCC booster grants are kept on this copy, so boosters can't be matched to these channels.</p>`; return; }  // it vanished with no word (11/3)
       const bandTxt=bs=>bs.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(bs.length>8?` +${bs.length-8}`:"");
       const dev=x=>`<a href="${esc(x.view)}" target="_blank" rel="noopener" class="mono" title="${esc(bandTxt(x.bands))} MHz · granted ${esc(x.granted)}">${esc(x.fcc_id)}</a> <span class="hint">${esc([x.maker, short(x.classes), wattsTxt(x)].filter(Boolean).join(" · "))}</span>`;
       box.innerHTML=`<h3 style="margin:12px 0 4px">Boosters granted for these channels <span class="hint">· newest grant first</span></h3>
@@ -433,7 +501,7 @@ async function dasPresurvey(el, j, save){
         <p class="hint">From the FCC's grant search (${esc(kept.at||"")}): ${kept.devices.toLocaleString()} devices of ${(kept.makers||0).toLocaleString()} makers, every signal booster by class, and power ranges for Part 90 boosters (the range of each one's strongest band). A grant shows what a device is certified for, not that it suits this building: exact watts per band are on each device's FCC grant (its FCC ID opens it; point at it for its bands).</p>`;
       $("#pbCls").value=cls; $("#pbW").value=w;
       $("#pbCls").onchange=e=>{ keepPref("rfr.boostCls", e.target.value); boost(); };
-      $("#pbW").onchange=e=>{ keepPref("rfr.boostW", e.target.value); boost(); }; }).catch(()=>{}); };
+      $("#pbW").onchange=e=>{ keepPref("rfr.boostW", e.target.value); boost(); }; }).catch(e=>{ const box=$("#psBoost"); if(box?.isConnected) box.innerHTML=`<p class="hint" style="margin:8px 0 0">Booster grants couldn't be read: ${esc(e.message)}</p>`; }); };
   if(byBand.length) boost();
   const sysRows=()=>r.systems.map(s=>({included:inc.has(s.call_sign)?"yes":"", agency:s.licensee, call_sign:s.call_sign, service:s.service_name, category:s.category, trunked:s.trunked?"yes":"no",
     technology:s.tech.join(" / "), downlink_mhz:s.down.map(c=>c.freq).join(" "), uplink_mhz:s.up.join(" "), best_site_mi:s.sites[0]?.dist_mi, bearing_deg:s.sites[0]?.bearing,
@@ -454,7 +522,11 @@ async function dasPresurvey(el, j, save){
     for(const s of (inc.size?chosen:r.systems.slice(0,25))) for(const st of s.sites.slice(0,3)){ pts.push([st.lat,st.lon]);
       L.polyline([[d.lat,d.lon],[st.lat,st.lon]],{color:inc.has(s.call_sign)?"var(--accent)":"#888",weight:inc.has(s.call_sign)?2:1,opacity:.7,dashArray:"4 4"}).addTo(map);
       L.circleMarker([st.lat,st.lon],{radius:5,color:"#0008",weight:1,fillColor:inc.has(s.call_sign)?"#e5534b":"#57606a",fillOpacity:.9}).bindTooltip(`${s.licensee} ${s.call_sign}<br>${st.dist_mi} mi ${st.compass}, est ${num(st.best_out,0)} dBm`).addTo(map); }
-    map.fitBounds(L.latLngBounds(pts).pad(0.15)); }
+    // the panel stretches to the bands panel beside it (11/3: a fixed 300 px map left the rest of it empty), so the map
+    // fills it and fits the sites again whenever its size changes, until someone drags it
+    const fit=L.latLngBounds(pts).pad(0.15); let moved=false; map.on("dragstart",()=>{ moved=true; });
+    map.fitBounds(fit);
+    new ResizeObserver(()=>{ map.invalidateSize(); if(!moved) map.fitBounds(fit); }).observe(map.getContainer()); }
 }
 
 /* ---------- requirements ---------- */
@@ -573,8 +645,11 @@ async function dasGrid(el, j, save){
   // what takes the readings entered or imported here (kept with the job); readings saved before readings named their
   // instrument don't count until someone says what took them
   const insts=(d.testing||{}).instruments||[], inst=G.inst||"";
-  const instOpts=sel=>`${insts.map(i=>{ const s=instState(i); return `<option value="${esc(instKey(i))}" ${instKey(i)===sel?"selected":""}>${esc(instName(i))} · ${esc(s.why)}${s.ok?"":" (won't count)"}</option>`; }).join("")}
-    <option value="uncal" ${sel==="uncal"?"selected":""}>Not calibrated: an SDR, a phone app, a quick check (pre-survey)</option>`;
+  const instOpts=(sel,adds=true)=>`${insts.map(i=>{ const s=instState(i); return `<option value="${esc(instKey(i))}" ${instKey(i)===sel?"selected":""}>${esc(instName(i))} · ${esc(s.why)}${s.ok?"":" (won't count)"}</option>`; }).join("")}
+    <option value="uncal" ${sel==="uncal"?"selected":""}>Not calibrated: an SDR, a phone app, a quick check (pre-survey)</option>
+    ${adds?`<optgroup label="Add an instrument">${(typeof SCREEN_RX!=="undefined"?SCREEN_RX:[]).map(x=>`<option value="add:${esc(x.id)}">${esc(x.name)}…</option>`).join("")}<option value="add:other">Another instrument…</option></optgroup>`:""}`;
+  // the market DAS test instruments RF Recon knows (dasscreen.js), plus any other, can be added here with their serial and
+  // calibration date (11/3: the list held only the instruments typed on the Overview, so the example job offered one)
   const unnamedRes=Object.keys(res).filter(k=>readingsOf(res[k]).some(x=>calOf(d,x)&&!x.inst)), unnamedCr=Object.keys(cr).filter(k=>calOf(d,cr[k])&&!cr[k].inst), unnamed=unnamedRes.length+unnamedCr.length;
   // NFPA 1225: 20 squares per floor, each 20-80 ft across; floors over 128,000 sq ft split into sectors
   const per=d.area_sqft&&floors.length?d.area_sqft/floors.length:null, side=per?Math.sqrt(per/(n-skip.size||n)):null;
@@ -598,11 +673,12 @@ async function dasGrid(el, j, save){
       <label class="inl" title="Results from any tool: CSV, TSV, Excel, JSON, KML/KMZ or GPX">Import results <input type="file" id="dgImp" accept=".csv,.tsv,.txt,.xlsx,.json,.kml,.kmz,.gpx"></label>
       <button id="dgCsv" title="One row per square: the reading that decides it">⇩ Results CSV</button><button id="dgAll" title="Every reading, one row per channel, cellular ones too: imports back into RF Recon or into another tool">⇩ All readings CSV</button><button id="dgJson">⇩ Results JSON</button>
       <button id="dgBase" title="Keep these results as the acceptance test, to compare each annual retest with">${base?`Baseline: ${esc(base.date)} · replace`:"Save as acceptance baseline"}</button></div>
+    <div id="dgAddInst" class="row no-print" style="display:none;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0 2px 8px"></div>
     ${warn.length?`<p class="status err" style="margin:0 2px 8px">${warn.map(esc).join(" ")}</p>`:""}
     ${f.plan&&!hasPlan?`<p class="status err" style="margin:0 2px 8px">Couldn't open the floor plan ${esc(f.plan)}: is it still in the job's Files?</p>`:""}
     ${!inst?`<p class="status" style="margin:0 2px 8px">Pick what's taking the readings (<b>Taken with</b>) before you enter or import any.${insts.length?"":" Add your instruments on the Overview first: model | serial | calibration date."}</p>`:""}
     ${unnamed?`<p class="status err" style="margin:0 2px 8px">${unnamed} reading${unnamed===1?" doesn't":"s don't"} say what took ${unnamed===1?"it":"them"}, so ${unnamed===1?"it doesn't":"they don't"} count.
-      Taken with <select id="dgFix"><option value="">— pick —</option>${instOpts("")}</select> <button id="dgFixGo">Apply to ${unnamed===1?"it":`these ${unnamed}`}</button></p>`:""}
+      Taken with <select id="dgFix"><option value="">— pick —</option>${instOpts("",false)}</select> <button id="dgFixGo">Apply to ${unnamed===1?"it":`these ${unnamed}`}</button></p>`:""}
     <div class="cards" style="margin-bottom:10px">${cv?cellCards():""}${(cv?[]:st).map(x=>`<div class="card" data-fl="${esc(x.f.name)}" style="cursor:pointer;${x.f.name===D.floor?"outline:2px solid var(--accent)":""}" title="General ${x.genPass}/${x.gen}, critical ${x.critPass}/${x.crit}, ${x.untested} untested${x.notCounted?`, ${x.notCounted} not counted (no calibrated instrument)`:""}">
         <div class="v" style="color:${x.untested?"var(--muted)":x.ok?"var(--good)":"var(--bad)"}">${x.genPct}%</div><div class="k">Floor ${esc(x.f.name)} · ${x.genPass}/${x.gen} general${x.crit?` · ${x.critPass}/${x.crit} critical`:""}${x.untested?` · ${x.untested} untested`:""}${x.notCounted?` · ${x.notCounted} not counted`:""}</div></div>`).join("")}
       ${crit.length&&!cv?`<div class="card"><div class="v" style="color:${critTested.length<crit.length?"var(--muted)":critPass.length===crit.length?"var(--good)":"var(--bad)"}">${critPass.length}/${crit.length}</div><div class="k">Named critical areas pass</div></div>`:""}</div>
@@ -622,8 +698,8 @@ async function dasGrid(el, j, save){
             <span data-h="size" title="Size" style="position:absolute;right:4px;bottom:4px;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:nwse-resize"></span>`:""}</div></div>
         ${hasPlan?`<p class="hint" id="dgSize" style="margin:6px 2px 0">${wft?"":"Enter the plan's width in feet to check each square's size."}</p>`:""}
         <div id="dgEdit" style="margin-top:8px"></div></div>
-      <div class="panel"><h3>Named critical areas</h3>${crit.length?`<table><thead><tr><th>Area</th><th>DL dBm</th><th>DAQ</th><th>UL dBm</th><th>UL DAQ</th><th></th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r);
-          return `<tr data-ca="${esc(a)}"><td>${esc(a)}</td>${["dl","daq","ul","ul_daq"].map(k=>`<td><input data-x="${k}" type="number" step="${/daq/.test(k)?"0.1":"1"}" value="${r[k]??""}" style="width:64px"></td>`).join("")}<td title="${cal?esc(cal.ok?`taken with ${cal.name}`:`not counted: ${cal.why}`):""}">${cal&&!cal.ok?'<span class="hint">not counted</span>':p==null?"":p?"✅":"❌"}</td></tr>`; }).join("")}</tbody></table>`
+      <div class="panel"><h3>Named critical areas</h3>${crit.length?`<div class="tw"><table><thead><tr><th>Area</th><th>DL dBm</th><th>DAQ</th><th>UL dBm</th><th>UL DAQ</th><th></th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r);
+          return `<tr data-ca="${esc(a)}"><td>${esc(a)}</td>${["dl","daq","ul","ul_daq"].map(k=>`<td><input data-x="${k}" type="number" step="${/daq/.test(k)?"0.1":"1"}" value="${r[k]??""}" style="width:64px"></td>`).join("")}<td title="${cal?esc(cal.ok?`taken with ${cal.name}`:`not counted: ${cal.why}`):""}">${cal&&!cal.ok?'<span class="hint">not counted</span>':p==null?"":p?"✅":"❌"}</td></tr>`; }).join("")}</tbody></table></div>`
           :'<p class="hint">Pick the building\'s critical areas under Requirements, or mark critical squares on the plan.</p>'}</div></div>
     <div id="dgMap"></div>`;
   $("#dgF").onchange=e=>{ D.floor=e.target.value; render(); };
@@ -633,7 +709,22 @@ async function dasGrid(el, j, save){
   $("#dgN").onchange=e=>setFloor({grids:Math.max(1,Math.min(100,+e.target.value||DAS.grids))});
   $("#dgC").onchange=e=>setFloor({cols:Math.max(1,Math.min(20,+e.target.value||5))});
   $("#dgPlan").onchange=e=>setFloor({plan:e.target.value||null});
-  $("#dgInst").onchange=async e=>{ j=await save({grid:{...(j.data.grid||{}), inst:e.target.value||null}}); render(); };
+  $("#dgInst").onchange=async e=>{ const v=e.target.value;
+    if(v.startsWith("add:")){  // a new instrument: its serial and calibration date, then it's the one taking readings
+      const rx=(typeof SCREEN_RX!=="undefined"?SCREEN_RX:[]).find(x=>"add:"+x.id===v), box=$("#dgAddInst");
+      e.target.value=inst;
+      box.innerHTML=`<label>Model <input id="aiM" value="${esc(rx?rx.name:"")}" placeholder="maker and model" style="width:240px"></label>
+        <label>Serial <input id="aiS" style="width:120px"></label><label>Calibrated <input id="aiC" type="date"></label>
+        <button class="primary" id="aiGo">Add and use it</button><button id="aiX">Cancel</button>
+        <span class="hint">Counts toward pass / fail only when calibrated within ${DAS.cal_months} months.</span>`;
+      box.style.display="flex"; $("#aiS").focus();
+      $("#aiX").onclick=()=>{ box.style.display="none"; box.innerHTML=""; };
+      $("#aiGo").onclick=async()=>{ const it={model:$("#aiM").value.trim(), serial:$("#aiS").value.trim(), cal:$("#aiC").value};
+        if(!it.model){ $("#aiM").focus(); return; }
+        const list=[...insts.filter(i=>instKey(i)!==instKey(it)), it];
+        j=await save({testing:{...(j.data.testing||{}), instruments:list}, grid:{...(j.data.grid||{}), inst:instKey(it)}}); render(); };
+      return; }
+    j=await save({grid:{...(j.data.grid||{}), inst:v||null}}); render(); };
   $("#dgView")?.addEventListener("change", e=>{ D.gview=e.target.value; render(); });
   $("#dgFixGo")?.addEventListener("click", async()=>{ const v=$("#dgFix").value; if(!v){ $("#dgFix").focus(); return; }
     const G2=j.data.grid||{}, results={...(G2.results||{})}, critical={...(G2.critical||{})};
@@ -824,7 +915,8 @@ function dasReport(el, j){
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[], cs=S.das.contacts, who=k=>cs.find(c=>String(c.id)===String((d.contacts||{})[k]));
   const crit=[...((d.require||{}).critical||[]), ...((d.require||{}).other||[])], cr=(d.grid||{}).critical||{}, res=(d.grid||{}).results||{}, T=d.testing||{};
   const st=floors.map(f=>({f,...floorStats(d,f)}));
-  const allTested=st.every(x=>x.untested===0)&&crit.every(a=>scored(d,cr[a])!=null);
+  // no floors means nothing was tested: every() is true on an empty list, so a blank job read "PASS" (11/3)
+  const allTested=st.length>0&&st.every(x=>x.untested===0)&&crit.every(a=>scored(d,cr[a])!=null);
   const ok=allTested&&st.every(x=>x.ok)&&crit.every(a=>scored(d,cr[a]));
   const nc=st.reduce((s,x)=>s+x.notCounted,0)+crit.filter(a=>notCounted(d,cr[a])).length;
   const plan=(d.presurvey||{}).plan||[];
@@ -837,7 +929,7 @@ function dasReport(el, j){
   <div class="panel" id="dasPrint">
     <h2 style="margin:0 0 4px">Emergency responder radio coverage test: ${esc(j.name)}</h2>
     <p style="margin:0 0 10px">${esc(d.address||"")} · ${esc(d.ahj||"AHJ not set")} · ${esc(d.code||"IFC 510 + NFPA 1225")} · prepared ${esc(today())}</p>
-    <p style="font-size:18px;margin:6px 0"><b>Result: ${allTested?(ok?'<span style="color:#1a7f37">PASS</span>':'<span style="color:#cf222e">FAIL</span>'):"Not complete (untested areas below)"}</b></p>
+    <p style="font-size:18px;margin:6px 0"><b>Result: ${allTested?(ok?'<span class="res-pass">PASS</span>':'<span class="res-fail">FAIL</span>'):st.length?"Not complete (untested areas below)":"Not complete (no floors tested yet: add them under Grid test)"}</b></p>
     <p class="hint">Pass criteria: each test location ≥ ${DASJ.threshold} dBm downlink and uplink, DAQ ≥ ${DASJ.daq} both ways (or SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}%), on every channel tested there (the worst channel is shown); ${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas on each floor; ${DAS.grids} grid squares per floor. Only readings taken with an instrument calibrated within ${DAS.cal_months} months of the reading are scored.</p>
     ${nc?`<p style="margin:4px 0"><b>${nc} reading${nc===1?" was":"s were"} not scored</b>: taken without a calibrated instrument, or with no instrument recorded. They are shown grey (“not counted”) as pre-survey information only.</p>`:""}
     <h3>Building and people</h3><div class="kvg"><div>Building</div><div>${esc([j.name, d.address, d.floors?.length?`${d.floors.length} floors`:"", d.area_sqft?`${Number(d.area_sqft).toLocaleString()} sq ft`:"", d.construction].filter(Boolean).join(" · "))}</div>
@@ -847,6 +939,7 @@ function dasReport(el, j){
     <h3>Compliance</h3><div class="kvg">${DAS_CHECKS.map(([k,l])=>`<div>${esc(l)}</div><div>${esc((d.checks||{})[k]||"not on file")}</div>`).join("")}<div>Annual retest due</div><div>${esc(d.retest_due||"–")}</div>
       ${d.baseline?`<div>Compared with</div><div>the acceptance test of ${esc(d.baseline.date)}</div>`:""}</div>
     <h3>Systems covered</h3>${plan.length?`<table><thead><tr><th>Agency</th><th>Call sign</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Type</th></tr></thead><tbody>${plan.map(p=>`<tr><td>${esc(p.system)}</td><td class="mono">${esc(p.call_sign)}</td><td class="mono">${esc(p.downlink_mhz)}</td><td class="mono">${esc(p.uplink_mhz)}</td><td>${esc(p.technology)}</td></tr>`).join("")}</tbody></table>`:'<p class="hint">None chosen in the pre-survey.</p>'}
+    <h3>System diagram: signal path, start to finish</h3><div id="drDiagram"><p class="hint">Drawing the diagram…</p></div>
     <h3>Summary by floor</h3><table><thead><tr><th>Floor</th><th class="n">General pass</th><th class="n">Critical pass</th><th class="n">Untested</th><th class="n">Not counted</th><th>Result</th></tr></thead><tbody>${st.map(x=>`<tr><td>${esc(x.f.name)}</td><td class="n">${x.genPass}/${x.gen} (${x.genPct}%)</td><td class="n">${x.crit?`${x.critPass}/${x.crit} (${x.critPct}%)`:"–"}</td><td class="n">${x.untested}</td><td class="n">${x.notCounted||""}</td><td>${x.untested?"incomplete":x.ok?"pass":"fail"}</td></tr>`).join("")}
       ${crit.length?`<tr><td>Named critical areas</td><td></td><td class="n">${crit.filter(a=>scored(d,cr[a])).length}/${crit.length}</td><td class="n">${crit.filter(a=>scored(d,cr[a])==null).length}</td><td class="n">${crit.filter(a=>notCounted(d,cr[a])).length||""}</td><td></td></tr>`:""}</tbody></table>
     ${st.map(x=>{ const f=x.f, n=f.grids||DAS.grids, cols=f.cols||(n===20?5:Math.ceil(Math.sqrt(n))), rows=Math.ceil(n/cols);
@@ -863,7 +956,12 @@ function dasReport(el, j){
   // each floor's plan under its grid; a plan that won't open leaves the grid at its own shape
   el.querySelectorAll("img[data-plan]").forEach(async im=>{ const s=await jobFileSrc(j.id, im.dataset.plan);
     if(s){ im.src=s; im.style.minHeight=""; } else { const box=im.parentElement, g=box.querySelector("div"); box.style.aspectRatio=im.dataset.ar; if(g) g.style.cssText=g.style.cssText.replace(/left:[^;]+;top:[^;]+;width:[^;]+;height:[^;]+;transform:[^;]+/,"inset:0"); im.remove(); } });
-  $("#drPrint").onclick=()=>{ document.body.classList.add("print-das"); window.print(); setTimeout(()=>document.body.classList.remove("print-das"),500); };
+  $("#drPrint").onclick=()=>dasPrintCopy($("#dasPrint"));
+  // the diagram needs the link budget defaults and the cable tables loaded first: drawn before them, it showed a 0 dBm
+  // radio and lossless cables (11/3)
+  if(window.dasSchematic&&window.frLoad) Promise.all([frLoad("budget"), frLoad("parts")])
+    .then(()=>{ const x=el.querySelector("#drDiagram"); if(x&&x.isConnected) x.innerHTML=window.dasSchematic(d); })
+    .catch(e=>{ const x=el.querySelector("#drDiagram"); if(x) x.innerHTML=`<p class="hint">The diagram couldn't be drawn: ${esc(e.message)}</p>`; });
   $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
 }
 
@@ -881,7 +979,7 @@ function dasConsent(j, systems){
       ${ss.map(s=>`<tr><td>${esc(s.call_sign)}</td><td>${s.down.map(c=>fmtF(c.freq)).join(", ")}</td><td>${s.up.map(fmtF).join(", ")||"to be confirmed"}</td></tr>`).join("")}</tbody></table>
     <p>We ask for your written consent to retransmit these channels, and for any conditions you set (gain limits, donor site, filtering, monitoring, or contact for interference). ${cls.startsWith("Class B")?"As a Class B booster it will also be registered with the FCC under 47 CFR 90.219(d)(5).":""}</p>
     <p>Consent given by: ______________________________ Title: ____________________ Date: ____________</p>
-    <p>Thank you,<br>${esc(me?[me.name, me.org, me.phone, me.email].filter(Boolean).join("<br>"):"")}</p></div>`).join("");
+    <p>Thank you,<br>${me?[me.name, me.org, me.phone, me.email].filter(Boolean).map(esc).join("<br>"):""}</p></div>`).join("");
   document.body.appendChild(box); document.body.classList.add("print-das"); window.print();
   setTimeout(()=>{ document.body.classList.remove("print-das"); box.remove(); },500);
 }

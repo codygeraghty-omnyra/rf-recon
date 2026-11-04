@@ -15,7 +15,10 @@ function frCite(r, keys){
   const ix=r._ix||(r._ix=frSrcIndex(r));
   return (keys||[]).filter(k=>ix[k]).map(k=>`<a href="${esc(ix[k].url)}" target="_blank" rel="noopener" title="${esc(ix[k].title)}" class="hint" style="text-decoration:none">[${esc(k)}]</a>`).join(" ");
 }
-const frVal = v => v==null?"":typeof v==="object"?Object.entries(v).map(([k,x])=>`${k}: ${x}`).join(" · "):String(v);
+// a value as text: a list item by item, an object's filled fields, nested ones too (11/3: a list of part examples read
+// "0: [object Object]", and empty fields read "single: null")
+const frVal = v => v==null||v===""?"":Array.isArray(v)?v.map(frVal).filter(Boolean).join(" ; ")
+  :typeof v==="object"?Object.entries(v).filter(([,x])=>x!=null&&x!=="").map(([k,x])=>`${k.replace(/_/g," ")}: ${frVal(x)}`).join(" · "):String(v);
 // a table from rows and [key, label] columns; the last column is the sources
 function frTable(r, rows, cols, opt={}){
   if(!rows?.length) return '<p class="hint">Nothing in the research for this yet.</p>';
@@ -63,7 +66,8 @@ function frPimCalc(){
     <p class="hint" style="margin:6px 0 0">Odd-order products near the carriers. A product inside an uplink band raises that band's noise floor. dBc = measured PIM (dBm) − one tone's power (dBm).</p></div>`;
 }
 function frPimCalcWire(){
-  const run=()=>{ const f1=+$("#pcF1").value, f2=+$("#pcF2").value, tone=+$("#pcTone").value, res=+$("#pcRes").value;
+  const run=()=>{ const val=id=>{ const s=$(id).value.trim(); return s===""?NaN:+s; };  // empty is "not given", never 0
+    const f1=val("#pcF1"), f2=val("#pcF2"), tone=val("#pcTone"), res=val("#pcRes");
     frLocal.set("pimcalc",{f1,f2,tone,res});
     $("#pcDbc").textContent=isFinite(res)&&isFinite(tone)?`${res} dBm = ${(res-tone).toFixed(1)} dBc at ${tone} dBm a tone`:"";
     if(!(f1>0&&f2>0)){ $("#pcOut").innerHTML=""; return; }
@@ -252,28 +256,188 @@ window.dasMaterials = async (el, j, save) => {
     ...(r.connectors||[]).map(c=>({cat:"Connector", item:c.name, part:"", supplier:""})),
     ...(r.components||[]).map(c=>({cat:"Component", item:c.type, part:(c.part_examples||"").toString().split(/[,;]/)[0].trim(), supplier:(c.vendors||"").toString().split(/[,;]/)[0].trim()}))];
   const sum=bom.reduce((a,x)=>(a[x.cat||"Other"]=(a[x.cat||"Other"]||0)+(+x.qty||0),a),{});
-  el.innerHTML=`<div class="grid2" style="margin-top:0">
+  // the parts catalogue (Joe 11/3): the BOM lines' own parts (for their spec sheets) and the standard parts
+  const pids=[...new Set(bom.map(x=>x.pid).filter(Boolean))];
+  const [mine, std]=await Promise.all([pids.length?api(`/api/das/parts?ids=${pids.join(",")}`).catch(()=>({parts:[]})):{parts:[]}, api("/api/das/parts?standard=1&limit=500").catch(()=>({parts:[], all:0}))]);
+  if(!el.isConnected) return;
+  const byId=new Map(mine.parts.map(p=>[p.id,p]));
+  const money=v=>v==null||v===""||isNaN(+v)?"":(+v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const lineTotal=x=>x.qty!==""&&x.qty!=null&&x.price!==""&&x.price!=null&&!isNaN(+x.qty)&&!isNaN(+x.price)?(+x.qty)*(+x.price):null;
+  const total=bom.reduce((t,x)=>t+(lineTotal(x)||0),0);
+  const find=(part,maker)=>`https://www.google.com/search?q=${encodeURIComponent(`"${part}" ${maker||""} spec sheet pdf`)}`;
+  const specCell=x=>{ const p=x.pid&&byId.get(+x.pid);
+    return p&&p.spec_file?`<a href="/api/das/parts/${p.id}/spec" target="_blank" rel="noopener">PDF</a>`:p&&p.spec_url?`<a href="${esc(p.spec_url)}" target="_blank" rel="noopener">link ↗</a>`
+      :x.part||x.item?`<a class="hint" href="${esc(find(x.part||x.item, p?.maker))}" target="_blank" rel="noopener" title="Search for its spec sheet; then keep it on the part in the catalogue below">find ↗</a>`:""; };
+  el.innerHTML=`
     <div class="panel"><h3>Bill of materials</h3>
-      <div class="tw"><table><thead><tr><th>Category</th><th>Item</th><th>Part number</th><th>Supplier</th><th class="n">Qty</th><th>Unit</th><th>Note</th><th></th></tr></thead><tbody>
-      ${bom.map((x,i)=>`<tr><td>${esc(x.cat||"")}</td><td><b>${esc(x.item||"")}</b></td><td class="mono">${esc(x.part||"")}</td><td>${esc(x.supplier||"")}</td><td class="n">${esc(x.qty??"")}</td><td>${esc(x.unit||"")}</td><td class="hint">${esc(x.note||"")}</td><td><button data-rmb="${i}">✕</button></td></tr>`).join("")
-        ||'<tr><td colspan="8" class="hint">Nothing yet: pick from the research list or type a line below.</td></tr>'}</tbody></table></div>
-      <p class="hint" style="margin:6px 0">${Object.entries(sum).map(([k,n])=>`${esc(k)}: ${n}`).join(" · ")}</p>
+      <div class="tw"><table><thead><tr><th>Category</th><th>Item</th><th>Part number</th><th>Supplier</th><th class="n">Qty</th><th>Unit</th><th class="n">Price</th><th class="n">Total</th><th>Spec sheet</th><th>Note</th><th></th></tr></thead><tbody>
+      ${bom.map((x,i)=>`<tr><td>${esc(x.cat||"")}</td><td><b>${esc(x.item||"")}</b></td><td class="mono">${esc(x.part||"")}</td><td>${esc(x.supplier||"")}</td>
+        <td class="n"><input data-bq="${i}" type="number" step="any" value="${esc(x.qty??"")}" style="width:70px"></td><td>${esc(x.unit||"")}</td>
+        <td class="n"><input data-bp="${i}" type="number" step="0.01" value="${esc(x.price??"")}" style="width:84px"></td><td class="n">${money(lineTotal(x))}</td>
+        <td>${specCell(x)}</td><td class="hint">${esc(x.note||"")}</td><td><button data-rmb="${i}" aria-label="Remove this line">✕</button></td></tr>`).join("")
+        ||'<tr><td colspan="11" class="hint">Nothing yet: add your standard parts, pick from the catalogue or the research list, or type a line below.</td></tr>'}</tbody></table></div>
+      <p class="hint" style="margin:6px 0">${Object.entries(sum).map(([k,n])=>`${esc(k)}: ${n}`).join(" · ")}${total?` · <b>Total ${money(total)}</b>`:""}</p>
+      <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+        <button id="dmStd" ${std.parts.length?"":"disabled"} title="Every part starred as standard in the catalogue, with its default quantity; parts already on the list are left as they are">★ Add my standard parts (${std.parts.length})</button>
+        <button id="dmSpec" ${bom.length?"":"disabled"} title="Each part's spec sheet into the job's Files, from the PDF kept on the part or its link">⎙ Build spec sheets</button>
+        <a class="btn" href="/api/das/jobs/${j.id}/packet" download style="display:inline-block;white-space:nowrap">⇩ BOM + spec sheets (zip)</a></div>
+      <div id="dmSpecRes"></div>
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:end">
         <label class="grow">From the research<select id="dmPick"><option value="">Pick a cable, connector or component…</option>${cat.map((c,i)=>`<option value="${i}">${esc(c.cat)}: ${esc(c.item)}${c.part?` (${esc(c.part)})`:""}</option>`).join("")}</select></label></div>
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:end;margin-top:6px">
         <label>Category<input id="dmCat" style="width:110px"></label><label class="grow">Item<input id="dmItem"></label><label>Part number<input id="dmPart" style="width:150px"></label>
         <label>Supplier<input id="dmSup" style="width:140px"></label><label>Qty<input id="dmQty" type="number" step="any" style="width:80px"></label>
         <label>Unit<select id="dmUnit"><option>ea</option><option>ft</option><option>m</option><option>box</option><option>reel</option></select></label>
+        <label>Price<input id="dmPrice" type="number" step="0.01" style="width:90px"></label>
         <label class="grow">Note<input id="dmNote"></label><button class="primary" id="dmAdd">Add line</button><button id="dmCsv">⇩ CSV</button></div></div>
-    <div>${r.empty?frEmpty("RF parts"):frCableCalc(r, "dmcc")}
+    <div class="panel" style="margin-top:10px" id="dmQuotes"></div>
+    <div class="panel" style="margin-top:10px"><h3>Parts catalogue <span class="hint">· ${std.all||0} part${std.all===1?"":"s"} kept, ${std.parts.length} standard · your suppliers' price lists, and a spec sheet on each part</span></h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
+        <label>Supplier<input id="dmCatSup" placeholder="e.g. Wireless Supply" style="width:180px"></label>
+        <label class="inl" title="A price list from any supplier: CSV, Excel or JSON. The columns are found by their names (part number, description, manufacturer, price, unit, spec sheet link)">Import a price list <input type="file" id="dmCatImp" accept=".csv,.tsv,.txt,.xlsx,.json"></label>
+        <label class="grow">Find a part<input id="dmCatQ" placeholder="part number, description, maker or supplier"></label></div>
+      <p class="hint" id="dmCatMsg" style="margin:6px 0">Star the parts you use on every job: they're your standard parts, added in one go with their default quantity. Keep a spec sheet on each (a PDF, or a link to one) and Build spec sheets puts them in the job's Files for the AHJ.</p>
+      <div id="dmCatList"></div></div>
+    <div class="grid2"><div>${r.empty?frEmpty("RF parts"):frCableCalc(r, "dmcc")}</div><div>
       ${r.empty?"":`<div class="panel"><h3>Material rules for ERCES / DAS</h3>${(r.das||[]).map(x=>{ const k=`${x.topic}|${x.requirement}`; return `<label style="display:flex;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
         <input type="checkbox" data-mck="${esc(k)}" ${mchecks[k]?"checked":""} style="margin-top:4px"><span><b>${esc(x.topic)}</b>: ${esc(x.requirement||"")}${x.code?` <span class="tag">${esc(x.code)}</span>`:""}${x.detail?` <span class="hint">· ${esc(x.detail)}</span>`:""} ${frCite(r,x.sources)}</span></label>`; }).join("")}</div>`}</div></div>`;
+  // the catalogue: a search, and each part's star, default quantity, spec sheet and Add
+  const catList=async()=>{ const box=$("#dmCatList"); if(!box) return; const q=($("#dmCatQ")?.value||"").trim();
+    const res=await api(`/api/das/parts?limit=60${q?`&q=${encodeURIComponent(q)}`:"&standard=1"}`).catch(e=>({parts:[], err:e.message}));
+    if(!$("#dmCatList")) return;
+    box.innerHTML=res.err?`<p class="hint">${esc(res.err)}</p>`:!res.parts.length?`<p class="hint">${q?"No part matches.":res.all?"No standard parts yet: find a part and star it.":"No parts yet: import a supplier's price list above."}</p>`
+      :`<div class="tw" style="max-height:420px"><table><thead><tr><th>★</th><th>Part number</th><th>Description</th><th>Maker</th><th>Supplier</th><th class="n">Price</th><th>Unit</th><th class="n" title="Shipping weight of one, for shipping estimates">lb</th><th class="n">Default qty</th><th>Spec sheet</th><th></th></tr></thead><tbody>
+        ${res.parts.map(p=>`<tr><td><button class="sm" data-pstar="${p.id}" aria-pressed="${p.standard}" title="${p.standard?"A standard part: press to unstar":"Star it as a standard part"}">${p.standard?"★":"☆"}</button></td>
+          <td class="mono">${esc(p.part||"")}</td><td style="white-space:normal;min-width:14em">${esc(p.item||"")}</td><td>${esc(p.maker||"")}</td><td>${esc(p.supplier||"")}</td><td class="n">${money(p.price)}</td><td>${esc(p.unit||"")}</td>
+          <td class="n"><input data-pwt="${p.id}" type="number" step="any" min="0" value="${esc(p.weight_lb??"")}" style="width:58px" title="Shipping weight of one (lb)"></td>
+          <td class="n">${p.standard?`<input data-pqty="${p.id}" type="number" step="any" value="${esc(p.std_qty??"")}" style="width:64px">`:""}</td>
+          <td style="white-space:nowrap">${p.spec_file?`<a href="/api/das/parts/${p.id}/spec" target="_blank" rel="noopener">PDF</a> · `:p.spec_url?`<a href="${esc(p.spec_url)}" target="_blank" rel="noopener">link ↗</a> · `:`<a class="hint" href="${esc(find(p.part||p.item,p.maker))}" target="_blank" rel="noopener">find ↗</a> · `}
+            <label class="hint" style="cursor:pointer" title="Keep a spec sheet PDF on this part">upload<input type="file" data-pspec="${p.id}" accept=".pdf,application/pdf" hidden></label> · <a class="hint" href="#" data-plink="${p.id}" title="Keep a link to its spec sheet PDF">link</a></td>
+          <td><button class="sm" data-padd="${p.id}">+ BOM</button></td></tr>`).join("")}</tbody></table></div>
+        ${res.total>res.parts.length?`<p class="hint">${res.parts.length} of ${res.total.toLocaleString()} shown: narrow the search.</p>`:""}`;
+    const part=id=>res.parts.find(x=>x.id===+id);
+    box.querySelectorAll("[data-pstar]").forEach(b=>b.onclick=async()=>{ const p=part(b.dataset.pstar); await post(`/api/das/parts/${p.id}`,{standard:!p.standard, ...(p.standard?{}:{std_qty:p.std_qty??1})}).catch(e=>alert(e.message)); render(); });
+    box.querySelectorAll("[data-pqty]").forEach(i=>i.onchange=()=>post(`/api/das/parts/${i.dataset.pqty}`,{std_qty:i.value}).catch(e=>alert(e.message)));
+    box.querySelectorAll("[data-pwt]").forEach(i=>i.onchange=()=>post(`/api/das/parts/${i.dataset.pwt}`,{weight_lb:i.value}).catch(e=>alert(e.message)));
+    box.querySelectorAll("[data-pspec]").forEach(i=>i.onchange=async()=>{ const f=i.files[0]; if(!f) return; $("#dmCatMsg").textContent=`Keeping ${f.name}…`;
+      try{ await api(`/api/das/parts/${i.dataset.pspec}/spec`,{method:"POST", body:await f.arrayBuffer()}); $("#dmCatMsg").textContent=`${f.name} kept on the part.`; catList(); }catch(e){ $("#dmCatMsg").textContent=e.message; } });
+    box.querySelectorAll("[data-plink]").forEach(a=>a.onclick=async e=>{ e.preventDefault(); const p=part(a.dataset.plink), u=prompt("Link to this part's spec sheet PDF", p.spec_url||""); if(u==null) return;
+      await post(`/api/das/parts/${p.id}`,{spec_url:u.trim()}).catch(err=>alert(err.message)); catList(); });
+    box.querySelectorAll("[data-padd]").forEach(b=>b.onclick=()=>{ const p=part(b.dataset.padd); addParts([p]); }); };
+  // parts into the BOM: once each (a part already on the list keeps its line and quantity)
+  const addParts=ps=>{ const have=new Set(bom.map(x=>x.pid?`id${x.pid}`:`${(x.part||x.item||"").toLowerCase()}`));
+    const add=ps.filter(p=>!have.has(`id${p.id}`)&&!have.has((p.part||p.item||"").toLowerCase()))
+      .map(p=>({pid:p.id, cat:p.cat||"", item:p.item||"", part:p.part||"", supplier:p.supplier||"", qty:p.std_qty??"", unit:p.unit||"ea", price:p.price??"", note:""}));
+    if(!add.length){ $("#dmCatMsg").textContent="Already on the bill of materials."; return; }
+    keep([...bom, ...add]); };
+  $("#dmCatQ").oninput=()=>{ clearTimeout(catList.t); catList.t=setTimeout(catList,300); };
+  $("#dmCatImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const sup=$("#dmCatSup").value.trim(); $("#dmCatMsg").textContent=`Reading ${f.name}…`;
+    try{ const r=await api(`/api/das/parts/import?name=${encodeURIComponent(f.name)}&supplier=${encodeURIComponent(sup)}`,{method:"POST", body:await f.arrayBuffer()});
+      $("#dmCatMsg").textContent=`${f.name}: ${r.added.toLocaleString()} new part${r.added===1?"":"s"}, ${r.updated.toLocaleString()} updated, ${r.total.toLocaleString()} kept in all. Columns read: ${Object.entries(r.columns).map(([k,h])=>`${k} = ${h}`).join(", ")}.`; catList(); }
+    catch(err){ $("#dmCatMsg").textContent=err.message; } e.target.value=""; };
+  $("#dmStd").onclick=()=>addParts(std.parts);
+  $("#dmSpec").onclick=async e=>{ const b=e.currentTarget, out=$("#dmSpecRes"); b.disabled=true; out.innerHTML='<p class="hint">Gathering spec sheets…</p>';
+    try{ const r=await post(`/api/das/jobs/${j.id}/specsheets`);
+      out.innerHTML=`<p style="margin:4px 0"><b>${r.ok} of ${r.of}</b> parts' spec sheets are in the job's Files${r.ok<r.of?"; the rest:":"."}</p>
+        ${r.parts.filter(x=>x.status!=="ok").map(x=>`<div class="hint">✗ ${esc(x.part||x.item)}: ${esc(x.why||"")} · <a href="${esc(find(x.part||x.item,x.maker))}" target="_blank" rel="noopener">find ↗</a></div>`).join("")}`; }
+    catch(err){ out.innerHTML=`<p class="status err">${esc(err.message)}</p>`; } b.disabled=false; };
+  catList();
+  // Quotes from suppliers (Cody 11/3): a request for quote from this BOM to several suppliers, their quotes entered or
+  // imported, and the comparison. RF Recon writes the email; the person sends it from their own mail.
+  const quotes=async()=>{ const box=$("#dmQuotes"); if(!box) return;
+    const [sl, rl]=await Promise.all([api("/api/das/suppliers").catch(()=>({suppliers:[]})), api(`/api/das/rfq?job=${j.id}`).catch(()=>({rfqs:[]}))]);
+    if(!$("#dmQuotes")) return;
+    const sup=sl.suppliers, rfq=rl.rfqs[0]?await api(`/api/das/rfq/${rl.rfqs[0].id}`).catch(()=>null):null;
+    const lineSups=[...new Set(bom.map(x=>x.supplier).filter(Boolean))];
+    box.innerHTML=`<h3>Quotes from suppliers <span class="hint">· ask several suppliers for this bill of materials and compare price, shipping and when it arrives</span></h3>
+      ${rfq?quoteView(rfq):""}
+      <details ${rfq?"":"open"}><summary style="cursor:pointer"><b>${rfq?"Ask again (a new request)":"Ask for quotes"}</b></summary>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0">${sup.map(s=>`<label class="chip" style="gap:6px"><input type="checkbox" data-qs="${esc(s.name)}" ${lineSups.includes(s.name)||s.email?"checked":""}> ${esc(s.name)}
+            <input data-qse="${esc(s.name)}" type="email" value="${esc(s.email||"")}" placeholder="their email" style="width:180px"><input data-qsu="${esc(s.name)}" value="${esc(s.price_url||"")}" placeholder="price list link (optional)" title="A CSV or Excel price list the supplier publishes: re-read weekly (Data & updates, DAS part prices)" style="width:190px"><input data-qsf="${esc(s.name)}" value="${esc(s.ship_from||"")}" placeholder="ships from: street, city, ST ZIP" title="Where this supplier ships from, for shipping estimates" style="width:210px">${s.price_result?`<span class="hint" title="${esc(s.price_checked||"")}">${esc(s.price_result)}</span>`:""}</label>`).join("")||'<span class="hint">No suppliers yet: add one.</span>'}</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
+          <button id="qsRefresh" title="Re-read every supplier's price list link now">⟳ Re-read price lists</button>
+          <label>Add a supplier<input id="qsName" placeholder="name" style="width:160px"></label><label>Email<input id="qsEmail" type="email" style="width:200px"></label><button id="qsAdd">Add</button>
+          <label>Needed by<input id="qNeed" type="date"></label><label class="grow">Ship to<input id="qShip" value="${esc(d.address||"")}"></label>
+          <label class="grow">Note to suppliers<input id="qNote" placeholder="e.g. plenum-rated cable only; partial quotes welcome"></label>
+          <button class="primary" id="qMake" ${bom.length?"":"disabled"}>Make the request</button></div>
+        <p class="hint" id="qMsg" style="margin:4px 0 0">${bom.length?"Each supplier gets the same list. Nothing is sent from here: each email opens in your own mail to send.":"Add parts to the bill of materials first."}</p></details>`;
+    box.querySelectorAll("[data-qse]").forEach(i=>i.onchange=()=>post("/api/das/suppliers",{name:i.dataset.qse, email:i.value}).catch(e=>alert(e.message)));
+    box.querySelectorAll("[data-qsu]").forEach(i=>i.onchange=()=>post("/api/das/suppliers",{name:i.dataset.qsu, price_url:i.value}).catch(e=>alert(e.message)));
+    box.querySelectorAll("[data-qsf]").forEach(i=>i.onchange=()=>post("/api/das/suppliers",{name:i.dataset.qsf, ship_from:i.value}).catch(e=>alert(e.message)));
+    $("#qsRefresh").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; $("#qMsg").textContent="Re-reading the price lists…";
+      try{ const r=await post("/api/das/suppliers/refresh"); $("#qMsg").textContent=r.refreshed.length?r.refreshed.map(x=>`${x.supplier}: ${x.result}`).join(" · "):"No supplier has a price list link yet."; catList(); }
+      catch(err){ $("#qMsg").textContent=err.message; } b.disabled=false; };
+    $("#qsAdd").onclick=async()=>{ const n=$("#qsName").value.trim(); if(!n) return $("#qsName").focus(); await post("/api/das/suppliers",{name:n, email:$("#qsEmail").value}).catch(e=>alert(e.message)); quotes(); };
+    $("#qMake").onclick=async e=>{ const b=e.currentTarget; if(b.disabled) return; b.disabled=true;
+      const pick=[...box.querySelectorAll("[data-qs]:checked")].map(c=>c.dataset.qs);
+      try{ await post("/api/das/rfq",{job_id:j.id, suppliers:pick, need_by:$("#qNeed").value, ship_to:$("#qShip").value, notes:$("#qNote").value}); quotes(); }
+      catch(err){ $("#qMsg").textContent=err.message; b.disabled=false; } };
+    if(rfq) wireQuote(rfq, sup); };
+  const quoteView=q=>{ const C=q.compare, cur=v=>v==null?"–":money(v);
+    return `<p class="hint" style="margin:0 0 6px">Request ${esc(q.title)} · made ${esc(q.created_at.slice(0,16))}${q.need_by?` · needed by ${esc(q.need_by)}`:""} · <a href="/api/das/rfq/${q.id}/sheet" download>⇩ quote sheet (CSV)</a> · <button class="sm" id="qOnline" title="Mouser and Digi-Key, with your keys (Data & updates, Your API keys): price at your quantity, stock and lead time">⟳ Check online prices</button> <button class="sm" id="qFreight" title="UPS, FedEx and USPS rates through Shippo (your key), from each supplier's ship-from address to the ship-to, for the parts' weights. Never replaces a shipping price a supplier gave.">⟳ Estimate shipping</button></p><p class="hint" id="qOnMsg" style="margin:0 0 6px"></p>
+      <div class="tw"><table><thead><tr><th>Supplier</th><th></th><th class="n">Lines quoted</th><th class="n">Subtotal</th><th class="n">Shipping</th><th class="n">Total</th><th class="n">Ready in</th><th>Quote holds to</th><th></th></tr></thead><tbody>
+      ${C.suppliers.map(s=>`<tr><td><b>${esc(s.supplier)}</b>${s.supplier===C.cheapest?' <span class="tag" style="background:var(--good);color:#fff">cheapest</span>':""}${s.supplier===C.fastest?' <span class="tag">fastest</span>':""}</td>
+        <td style="white-space:nowrap"><button class="sm" data-qmail="${esc(s.supplier)}" title="Opens the request in your own mail to send">✉ Email</button> <button class="sm" data-qenter="${esc(s.supplier)}">Enter quote</button>
+          <label class="hint" style="cursor:pointer">import<input type="file" data-qimp="${esc(s.supplier)}" accept=".csv,.tsv,.txt,.xlsx,.json" hidden></label></td>
+        <td class="n">${s.received?`${s.quoted} of ${s.of}`:'<span class="hint">waiting</span>'}</td><td class="n">${s.received?cur(s.subtotal):""}</td><td class="n">${s.ship_est?`<span title="${esc(s.ship_est)}">${cur(s.shipping)} <span class="tag">est.</span></span>`:s.received?(/\(online\)$/.test(s.supplier)&&!s.shipping?'<span class="hint">not in their price</span>':cur(s.shipping)):""}</td>
+        <td class="n"><b>${s.received?cur(s.total):""}</b></td><td class="n">${s.ready_days!=null?`${Math.round(s.ready_days)} day${Math.round(s.ready_days)===1?"":"s"}`:""}</td><td>${esc(s.valid_until||"")}</td>
+        <td>${s.received&&!s.missing.length?`<button class="sm" data-quse="${esc(s.supplier)}" title="Its prices and name onto the bill of materials">Use</button>`:s.missing.length&&s.received?`<span class="hint">${s.missing.length} missing</span>`:""}</td></tr>`).join("")}
+      ${C.split.lines.length?`<tr><td><b>Best split</b> <span class="hint">each line from its cheapest</span></td><td class="hint">${esc(C.split.suppliers.join(" + "))}</td><td class="n">${C.split.lines.length} of ${q.lines.length}</td><td></td><td></td><td class="n"><b>${cur(C.split.total)}</b></td><td></td><td></td>
+        <td>${C.split.complete?`<button class="sm" data-quse="__split">Use</button>`:""}</td></tr>`:""}</tbody></table></div>
+      <div id="qEnter"></div>`; };
+  const wireQuote=(q, sup)=>{ const box=$("#dmQuotes");
+    $("#qFreight").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; $("#qOnMsg").textContent="Asking Shippo for rates…";
+      try{ const r=await post(`/api/das/rfq/${q.id}/freight`); const f=r.freight;
+        const say=`${f.total_lb} lb in ${f.boxes} box${f.boxes===1?"":"es"}${f.missing_weight.length?` (no weight yet: ${f.missing_weight.slice(0,4).join(", ")}${f.missing_weight.length>4?"…":""})`:""}. `+f.results.map(x=>`${x.supplier}: ${x.result}`).join(" · ");
+        await quotes(); const m=$("#qOnMsg"); if(m) m.textContent=say; }
+      catch(err){ $("#qOnMsg").textContent=err.message; b.disabled=false; } };
+    $("#qOnline").onclick=async e=>{ const b=e.currentTarget; b.disabled=true; $("#qOnMsg").textContent="Asking the distributors…";
+      try{ const r=await post(`/api/das/rfq/${q.id}/online`); const o=r.online;
+        const say=!o.keys.length?"No Mouser or Digi-Key key is saved: add them in Data & updates, Your API keys (both free).":
+          `${o.sources.length?`Priced online by ${o.sources.join(" and ")}.`:"No exact part number match online."}${o.errors.length?` ${o.errors.length} lookup${o.errors.length===1?"":"s"} failed: ${o.errors.slice(0,2).join("; ")}`:""}`;
+        await quotes(); const m=$("#qOnMsg"); if(m) m.textContent=say; }
+      catch(err){ $("#qOnMsg").textContent=err.message; b.disabled=false; } };
+    box.querySelectorAll("[data-qmail]").forEach(b=>b.onclick=async()=>{ const s=b.dataset.qmail, to=(sup.find(x=>x.name===s)||{}).email||"";
+      const e=await api(`/api/das/rfq/${q.id}/email?supplier=${encodeURIComponent(s)}&sender=${encodeURIComponent(S.me?.name||"")}`);
+      await post(`/api/das/rfq/${q.id}/quote`,{supplier:s, terms:{sent_at:new Date().toISOString().slice(0,16).replace("T"," ")}}).catch(()=>{});
+      const href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(e.subject)}&body=${encodeURIComponent(e.body+"\n\n(Attach the quote sheet: Materials, Quotes, quote sheet CSV.)")}`;
+      // where no mail app is set up the link does nothing: say so, with the link and a copy of the email (11/3)
+      $("#qEnter").innerHTML=`<p class="hint" style="margin:8px 0 0">The request to ${esc(s)} opened in your mail${to?"":" (no email kept for them: add it above)"}. Nothing opened?
+        <a id="qMailto" href="${esc(href)}">open it again</a> or <button class="sm" id="qCopy">Copy the email</button> and paste it into any mail.</p>`;
+      $("#qCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(`To: ${to}\nSubject: ${e.subject}\n\n${e.body}`); $("#qCopy").textContent="Copied"; }catch(err){ alert("Couldn't copy: "+err.message); } };
+      location.href=href; });
+    box.querySelectorAll("[data-qimp]").forEach(i=>i.onchange=async()=>{ const f=i.files[0]; if(!f) return;
+      try{ const r=await api(`/api/das/rfq/${q.id}/import?supplier=${encodeURIComponent(i.dataset.qimp)}&name=${encodeURIComponent(f.name)}`,{method:"POST", body:await f.arrayBuffer()});
+        quotes(); setTimeout(()=>{ const m=$("#qMsg"); if(m) m.textContent=`${i.dataset.qimp}: ${r.imported.lines} lines read${r.imported.unmatched?`, ${r.imported.unmatched} didn't match a part`:""}.`; },400); }
+      catch(err){ alert(err.message); } });
+    box.querySelectorAll("[data-qenter]").forEach(b=>b.onclick=()=>{ const s=b.dataset.qenter, mine=Object.fromEntries(q.quotes.filter(x=>x.supplier===s).map(x=>[x.key,x])), t=q.terms[s]||{};
+      $("#qEnter").innerHTML=`<div class="panel" style="margin-top:8px"><h3>${esc(s)}'s quote</h3><div class="tw"><table><thead><tr><th>Part</th><th class="n">Qty</th><th class="n">Unit price</th><th class="n">Lead time (days)</th><th>Note</th></tr></thead><tbody>
+        ${q.lines.map(ln=>`<tr><td><b>${esc(ln.part||"")}</b> ${esc(ln.item||"")}</td><td class="n">${ln.qty} ${esc(ln.unit)}</td>
+          <td class="n"><input data-qp="${esc(ln.key)}" type="number" step="0.0001" value="${mine[ln.key]?.unit_price??""}" style="width:90px"></td>
+          <td class="n"><input data-ql="${esc(ln.key)}" type="number" step="1" value="${mine[ln.key]?.lead_days??""}" style="width:70px"></td>
+          <td><input data-qn="${esc(ln.key)}" value="${esc(mine[ln.key]?.note||"")}" style="width:160px"></td></tr>`).join("")}</tbody></table></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end;margin-top:6px"><label>Shipping cost<input id="qtShip" type="number" step="0.01" value="${t.ship_cost??""}" style="width:100px"></label>
+          <label>Shipping days<input id="qtDays" type="number" step="1" value="${t.ship_days??""}" style="width:80px"></label><label>Quote holds to<input id="qtValid" type="date" value="${esc(t.valid_until||"")}"></label>
+          <label>Their quote number<input id="qtRef" value="${esc(t.quote_ref||"")}" style="width:120px"></label><button class="primary" id="qtSave">Save ${esc(s)}'s quote</button></div></div>`;
+      $("#qtSave").onclick=async()=>{ const lines={}; $$("#qEnter [data-qp]").forEach(i=>{ const k=i.dataset.qp; if(i.value!=="") lines[k]={unit_price:i.value, lead_days:$(`#qEnter [data-ql="${CSS.escape(k)}"]`).value, note:$(`#qEnter [data-qn="${CSS.escape(k)}"]`).value}; });
+        try{ await post(`/api/das/rfq/${q.id}/quote`,{supplier:s, lines, terms:{ship_cost:$("#qtShip").value, ship_days:$("#qtDays").value, valid_until:$("#qtValid").value, quote_ref:$("#qtRef").value}}); quotes(); }
+        catch(err){ alert(err.message); } };
+      $("#qEnter").scrollIntoView({block:"nearest"}); });
+    box.querySelectorAll("[data-quse]").forEach(b=>b.onclick=()=>{ const s=b.dataset.quse, pick={};
+      if(s==="__split") for(const x of q.compare.split.lines) pick[x.key]={supplier:x.supplier, price:x.unit_price};
+      else for(const x of q.quotes.filter(x=>x.supplier===s&&x.unit_price!=null)) pick[x.key]={supplier:s, price:x.unit_price};
+      const key=x=>(x.part||x.item||"").trim().toLowerCase().replace(/\s+/g," ");
+      keep(bom.map(x=>pick[key(x)]?{...x, supplier:pick[key(x)].supplier, price:pick[key(x)].price}:x)); }); };
+  quotes();
   if(!r.empty) frCableCalcWire(r, "dmcc");
   $("#dmPick").onchange=e=>{ const c=cat[+e.target.value]; if(!c) return; $("#dmCat").value=c.cat; $("#dmItem").value=c.item; $("#dmPart").value=c.part; $("#dmSup").value=c.supplier; $("#dmUnit").value=c.cat==="Cable"?"ft":"ea"; $("#dmQty").focus(); };
   const keep=async b=>{ await save({bom:b}); render(); };
   $("#dmAdd").onclick=()=>{ const g=s=>$(s).value.trim(); if(!g("#dmItem")) return;
-    keep([...bom, {cat:g("#dmCat"), item:g("#dmItem"), part:g("#dmPart"), supplier:g("#dmSup"), qty:g("#dmQty"), unit:$("#dmUnit").value, note:g("#dmNote")}]); };
+    keep([...bom, {cat:g("#dmCat"), item:g("#dmItem"), part:g("#dmPart"), supplier:g("#dmSup"), qty:g("#dmQty"), unit:$("#dmUnit").value, price:g("#dmPrice"), note:g("#dmNote")}]); };
+  // quantity and price edited in the table (each line's total and the grand total follow)
+  el.querySelectorAll("[data-bq],[data-bp]").forEach(i=>i.onchange=()=>{ const k=i.dataset.bq!=null?"qty":"price", n=+(i.dataset.bq??i.dataset.bp);
+    keep(bom.map((x,ix)=>ix===n?{...x,[k]:i.value}:x)); });
   el.querySelectorAll("[data-rmb]").forEach(b=>b.onclick=()=>keep(bom.filter((_,i)=>i!==+b.dataset.rmb)));
-  $("#dmCsv").onclick=()=>dasDl(`${fileSafe(j.name)} materials.csv`, csvOf(bom.map(({cat,item,part,supplier,qty,unit,note})=>({category:cat,item,part,supplier,qty,unit,note}))), "text/csv");
+  $("#dmCsv").onclick=()=>dasDl(`${fileSafe(j.name)} materials.csv`, csvOf(bom.map(x=>({category:x.cat,item:x.item,part:x.part,supplier:x.supplier,qty:x.qty,unit:x.unit,price:x.price??"",line_total:lineTotal(x)==null?"":lineTotal(x).toFixed(2),note:x.note}))), "text/csv");
   el.querySelectorAll("[data-mck]").forEach(c=>c.onchange=()=>{ mchecks[c.dataset.mck]=c.checked||undefined; save({material_checks:mchecks}); });
 };

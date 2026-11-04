@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RF Recon (beta)</title>
+<link rel="icon" type="image/png" href="static/app/icons/icon-192.png">
 <script>
 // Opened straight from the folder (file://) there is no server behind the page: go to the running app, or say how to start it
 if (location.protocol === "file:") {
@@ -90,15 +91,61 @@ h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;c
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
 .card .v{font-size:21px;font-weight:650;font-family:var(--mono)}
 .card .k{font-size:12px;color:var(--muted)}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px}
-.bars div{display:grid;grid-template-columns:150px 1fr 52px;gap:8px;align-items:center;font-size:12px;margin:3px 0;cursor:pointer}
+/* panels keep their own height: stretched to a long neighbour they left up to 2,900 px of empty glass (11/3); a grid
+   whose panel should fill (the pre-survey map) sets align-items:stretch itself */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px;align-items:start}
+.bars div{display:grid;grid-template-columns:150px 1fr 52px;gap:8px;align-items:center;font-size:12px;margin:3px 0}
+.bars div[data-click]{cursor:pointer}
+/* a wide table scrolls inside its panel, never the page (11/3: DAS report and design tables made phones 1,690 px wide) */
+.grid2>*{min-width:0}
+@media screen{ #dasPrint{overflow-x:auto} }
+/* the topology legend sits under the graph (on top it hid 23-33 of 262 nodes on a phone, 11/3); full screen floats it */
+#cyWrap:fullscreen .cyLegend{position:absolute;left:8px;bottom:8px;margin:0;opacity:.92}
+/* dashboard charts are drawn 560 wide and shrink to fit: on a phone their 10-11 px text came out about 6 px (11/3) */
+@media (max-width:600px){ svg.dchart{font-size:17px!important} }
+/* DAS Prospects (dasprospects.js) */
+.pr-tab td{vertical-align:top}.pr-tab td .hint{font-size:11.5px}.pr-dnc{opacity:.55}
+.pr-tab tr.pr-hit td{background:color-mix(in srgb,var(--accent,#3b82f6) 22%,transparent);transition:background .3s}
+.status.pr-warn{color:var(--warn);border-color:var(--warn)}
+/* DAS Pitch (daspitch.js): slides on screen, one landscape page each in print */
+.pitch-deck{display:flex;flex-direction:column;gap:14px}
+.pitch-slide{position:relative;aspect-ratio:16/9;min-height:420px;padding:28px 34px 40px;border-radius:14px;overflow:auto;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong,var(--panel));border:1px solid var(--line);box-shadow:var(--g-shadow)}
+.pitch-slide h1{font-size:40px;margin:0 0 10px}.pitch-slide h2{font-size:24px;margin:0 0 12px}.pitch-slide h3{font-size:15px;margin:6px 0}
+.pitch-slide .lead{font-size:17px;line-height:1.5;max-width:70em}
+.pitch-slide footer{position:absolute;left:34px;right:34px;bottom:12px;font-size:11px;color:var(--muted)}
+.pitch-cover{display:flex;align-items:center}
+.pitch-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.pitch-cards>div{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:12.5px}.pitch-cards p{margin:4px 0}
+.pitch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;font-size:13px}
+.pitch-steps{columns:2;column-gap:28px;font-size:12.5px;margin:0;padding-left:18px}.pitch-steps li{break-inside:avoid;margin-bottom:6px}
+.pitch-sources ol{font-size:10.5px;columns:2;column-gap:24px}.pitch-slide sup a{text-decoration:none;margin-left:1px}
+.pitch-slide dt{font-weight:600;margin-top:6px}.pitch-slide dd{margin:2px 0 0 0}
+@media print{ body.print-das #dasPrint.pitch-deck .pitch-slide{aspect-ratio:auto;min-height:0;height:auto;overflow:visible;break-after:page;border:0;box-shadow:none;background:#fff;color:#000}
+  body.print-das #dasPrint.pitch-deck .pitch-slide footer{position:static;margin-top:14px} }
+@page{size:auto}
+/* low items from the 11/3 sweep */
+.res-pass{color:var(--good-ink,#1a7f37)} .res-fail{color:var(--bad-ink,#cf222e)}  /* the skin's own ink on screen (the print colours were 3.6:1 on dark) */
+@media print{ .res-pass{color:#1a7f37!important} .res-fail{color:#cf222e!important} }
+.bars div > span.mono{white-space:nowrap}  /* "110 38%" stayed on two lines on a phone */
+@media (max-width:900px){ .bars div{grid-template-columns:100px 1fr 62px} }
+#view{padding-bottom:72px}  /* the floating Note button never covers the last of a page */
+@media (pointer:coarse){
+  .bars div[data-click]{min-height:32px}
+  details > summary{padding-top:7px;padding-bottom:7px}
+  /* citation and outside links in running text: a finger-sized tap area, the line spacing kept */
+  a.hint, td a, .hint a{display:inline-block;padding:9px 2px;margin:-9px 0}
+}
+.bars div.full > span:first-child{white-space:normal!important;overflow:visible!important}  /* tapped: the whole name */
 .bars .bar{height:10px;border-radius:3px;background:var(--accent)}
 .tw{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
 .tw.wrap td{white-space:normal;min-width:8em}.tw.wrap td:first-child{white-space:nowrap;min-width:0}  /* tables of sentences: wrap, not scroll */
-th{position:sticky;top:0;background:var(--panel);font-weight:600;color:var(--muted);cursor:pointer;font-size:11.5px;z-index:1}
-tbody tr{cursor:pointer}
+th{position:sticky;top:0;background:var(--panel);font-weight:600;color:var(--muted);font-size:11.5px;z-index:1}
+/* a pointer only where a click does something: sortable headers and rows that open or select (11/3: every table
+   in the app showed a pointer and most did nothing) */
+th[data-sort],tbody tr:is([data-fid],[data-i],[data-ll],[data-g]){cursor:pointer}
 tbody tr:hover{background:var(--chip)}
 tbody tr.sel{background:var(--sel)}
 td.f{font-family:var(--mono);font-weight:600}
@@ -220,6 +267,10 @@ mark{background:color-mix(in srgb,var(--accent) 38%,transparent);color:inherit;b
 .tabs{top:80px;gap:2px;padding:4px;margin:6px auto 14px;width:max-content;max-width:100%;border:1px solid var(--g-border);border-radius:999px;background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
 .tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500;flex:none}  /* a bar too narrow for every tab scrolls; labels never squeeze into each other */
 .tabs button.on{border:0;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 1px 0 var(--g-hi);font-weight:600}
+/* every page in sight above phone width (11/3: the 15 tabs need 1,268 px, so from 1280 down the last pages sat out of
+   sight with no cue): tighter tabs first, then a second row. Phones keep the swipeable bar. */
+@media (min-width:601px) and (max-width:1320px){ .tabs button{padding:7px 10px} }
+@media (min-width:601px) and (max-width:1120px){ .tabs{flex-wrap:wrap;justify-content:center;border-radius:18px;overflow-x:visible} }
 /* depth (Cody, 10/28: "add some depth and make the edges look nicer"): panels get the kit's beveled edge, buttons sit
    slightly proud and press in, fields and segment tracks sit recessed. Tokens from theme/glass.css. */
 header,.panel,.tabs,.tw,.side,#cy,dialog{border-color:var(--g-edges)}
@@ -323,9 +374,33 @@ select{max-width:100%}  /* a menu with a long option (Parts' cables) never runs 
   dialog{width:calc(100% - 12px)}
   .dlg-b{max-height:82vh;padding:10px 12px}
 }
+/* a phone on its side is wider than 600 px but short: segment bars (a DAS job's sub-tabs) scroll there too, instead of
+   spilling off the page (11/3: 31 px over on every sub-tab at 844x390) */
+@media (max-height:500px){
+  .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap!important}
+  .seg::-webkit-scrollbar{display:none}
+  .seg button{flex:none;white-space:nowrap}
+}
 @media print{#backdrop{display:none}html{background:#fff}}
 /* signed in through the remote link: view and search only, so the parts that change things or stay on the PC go */
 body.remote :is(nav [data-t="data"], #takPush){display:none!important}
+/* Daylight (and its tints): warning and pass text dark enough to read on light glass. The kit leaves --serious at the
+   dark skins' orange (2.2-2.5:1 here) and --good at 2.8-3.1:1; these are 5.3-5.9:1 on both light surfaces (11/3). */
+:root[data-skin="day"]{--warn:#9a4a00;--good:#087008}
+/* a channel's ⚠ (das.js dasFlagPop): text-sized in the table, a wider tap area for fingers; the pop-up floats on the
+   strong surface (clear glass fails contrast over the map and tables) */
+.das-flag{all:unset;position:relative;color:var(--warn);cursor:pointer;padding:0 2px;border-radius:4px}
+.das-flag::after{content:"";position:absolute;inset:-8px -6px}
+.das-flag:hover,.das-flag[aria-expanded="true"]{filter:brightness(1.3);background:var(--wash-2,rgba(127,127,127,.15))}
+.das-flag:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.das-flagpop{position:fixed;z-index:3000;width:max-content;max-width:min(380px,calc(100vw - 16px));padding:10px 14px 8px;border-radius:12px;color:var(--ink);font-size:13px;line-height:1.45;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong,var(--panel));border:1px solid var(--line);box-shadow:var(--g-shadow-up,0 12px 32px -12px rgba(0,0,0,.45));
+  opacity:0;transform:translateY(-4px);transition:opacity .16s ease,transform .3s var(--ease,ease)}
+.das-flagpop.on{opacity:1;transform:none}
+.das-flagpop>.hint:first-of-type{padding-right:30px}
+.das-flagpop h4{margin:8px 0 4px;color:var(--warn);font-size:13.5px}
+.das-flagpop p{margin:0 0 6px}
+.das-flagpop .x{position:absolute;top:6px;right:6px;min-height:0;min-width:0;padding:2px 9px;font-size:16px;line-height:1.2}
 </style>
 <link rel="stylesheet" href="web.css">
 <link rel="icon" href="../icons/icon-192.png">
@@ -451,6 +526,10 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/views.js"></script>
 <script src="static/mission.js"></script>
 <script src="static/missiontools.js"></script>
+<script src="static/wmm.js"></script>
+<script src="static/hunt.js"></script>
+<script src="static/daspitch.js"></script>
+<script src="static/dasprospects.js"></script>
 <script src="static/report.js"></script>
 <script src="static/search.js"></script>
 <script src="static/spectrum.js"></script>

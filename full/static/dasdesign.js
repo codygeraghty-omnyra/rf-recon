@@ -61,7 +61,17 @@ function lbPassive(els, fMHz, connDb){
   return {db, rows};
 }
 // the whole budget for one band; inputs I (see dasBudget for the fields), returns stages, checks and key numbers
+// With no signal at the roof the whole downlink is unknown: its levels show "–" and every check built on them is open,
+// never a pass. (11/3: a blank roof level was read as 0 dBm and the far edge "passed" at -87 dBm.)
+const LB_DL_CHECKS = new Set(["dl_edge", "consumer_dl", "headroom", "dl_erp"]);
 function lbCompute(I){
+  const R=lbCompute0(I), roof=I.roof_dbm;
+  if(!(roof===""||roof==null||isNaN(+roof))) return R;
+  for(const s of R.dl) s.level=null;
+  for(const c of R.checks) if(LB_DL_CHECKS.has(c.id)){ c.ok=null; c.detail=`needs the ${I.cell?"RSRP":"signal"} at the roof (Inputs, Donor)`; }
+  return {...R, edge:null, roofMissing:true};
+}
+function lbCompute0(I){
   const n=v=>(v===""||v==null||isNaN(+v))?null:+v, num0=v=>n(v)??0;
   const conn=num0(I.connector_db), pass_dl=lbPassive(I.passive, I.f_dl, conn), pass_ul=lbPassive(I.passive, I.f_ul||I.f_dl, conn);
   const donorDl=lbPassive(I.donor_cable?[I.donor_cable]:[], I.f_dl, 0).db+num0(I.donor_connectors)*conn;
@@ -236,7 +246,7 @@ async function dsBudget(el, j, save){
     return `<label style="display:block;margin:4px 0"><span class="hint">${esc(b.cell&&CELL_LABEL[k]||l)}${u?` (${u})`:""}</span>
     <input data-lb="${k}" type="number" step="any" value="${v??""}" style="width:100%">${note&&mine[k]==null?`<span class="hint" style="font-size:11px">default: ${note}</span>`:""}</label>`; };
   const FIELDS=lbFieldsFor(!!b.cell), groups=[...new Set(FIELDS.map(f=>f[3]))];
-  const stageTable=rows=>`<table><thead><tr><th>Stage</th><th class="n">dB</th><th class="n">Level dBm</th><th>Note</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.stage)}</td><td class="n">${r.db==null?"":(r.db>=0?"+":"")+r.db.toFixed(1)}</td><td class="n"><b>${r.level==null||isNaN(r.level)?"–":r.level.toFixed(1)}</b></td><td class="hint">${esc(r.note||"")}</td></tr>`).join("")}</tbody></table>`;
+  const stageTable=rows=>`<div class="tw"><table><thead><tr><th>Stage</th><th class="n">dB</th><th class="n">Level dBm</th><th>Note</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.stage)}</td><td class="n">${r.db==null?"":(r.db>=0?"+":"")+r.db.toFixed(1)}</td><td class="n"><b>${r.level==null||isNaN(r.level)?"–":r.level.toFixed(1)}</b></td><td class="hint">${esc(r.note||"")}</td></tr>`).join("")}</tbody></table></div>`;  /* scrolls inside its panel on a phone (11/3: 835 px page) */
   el.innerHTML=`<div class="maptools no-print" style="gap:10px;flex-wrap:wrap"><div class="seg" id="lbBand">${bands.map(x=>`<button data-b="${esc(x.band)}" class="${x.band===b.band?"on":""}">${esc(x.band)}</button>`).join("")}</div>
       ${cellAdd}${b.cell?`<button id="lbRmCell" title="Take this LTE / 5G band out of the job's link budget">Remove this band</button>`:""}
       <span class="hint">${b.cell?`${esc(b.systems.join(", "))} · ${I.bw_khz/1000} MHz at ${I.scs_khz} kHz = ${cellSubcarriers(I.bw_khz/1000, +I.scs_khz)} subcarriers · worst case at ${b.f_dl} MHz down, ${b.f_ul} MHz up · RSRP target ${I.dl_min_dbm} dBm`
@@ -399,9 +409,76 @@ async function dsFloorPicture(j, d, f, b){
   return {src:cv.toDataURL("image/png"), stats, target, antennas:(fl.antennas||[]).length, walls:(fl.walls||[]).length};
 }
 
+/* ---------- the system as a one-line diagram, for the AHJ (Cody 11/3: "a physical schematic/topology or visual
+   representation for the AHJ report showing paths (start/finish)") ----------
+   Agency site → donor antenna → donor cable → BDA → passive network → server antennas → farthest point, with each
+   stage's downlink level above (left to right) and uplink below (right to left), from the job's own link budget; then
+   every band's levels and results, each donor path to an agency site, and the antennas on each floor. */
+window.dasSchematic = d => {
+  const bands=dsBands(d);
+  if(!bands.length) return `<p class="hint">Choose the systems on the Pre-survey and fill the Design's link budget to draw the system diagram.</p>`;
+  const all=bands.map(b=>{ const I=dsInputs(d,b); return {b, I, R:lbCompute(I)}; });
+  const main=all.find(x=>!x.I.cell)||all[0], I=main.I, R=main.R;
+  const f1=v=>v==null||isNaN(v)?"–":(+v).toFixed(1), n0=v=>v==null||v===""||isNaN(+v)?null:+v;
+  // the donor's far ends: agency sites with a terrain path kept on the Pre-survey (nearest first)
+  const rad=x=>x*Math.PI/180;
+  const path=(la,lo)=>{ const p1=rad(d.lat), p2=rad(la), dl=rad(lo-d.lon), y=Math.sin(dl)*Math.cos(p2), x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+    const a=Math.sin((p2-p1)/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+    return {deg:(Math.atan2(y,x)*180/Math.PI+360)%360, mi:3958.8*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}; };
+  const terWord=t=>t.status==="clear"?"clear line of sight":String(t.status||"").startsWith("Fresnel")?"partly blocked":"blocked by terrain";
+  const sites=d.lat==null?[]:Object.entries((d.presurvey||{}).terrain||{}).filter(([,t])=>t&&!t.error&&t.site)
+    .map(([cs,t])=>{ const [la,lo]=t.site.split(",").map(Number); return {cs, t, ...path(la,lo)}; }).sort((a,b)=>a.mi-b.mi);
+  const s0=sites[0];
+  // floors and the antennas placed on them (Design, Antennas and coverage)
+  const dfl=(d.design||{}).floors||{}, floors=(Array.isArray(d.floors)?d.floors:[]).map(f=>({name:f.name, n:((dfl[f.name]||{}).antennas||[]).length}));
+  const nAnt=floors.reduce((s,f)=>s+f.n,0), withAnt=floors.filter(f=>f.n).length;
+  const parts=(I.passive||[]).map(e=>e.kind==="cable"?`${e.cable||"cable"} ${e.ft||0} ft`:`${e.name||"part"} ${e.db??""} dB`);
+  const dc=I.donor_cable, need=(n0(I.dl_min_dbm)??0)+(n0(I.margin_db)??0);
+  const dlAt=i=>R.dl[i]?.level, ulAt=i=>R.ul[i]?.level, ulLast=R.ul.length?R.ul[R.ul.length-1].level:null;
+  // [title, lines, downlink level, uplink level]
+  const N=[
+    ["Agency site", s0?[s0.cs, `${s0.mi.toFixed(1)} mi at ${Math.round(s0.deg)}°`, terWord(s0.t)]:["from the Pre-survey", "(run Terrain paths)"], dlAt(0)!=null?`${f1(dlAt(0))} at roof`:null, R.atSite!=null?f1(ulLast):null],
+    ["Donor antenna", [`${n0(I.donor_gain_dbi)??"–"} dBi`, `${Math.round(dasRoof(d))} m up (roof)`, s0?`aimed ${Math.round(s0.deg)}°`:""], f1(dlAt(1)), R.erpUl!=null?`${f1(R.erpUl)} ERP`:null],
+    ["Donor cable", [dc?dc.cable:"not set", dc?`${dc.ft} ft`:"", `${I.donor_connectors??2} connectors`], f1(dlAt(2)), f1(ulAt(7))],
+    ["BDA", [String(d.booster_class||"").replace(/ \(.*\)/,""), `DL +${n0(I.bda_dl_gain_db)??"–"} · UL +${n0(I.bda_ul_gain_db)??"–"} dB`, n0(I.bda_max_dbm)!=null?`max ${I.bda_max_dbm} dBm`:""], f1(dlAt(3)), f1(ulAt(6))],
+    ["Passive network", parts.length?[`${parts.length} part${parts.length===1?"":"s"}`, ...parts.slice(0,2).map(p=>p.length>22?p.slice(0,21)+"…":p)].concat(parts.length>2?[`+${parts.length-2} more`]:[]):["not set"], f1(dlAt(4)), f1(ulAt(5))],
+    ["Server antennas", [`${nAnt||"–"} on ${withAnt||"–"} floor${withAnt===1?"":"s"}`, `${n0(I.server_gain_dbi)??"–"} dBi each`], `${f1(dlAt(5))} EIRP`, f1(ulAt(4))],
+    ["Farthest point", [`${n0(I.edge_ft)??"–"} ft from an antenna`, `${n0(I.walls_db)??0} dB of walls`, `needs ≥ ${need} dBm`], f1(R.edge), f1(ulAt(1))]];
+  const W=1000, bw=118, bh=92, gap=(W-20-N.length*bw)/(N.length-1), top=46;
+  const xs=N.map((_,i)=>10+i*(bw+gap));
+  const box=(n,i)=>{ const x=xs[i], ln=n[1].filter(Boolean).slice(0,4);
+    return `<rect x="${x}" y="${top}" width="${bw}" height="${bh}" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+      <text x="${x+bw/2}" y="${top+17}" text-anchor="middle" font-weight="700" font-size="12" fill="currentColor">${esc(n[0])}</text>
+      ${ln.map((l,k)=>`<text x="${x+bw/2}" y="${top+35+k*14}" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".8">${esc(l)}</text>`).join("")}
+      ${n[2]!=null&&n[2]!=="–"?`<text x="${x+bw/2}" y="${top-8}" text-anchor="middle" font-size="11" fill="#1f6feb" font-weight="600">${esc(n[2])}${/[a-z]/.test(n[2])?"":" dBm"}</text>`:""}
+      ${n[3]!=null&&n[3]!=="–"?`<text x="${x+bw/2}" y="${top+bh+18}" text-anchor="middle" font-size="11" fill="#bf5700" font-weight="600">${esc(n[3])}${/[a-z]/.test(n[3])?"":" dBm"}</text>`:""}`; };
+  const links=N.slice(1).map((_,i)=>{ const a=xs[i]+bw, b=xs[i+1];
+    return `<line x1="${a+2}" y1="${top+bh/2-7}" x2="${b-4}" y2="${top+bh/2-7}" stroke="#1f6feb" stroke-width="2" marker-end="url(#sdDl)"/>
+      <line x1="${b-2}" y1="${top+bh/2+7}" x2="${a+4}" y2="${top+bh/2+7}" stroke="#bf5700" stroke-width="2" marker-end="url(#sdUl)"/>`; }).join("");
+  const svg=`<svg viewBox="0 0 ${W} ${top+bh+40}" style="width:100%;height:auto;max-width:1000px;color:inherit" role="img" aria-label="System diagram: agency site to the farthest point">
+    <defs><marker id="sdDl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="#1f6feb"/></marker>
+      <marker id="sdUl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="#bf5700"/></marker></defs>
+    <text x="10" y="14" font-size="11" fill="#1f6feb" font-weight="600">Downlink → (agency to radios), ${esc(main.b.band)}, dBm</text>
+    <text x="${W-10}" y="14" text-anchor="end" font-size="11" fill="#bf5700" font-weight="600">← Uplink (radios to agency), dBm</text>
+    ${links}${N.map(box).join("")}</svg>`;
+  const res=x=>{ const c=x.R.checks, fail=c.filter(k=>k.ok===false).length, open=c.filter(k=>k.ok==null).length, warn=c.filter(k=>k.ok==="warn").length;
+    return fail?`<b style="color:#cf222e">${fail} fail</b>`:open?`${open} open`:warn?`pass, ${warn} warn`:`<b style="color:#1a7f37">pass</b>`; };
+  const bandTable=`<div class="tw"><table style="margin-top:8px"><thead><tr><th>Band</th><th>Systems</th><th class="n">At roof dBm</th><th class="n">BDA out dBm</th><th class="n">Antenna EIRP dBm</th><th class="n">Farthest point dBm</th><th class="n">Needs dBm</th><th class="n">Uplink at site dBm</th><th>Checks</th></tr></thead><tbody>
+    ${all.map(x=>`<tr><td>${esc(x.b.band)}</td><td style="white-space:normal">${esc((x.b.systems||[]).join(", "))}</td><td class="n">${f1(x.R.dl[0]?.level)}</td><td class="n">${f1(x.R.roofMissing?null:x.R.bdaOut)}</td><td class="n">${f1(x.R.roofMissing?null:x.R.eirp)}</td>
+      <td class="n">${f1(x.R.edge)}</td><td class="n">${f1((n0(x.I.dl_min_dbm)??0)+(n0(x.I.margin_db)??0))}</td><td class="n">${f1(x.R.atSite)}</td><td>${res(x)}</td></tr>`).join("")}</tbody></table></div>`;
+  const siteTable=sites.length?`<div class="tw"><table style="margin-top:8px"><thead><tr><th>Donor path to</th><th class="n">Distance mi</th><th class="n">Bearing</th><th>Terrain</th><th class="n">Terrain loss dB</th></tr></thead><tbody>
+    ${sites.map(s=>`<tr><td>${esc(s.cs)}</td><td class="n">${s.mi.toFixed(2)}</td><td class="n">${Math.round(s.deg)}°</td><td>${esc(terWord(s.t))}${s.t.clearance_f1!=null?`, ${esc(String(s.t.clearance_f1))} of the first Fresnel zone clear`:""}</td><td class="n">${s.t.loss_db?f1(s.t.loss_db):"0"}</td></tr>`).join("")}</tbody></table></div>`
+    :`<p class="hint">No donor paths yet: run Terrain paths on the Pre-survey to add each agency site's distance, bearing and terrain.</p>`;
+  const floorRow=floors.length?`<p style="margin:8px 0 0"><b>Antennas by floor:</b> ${floors.map(f=>`Floor ${esc(f.name)}: ${f.n}`).join(" · ")}${nAnt?"":" (none placed yet: Design, Antennas and coverage)"}</p>`:"";
+  return `${svg}<p class="hint" style="margin:2px 0 0">Levels are the ${esc(main.b.band)} link budget's worst case (${main.I.f_dl} MHz down, ${main.I.f_ul} MHz up); every band is in the table below. Blue: what reaches the radios inside; orange: what reaches the agency's receiver.${R.roofMissing?" The signal at the roof isn't entered yet, so downlink levels are open.":""}</p>
+    ${bandTable}${siteTable}${floorRow}`;
+};
+
 /* ---------- the design submittal for the AHJ (Report → Design submittal) ---------- */
 window.dasSubmittal = async (el, j) => {
   await Promise.all([frLoad("budget"), frLoad("parts"), frLoad("plans")]);
+  const jobFiles=new Set((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files.map(f=>f.name));  // spec sheets gathered (Materials)
+  const gathered=x=>jobFiles.has(`Spec sheet - ${String(x.part||x.item||"").trim().replace(/[\\/:*?"<>|\x00-\x1f]+/g,"-").replace(/^[ .]+|[ .]+$/g,"").slice(0,120)}.pdf`);
   if(!el.isConnected) return;  // a newer draw took over while this one waited
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[], bands=dsBands(d), plan=(d.presurvey||{}).plan||[], cs=S.das.contacts;
   const who=k=>cs.find(c=>String(c.id)===String((d.contacts||{})[k])), tech=who("tech");
@@ -418,6 +495,7 @@ window.dasSubmittal = async (el, j) => {
       <h2 style="margin:0 0 4px">Emergency responder communication enhancement system: design submittal</h2>
       <p style="margin:0 0 10px">${esc(j.name)} · ${esc(d.address||"")} · ${esc(d.ahj||"AHJ not set")} · ${esc(d.code||"IFC 510 + NFPA 1225")} · ${esc(d.booster_class||"Class A (channelized)")} · prepared ${esc(today())}${tech?` by ${esc([tech.name,tech.org].filter(Boolean).join(", "))}`:""}</p>
       <h3>1. Systems retransmitted</h3>${plan.length?`<table><thead><tr><th>Agency</th><th>Call sign</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Type</th></tr></thead><tbody>${plan.map(p=>`<tr><td>${esc(p.system)}</td><td class="mono">${esc(p.call_sign)}</td><td class="mono">${esc(p.downlink_mhz)}</td><td class="mono">${esc(p.uplink_mhz)}</td><td>${esc(p.technology)}</td></tr>`).join("")}</tbody></table>`:'<p>None chosen in the pre-survey.</p>'}
+      <h3>System diagram: signal path, start to finish</h3>${window.dasSchematic(d)}
       <h3>2. Link budget</h3>${bands.map(b=>{ const I=dsInputs(d,b), R=lbCompute(I); return `<div style="break-inside:avoid;margin-bottom:10px"><h4 style="margin:6px 0">${esc(b.band)} · ${b.n_ch} channel${b.n_ch===1?"":"s"}, worst case ${b.f_dl} MHz down / ${b.f_ul} MHz up</h4>
         <table><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>${R.checks.map(c=>`<tr><td>${esc(c.name)}</td><td><b>${c.ok==null?"open":c.ok==="warn"?"warn":c.ok?"pass":"FAIL"}</b></td><td>${esc(c.detail)}</td></tr>`).join("")}</tbody></table>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"><table><thead><tr><th>Downlink</th><th class="n">dB</th><th class="n">dBm</th></tr></thead><tbody>${stageRows(R.dl)}</tbody></table>
@@ -426,7 +504,8 @@ window.dasSubmittal = async (el, j) => {
       <h3 style="break-before:page">3. Floor designs${worst?` (${esc(worst.band)}, the highest band)`:""}</h3>
       ${floors.map((f,i)=>{ const p=pics[i]; return `<div style="break-inside:avoid;margin-bottom:12px"><h4 style="margin:6px 0">Floor ${esc(f.name)}${p?.stats?`: ${p.stats.pct}% of the floor predicted at or above ${p.target} dBm`:""}</h4>
         ${p?`<img src="${p.src}" style="width:100%;max-width:720px;border:1px solid #999"><p class="hint" style="margin:2px 0">${p.antennas} server antenna${p.antennas===1?"":"s"}, ${p.walls} wall${p.walls===1?"":"s"} drawn. Green ≥ ${p.target+5} dBm, amber within 5 dB of the requirement, red below it. Predicted, not measured.</p>`:'<p class="hint">No design for this floor yet.</p>'}</div>`; }).join("")}
-      <h3 style="break-before:page">4. Bill of materials</h3>${(d.bom||[]).length?`<table><thead><tr><th>Item</th><th>Part number</th><th>Supplier</th><th class="n">Qty</th><th>Datasheet</th></tr></thead><tbody>${d.bom.map(x=>{ const u=sheet(x.item); return `<tr><td>${esc(x.item)}</td><td class="mono">${esc(x.part||"")}</td><td>${esc(x.supplier||"")}</td><td class="n">${esc(x.qty??"")} ${esc(x.unit||"")}</td><td>${u?`<a href="${esc(u)}">${esc(u.replace(/^https?:\/\//,"").slice(0,50))}</a>`:""}</td></tr>`; }).join("")}</tbody></table>`:"<p>No materials listed yet.</p>"}
+      <h3 style="break-before:page">4. Bill of materials</h3>${(d.bom||[]).length?`<table><thead><tr><th>Item</th><th>Part number</th><th>Supplier</th><th class="n">Qty</th><th>Spec sheet</th></tr></thead><tbody>${d.bom.map(x=>{ const u=sheet(x.item); return `<tr><td>${esc(x.item)}</td><td class="mono">${esc(x.part||"")}</td><td>${esc(x.supplier||"")}</td><td class="n">${esc(x.qty??"")} ${esc(x.unit||"")}</td><td>${gathered(x)?"attached":u?`<a href="${esc(u)}">${esc(u.replace(/^https?:\/\//,"").slice(0,50))}</a>`:""}</td></tr>`; }).join("")}</tbody></table>
+        <p class="hint">${d.bom.filter(gathered).length} of ${d.bom.length} parts' spec sheets are attached (Materials, Build spec sheets; the BOM + spec sheets download).</p>`:"<p>No materials listed yet.</p>"}
       <h3>5. Standby power</h3>${bt.B.items.length?`<table><thead><tr><th>Equipment</th><th class="n">Qty</th><th class="n">Amps</th></tr></thead><tbody>${bt.B.items.map(x=>`<tr><td>${esc(x.name)}</td><td class="n">${esc(x.qty??1)}</td><td class="n">${((+x.qty||1)*((+x.amps||0)||((+x.watts||0)/(+bt.B.volts||1)))).toFixed(2)}</td></tr>`).join("")}</tbody></table>
         <p>Full load ${bt.load.toFixed(2)} A at ${bt.B.volts} V for ${bt.B.hours} h with ${bt.B.margin_pct}% margin: <b>${bt.ah.toFixed(1)} Ah</b> (NFPA 1225 18.13.2: 12 h at 100% operation; battery in a NEMA 3R or better cabinet).</p>`:"<p>No battery calculation yet.</p>"}
       <h3>6. Material rules</h3>${P?`<table><thead><tr><th>Rule</th><th>Code</th><th>Met</th></tr></thead><tbody>${(P.das||[]).map(x=>`<tr><td>${esc(x.topic)}: ${esc(x.requirement||"")}</td><td>${esc(x.code||"")}</td><td>${(d.material_checks||{})[`${x.topic}|${x.requirement}`]?"yes":"–"}</td></tr>`).join("")}</tbody></table>`:""}

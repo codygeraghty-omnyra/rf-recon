@@ -26,6 +26,7 @@ except ImportError:  # desktop Python, for tests (tests/test_webhost.py)
     pass
 
 import concurrent.futures  # noqa: E402
+import urllib.error  # noqa: E402
 import urllib.parse  # noqa: E402
 import urllib.request  # noqa: E402
 from xml.sax.saxutils import quoteattr  # noqa: E402
@@ -88,15 +89,22 @@ def _urlopen_web(req, *a, **k):
             return _Answer(_pskreporter(url))
         if host == "network.satnogs.org":
             return _urlopen(_site("../packs/satnogs.json"), timeout=k.get("timeout", 90))
-        return _urlopen(req, *a, **k)
+        r = _urlopen(req, *a, **k)
     except OSError:
         raise
     except Exception as e:
         raise OSError(f"the browser couldn't reach it: {e}") from None
+    if (getattr(r, "status", None) or 200) >= 400:  # as desktop urllib does (pyodide-http hands an error page back as an answer)
+        raise urllib.error.HTTPError(url, r.status, getattr(r, "reason", "") or "", r.headers, r)
+    return r
 
 
 if "pyodide" in sys.modules:
     urllib.request.urlopen = _urlopen_web
+    # build_opener(...).open (spec sheets, a building's website): pyodide-http sends it straight to the browser;
+    # here it takes the same way as urlopen. The PC's redirect handlers don't apply: the browser follows redirects.
+    if getattr(_urlopen, "__module__", "").startswith("pyodide_http"):  # (desktop urlopen calls an opener itself: never loop)
+        urllib.request.OpenerDirector.open = lambda self, url, *a, **k: _urlopen_web(url, *a, **k)
 
 import app  # noqa: E402
 import captures  # noqa: E402
@@ -156,6 +164,8 @@ def _schema():
         if name not in have:
             con.execute(sql)
     con.commit()
+    das.migrate(con)  # columns added to tables a browser already has (CREATE leaves an existing table as it was)
+    captures.migrate(con)
     con.close()
     app.cdb().close()  # the crowd database: empty here (crowd data needs your keys, which stay on the PC)
 
@@ -171,6 +181,108 @@ def has_table(con, name):
 app.db = db
 app.has_table = has_table
 _schema()
+
+
+# DAS Prospects from the pack: fieldpack.build puts the area's buildings in its prospect table (the columns
+# prospects.near and get read), and the whole country's counts in its meta, so the PC's code reads them as its list
+def _prospects_path(_data_dir):
+    return PACK
+
+
+def _prospect_counts(_data_dir):
+    """prospects.counts for the pack: the country's counts it was made with (DAS Prospects says "in the US"), or
+    {"updated": None} for a pack made before the lists went in (11/4): the page then says the lists aren't here."""
+    if not os.path.exists(PACK):
+        return {"updated": None}
+    con = sqlite3.connect(PACK)
+    try:
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='prospect'").fetchone():
+            return {"updated": None}
+        r = con.execute("SELECT v FROM meta WHERE k='prospect_counts'").fetchone()
+        if r:
+            return json.loads(r[0])
+        out = {k: n for k, n in con.execute("SELECT kind, COUNT(*) FROM prospect GROUP BY kind")}
+        out["updated"] = con.execute("SELECT MAX(updated) FROM prospect").fetchone()[0]
+        return out
+    finally:
+        con.close()
+
+
+def _prospects_refresh(*a, **k):
+    raise ValueError("The prospect lists download on the PC or server. In the web version they come in the field pack: "
+                     "load a pack made since 11/4 for this area (Packs).")
+
+
+import prospects  # noqa: E402
+
+prospects.db_path = _prospects_path
+prospects.counts = _prospect_counts
+prospects.refresh = _prospects_refresh
+prospects.connect = _prospects_refresh  # every writer to the lists (a refresh, an area's added buildings) opens with it: never the pack
+
+
+def _highrises_web(*a, **k):
+    raise ValueError("Find high-rises runs on the PC or server (it reads Overture's building heights with RF Recon's own tools). "
+                     "Here the high-rises found there come in the next pack made of this area.")
+
+
+prospects.highrises = _highrises_web
+
+
+def _public_url_web(url):
+    """das._public_url in the browser: an http(s) link, nothing more. The PC's check keeps its server from being sent
+    to a private address; here the browser fetches it under its own rules, there's no server to protect, and Pyodide
+    has no real DNS to look the name up with (it would refuse every link a supplier's price list gives)."""
+    u = urllib.parse.urlsplit(url or "")
+    if u.scheme not in ("http", "https") or not u.hostname:
+        raise ValueError("not an http(s) link")
+
+
+def _get_web(url):
+    """das._get in the browser: a spec sheet or a supplier's price list fetched through the browser. Most makers' and
+    suppliers' sites don't let a web page read their files (CORS), which is said plainly."""
+    _public_url_web(url)
+    u = urllib.parse.urlsplit(url)
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url), timeout=40) as r:
+            data = r.read(das.SPEC_MAX + 1)
+    except urllib.error.HTTPError as e:  # it answered, with an error: the link is wrong or gone, not the browser's rules
+        raise OSError(f"{u.hostname} answered {e.code}: check the link") from None
+    except Exception:
+        raise OSError(f"{u.hostname} doesn't let a web page fetch its files: RF Recon on the PC or server fetches it. "
+                      "Here, open the link, save the file and upload it") from None
+    if len(data) > das.SPEC_MAX:
+        raise ValueError("the file is over 30 MB")
+    return data
+
+
+das._get = _get_web
+das._public_url = _public_url_web
+
+try:  # DAS Prospects' "Find email" (contactfind.py, 11/4): it reads the building's own website
+    import contactfind
+    _contact_find = contactfind.find
+
+    def _contact_find_web(website, fetch=None, max_pages=5):
+        """contactfind.find in the browser. It passes over a page it can't read, so a site that refuses web pages (most
+        do: CORS) would come back as "no address found"; when every page it tried was refused, that's said instead."""
+        refused = []
+
+        def f(url):
+            try:
+                return (fetch or contactfind._default_fetch)(url)
+            except Exception:
+                refused.append(url)
+                raise
+        out = _contact_find(website, f, max_pages)
+        if not out.get("emails") and out.get("pages") and set(out["pages"]) <= set(refused):
+            host = urllib.parse.urlsplit(out["pages"][0]).hostname or "The building's website"
+            raise ValueError(f"{host} doesn't let a web page read it, so Find email works from RF Recon on the PC or server. "
+                             "Here, open their website and look for a contact address, or call the number shown.")
+        return out
+    contactfind.find = _contact_find_web
+except ImportError:
+    pass
 
 
 def attach_history(paths):

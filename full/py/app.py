@@ -20,7 +20,15 @@ import threading
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, unquote, urlencode, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
+
+
+def disposition(kind, name):
+    """A download header safe for any file name: HTTP headers are Latin-1, so a name like "Floor 2 – plan ✓.pdf" sent
+    raw broke the answer mid-way (a 200 header, then a 400 written into the same reply; 11/3). An ASCII stand-in for
+    old clients, and the real name encoded (RFC 6266)."""
+    plain = name.encode("ascii", "replace").decode().replace('"', "'")
+    return f"{kind}; filename=\"{plain}\"; filename*=UTF-8''{quote(name)}"
 from xml.sax.saxutils import escape
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -103,6 +111,7 @@ def init():
               f"or run  python uls_import.py  first.")
     con = sqlite3.connect(DB_PATH)
     con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA + notes.SCHEMA)
+    das.migrate(con)  # columns added to the DAS tables after they were first made
     notes.migrate(con)
     captures.migrate(con)
     import towers
@@ -493,7 +502,7 @@ def start_fieldpack(d):
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
                 "/api/cells", "/api/cells/import", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
-                "/api/fccid/boosters", "/api/find"}
+                "/api/fccid/boosters", "/api/find", "/api/radioid"}
 
 
 def coverage_args(qs):
@@ -766,7 +775,7 @@ def coverage_conflicts(caps, most_spots=40):
     return out
 
 
-TRACK = {"key": None, "value": {}}
+TRACK = {}  # personal_now() -> {"key", "value"}: one cache for the owner, one for team logins
 
 
 def track_record():
@@ -787,8 +796,9 @@ def track_record():
     cc = cdb()
     try:
         key = key + (cc.execute("SELECT COUNT(*), MAX(id) FROM ext_point").fetchone(),)
-        if TRACK["key"] == key:
-            return TRACK["value"]
+        slot = TRACK.setdefault(build.personal_now(), {"key": None, "value": {}})  # the owner and team logins count different sources
+        if slot["key"] == key:
+            return slot["value"]
         tally = {}
 
         def add(src, ok):
@@ -834,7 +844,7 @@ def track_record():
             lcon.close()
         value = {src: {"confirmed": ok, "contradicted": bad, "grade": provenance.earned_grade(ok, bad),
                        "proposed": provenance.grade(src, "on_air")} for src, (ok, bad) in tally.items()}
-        TRACK.update(key=key, value=value)
+        slot.update(key=key, value=value)
         return value
     finally:
         cc.close()
@@ -936,6 +946,30 @@ def mission_bearings(mid):
 
 
 # ---------------------------------------------------------------- compare two surveys (baseline comparison)
+
+def mission_hunt(mid, freq, tol_khz=12.5, here_lat=None, here_lon=None):
+    """Find a signal: a mission's readings on one frequency (within tol_khz; any frequency when none is given), where
+    the signal probably is from their levels (geo.level_fix) and their bearings (geo.bearing_fix), one best guess
+    from both, and, when the person's position is given, which way and how far it is from them."""
+    con = db()
+    try:
+        rows = con.execute("SELECT ts, lat, lon, freq_mhz, dbm, extra FROM capture_point WHERE mission_id=? AND lat IS NOT NULL"
+                           + (" AND freq_mhz BETWEEN ? AND ?" if freq else "") + " ORDER BY ts DESC LIMIT 400",
+                           (mid,) + ((freq - tol_khz / 1000, freq + tol_khz / 1000) if freq else ())).fetchall()
+    finally:
+        con.close()
+    pts = [{"ts": r["ts"], "lat": r["lat"], "lon": r["lon"], "freq_mhz": r["freq_mhz"], "dbm": r["dbm"], "bearing": point_bearing(r["extra"])} for r in rows]
+    lv = [p for p in pts if p["dbm"] is not None][:120]  # the latest 120 levels keep the estimate quick
+    level = geo.level_fix([(p["lat"], p["lon"], p["dbm"]) for p in lv])
+    bearing = geo.bearing_fix([(p["lat"], p["lon"], p["bearing"]) for p in pts if p["bearing"] is not None])
+    best = geo.combine_fixes(level, bearing)
+    out = {"readings": pts, "level": level, "bearing": bearing, "best": best}
+    if best and here_lat is not None and here_lon is not None:
+        out["from_you"] = {"m": round(1000 * geo.haversine_km(here_lat, here_lon, best["lat"], best["lon"])),
+                            "deg": round(geo.bearing_deg(here_lat, here_lon, best["lat"], best["lon"])),
+                            "compass": geo.compass(geo.bearing_deg(here_lat, here_lon, best["lat"], best["lon"]))}
+    return out
+
 
 def signal_key(r):
     """What makes two observations the same signal: a MAC / cell id when there is one, else the 6.25 kHz
@@ -1451,6 +1485,13 @@ class H(BaseHTTPRequestHandler):
                                                              min_watts=fnum(qs, "watts")))
                 finally:
                     con.close()
+            if p == "/api/radioid":  # who a DMR or NXDN radio ID belongs to (radioid.py: one look-up at a time, kept 30 days)
+                import radioid
+                cc = cdb()
+                try:
+                    return self.send(200, radioid.lookup(cc, fstr(qs, "id"), fstr(qs, "kind") or "dmr"))
+                finally:
+                    cc.close()
             if p == "/api/ais":  # live ships in the box (ais.py); the stream runs only while a map keeps asking
                 s_, n_, w_, e_ = (fnum(qs, k) for k in ("s", "n", "w", "e"))
                 if None in (s_, n_, w_, e_) or n_ - s_ > 6 or e_ - w_ > 8:
@@ -1577,7 +1618,7 @@ class H(BaseHTTPRequestHandler):
                     data = fh.read(b - a + 1)
                 return self.send(206 if rng and (rng.group(1) or rng.group(2)) else 200, data, ctype,
                                  {"Accept-Ranges": "bytes", "Content-Range": f"bytes {a}-{b}/{size}",
-                                  "Content-Disposition": f'inline; filename="{os.path.basename(fp)}"'})
+                                  "Content-Disposition": disposition("inline", os.path.basename(fp))})
             if nid is None:
                 return self.send(200, {"id": notes.create(con, NOTES_DIR, self.body_json(), who)})
             if sub == "file":
@@ -1619,6 +1660,9 @@ class H(BaseHTTPRequestHandler):
                         return self.send(200, job)
                     if action == "files":
                         return self.send(200, das.list_files(jid, job["name"]))
+                    if action == "packet":  # the AHJ packet's parts: the bill of materials and every gathered spec sheet (Joe 11/3)
+                        return self.send(200, das.packet_zip(jid, job), "application/zip",
+                                         {"Content-Disposition": disposition("attachment", f"{job['name']} - bill of materials and spec sheets.zip")})
                     if action == "file":
                         fp = das.file_path(jid, job["name"], fstr(qs, "name"))
                         if not os.path.isfile(fp):
@@ -1627,7 +1671,7 @@ class H(BaseHTTPRequestHandler):
                             data = fh.read()
                         ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
                         inline = ctype.startswith(("image/", "text/")) or ctype == "application/pdf"
-                        return self.send(200, data, ctype, {"Content-Disposition": f'{"inline" if inline else "attachment"}; filename="{os.path.basename(fp)}"'})
+                        return self.send(200, data, ctype, {"Content-Disposition": disposition("inline" if inline else "attachment", os.path.basename(fp))})
                 else:
                     if jid is None:
                         return self.send(200, das.save_job(con, self.body_json()))
@@ -1635,6 +1679,8 @@ class H(BaseHTTPRequestHandler):
                         return self.send(200, das.save_job(con, self.body_json(), jid))
                     if action == "note":
                         return self.send(200, das.note(con, jid, self.body_json().get("text", "")))
+                    if action == "specsheets":  # every BOM part's spec sheet into the job's folder (Joe 11/3: "build spec sheets")
+                        return self.send(200, das.build_specsheets(con, jid, job))
                     if action == "delete":
                         das.delete_job(con, jid)
                         return self.send(200, {"ok": True})
@@ -1661,6 +1707,120 @@ class H(BaseHTTPRequestHandler):
                     das.delete_contact(con, cid)
                     return self.send(200, {"ok": True})
                 return self.send(200, das.save_contact(con, self.body_json(), cid))
+            # supplier quotes for a job's bill of materials: RF Recon writes the request, the person sends it (11/3)
+            # prospects: buildings likely to need ERCES near a spot, from public lists (prospects.py), and the pipeline (11/3)
+            if p == "/api/das/prospects":
+                import prospects
+                lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
+                if lat is None or lon is None:
+                    raise ValueError("Pick where to look: the pin, a mission or a job.")
+                kinds = [k for k in fstr(qs, "kinds").split(",") if k] or None
+                rows = prospects.near(uls_import.DATA_DIR, lat, lon, fnum(qs, "radius", 10), kinds, fstr(qs, "q"), int(fnum(qs, "limit", 500)))
+                return self.send(200, {"prospects": das.with_pipeline(con, rows), "counts": prospects.counts(uls_import.DATA_DIR),
+                                       "sources": {k: {"name": v.get("name"), "license": v.get("license")} for k, v in prospects.SOURCES.items()}})
+            if p == "/api/das/prospects/highrises" and method == "POST":  # Overture buildings 75 ft / 7 floors and up near a spot
+                import prospects
+                d = self.body_json()
+                lat, lon = float(d.get("lat")), float(d.get("lon"))
+                n = prospects.highrises(uls_import.DATA_DIR, lat, lon, float(d.get("radius") or 3))
+                return self.send(200, {"highrises": n})
+            m = re.match(r"^/api/das/prospects/([\w:.%\-]+)/(status|email|job|find-email)$", p)
+            if m:
+                import prospects
+                pid, action = unquote(m.group(1)), m.group(2)  # the page sends the id URL-encoded (":" as %3A)
+                if action in ("status", "job", "find-email") and method != "POST":
+                    raise ValueError("Use POST.")
+                if action == "status":
+                    return self.send(200, das.set_prospect(con, pid, self.body_json()))
+                row = prospects.get(uls_import.DATA_DIR, pid)
+                if not row:
+                    raise LookupError("That prospect isn't in the lists any more.")
+                kept = con.execute("SELECT email, email_source FROM das_prospect WHERE id=?", (pid,)).fetchone()
+                if kept and kept["email"]:
+                    row["email"] = kept["email"]
+                if action == "email":
+                    return self.send(200, das.prospect_email(row, get_setting("das.firm", {}) or {}))
+                if action == "find-email":  # the building's own website: its published contact address (contactfind.py)
+                    import contactfind
+                    got = contactfind.find(row.get("website") or "")
+                    if got["emails"] and not (kept and kept["email"]):
+                        das.set_prospect(con, pid, {"email": got["emails"][0]["email"], "email_source": got["emails"][0]["page"]})
+                    return self.send(200, got)
+                have = con.execute("SELECT job_id FROM das_prospect WHERE id=?", (pid,)).fetchone()
+                if have and have[0] and das.job_row(con, have[0]):
+                    return self.send(200, das.job_row(con, have[0]))  # one job per prospect
+                job = das.save_job(con, {"name": row["name"], "stage": "Lead", "data": {"lat": row["lat"], "lon": row["lon"],
+                      "address": ", ".join(x for x in (row.get("address"), row.get("city"), row.get("state"), row.get("zip")) if x),
+                      "notes": f"From prospects ({row['source']}): {row.get('phone') or ''} {row.get('website') or ''}".strip()}})
+                das.set_prospect(con, pid, {"job_id": job["id"]})
+                return self.send(200, job)
+            if p == "/api/das/suppliers/refresh" and method == "POST":  # every supplier's price list link, now
+                return self.send(200, {"refreshed": das.refresh_price_lists(con), "suppliers": das.list_suppliers(con)})
+            if p == "/api/das/firm":  # the firm's own details for the DAS Pitch deck, kept for every login (11/3)
+                if method == "GET":
+                    return self.send(200, get_setting("das.firm", {}) or {})
+                d = self.body_json()
+                firm = {k: str(d.get(k) or "").strip()[:300] for k in ("name", "tagline", "phone", "email", "website", "area", "license", "certs", "address", "contact")}
+                set_setting("das.firm", firm)
+                return self.send(200, firm)
+            if p == "/api/das/suppliers":
+                return self.send(200, {"suppliers": das.list_suppliers(con)} if method == "GET" else das.save_supplier(con, self.body_json()))
+            m = re.match(r"^/api/das/rfq(?:/(\d+))?(?:/(\w+))?$", p)
+            if m:
+                rid, action = (int(m.group(1)) if m.group(1) else None), m.group(2)
+                if rid is None:
+                    if method == "GET":
+                        return self.send(200, {"rfqs": das.list_rfqs(con, int(fnum(qs, "job", 0)))})
+                    d = self.body_json()
+                    job = das.job_row(con, int(d.get("job_id") or 0))
+                    if not job:
+                        raise LookupError("That job was deleted.")
+                    return self.send(200, das.create_rfq(con, job["id"], job, d.get("suppliers") or [], d.get("need_by", ""), d.get("ship_to", ""), d.get("notes", "")))
+                if method == "GET":
+                    q = das.get_rfq(con, rid)
+                    if action == "sheet":
+                        return self.send(200, das.rfq_sheet(q).encode("utf-8"), "text/csv; charset=utf-8",
+                                         {"Content-Disposition": disposition("attachment", f"Request for quote - {q['title'][:80]}.csv")})
+                    if action == "email":
+                        return self.send(200, das.rfq_email(q, fstr(qs, "supplier"), fstr(qs, "sender")))
+                    return self.send(200, q)
+                if action == "quote":
+                    d = self.body_json()
+                    return self.send(200, das.save_quote(con, rid, d.get("supplier", ""), d))
+                if action == "import":
+                    return self.send(200, das.import_quote(con, rid, fstr(qs, "supplier"), fstr(qs, "name"), self.raw_body()))
+                if action == "freight":  # shipping estimates from each supplier to the ship-to (freight.py, a Shippo token)
+                    return self.send(200, das.freight_estimate(con, rid, (get_setting("creds", {}) or {}).get("shippo_token")))
+                if action == "online":  # the distributors' online prices for the request's lines (Mouser, Digi-Key: their keys)
+                    return self.send(200, das.online_quotes(con, rid, get_setting("creds", {}) or {}))
+                if action == "delete":
+                    for t in ("das_quote", "das_rfq_supplier"):
+                        con.execute(f"DELETE FROM {t} WHERE rfq_id=?", (rid,))
+                    con.execute("DELETE FROM das_rfq WHERE id=?", (rid,))
+                    con.commit()
+                    return self.send(200, {"ok": True})
+            # the parts catalogue: a supplier's price list, the standard parts, a spec sheet on each part (Joe 11/3)
+            m = re.match(r"^/api/das/parts(?:/(\d+))?(?:/(\w+))?$", p)
+            if m:
+                pid, action = (int(m.group(1)) if m.group(1) else None), m.group(2)
+                if method == "GET":
+                    if action == "spec":
+                        fp = das.spec_path(con, pid)
+                        if not os.path.isfile(fp):
+                            raise LookupError("The spec sheet file is missing.")
+                        with open(fp, "rb") as fh:
+                            return self.send(200, fh.read(), "application/pdf", {"Content-Disposition": disposition("inline", os.path.basename(fp))})
+                    das.seed_parts(con)  # once: a starter catalogue from the research parts, before any price list (11/3)
+                    ids = [int(x) for x in fstr(qs, "ids").split(",") if x.strip().isdigit()] if fstr(qs, "ids") else None
+                    return self.send(200, das.list_parts(con, fstr(qs, "q"), fstr(qs, "standard") == "1", ids, int(fnum(qs, "limit", 200))))
+                if p == "/api/das/parts/import":
+                    return self.send(200, das.import_parts(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "supplier")))
+                if action == "delete":
+                    das.delete_part(con, pid)
+                    return self.send(200, {"ok": True})
+                if action == "spec":
+                    return self.send(200, das.save_spec(con, pid, self.raw_body()))
+                return self.send(200, das.save_part(con, self.body_json(), pid))
             if p == "/api/das/presurvey":
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None:
@@ -1675,7 +1835,7 @@ class H(BaseHTTPRequestHandler):
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None:
                     raise ValueError("Set the building's location first.")
-                return self.send(200, das.building_outline(lat, lon))
+                return self.send(200, das.building_outline(lat, lon, fresh=qs.get("fresh", [""])[0] == "1"))
             if p == "/api/das/terrain" and method == "POST":  # donor paths: agency sites -> the roof
                 d = self.body_json()
                 out = {}
@@ -1712,6 +1872,9 @@ class H(BaseHTTPRequestHandler):
             if p in ("/", "/index.html"):
                 with open(os.path.join(STATIC, "index.html"), "rb") as fh:
                     return self.send(200, fh.read(), "text/html; charset=utf-8")
+            if p == "/favicon.ico":  # browsers ask for it on every page; it was a 404 each time (11/3)
+                with open(os.path.join(STATIC, "app", "icons", "icon-192.png"), "rb") as fh:
+                    return self.send(200, fh.read(), "image/png", {"Cache-Control": "max-age=86400"})
             if p.startswith("/static/"):
                 fp = os.path.normpath(os.path.join(STATIC, p[len("/static/"):]))
                 if not fp.startswith(STATIC) or not os.path.isfile(fp):
@@ -1741,6 +1904,12 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, json.load(fh))
             if p == "/api/bdc/at":  # the carriers the FCC Broadband Map shows covering this spot (bdc.py)
                 return self.send(200, bdc.at(uls_import.DATA_DIR, fnum(qs, "lat"), fnum(qs, "lon")))
+            if p == "/api/bdc/near":  # the FCC's coverage checks and the fixed wireless offered at this spot (bdc_extra.py)
+                import bdc_extra
+                return self.send(200, bdc_extra.near(uls_import.DATA_DIR, fnum(qs, "lat"), fnum(qs, "lon")))
+            if p == "/api/bdc/modelled":  # how a carrier says it modelled its coverage: tools and link budget frequencies
+                import bdc_extra
+                return self.send(200, bdc_extra.modelled(uls_import.DATA_DIR, int(fnum(qs, "provider"))))
             if p == "/api/bdc/carriers":  # the carriers with coverage in a box, for the carrier heatmap's picker
                 return self.send(200, {"carriers": bdc.carriers(uls_import.DATA_DIR, *(fnum(qs, k) for k in ("s", "n", "w", "e")))})
             if p == "/api/me":  # the remote door answers this itself (RemoteH); the data folder lets a launcher know its own copy
@@ -1815,6 +1984,9 @@ class H(BaseHTTPRequestHandler):
                 rows = [dict(r) for r in con.execute("SELECT id,name,status,lat,lon,radius_mi,start_date,end_date,operator,updated_at FROM mission ORDER BY id DESC")]
                 con.close()
                 return self.send(200, {"missions": rows, "active": get_setting("active_mission")})
+            m = re.match(r"^/api/missions/(\d+)/hunt$", p)
+            if m:  # Find a signal: where it probably is, from this mission's readings on one frequency (11/3)
+                return self.send(200, mission_hunt(int(m.group(1)), fnum(qs, "freq"), fnum(qs, "tol_khz", 12.5), fnum(qs, "lat"), fnum(qs, "lon")))
             m = re.match(r"^/api/missions/(\d+)/(timeline|bearings)$", p)
             if m:
                 return self.send(200, (mission_timeline if m.group(2) == "timeline" else mission_bearings)(int(m.group(1))))
@@ -1856,6 +2028,14 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/fieldpacks":
                 return self.send(200, {"folder": fieldpack.PACK_DIR, "phone_url": PHONE_URL,
                                        "packs": fieldpack.list_packs(), "job": FP_JOB})
+            if p == "/api/fieldpacks/file":  # one pack to download: on the server there's no Drive folder to load it from (11/3)
+                name = qs.get("name", [""])[0]
+                if name not in {x["file"] for x in fieldpack.list_packs()}:  # only a listed pack: never a path
+                    raise LookupError("No field pack by that name.")
+                with open(os.path.join(fieldpack.PACK_DIR, name), "rb") as fh:
+                    data = fh.read()
+                return self.send(200, data, "application/octet-stream",
+                                 {"Content-Disposition": f"attachment; filename=\"{name.encode('ascii', 'replace').decode()}\"; filename*=UTF-8''{quote(name)}"})
             if p == "/api/sigid":
                 return self.send(200, {"library": {k: {"family": v[0], "bw": v[1], "url": sigid.sigid_url(k), "color": v[3]}
                                                    for k, v in sigid.LIBRARY.items()},
@@ -2113,6 +2293,8 @@ class H(BaseHTTPRequestHandler):
                 d = self.body_json()
                 if "auto" in d:
                     set_setting("update.auto", bool(d["auto"]))
+                if "archive" in d:  # keep each week's FCC files in fcc-archive/ (uls_import.archive)
+                    set_setting("update.archive", bool(d["archive"]))
                 if "links" in d:  # the connections updates may use: wifi, ethernet, cellular
                     set_setting("update.links", [k for k in updmod.LINKS if k in (d["links"] or [])] or ["wifi", "ethernet"])
                 if "wifi_only" in d:
