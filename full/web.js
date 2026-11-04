@@ -122,7 +122,8 @@ async function packPanels(v) {
       internal use only), FCC ID grant lists (the FCC refuses web pages; the maker still shows and the grants open in your browser), live
       Push to ATAK over your network (here it hands the package to ATAK instead), and in DAS Materials, fetching a spec sheet from a maker's
       page or re-reading a supplier's price list link (most of their sites don't let a web page read their files: save the file and upload it
-      here). DAS Prospects' schools, colleges and hospitals come in the pack (packs made since 11/4), not the PC's monthly download. Online
+      here), sending email from your own mailbox and filing the replies (DAS Mail; here each email button opens your mail app), and the
+      national building inventory lookup (NSI). DAS Prospects' schools, colleges and hospitals come in the pack (packs made since 11/4), not the PC's monthly download. Online
       part prices from Mouser and Digi-Key work here with your own keys. It works on a phone too; for one state kept on the phone with no
       signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`);
   $("#pkFile").onchange = async e => {

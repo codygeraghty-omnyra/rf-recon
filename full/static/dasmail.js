@@ -24,7 +24,10 @@ window.rfMail = (() => {
   // ---- your mailbox
   async function connectPanel(el, done) {
     const a = await account(true);
-    if (!a.available) { el.innerHTML = `<p class="hint">${esc(a.why || "Mail isn't available here.")}</p>`; return; }
+    // the web version (its stand-in server answers "runs on the PC only") and the phone app: a browser can't sign in to a mailbox
+    if (!a.available) { el.innerHTML = `<div class="panel"><h3 style="margin-top:0">Email from your own mailbox</h3>
+      <p>Sending from your mailbox and filing the replies into jobs, quotes and prospects works on the RF Recon server and in the PC app: a web page can't sign in to a mailbox itself.</p>
+      <p class="hint" style="margin-bottom:0">Here, each email button (quote requests, prospects, plans, consent letters, the AHJ report) opens the email in your own mail app, ready to send; replies stay in your mail.</p></div>`; return; }
     const ac = a.account || {}, st = a.state || {};
     el.innerHTML = `<div class="panel" id="mlAcct"><h3 style="margin-top:0">Your mailbox <span class="hint">· ${esc(a.login === "local" ? "this PC" : a.login)}: RF Recon sends from it when you press Send, and files tagged replies</span></h3>
       ${ac.address ? `<p>Connected: <b>${esc(ac.address)}</b> <span class="hint">(${esc(ac.provider || "")}, folder ${esc(ac.folder || "INBOX")}${st.last_check ? `, checked ${esc(when(st.last_check))}` : ""})</span>
