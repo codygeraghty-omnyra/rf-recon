@@ -19,12 +19,13 @@ const PR_KINDS = PR_GROUPS.flatMap(g => g[1]);
 // a year ago as a local calendar date (toISOString() is the UTC date: after 7 PM Eastern it reads as tomorrow)
 const prYearAgo = () => { const t = new Date(Date.now() - 365 * 864e5); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; };
 const PR_TRIG = [["", "Every building"], ["new", "New construction"], ["co12", "CO in the last 12 months"], ["major", "Major alteration or addition"], ["any", "Any permit"]];
-const prTrigRank = x => { const t = x.trigger; if (!t || t.minor) return 9; const yr = prYearAgo();
+const prTrigRank = x => { const t = x.trigger; if (!t || t.minor) return 9; if (t.near_m != null) return 6; /* a neighbour's permit ranks after every building's own */ const yr = prYearAgo();
   // the server's order (permits._rank): new building with no CO, a new building's CO this year, major alteration, addition,
   // another CO this year (a new occupant or a change), ERCES work, the rest
   const co = (t.co_date || "") >= yr;
   return t.kind === "new_building" && !t.co_date ? 0 : t.new && co ? 1 : t.kind === "major_alteration" ? 2 : t.kind === "addition" ? 3 : t.kind === "co_issued" && co ? 4 : t.erces ? 5 : 6; };
 const prTrigOk = (x, f) => { const t = x.trigger; if (!f) return true; if (!t) return false;
+  if (t.near_m != null && f !== "any") return false;  // a neighbour's permit doesn't make this building new construction
   const yr = prYearAgo();
   return f === "any" ? true : f === "new" ? !!t.new
     : f === "co12" ? (t.co_date || "") >= yr : f === "major" ? !t.minor && (t.kind === "major_alteration" || t.kind === "addition") : true; };
@@ -189,7 +190,8 @@ window.dasProspects = async el => {
       t.bldg_sqft && `${Math.round(t.bldg_sqft).toLocaleString()} sq ft building`, t.floors && `${t.floors} floors`, t.use_group].filter(Boolean).join(" · ");
     const dates = [t.filed && `filed ${t.filed}`, t.issued && `issued ${t.issued}`, t.final && `closed ${t.final}`, t.co_date && `CO ${t.co_date}`].filter(Boolean).join(", ");
     const rules = prRules(t, PR_REG);
-    return `<div class="pr-trig" style="max-width:900px;margin-top:6px"><b>Trigger: ${esc(t.label)}</b>${t.n > 1 ? ` <span class="hint">(${t.n} permits here; the strongest shown)</span>` : ""}
+    return `<div class="pr-trig" style="max-width:900px;margin-top:6px"><b>Trigger: ${t.near_m != null ? "Nearby, " : ""}${esc(t.label)}</b>${t.n > 1 ? ` <span class="hint">(${t.n} permits ${t.n_near === t.n ? "near" : "here"}${t.n_near && t.n_near < t.n ? `, ${t.n_near} of them nearby` : ""}; the strongest shown)</span>` : ""}
+      ${t.near_m != null ? `<div class="hint">Nearby: this permit is for ${esc(t.address)}, ${t.near_m} m from this building. It matched by distance only, so it is most likely a neighbour's.</div>` : ""}
       <div class="hint">Permit ${esc(t.permit_id)}${t.status ? ` (${esc(t.status)})` : ""}${dates ? `, ${esc(dates)}` : ""}${t.address ? ` at ${esc(t.address)}` : ""}: ${esc(t.desc)}${size ? `. ${esc(size)}` : ""}.</div>
       <div class="hint">Why this kind: ${esc(t.why)}.${t.kind === "major_alteration" && /RF Recon's line/.test(t.why) ? " That line is RF Recon's, not a code threshold." : ""}</div>
       ${rules.map(r => `<div class="hint">Rule: ${esc(r.ahj)}, ${esc(r.code)} ${esc(r.section)}: ${esc(r.threshold)}${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">source</a>` : ""}</div>`).join("")}
@@ -209,7 +211,7 @@ window.dasProspects = async el => {
     if (!t) return "";
     const k = prTrigRank(x), col = PR_TRIG_COL[k];
     const m = /^(.*?)( · | \()(.*)$/.exec(t.label), main = m ? m[1] : t.label, sub = m ? (m[2] === " (" ? "(" : "") + m[3] : "";
-    return `<button data-tg class="pr-tg" style="display:block;border-radius:8px;padding:4px 8px;min-height:32px;border:1px solid ${col};color:${col};background:transparent;text-align:left;white-space:normal;width:204px;line-height:1.3;font-size:12.5px" title="${esc(t.why)} (click for the permit, the source and the rule)"><b style="font-weight:600">${esc(main)}</b>${sub ? `<div style="opacity:.8;font-size:11.5px">${esc(sub)}</div>` : ""}</button>`;
+    return `<button data-tg class="pr-tg" style="display:block;border-radius:8px;padding:4px 8px;min-height:32px;border:1px solid ${col};color:${col};background:transparent;text-align:left;white-space:normal;width:204px;line-height:1.3;font-size:12.5px" title="${t.near_m != null ? `Nearby, ${t.near_m} m away at ${esc(t.address)}: matched by distance only. ` : ""}${esc(t.why)} (click for the permit, the source and the rule)"><b style="font-weight:600">${t.near_m != null ? `Nearby (${t.near_m} m): ` : ""}${esc(main)}</b>${sub ? `<div style="opacity:.8;font-size:11.5px">${esc(sub)}</div>` : ""}</button>`;
   };
   const prDot = x => { const n = P.need[x.id]; return P.colour === "need" ? (n ? (PR_NEED[n.ps] || PR_NEED.unknown)[1] : "#bbb") : PR_STCOL[x.status] || "#3b82f6"; };
   const prSort = rows => {
@@ -285,7 +287,7 @@ window.dasProspects = async el => {
         // the permit trigger (permits.py): what, when, why that kind, and where the record is
         trigger: x => x.trigger && !x.trigger.minor ? x.trigger.label : "", trigger_permit: x => x.trigger?.permit_id, trigger_date: x => x.trigger?.date,
         trigger_work: x => x.trigger?.desc, trigger_why: x => x.trigger?.why, trigger_source: x => x.trigger ? `${x.trigger.source_name} (${x.trigger.publisher})` : "",
-        trigger_link: x => x.trigger?.url || x.trigger?.dataset_url };
+        trigger_link: x => x.trigger?.url || x.trigger?.dataset_url, trigger_nearby_m: x => x.trigger?.near_m ?? "" };
       const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const csv = [[...cols, ...Object.keys(est)].join(","), ...rows.map(x => [...cols.map(c => q(c === "kind" ? PR_KIND[x.kind] || x.kind : x[c])), ...Object.values(est).map(f => q(f(x)))].join(","))].join("\r\n");
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));

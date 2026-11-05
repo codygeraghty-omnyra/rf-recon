@@ -38,6 +38,17 @@ $("#netChip").onclick=()=>setTab("data");
 function missionSay(t, tries=30){ const m=$("#mMsg"); if(m) m.textContent=t; else if(tries>0) setTimeout(()=>missionSay(t, tries-1), 100); }
 
 /* ---------- mission view ---------- */
+// the mission log: settings logged as JSON before 11/4 read in words, and a setting that only went from not set to off
+// (a default written down) is left out, as the server now does
+function missionLogRows(log){
+  const word = s => s === "null" ? "not set" : s === "true" ? "on" : s === "false" ? "off" : s;
+  return (log||[]).flatMap(l => { if(l.kind !== "setting") return [l];
+    const m = /^(.*?): (null|true|false|"[^"]*"|-?[\d.]+|\[\]|\{\}) → (null|true|false|"[^"]*"|-?[\d.]+|\[\]|\{\})$/.exec(l.detail||"");
+    if(!m) return [l];
+    if(m[2] === "null" && ["false", '""', "[]", "{}"].includes(m[3])) return [];
+    return [{...l, detail: `${m[1]}: ${word(m[2])} → ${word(m[3])}`}]; });
+}
+
 S.views.mission = async (v) => {
   v.innerHTML='<p class="status">Loading missions…</p>';
   const gen=S.viewGen;
@@ -118,7 +129,7 @@ S.views.mission = async (v) => {
       <div id="fl_res" class="hint" style="margin-top:6px"></div>
       <h3 style="margin-top:14px">Mission log</h3>
       <div class="row"><input id="ml_note" class="grow" placeholder="Add a note…"><button id="ml_add">Add</button></div>
-      <div class="log" style="margin-top:6px">${(m.log||[]).map(l=>`<div><span class="mono hint">${esc(l.ts)}</span> <span class="tag">${esc(l.kind)}</span> ${esc(l.detail)}</div>`).join("")}</div>
+      <div class="log" style="margin-top:6px">${missionLogRows(m.log).map(l=>`<div><span class="mono hint">${esc(l.ts)}</span> <span class="tag">${esc(l.kind)}</span> ${esc(l.detail)}</div>`).join("")}</div>
       <div class="row" style="margin-top:10px"><button id="mx_kml">⇩ Mission KML (points + GPS tracks)</button><button id="mx_csv">⇩ Mission CSV</button></div></div>
   </div>`:""}`;
   // compare with another survey: what's new, gone or changed since a baseline (research: baseline comparison)

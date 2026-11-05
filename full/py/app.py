@@ -1435,14 +1435,21 @@ def mission_row(con, mid):
     return m
 
 
+def _shown(v):
+    """A setting's value in the mission log, in words."""
+    return "not set" if v is None else "on" if v is True else "off" if v is False else json.dumps(v, ensure_ascii=False)
+
+
 def diff(old, new, prefix=""):
+    """What a save changed, one line each. A setting that went from not set to off or empty changed nothing anyone
+    sees (a default written down), so it isn't logged."""
     out = []
     for k in sorted(set(old) | set(new)):
         a, b = old.get(k), new.get(k)
         if isinstance(a, dict) and isinstance(b, dict):
             out += diff(a, b, prefix + k + ".")
-        elif a != b:
-            out.append(f"{prefix}{k}: {json.dumps(a)} → {json.dumps(b)}")
+        elif a != b and not (a is None and (b is False or b in ("", [], {}))):
+            out.append(f"{prefix}{k}: {_shown(a)} → {_shown(b)}")
     return out
 
 

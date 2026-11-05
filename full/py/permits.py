@@ -915,7 +915,7 @@ def label(p, co_data=True):
     return f"Permit {when}"
 
 
-def trigger_of(p, regs, n=1):
+def trigger_of(p, regs, n=1, n_near=0):
     s = regs.get(p["source"]) or {}
     return {"kind": p["kind"], "new": is_new(p), "label": label(p, has_co_data(p["source"], regs)), "permit_id": p["permit_id"], "desc": (p.get("desc") or "")[:300],
             "status": p.get("status") or "", "issued": p.get("issued") or "", "filed": p.get("filed") or "", "final": p.get("final") or "",
@@ -925,6 +925,7 @@ def trigger_of(p, regs, n=1):
             "source": p["source"], "source_name": s.get("name") or p["source"], "place": s.get("place") or "", "state": s.get("state") or "",
             "publisher": s.get("publisher") or "", "dataset_url": s.get("portal_url") or "", "url": p.get("url") or s.get("portal_url") or "",
             "license": s.get("license") or "", "attribution": s.get("attribution") or "", "n": n,
+            "near_m": p.get("near_m"), "n_near": n_near,  # a neighbour's permit, matched by distance only (attach)
             "date": p.get("co_date") if p["kind"] == "co_issued" or p.get("co_date") else (p.get("issued") or p.get("filed") or "")}
 
 
@@ -970,7 +971,7 @@ def attach(data_dir, rows, lat, lon, radius_mi, only=None, extra=True, today=Non
     got = {}
     left = []
     for p in perms:
-        best = None
+        best, near_m = None, None
         k = addr_key(p.get("address"))
         for r in by_addr.get(k, []) if k else []:
             d = _hav(p["lat"], p["lon"], r["lat"], r["lon"])
@@ -984,21 +985,25 @@ def attach(data_dir, rows, lat, lon, radius_mi, only=None, extra=True, today=Non
                 d = _hav(p["lat"], p["lon"], r["lat"], r["lon"])
                 if d <= lim and (best is None or d < best[0]):
                     best = (d, r)
+            rk = addr_key(best[1].get("address")) if best else ""
+            if best and k and rk and k != rk:  # its own address is another building's: a neighbour's, most likely
+                near_m = round(best[0] * 1609.344)
         if best:
-            got.setdefault(best[1]["id"], []).append(p)
+            got.setdefault(best[1]["id"], []).append(dict(p, near_m=near_m) if near_m is not None else p)
         else:
             left.append(p)
     for r in rows:
         ps = got.get(r.get("id"))
         if not ps:
             continue
-        ps.sort(key=lambda p: _rank(p, today))
+        ps.sort(key=lambda p: (p.get("near_m") is not None, _rank(p, today)))  # the building's own permits first
         r["permits"] = len(ps)
+        nn = sum(1 for p in ps if p.get("near_m") is not None)
         top = ps[0]
         if _rank(top, today)[0] < 9:
-            r["trigger"] = trigger_of(top, regs, len(ps))
+            r["trigger"] = trigger_of(top, regs, len(ps), nn)
         else:
-            r["trigger"] = dict(trigger_of(top, regs, len(ps)), minor=True)
+            r["trigger"] = dict(trigger_of(top, regs, len(ps), nn), minor=True)
     if not extra:
         return rows, []
     groups = {}
