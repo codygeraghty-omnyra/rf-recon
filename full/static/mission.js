@@ -40,7 +40,9 @@ function missionSay(t, tries=30){ const m=$("#mMsg"); if(m) m.textContent=t; els
 /* ---------- mission view ---------- */
 S.views.mission = async (v) => {
   v.innerHTML='<p class="status">Loading missions…</p>';
+  const gen=S.viewGen;
   const list=await api("/api/missions");
+  if(gen!==S.viewGen) return;  // you moved on while it loaded
   const m=S.mission, s=m?.settings||{};
   const editing = S.missionEdit || (m?"edit":"new");
   const cur = editing==="new" ? {settings:{}} : m;
@@ -293,7 +295,9 @@ function waysVersions(){
 S.views.data = async (v) => {
   if(S.remote){ v.innerHTML=`<p class="status">${S.remote.server?"Data &amp; updates is for the admin login.":"Data &amp; updates stays on Cody's PC."}</p>`; return; }
   let settings={creds:{},states:""}, layers={layers:[],fetches:[]};
+  const gen=S.viewGen;
   try{ [settings, layers]=await Promise.all([api("/api/settings"), api("/api/layers")]); UPD=await api("/api/update/status"); }catch(e){ /* a view login or offline: the panels below say what they couldn't read */ }
+  if(gen!==S.viewGen) return;  // you moved on while it loaded
   const c=navigator.connection||{};
   v.innerHTML=`
   <div class="grid2" style="margin-top:0">
@@ -548,7 +552,7 @@ function paintSources(){
     <label class="switch"><input type="checkbox" data-src="${esc(id)}" ${s.enabled?"checked":""}><span></span></label>
     <div><b>${esc(s.label)}</b><div class="hint">${esc(s.description)}</div>
       ${s.access?.key?`<div class="hint">${acc(s.access)}${s.access.terms?`<br>Terms: ${esc(s.access.terms)}`:""}</div>`:""}
-      ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}${DAS_USES[id]?dasNote(DAS_USES[id]):""}</div>
+      ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}${DAS_USES[id]?dasNote(DAS_USES[id]):""}${s.datasets&&window.prDatasets?prDatasets(s):""}</div>
     <select data-int="${esc(id)}" class="hide-m">${INTERVALS.map(([h,l])=>`<option value="${h}" ${+s.interval_h===h?"selected":""}>${l}</option>`).join("")}</select>
     <div class="hide-m" style="font-size:12px">${s.running?'<span class="tag w">running</span> ':""}${s.state==="error"?'<span class="tag" style="color:var(--bad)">error</span> ':s.state==="ok"?'<span class="tag v">ok</span> ':""}${esc(s.message||"")}
       <div class="hint">${freshness(s, u.auto)} · updated ${esc(s.last_updated||"never")}${s.remote?` · source file ${esc(s.remote)}`:""}${s.rows!=null?` · ${Number(s.rows).toLocaleString()} rows`:""}</div></div>

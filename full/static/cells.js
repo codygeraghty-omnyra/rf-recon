@@ -7,10 +7,12 @@ S.views.cells = async v => {
   if(!S.center){ v.innerHTML='<p class="status">Drop a pin (or search an address) first: cell sites are found around it.</p>'; return; }
   const C=S.cellsView=S.cellsView||{op:"", radio:"", q:""};
   v.innerHTML='<p class="status">Finding cell sites…</p>';
+  const gen=S.viewGen;
   let r, cov={carriers:[], loaded:false}, nb={cell:null, checks:[], fixed_wireless:[]};
   try{ [r, cov, nb]=await Promise.all([api(`/api/cells?lat=${S.center[0]}&lon=${S.center[1]}&radius=${S.radius}${S.missionId?`&mission=${S.missionId}`:""}`),
     api(`/api/bdc/at?lat=${S.center[0]}&lon=${S.center[1]}`).catch(()=>cov), api(`/api/bdc/near?lat=${S.center[0]}&lon=${S.center[1]}`).catch(()=>nb)]); }
-  catch(e){ v.innerHTML=`<p class="status err">Cell sites: ${esc(e.message)}</p>`; return; }
+  catch(e){ if(gen===S.viewGen) v.innerHTML=`<p class="status err">Cell sites: ${esc(e.message)}</p>`; return; }
+  if(gen!==S.viewGen) return;  // you moved on while it loaded
   const all=r.sites, ops=[...new Set(all.map(s=>s.operator))].sort(), radios=[...new Set(all.map(s=>s.radio))].sort();
   const q=C.q.trim().toLowerCase();
   const list=all.filter(s=>(!C.op||s.operator===C.op)&&(!C.radio||s.radio===C.radio)&&(!q||`${s.operator} ${s.plmn} ${s.site_id} ${s.tower?.owner||""} ${s.tower?.reg||""} ${s.cells.map(c=>c.gci).join(" ")}`.toLowerCase().includes(q)));

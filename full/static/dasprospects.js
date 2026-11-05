@@ -12,8 +12,37 @@
 // two groups: the government lists (NCES, IPEDS, CMS) and Overture Maps (places; high-rises from its buildings, per area)
 const PR_GROUPS = [["Schools and hospitals", [["school_k12", "Public schools"], ["school_private", "Private schools"], ["college", "Colleges"], ["hospital", "Hospitals"], ["nursing_home", "Nursing homes"]]],
   ["Large and high-traffic", [["high_rise", "High-rises"], ["mall", "Malls"], ["stadium", "Stadiums and arenas"], ["hotel", "Hotels"], ["venue", "Convention centres and venues"],
-    ["casino", "Casinos"], ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"], ["tunnel", "Tunnels"]]]];
+    ["casino", "Casinos"], ["airport", "Airports"], ["transit", "Transit stations"], ["government", "Government buildings"], ["warehouse", "Warehouses"], ["parking", "Parking garages"], ["tunnel", "Tunnels"]]],
+  ["From building permits", [["under_construction", "Under construction"]]]];
 const PR_KINDS = PR_GROUPS.flatMap(g => g[1]);
+// Building permits and COs (permits.py, 11/4): each building's best permit is its trigger; the filter and the sort use it
+// a year ago as a local calendar date (toISOString() is the UTC date: after 7 PM Eastern it reads as tomorrow)
+const prYearAgo = () => { const t = new Date(Date.now() - 365 * 864e5); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; };
+const PR_TRIG = [["", "Every building"], ["new", "New construction"], ["co12", "CO in the last 12 months"], ["major", "Major alteration or addition"], ["any", "Any permit"]];
+const prTrigRank = x => { const t = x.trigger; if (!t || t.minor) return 9; const yr = prYearAgo();
+  // the server's order (permits._rank): new building with no CO, a new building's CO this year, major alteration, addition,
+  // another CO this year (a new occupant or a change), ERCES work, the rest
+  const co = (t.co_date || "") >= yr;
+  return t.kind === "new_building" && !t.co_date ? 0 : t.new && co ? 1 : t.kind === "major_alteration" ? 2 : t.kind === "addition" ? 3 : t.kind === "co_issued" && co ? 4 : t.erces ? 5 : 6; };
+const prTrigOk = (x, f) => { const t = x.trigger; if (!f) return true; if (!t) return false;
+  const yr = prYearAgo();
+  return f === "any" ? true : f === "new" ? !!t.new
+    : f === "co12" ? (t.co_date || "") >= yr : f === "major" ? !t.minor && (t.kind === "major_alteration" || t.kind === "addition") : true; };
+const PR_TRIG_COL = { 0: "#7c3aed", 1: "#0891b2", 2: "#b45309", 3: "#b45309", 4: "#0e7490", 5: "#16a34a", 6: "#8a8a8a", 9: "#8a8a8a" };
+// the code rule behind a trigger: the AHJ's own (city or county, then state) from permit_sources.json, else the model IFC
+const PR_STATE_NAME = { DC: "Washington, DC", VA: "Virginia", MD: "Maryland", MN: "Minnesota", NC: "North Carolina", SC: "South Carolina", FL: "Florida", NY: "New York City",
+  CA: "California", IL: "Chicago", WA: "Seattle", CO: "Denver", AZ: "Phoenix", TX: "Texas" };
+const prRules = (t, reg) => {
+  const all = (reg && reg.erces_triggers) || [], want = t.kind === "co_issued" ? ["CO", "permit"] : t.kind === "new_building" ? ["permit", "CO"] : ["retest", "permit", "existing"];
+  const pick = list => { for (const a of want) { const r = list.find(x => x.at === a); if (r) return r; } return null; };
+  const place = (t.place || "").split(",")[0].replace(/^City of /, "").trim();
+  const local = place && pick(all.filter(r => r.ahj.startsWith(place)));
+  const state = pick(all.filter(r => r.ahj.startsWith(PR_STATE_NAME[t.state] || "~")));
+  const model = pick(all.filter(r => /^Model code/.test(r.ahj) && /2024 International Fire Code/.test(r.code)));
+  return [local, local ? null : state, local || state ? null : model].filter(Boolean);
+};
+let PR_REG = null;  // static/research/permit_sources.json, read once
+const prReg = async () => PR_REG || (PR_REG = await fetch("static/research/permit_sources.json").then(r => r.json()).catch(() => ({})));
 const PR_STATUS = ["new", "contacted", "replied", "meeting", "won", "not interested", "do not contact"];
 const PR_KIND = Object.fromEntries(PR_KINDS);
 // RF need (need.py, 11/4): an estimate per building of whether agency radio (and carriers) fall short inside, worked out
@@ -32,9 +61,11 @@ const prCells = n => !n.carriers ? "" : !n.carriers.length ? "none claimed here"
 window.dasProspects = async el => {
   const P = S.dasProspects = S.dasProspects || { radius: 10, kinds: PR_KINDS.map(k => k[0]), q: "", status: "", where: null, label: "", rows: null, gen: 0 };
   if (!P.where && S.center) { P.where = [S.center[0], S.center[1]]; P.label = "the search pin"; }
-  P.need = P.need || {}; P.sort = P.sort || "need"; P.env = P.env || "suburban"; P.colour = P.colour || "need"; P.open = P.open || new Set();
-  const [M, firm, jl] = await Promise.all([fetch("static/research/das_market.json").then(r => r.json()).catch(() => ({})),
-    api("/api/das/firm").catch(() => ({})), api("/api/das/jobs").catch(() => ({ jobs: [] }))]);
+  P.need = P.need || {}; P.sort = P.sort || "need"; P.env = P.env || "suburban"; P.colour = P.colour || "need"; P.open = P.open || new Set(); P.trig = P.trig || "";
+  if (!P.kinds.includes("under_construction") && !P.ucSeen) P.kinds.push("under_construction");  // a list kept from before permits (11/4)
+  P.ucSeen = true;
+  const [M, firm, jl, reg] = await Promise.all([fetch("static/research/das_market.json").then(r => r.json()).catch(() => ({})),
+    api("/api/das/firm").catch(() => ({})), api("/api/das/jobs").catch(() => ({ jobs: [] })), prReg()]);
   if (!el.isConnected) return;
   const jobs = (jl.jobs || []).filter(j => j.lat != null || j.data?.lat != null);
   const types = M.prospect_types || [];
@@ -56,12 +87,13 @@ window.dasProspects = async el => {
     <details class="panel" style="margin-top:12px"><summary>Why these buildings, and who to approach</summary>
       <div class="pitch-cards" style="margin-top:8px">${types.map(t => `<div><b>${esc(t.type)}</b> <span class="tag">${esc(t.priority || "")}</span><p>${esc(t.why || "")}</p><p class="hint">Approach: ${esc(t.decision_maker || "")}</p></div>`).join("")}</div>
       <p class="hint" id="prNeedHow"><b>RF need</b> is an estimate, not a measurement: the strongest government trunked or 700/800 MHz radio system licensed within 15 mi, its licensed power and height through Okumura-Hata with the hills on the path where terrain is on this computer, minus a building loss (ITU-R P.2109 by year built, plus deep interior, cores and below grade from the USACE National Structure Inventory or the building's type), against −95 dBm inside. Within 6 dB either way it's close: a walk test decides. Carriers: the FCC Broadband Map's modelled signal minus the same loss, against −95 dBm. Sources: FCC ULS, terrain tiles (USGS 3DEP), USACE NSI, Overture heights, FCC Broadband Map.</p>
+      <p class="hint" id="prTrigHow"><b>Trigger</b> is the building's strongest permit from city and county open data, matched by its address or within 250 ft of the building (800 ft for malls, campuses, hospitals and other large sites): a new building with no CO yet, a CO in the last 12 months, a major alteration, an addition, then ERCES work already permitted. A new building has to show radio coverage before it is occupied (IFC 2024 510.1 and 510.5.4; Virginia USBC 918; Montgomery County ER 13-24). "Major alteration" is RF Recon's working line ($250,000 or 10,000 sq ft of work, or a change of occupancy), not a code threshold: the codes read retest after any addition or remodel that could change the original test (IFC 510.6.1). Permitted new buildings no list has yet show as Under construction. Each city or county dataset has its own switch in Data &amp; updates; those whose terms aren't clearly open ship off.</p>
       <p class="hint">Malls, venues, hotels and the rest are Overture Maps places (CDLA-Permissive-2.0, Apache-2.0 or CC0; attribution: Overture Maps Foundation). High-rises are Overture buildings (© OpenStreetMap contributors, Overture Maps Foundation, ODbL). A building's own name is used when it has one; otherwise it's named by the business inside it.</p>
     </details>`;
   const body = $("#prBody");
   // RF need: a click on the verdict opens its reasons under the row; "Check the building" asks the NSI (need.py keeps it)
   body.addEventListener("click", async e => {
-    const nd = e.target.closest("[data-nd]"), ns = e.target.closest("[data-nsi]");
+    const nd = e.target.closest("[data-nd],[data-tg]"), ns = e.target.closest("[data-nsi]");
     if (!nd && !ns) return;
     const tr = e.target.closest("tr"), pid = tr.dataset.pid || tr.dataset.why, x = (P.rows || []).find(r => r.id === pid);
     if (!x) return;
@@ -101,9 +133,11 @@ window.dasProspects = async el => {
     if (gen !== P.gen || !el.isConnected) return;
     P.rows = r.prospects; P.counts = r.counts; P.sources = r.sources;
     for (const x of P.rows) x.dnc0 = x.status === "do not contact";  // sorted by the status as loaded: a row changed now stays put
-    for (const [k] of PR_KINDS) { const n = el.querySelector(`[data-n="${k}"]`); if (n) n.textContent = r.counts[k] ? `(${r.counts[k].toLocaleString()} ${k === "high_rise" ? "found so far" : "in the US"})` : ""; }
-    const up = r.counts.updated;
-    $("#prSrc").innerHTML = up ? `Public lists: ${Object.values(r.sources).map(s => esc(s.name)).join(", ")}. Updated ${esc(String(up).slice(0, 10))}; the "DAS prospect lists" update refreshes them monthly.`
+    for (const [k] of PR_KINDS) { const n = el.querySelector(`[data-n="${k}"]`); if (n) n.textContent = r.counts[k] ? `(${r.counts[k].toLocaleString()} ${k === "high_rise" ? "found so far" : k === "under_construction" ? "new-building permits kept" : "in the US"})` : ""; }
+    const up = r.counts.updated, np = r.counts.permits || 0;
+    const ptxt = np ? ` Building permits: ${np.toLocaleString()} kept from the datasets switched on; the "Building permits and certificates of occupancy" update adds what's new weekly.`
+      : ` No building permits on this computer yet: switch on "Building permits and certificates of occupancy" in Data &amp; updates (each city or county has its own switch).`;
+    $("#prSrc").innerHTML = up ? `Public lists: ${Object.values(r.sources).map(s => esc(s.name)).join(", ")}. Updated ${esc(String(up).slice(0, 10))}; the "DAS prospect lists" update refreshes them monthly.${ptxt}`
       : `The prospect lists aren't downloaded on this computer yet. <button id="prFetch">Download them now</button> <span class="hint">(the US Department of Education, CMS and Overture Maps: a few minutes, once; then monthly)</span>`;
     $("#prFetch") && ($("#prFetch").onclick = async e => { e.target.disabled = true; e.target.textContent = "Downloading… (Updates tab shows progress)";
       try { await post("/api/update/run", { ids: ["das_prospects"] }); dasSay("Downloading the prospect lists. Press Find buildings again when the Updates tab says it's done."); } catch (x) { dasSay(x.message); e.target.disabled = false; } });
@@ -147,24 +181,47 @@ window.dasProspects = async el => {
     return `<button data-nd style="padding:2px 8px;border:1px solid ${col};color:${col};background:transparent;white-space:nowrap" title="${esc(n.ps_why || "")} (click for the reasons)">${label}${prDb(n)}</button>`
       + (c ? `<div class="hint" title="${esc(n.cell_why || "")}">Carriers: ${esc(c)}</div>` : "");
   };
+  // the trigger in the reasons row: the permit, the words that decided its kind, the dataset (link, publisher, licence) and the rule
+  const prTrigWhy = x => {
+    const t = x.trigger;
+    if (!t) return "";
+    const size = [t.value_usd && `$${Math.round(t.value_usd).toLocaleString()}`, t.sqft && `${Math.round(t.sqft).toLocaleString()} sq ft ${t.kind === "co_issued" ? "occupied" : "of work"}`,
+      t.bldg_sqft && `${Math.round(t.bldg_sqft).toLocaleString()} sq ft building`, t.floors && `${t.floors} floors`, t.use_group].filter(Boolean).join(" · ");
+    const dates = [t.filed && `filed ${t.filed}`, t.issued && `issued ${t.issued}`, t.final && `closed ${t.final}`, t.co_date && `CO ${t.co_date}`].filter(Boolean).join(", ");
+    const rules = prRules(t, PR_REG);
+    return `<div class="pr-trig" style="max-width:900px;margin-top:6px"><b>Trigger: ${esc(t.label)}</b>${t.n > 1 ? ` <span class="hint">(${t.n} permits here; the strongest shown)</span>` : ""}
+      <div class="hint">Permit ${esc(t.permit_id)}${t.status ? ` (${esc(t.status)})` : ""}${dates ? `, ${esc(dates)}` : ""}${t.address ? ` at ${esc(t.address)}` : ""}: ${esc(t.desc)}${size ? `. ${esc(size)}` : ""}.</div>
+      <div class="hint">Why this kind: ${esc(t.why)}.${t.kind === "major_alteration" && /RF Recon's line/.test(t.why) ? " That line is RF Recon's, not a code threshold." : ""}</div>
+      ${rules.map(r => `<div class="hint">Rule: ${esc(r.ahj)}, ${esc(r.code)} ${esc(r.section)}: ${esc(r.threshold)}${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">source</a>` : ""}</div>`).join("")}
+      <div class="hint">Source: ${esc(t.source_name)}, ${esc(t.publisher)} (${esc(t.license.slice(0, 120))}). ${t.url && t.url !== t.dataset_url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">The permit</a> · ` : ""}<a href="${esc(t.dataset_url)}" target="_blank" rel="noopener">The dataset</a></div></div>`;
+  };
   const prWhy = x => {
     const n = P.need[x.id];
-    if (!n) return "";
-    return `<tr class="pr-why" data-why="${esc(x.id)}"><td colspan="7" style="white-space:normal">
-      <div class="hint" style="max-width:900px">${esc(n.ps_why || "")}</div>${n.cell_why ? `<div class="hint" style="max-width:900px;margin-top:4px">${esc(n.cell_why)}</div>` : ""}
+    if (!n && !x.trigger) return "";
+    // the reasons stay in view while a wide table scrolls sideways (a phone): pinned to the visible left edge
+    return `<tr class="pr-why" data-why="${esc(x.id)}"><td colspan="8" style="white-space:normal"><div style="position:sticky;left:8px;width:min(900px,calc(100vw - 64px))">${prTrigWhy(x)}
+      ${n ? `<div class="hint" style="max-width:900px;margin-top:6px">${esc(n.ps_why || "")}</div>${n.cell_why ? `<div class="hint" style="max-width:900px;margin-top:4px">${esc(n.cell_why)}</div>` : ""}
       <div style="margin-top:6px">${n.nsi ? `<span class="hint">From the USACE National Structure Inventory (modelled): ${esc(prNsiLine(n.nsi))}.</span>`
-        : `<button data-nsi title="The USACE National Structure Inventory's record of this building (one small look-up): year built, stories, floor area and basement, so the building loss uses them">Check the building (NSI)</button>`}</div></td></tr>`;
+        : `<button data-nsi title="The USACE National Structure Inventory's record of this building (one small look-up): year built, stories, floor area and basement, so the building loss uses them">Check the building (NSI)</button>`}</div>` : ""}</div></td></tr>`;
+  };
+  const prTrigCell = x => {
+    const t = x.trigger;
+    if (!t) return "";
+    const k = prTrigRank(x), col = PR_TRIG_COL[k];
+    const m = /^(.*?)( · | \()(.*)$/.exec(t.label), main = m ? m[1] : t.label, sub = m ? (m[2] === " (" ? "(" : "") + m[3] : "";
+    return `<button data-tg class="pr-tg" style="display:block;border-radius:8px;padding:4px 8px;min-height:32px;border:1px solid ${col};color:${col};background:transparent;text-align:left;white-space:normal;width:204px;line-height:1.3;font-size:12.5px" title="${esc(t.why)} (click for the permit, the source and the rule)"><b style="font-weight:600">${esc(main)}</b>${sub ? `<div style="opacity:.8;font-size:11.5px">${esc(sub)}</div>` : ""}</button>`;
   };
   const prDot = x => { const n = P.need[x.id]; return P.colour === "need" ? (n ? (PR_NEED[n.ps] || PR_NEED.unknown)[1] : "#bbb") : PR_STCOL[x.status] || "#3b82f6"; };
   const prSort = rows => {
     if (P.sort === "priority") return rows;  // the server's order: priority, then distance
     const key = P.sort === "dist" ? x => [x.dnc0 ? 1 : 0, x.dist_mi || 0]
-      : x => { const n = P.need[x.id]; return [x.dnc0 ? 1 : 0, PR_NEED_RANK[n?.ps ?? "unknown"], PR_PRI[x.priority] ?? 3, -(x.size || 0), -prHt(x), n?.margin_db ?? 0, x.dist_mi || 0]; };
+      : x => { const n = P.need[x.id]; return [x.dnc0 ? 1 : 0, PR_NEED_RANK[n?.ps ?? "unknown"], prTrigRank(x), PR_PRI[x.priority] ?? 3, -(x.size || 0), -prHt(x), n?.margin_db ?? 0, x.dist_mi || 0]; };
     const k = new Map(rows.map(x => [x, key(x)]));
     return [...rows].sort((a, b) => { const A = k.get(a), B = k.get(b); for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return A[i] < B[i] ? -1 : 1; return 0; });
   };
   const paint = () => {
-    const rows = prSort((P.rows || []).filter(x => (!P.status || x.status === P.status) && (!P.q || `${x.name} ${x.city} ${x.detail || ""}`.toLowerCase().includes(P.q.toLowerCase()))));
+    const rows = prSort((P.rows || []).filter(x => (!P.status || x.status === P.status) && prTrigOk(x, P.trig) && (!P.q || `${x.name} ${x.city} ${x.detail || ""} ${x.trigger?.label || ""}`.toLowerCase().includes(P.q.toLowerCase()))));
+    const ntrig = f => (P.rows || []).filter(x => prTrigOk(x, f)).length;
     const by = s => (P.rows || []).filter(x => x.status === s).length;
     if (!P.rows) return;
     if (!P.rows.length) { body.innerHTML = `<p class="hint">No ${P.kinds.map(k => PR_KIND[k].toLowerCase()).join(", ")} within ${P.radius} mi${P.counts?.updated ? "" : " (the lists aren't downloaded yet)"}. Try a wider radius.</p>`; return; }
@@ -172,6 +229,7 @@ window.dasProspects = async el => {
         <b>${P.rows.length.toLocaleString()} building${P.rows.length === 1 ? "" : "s"} within ${P.radius} mi${P.label ? ` of ${esc(P.label)}` : ""}</b>
         <input id="prQ" placeholder="Filter by name or town" value="${esc(P.q)}" style="min-width:180px">
         <select id="prStatus"><option value="">Every status</option>${PR_STATUS.map(s => `<option value="${s}" ${P.status === s ? "selected" : ""}>${s} (${by(s)})</option>`).join("")}</select>
+        <select id="prTrig" title="Building permits and certificates of occupancy matched to each building">${PR_TRIG.map(([k, l]) => `<option value="${k}" ${P.trig === k ? "selected" : ""}>${l}${k ? ` (${ntrig(k)})` : ""}</option>`).join("")}</select>
         <button id="prCsv" title="The rows shown, as a call list">⇩ Call list (CSV)</button>
         ${window.rfMail ? `<button id="prQueue" title="Write a first email to each building shown that has an email and hasn't been written to: they wait in DAS › Mail › Ready to send for your click">✉ Queue first emails</button>` : ""}
       </div>
@@ -184,10 +242,11 @@ window.dasProspects = async el => {
       <div id="prMap" style="height:340px;border-radius:12px;margin-bottom:4px"></div>
       <p class="hint" id="prLegend" style="margin:0 0 8px">${P.colour === "need" ? Object.values(PR_NEED).map(([l, c]) => `<span style="color:${c}">●</span> ${l}`).join(" &nbsp; ") + " &nbsp; (an estimate)"
         : Object.entries(PR_STCOL).filter(([s]) => s !== "meeting").map(([s, c]) => `<span style="color:${c}">●</span> ${s}`).join(" &nbsp; ")}</p>
-      <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
+      <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th title="The building's strongest permit or certificate of occupancy from city and county open data (click one for the permit, its source and the rule)">Trigger<div class="hint">permits</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
       ${rows.slice(0, 400).map(x => `<tr data-pid="${esc(x.id)}" class="${x.status === "do not contact" ? "pr-dnc" : ""}">
-        <td><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${x.detail ? `<div class="hint">${esc(x.detail)}</div>` : ""}</td>
+        <td style="white-space:normal;min-width:200px;max-width:320px"><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${x.detail ? `<div class="hint">${esc(x.detail)}</div>` : ""}</td>
         <td data-need>${prNeedCell(x)}</td>
+        <td data-trig>${prTrigCell(x)}</td>
         <td>${esc(PR_KIND[x.kind] || x.kind)}${x.priority ? `<div><span class="tag" title="${esc(x.why)}">${esc(x.priority)}</span></div>` : ""}${x.size_label ? `<div class="hint">${esc(x.size_label)}</div>` : ""}</td>
         <td>${x.dist_mi < 10 ? x.dist_mi.toFixed(1) : Math.round(x.dist_mi)}</td>
         <td>${x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phone)}</a>` : ""}${x.website ? `<div><a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">website</a></div>` : ""}
@@ -204,6 +263,7 @@ window.dasProspects = async el => {
     $("#prQ").oninput = e => { P.q = e.target.value; clearTimeout(P.qt); P.qt = setTimeout(() => { const pos = e.target.selectionStart; paint(); const q = $("#prQ"); q.focus(); q.setSelectionRange(pos, pos); }, 250); };
     $("#prStatus").onchange = e => { P.status = e.target.value; paint(); };
     $("#prSort").onchange = e => { P.sort = e.target.value; paint(); };
+    $("#prTrig").onchange = e => { P.trig = e.target.value; paint(); };
     $("#prEnv").onchange = e => { P.env = e.target.value; P.needMsg = ""; paint(); needRun(); };
     $("#prCol").onchange = e => { P.colour = e.target.value; paint(); };
     $("#prQueue") && ($("#prQueue").onclick = async e => {  // first emails, lined up in Mail › Ready to send (nothing sent here)
@@ -221,7 +281,11 @@ window.dasProspects = async el => {
       const est = { rf_need_estimate: x => nd(x).ps ? PR_NEED[nd(x).ps][0] + prDb(nd(x)) : "", est_margin_db: x => nd(x).margin_db, est_outside_dbm: x => nd(x).out_dbm,
         est_building_loss_db: x => nd(x).loss_db, est_inside_dbm: x => nd(x).in_dbm, agency_system: x => nd(x).system ? `${nd(x).system.licensee} ${nd(x).system.band} (${nd(x).system.call})` : "",
         carrier_estimate: x => (nd(x).carriers || []).map(c => `${c.brand} ${c.tech} ${Math.round(c.in_dbm)} dBm inside (${c.verdict})`).join("; ") || (nd(x).ps ? nd(x).cell_why || "" : ""),
-        rf_need_why: x => nd(x).ps_why };
+        rf_need_why: x => nd(x).ps_why,
+        // the permit trigger (permits.py): what, when, why that kind, and where the record is
+        trigger: x => x.trigger && !x.trigger.minor ? x.trigger.label : "", trigger_permit: x => x.trigger?.permit_id, trigger_date: x => x.trigger?.date,
+        trigger_work: x => x.trigger?.desc, trigger_why: x => x.trigger?.why, trigger_source: x => x.trigger ? `${x.trigger.source_name} (${x.trigger.publisher})` : "",
+        trigger_link: x => x.trigger?.url || x.trigger?.dataset_url };
       const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const csv = [[...cols, ...Object.keys(est)].join(","), ...rows.map(x => [...cols.map(c => q(c === "kind" ? PR_KIND[x.kind] || x.kind : x[c])), ...Object.values(est).map(f => q(f(x)))].join(","))].join("\r\n");
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
@@ -293,7 +357,7 @@ window.dasProspects = async el => {
       if (x.lat == null) continue;
       pts.push([x.lat, x.lon]);
       P.marks.set(x.id, L.circleMarker([x.lat, x.lon], { radius: x.priority === "high" ? 6 : 4, color: prDot(x), weight: 1, fillOpacity: .75 })
-        .bindTooltip(() => { const n = P.need[x.id]; return `${esc(x.name)} · ${esc(PR_KIND[x.kind] || "")} · ${esc(x.status)}${n ? ` · RF need: ${(PR_NEED[n.ps] || PR_NEED.unknown)[0]}${prDb(n)} (estimate)` : ""}`; }).addTo(map)
+        .bindTooltip(() => { const n = P.need[x.id]; return `${esc(x.name)} · ${esc(PR_KIND[x.kind] || "")} · ${esc(x.status)}${n ? ` · RF need: ${(PR_NEED[n.ps] || PR_NEED.unknown)[0]}${prDb(n)} (estimate)` : ""}${x.trigger && !x.trigger.minor ? ` · ${esc(x.trigger.label)}` : ""}`; }).addTo(map)
         .on("click", () => { const tr = body.querySelector(`tr[data-pid="${CSS.escape(x.id)}"]`); if (tr) { tr.scrollIntoView({ block: "center" }); tr.classList.add("pr-hit"); setTimeout(() => tr.classList.remove("pr-hit"), 1500); } }));
     }
     if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(.1), { animate: false });
@@ -325,3 +389,28 @@ window.dasProspects = async el => {
   $("#prFirm") && ($("#prFirm").onclick = e => { e.preventDefault(); S.das.view = "pitch"; S.views.das($("#view")); });
   load();
 };
+
+// Data & updates › Building permits and certificates of occupancy: each city or county dataset's own switch (permits.py,
+// static/research/permit_sources.json). On by default only where the provider's terms are clearly open; limited to the
+// states set above. mission.js calls this for the source's row; the open/closed state survives the 15 s repaint.
+window.PR_DS_OPEN = window.PR_DS_OPEN || false;
+window.prDatasets = s => {
+  const ds = s.datasets || [], on = ds.filter(d => d.enabled), here = ds.filter(d => d.in_states);
+  const row = d => `<label class="pr-ds" style="display:flex;gap:8px;align-items:flex-start;flex-direction:row;margin:4px 0;min-height:32px">
+      <input type="checkbox" data-pds="${esc(d.id)}" ${d.enabled ? "checked" : ""} style="width:auto;margin:3px 0 0;min-width:20px;min-height:20px">
+      <span><b>${esc(d.place || "")}</b> · ${esc(d.name || d.id)} ${d.open ? "" : `<span class="tag" style="color:var(--warn)" title="${esc(d.license || "")}">terms not open: off unless you switch it on</span>`}
+        ${d.in_states ? "" : `<span class="hint">(outside your states)</span>`}
+        <div class="hint">${esc((d.license || "").slice(0, 160))}${d.url ? ` · <a href="${esc(d.url)}" target="_blank" rel="noopener">dataset ↗</a>` : ""}${d.last_run ? ` · last pull ${esc(d.last_run)}, ${Number(d.rows || 0).toLocaleString()} kept` : ""}${d.error ? ` · <span style="color:var(--bad)">${esc(d.error.slice(0, 160))}</span>` : ""}</div></span></label>`;
+  return `<details class="pr-dsbox" style="margin-top:6px" ${window.PR_DS_OPEN ? "open" : ""} ontoggle="window.PR_DS_OPEN=this.open">
+    <summary class="hint">${on.length} of ${ds.length} datasets on${here.length < ds.length ? ` (${here.filter(d => d.enabled).length} in your states)` : ""}: choose which cities and counties</summary>
+    <div style="max-height:360px;overflow:auto;margin-top:4px">${ds.map(row).join("")}</div>
+    <p class="hint" style="margin:4px 0 0">Terms read on each provider's own page on 2026-11-04 (permit_sources.json). Columns naming people (owners, applicants) are never fetched.</p></details>`;
+};
+document.addEventListener("change", async e => {
+  const c = e.target.closest?.("[data-pds]");
+  if (!c) return;
+  const box = c.closest(".pr-dsbox"), all = {};
+  box.querySelectorAll("[data-pds]").forEach(x => { all[x.dataset.pds] = x.checked; });
+  try { UPD = await post("/api/update/config", { sources: { permits: { datasets: all } } }); if (typeof paintSources === "function") paintSources(); }
+  catch (err) { c.checked = !c.checked; (window.dasSay || alert)(err.message); }
+});

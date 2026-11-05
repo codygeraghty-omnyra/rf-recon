@@ -25,7 +25,7 @@ const HELP = [
   ["map", "Map", `
     <ul><li>Every result as a dot, sized by how many entries share the site; towers outlined. Click a dot for what's there, then <i>Details</i>.</li>
     <li>Drag the pin (it takes the skin's colour) or click the map to move it; rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
-    <li><b>Zoom bar</b> beside every map: − and +, and 🔒, which turns mouse-wheel zoom off on every map (the wheel then scrolls the page; pinch still zooms).</li>
+    <li><b>Zoom bar</b> at the top right of every map (the layers button is top left): − and +, and 🔒, mouse-wheel zoom on or off for every map. It is locked whenever RF Recon opens, so the wheel scrolls the page; <b>hold the left mouse button (or Ctrl) and scroll</b> to zoom anyway. Click 🔒 to let the wheel zoom until RF Recon is opened again. Pinch still zooms.</li>
     <li><b>Layers</b> (top right of the map): Street, USGS satellite / satellite + labels / topo / terrain relief, Esri hi-res satellite;
       overlays for county and state lines, microwave backhaul links (FCC), live ships (AIS: the owner's personal build only) and live NEXRAD weather radar.
       USGS maps and county lines you view are kept by the copy serving the page (this PC, or the server), and a mission area's USGS maps are kept ahead

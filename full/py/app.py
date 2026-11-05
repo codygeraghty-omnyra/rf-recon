@@ -2042,9 +2042,11 @@ class H(BaseHTTPRequestHandler):
                 kinds = [k for k in fstr(qs, "kinds").split(",") if k] or None
                 rows = prospects.near(uls_import.DATA_DIR, lat, lon, fnum(qs, "radius", 10), kinds, fstr(qs, "q"), int(fnum(qs, "limit", 500)))
                 remember_prospect_spot(lat, lon, fnum(qs, "radius", 10))  # the next start warms it (warm_prospects)
+                pset = (UPD.config()["permits"].get("datasets"), UPD._states()) if UPD else (None, None)  # building permits: a trigger per building (permits.py)
+                rows = prospects.with_permits(uls_import.DATA_DIR, rows, lat, lon, fnum(qs, "radius", 10), kinds, *pset)
                 vis = dashist.visible(con, *self.team())
-                pl = [x if vis is None or x.get("job_id") in vis else dict(x, job_id=None) for x in das.with_pipeline(con, rows)]
-                return self.send(200, {"prospects": pl, "counts": prospects.counts(uls_import.DATA_DIR),
+                pl = [x if vis is None or x.get("job_id") in vis else dict(x, job_id=None) for x in prospects.permit_finish(das.with_pipeline(con, rows))]
+                return self.send(200, {"prospects": pl, "counts": {**prospects.counts(uls_import.DATA_DIR), **prospects.permit_counts(uls_import.DATA_DIR, *pset)},
                                        "sources": {k: {"name": v.get("name"), "license": v.get("license")} for k, v in prospects.SOURCES.items()}})
             if p == "/api/das/prospects/need":  # RF need per prospect, an estimate (need.py, 11/4); a GET, so view logins see it
                 import need

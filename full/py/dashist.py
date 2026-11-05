@@ -205,6 +205,11 @@ def merge3(b, t, m, path, pick):
     return pick(path, t, m)
 
 
+def _blank(v):
+    """Missing, None, "", {} or []: shown as nothing, so a change from one blank to another isn't a change."""
+    return v is ABSENT or v is None or (isinstance(v, (str, list, dict)) and not v)
+
+
 def fmt(v, n=80):
     """A value, short and readable."""
     if v is ABSENT or v is None or v == "":
@@ -361,6 +366,8 @@ def _flat(v, path, out):
 def describe(section, before, after, limit=12):
     """What changed in one section, in plain lines."""
     lines = []
+    if _blank(before) and _blank(after):
+        return lines
     if isinstance(before, list) or isinstance(after, list):
         bl = before if isinstance(before, list) else []
         al = after if isinstance(after, list) else []
@@ -385,7 +392,8 @@ def describe(section, before, after, limit=12):
         b = _flat(before if isinstance(before, dict) else {}, [], {})
         a = _flat(after if isinstance(after, dict) else {}, [], {})
         diff = [(k, b.get(k, ABSENT), a.get(k, ABSENT)) for k in dict.fromkeys(list(b) + list(a))
-                if b.get(k, ABSENT) != a.get(k, ABSENT) or type(b.get(k, ABSENT)) is not type(a.get(k, ABSENT))]
+                if (b.get(k, ABSENT) != a.get(k, ABSENT) or type(b.get(k, ABSENT)) is not type(a.get(k, ABSENT)))
+                and not (_blank(b.get(k, ABSENT)) and _blank(a.get(k, ABSENT)))]
         groups = {}
         for k, x, y in diff:
             groups.setdefault(k.split(" › ")[0] if " › " in k else k, []).append((k, x, y))
@@ -427,7 +435,9 @@ def history(con, jid, before=None, limit=40):
             it = by.setdefault(r[0], {"rev": r[0], "rev_lo": r[1], "saves": r[2], "ts": r[3], "ts_lo": r[4], "who": r[5] or "", "note": r[9] or "",
                                       "sections": []})
             b, a = _unpack(r[7]), _unpack(r[8])
-            it["sections"].append({"key": r[6], "label": label(r[6]), "lines": describe(r[6], b, a)})
+            lines = describe(r[6], b, a)
+            if lines:
+                it["sections"].append({"key": r[6], "label": label(r[6]), "lines": lines})
         items = [by[r] for r in revs if r in by]
     st = con.execute("SELECT COUNT(DISTINCT rev), COALESCE(SUM(bytes), 0), MIN(rev_lo) FROM das_job_rev WHERE job_id=?", (jid,)).fetchone()
     cur = con.execute("SELECT rev FROM das_job WHERE id=?", (jid,)).fetchone()

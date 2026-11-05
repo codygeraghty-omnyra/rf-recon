@@ -57,8 +57,9 @@ SOURCES = {
     "part_prices": ("DAS part prices (price list links, Mouser, Digi-Key)", "reference", 168, "Each supplier's price list re-read from its link, and the online prices of the parts on open requests for quote (Mouser and Digi-Key, with your keys)"),
     "helium": ("Helium IoT hotspots", "crowd", 168, "Active LoRaWAN hotspots (no key; reads the whole network, about 190 MB a pass)"),
     "usfa_fd": ("USFA fire department registry (DAS AHJ guess)", "reference", 720, "27,117 fire departments and 8,092 stations with addresses, phones and websites, for a DAS job's AHJ guess (US government; about 12 MB; frozen since June 2026)"),
+    "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
 }
-DEFAULT_ENABLED = {"usfa_fd", "part_prices", "das_prospects","uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
+DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects","uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
                    "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic"}
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
@@ -207,9 +208,14 @@ class Updater:
             out[sid] = {"label": label, "kind": kind, "description": desc,
                         "enabled": build.allowed(sid) and c.get("enabled", sid in DEFAULT_ENABLED),
                         "interval_h": c.get("interval_h", hours)}
+            if "datasets" in c:  # the permit datasets' own switches (permits.py)
+                out[sid]["datasets"] = c["datasets"]
             if not build.allowed(sid):
                 out[sid]["personal_only"] = build.PERSONAL_ONLY[sid]
         return out
+
+    def _states(self):
+        return [s for s in re.split(r"[,\s]+", (self.get("update.states", "") or "").upper()) if s]
 
     def links(self):
         """The connections updates may use: any of wifi, ethernet, cellular (a phone tether counts as cellular).
@@ -294,6 +300,9 @@ class Updater:
             s["access"] = {k: a.get(k) for k in ("name", "key", "cost", "terms", "signup", "where_key", "url")}
             s["access"].update(needs_key=bool(need), key_saved=bool(need) and all(creds.get(k) for k in need))
             s["why"] = self._why(s, a, need, creds, auto, link)
+            if sid == "permits":  # each dataset with its switch, terms and last pull (permits.py)
+                import permits
+                s["datasets"] = permits.datasets_view(c.get("datasets"), self._states(), uls_import.DATA_DIR)
             src[sid] = s
         return {"auto": auto, "links": self.links(), "wifi_only": "cellular" not in self.links(),
                 "net": self.net, "client_hint": self.client_hint, "link": link, "sources": src,
@@ -531,6 +540,18 @@ class Updater:
                         bad.append(f"high-rises ({str(e)[:80]})")
                 self._mark(ids, state="error" if bad and not n else "ok", last_checked=now(), last_updated=now(), rows=n,
                            message=f"{n:,} buildings" + (f"; failed: {', '.join(bad)}" if bad else ""))
+            elif job == "permits":  # building permits and COs for the DAS Prospects trigger (permits.py)
+                import permits
+                todo = permits.enabled(self.config()["permits"].get("datasets"), self._states())
+                if not todo:
+                    self._mark(ids, state="skipped", message="no permit dataset switched on for the states set", last_checked=now())
+                    return
+                r = permits.refresh(uls_import.DATA_DIR, todo, log=lambda m: self._mark(ids, message=str(m)[:200]))
+                bad = r.pop("errors", None) or {}
+                n = sum(v for v in r.values() if isinstance(v, int))
+                self._mark(ids, state="error" if bad and not n else "ok", last_checked=now(), last_updated=now(), rows=n,
+                           message=f"{n:,} permits from {len(todo) - len(bad)} of {len(todo)} datasets"
+                                   + (f"; failed: {', '.join(sorted(bad))}" if bad else ""))
             elif job == "usfa_fd":  # fire departments for a DAS job's AHJ guess (ahj.py)
                 import ahj
                 r = ahj.refresh(uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m)[:200]))

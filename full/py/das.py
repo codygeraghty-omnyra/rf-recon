@@ -1736,6 +1736,15 @@ def _canon(d):
     return json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+# what RF Recon writes into a job on its own, not part of what was tested: the FCC licence watch rewrites data.lic_watch
+# after every FCC data update (daswatch.check), which made every sealed report read "job changed since" (11/4)
+SEAL_SKIP = ("lic_watch",)
+
+
+def seal_data(d):
+    return {k: v for k, v in (d or {}).items() if k not in SEAL_SKIP}
+
+
 def _sha(s):
     import hashlib
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
@@ -1766,7 +1775,7 @@ def seal_report(con, jid, text, title="", result="", by=""):
             break
     else:
         raise RuntimeError("No free verify code: try again.")
-    data = _canon(job["data"])
+    data = _canon(seal_data(job["data"]))
     row = {"code": code, "job_id": jid, "at": now(), "by": by or "", "title": str(title or "")[:300], "result": str(result or "")[:80],
            "sha256": _sha(text), "job_sha256": _sha(data), "job_updated": job.get("updated_at") or "", "job_data": data, "content": text}
     con.execute(f"INSERT INTO das_seal({', '.join(row)}) VALUES({', '.join('?' * len(row))})", tuple(row.values()))
@@ -1805,15 +1814,15 @@ def seal_verify(con, code):
     if job is not None:
         out["job_name"] = job["name"]
         out["job_updated"] = job.get("updated_at") or ""
-        out["job_changed"] = _sha(_canon(job["data"])) != s["job_sha256"]
-        out["changes"] = _changes(old, job["data"]) if out["job_changed"] else []
+        out["job_changed"] = _sha(_canon(seal_data(job["data"]))) != s["job_sha256"]
+        out["changes"] = _changes(old, seal_data(job["data"])) if out["job_changed"] else []
     return out
 
 
 def seal_list(con, jid):
     _seal_table(con)
     job = job_row(con, jid)
-    now_sha = _sha(_canon(job["data"])) if job else ""
+    now_sha = _sha(_canon(seal_data(job["data"]))) if job else ""
     return [{"code": r["code"], "at": r["at"], "by": r["by"], "title": r["title"], "result": r["result"], "sha256": r["sha256"],
              "changed": r["job_sha256"] != now_sha}
             for r in con.execute("SELECT code, at, by, title, result, sha256, job_sha256 FROM das_seal WHERE job_id=? ORDER BY at DESC", (jid,))]

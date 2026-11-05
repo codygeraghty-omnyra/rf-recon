@@ -34,7 +34,13 @@
    "files": {
     "Example office - architectural plans (example).pdf": "example-office-plan-set.pdf",
     "Consent to retransmit - KNIQ704 KIC338 (example).pdf": "example-office-consent-letter.pdf",
-    "ERCES acceptance test report (example).pdf": "example-office-acceptance-report.pdf"
+    "ERCES acceptance test report (example).pdf": "example-office-acceptance-report.pdf",
+    "Calibration certificate - PCTEL IBflex EX-1001 (example).pdf": "example-office-cal-ibflex.pdf",
+    "Calibration certificate - Anritsu S412E EX-3001 (example).pdf": "example-office-cal-s412e.pdf",
+    "Spec sheet - EX-BDA-2B (example).pdf": "example-office-spec-bda.pdf",
+    "Spec sheet - EX-FDAS-HE (example).pdf": "example-office-spec-fiber-das.pdf",
+    "Spec sheet - EX-BBU-12H (example).pdf": "example-office-spec-battery.pdf",
+    "As-built drawings (example).pdf": "example-office-as-built.pdf"
    }
   },
   {
@@ -46,7 +52,9 @@
     "example-warehouse-floor-1.png"
    ],
    "files": {
-    "Cellular acceptance report (example).pdf": "example-warehouse-acceptance-report.pdf"
+    "Cellular acceptance report (example).pdf": "example-warehouse-acceptance-report.pdf",
+    "Calibration certificate - Nextivity COMPASS XR EX-2001 (example).pdf": "example-warehouse-cal-compass.pdf",
+    "Spec sheet - EX-IND-3B (example).pdf": "example-warehouse-spec-booster.pdf"
    }
   }
  ]

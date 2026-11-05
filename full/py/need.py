@@ -91,7 +91,7 @@ def entry_loss(row, nsi=None):
     nsi = nsi or {}
     h_m, floors = _height(row)
     floors = nsi.get("stories") or floors  # the NSI's stories are modelled, but they're the building's own record
-    year = nsi.get("year_built")
+    year = nsi.get("year_built") or (time.gmtime().tm_year if kind == "under_construction" else None)  # a permitted new building
     parts = []
     if kind == "tunnel":
         return {"db": SUBTERRANEAN_DB, "parts": [[SUBTERRANEAN_DB, "tunnel: subterranean (NIST TN 1552 upper medians)"]],
@@ -624,6 +624,7 @@ def rows_by_id(con, data_dir, ids):
         return []
     finally:
         pc.close()
+    out += [r for r in (prospects.get(data_dir, i) for i in ids if i.startswith("permit:")) if r]  # new buildings (permits.py)
     try:
         jobs = {}
         for i in range(0, len(ids), 500):

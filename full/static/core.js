@@ -156,9 +156,10 @@ function render(){
   if(on && tb.scrollWidth>tb.clientWidth){ const l=on.offsetLeft-tb.offsetLeft, r=l+on.offsetWidth;
     if(l<tb.scrollLeft || r>tb.scrollLeft+tb.clientWidth) tb.scrollLeft=l-(tb.clientWidth-on.offsetWidth)/2; }
   const v=$("#view");
-  if(S.tab!=="map" && S.map){ S.map.remove(); S.map=null; }
+  if(S.tab!=="map"){ if(S.map){ S.map.remove(); S.map=null; } $("#mapTop").innerHTML=""; }  // the map's slot above the search panel
   if(S.tab!=="dashboard" && S.dashMap){ S.dashMap.remove(); S.dashMap=null; }
   const fn = S.views[S.tab];
+  S.viewGen=(S.viewGen||0)+1;  // a tab that waits for data checks this after the wait: a newer draw since means stop
   if(fn) fn(v, rows); else v.innerHTML="";
   if(window.writeUrlState) window.writeUrlState();
 }
@@ -176,7 +177,8 @@ function groupItems(rows){
   return [...m.values()];
 }
 S.views.map = (v, rows) => {
-  v.innerHTML = `
+  const top=$("#mapTop");  // the map sits above the search panel, its list and table below it (Cody 11/4)
+  top.innerHTML = `
     <div class="maptools no-print">
       <label class="inl" title="Standard, ATAK style (symbols, imagery, MGRS) or a map you imported">Map <select id="mapStyle"></select></label>
       <label class="inl">Heatmap <select id="heatKind">
@@ -193,12 +195,12 @@ S.views.map = (v, rows) => {
       <span class="hint" id="mapHint" style="margin-left:auto">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
       <div class="seg"><button data-lv="list" class="${S.listMode!=="table"?"on":""}">List</button><button data-lv="table" class="${S.listMode==="table"?"on":""}">Table</button></div>
     </div>
-    <div class="mapwrap" id="mapwrap" style="${S.listMode==="table"?"grid-template-columns:1fr":""}">
+    <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
-      <div class="side" id="side" style="${S.listMode==="table"?"display:none":""}"></div>
     </div>
-    <div id="emitPanel"></div>
-    <div id="mapTable" style="margin-top:10px"></div>`;
+    <div id="emitPanel"></div>`;
+  v.innerHTML = `<div class="side" id="side" style="${S.listMode==="table"?"display:none":""}"></div>
+    <div id="mapTable"></div>`;
   $("#heatKind").value=S.heat.kind;
   $("#heatKind").onchange=async e=>{ S.heat.kind=e.target.value; $("#heatFiles").style.display=S.heat.kind==="measured"?"":"none";
     $("#heatCarrierBox").style.display=S.heat.kind==="carrier"?"":"none"; if(S.heat.kind==="carrier") await heatCarrierFill(); loadHeat(); };
@@ -206,14 +208,14 @@ S.views.map = (v, rows) => {
   $("#heatCarrier").onchange=e=>{ S.heat.carrier=e.target.value; loadHeat(); };
   $("#heatEnv").onchange=e=>{ S.heat.env=e.target.value; loadHeat(); };
   if(S.heat.kind==="carrier") heatCarrierFill();
-  v.querySelectorAll("[data-hf]").forEach(c=>c.onchange=()=>{ S.heat.files=S.heat.files||new Set(); c.checked?S.heat.files.add(c.dataset.hf):S.heat.files.delete(c.dataset.hf);
+  top.querySelectorAll("[data-hf]").forEach(c=>c.onchange=()=>{ S.heat.files=S.heat.files||new Set(); c.checked?S.heat.files.add(c.dataset.hf):S.heat.files.delete(c.dataset.hf);
     $("#heatFiles summary").textContent=heatFilesLabel(); loadHeat(); });
   if($("#heatFilesAll")) $("#heatFilesAll").onclick=()=>{ S.heat.files=new Set(); render(); loadHeat(); };
   if($("#heatSigClear")) $("#heatSigClear").onclick=e=>{ e.preventDefault(); S.heat.ident=S.heat.freq=S.heat.signal=""; render(); loadHeat(); };
   $("#heatOp").oninput=e=>{ S.heat.opacity=+e.target.value; if(S.heatLayer) S.heatLayer.setOpacity(S.heat.opacity); };
   $("#heatExport").onclick=()=>{ if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
     getFile("/api/heatmap.zip?"+params(heatParams(k))); };
-  v.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
+  top.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
   drawMap(rows);
   const items=groupItems(rows);
   if(S.listMode==="table") $("#mapTable").innerHTML = S.views.freqTable(items);
@@ -311,7 +313,7 @@ function addMapLayers(map){
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
   bases[pref.base].addTo(map);
   for(const n of pref.overlays) overs[n].addTo(map);
-  L.control.layers(bases, overs, {position:"topright"}).addTo(map);
+  L.control.layers(bases, overs, {position:"topleft"}).addTo(map);  // layers on the left, the zoom bar on the right (Cody 11/4)
   let unloading=false;  // map.remove() (leaving the tab) removes every layer; that isn't a choice to save
   map.on("unload",()=>{ unloading=true; });
   const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
@@ -342,7 +344,7 @@ function addMapLayers(map){
 
 function drawMap(rows){
   if(typeof L==="undefined"){ $("#map").innerHTML='<p class="status" style="padding:12px">Map library missing.</p>'; return; }
-  if(S.wheelZoom==null){ try{ S.wheelZoom=localStorage.getItem("rfr.wheelZoom")!=="0"; }catch(e){ S.wheelZoom=true; } }
+  if(S.wheelZoom==null) S.wheelZoom=window.rfWheelZoom?rfWheelZoom.on:false;  // locked whenever RF Recon opens (zoombar.js)
   const map=L.map("map",{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
   // − / + and the wheel-zoom lock: the shared zoom bar (zoombar.js), added by addMapLayers like every other map
   addMapLayers(map);

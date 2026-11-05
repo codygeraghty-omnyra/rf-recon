@@ -164,7 +164,8 @@ function frMaterialCalcWire(rm, prefix="mc"){
 /* ---------- PIM tab ---------- */
 S.views.pim = async v => {
   v.innerHTML='<p class="status">Loading the PIM research…</p>';
-  const r=await frLoad("pim"); if(r.empty){ v.innerHTML=frEmpty("PIM"); return; }
+  const gen=S.viewGen;
+  const r=await frLoad("pim"); if(gen!==S.viewGen) return; if(r.empty){ v.innerHTML=frEmpty("PIM"); return; }
   const ticks=frLocal.get("pimticks")||{};
   v.innerHTML=`<div class="panel" style="margin-top:0"><h3 style="margin:0 0 4px">PIM testing</h3>
       <p class="hint" style="margin:0">Passive intermodulation: two or more strong signals mixing in a non-linear junction (a loose or dirty connector, corroded metal) and making new frequencies that can land in a receive band. Limits, checklists and procedures below come from the sources shown on each row${r.updated?` (researched ${esc(r.updated)})`:""}.</p></div>
@@ -188,7 +189,8 @@ S.views.pim = async v => {
 /* ---------- Parts tab ---------- */
 S.views.parts = async v => {
   v.innerHTML='<p class="status">Loading the parts research…</p>';
-  const [r, rm]=await Promise.all([frLoad("parts"), frLoad("plans")]); if(r.empty){ v.innerHTML=frEmpty("RF parts"); return; }
+  const gen=S.viewGen;
+  const [r, rm]=await Promise.all([frLoad("parts"), frLoad("plans")]); if(gen!==S.viewGen) return; if(r.empty){ v.innerHTML=frEmpty("RF parts"); return; }
   const P=S.parts=S.parts||{q:"",kind:""};
   const freqs=["150","450","700","850","1900","2600"];
   const lossCols=freqs.map(f=>[f,`${f} MHz`]);

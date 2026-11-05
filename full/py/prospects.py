@@ -733,7 +733,10 @@ def _merge_highrises(rows):
 
 
 def get(data_dir, pid):
-    """One prospect by id, or None."""
+    """One prospect by id, or None. 'permit:<dataset>:<permit id>' is a new building from the permit data (permits.py)."""
+    if (pid or "").startswith("permit:"):
+        import permits
+        return permits.as_prospect(data_dir, pid)
     if not os.path.exists(db_path(data_dir)):
         return None
     con = sqlite3.connect(db_path(data_dir), timeout=30)
@@ -796,3 +799,43 @@ def counts(data_dir):
         return {"updated": None}
     finally:
         con.close()
+
+
+# --- permits (permits.py): the trigger per building, and new buildings not in the lists yet ----------------------------
+
+UNDER_CONSTRUCTION = "under_construction"
+UC_WHY = ("A new building under construction or just finished: radio coverage has to be shown before it is occupied (IFC 510.1 and "
+          "510.5.4; local rules in permit_sources.json), and an ERCES is cheapest to put in before the walls close.")
+UC_APPROACH = "GC, developer or electrician on the permit"
+
+
+def with_permits(data_dir, rows, lat, lon, radius_mi, kinds=None, settings=None, states=None):
+    """rows (near()) with each one's permit trigger, plus the new buildings no list has yet (kind under_construction) when
+    that kind is asked for (or no kinds were named). Only the permit datasets switched on are read."""
+    import permits
+    only = permits.enabled(settings, states)
+    if isinstance(kinds, str):
+        kinds = [k for k in kinds.split(",") if k.strip()]
+    want_new = not kinds or UNDER_CONSTRUCTION in kinds
+    try:
+        rows, extra = permits.attach(data_dir, rows, lat, lon, radius_mi, only, extra=want_new)
+    except sqlite3.Error:
+        return rows
+    return rows + extra
+
+
+def permit_finish(rows):
+    """After das.with_pipeline: a building under construction is a high-priority prospect with its own reason and contact;
+    the list keeps the pipeline's order (do not contact last, then priority, then distance)."""
+    for r in rows:
+        if r.get("kind") == UNDER_CONSTRUCTION:
+            r.update(priority="high", why=UC_WHY, approach=UC_APPROACH)
+    rank = {"high": 0, "medium": 1, "low": 2, "": 3}
+    return sorted(rows, key=lambda x: (x.get("status") == "do not contact", rank.get(x.get("priority") or "", 3), x.get("dist_mi") or 0))
+
+
+def permit_counts(data_dir, settings=None, states=None):
+    """{under_construction: new-building permits kept, permits: all kept} for the datasets switched on."""
+    import permits
+    c = permits.counts(data_dir, permits.enabled(settings, states))
+    return {UNDER_CONSTRUCTION: c.get("new_building", 0), "permits": sum(c.values())}

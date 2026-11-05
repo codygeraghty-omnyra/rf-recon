@@ -134,6 +134,43 @@ def seed(con, jid, d, login):
         con.execute("UPDATE das_job SET created_at=? WHERE id=?", (_ts(rows[0].get("ts"), das.now()), jid))
     con.commit()
 
+    # the BDA's alarm traps from the supervisory tests at commissioning, each one cleared (Overview › Monitoring). The
+    # address is a documentation one (RFC 5737) and the OIDs the documentation enterprise (RFC 5612): nothing real
+    bdas = {b.get("id"): b for b in ((data.get("monitor") or {}).get("bdas") or []) if isinstance(b, dict)}
+    if d.get("traps") and bdas:
+        import snmpwatch
+        snmpwatch.ensure(con)
+        for t in d["traps"]:
+            b = bdas.get(t.get("bda")) or next(iter(bdas.values()))
+            text, oid = str(t.get("text") or "")[:300], str(t.get("oid") or "")[:120]
+            vb = [[oid + ".1", "str", text]]
+            sig, state = snmpwatch.classify({"trap_oid": oid, "varbinds": vb}, b.get("map"))
+            con.execute("INSERT INTO bda_trap(ts, src, agent, community, version, pdu, trap_oid, varbinds, text, signal, state, job_id, bda, how) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (_ts(t.get("ts"), das.now()), b.get("address") or "", None, b.get("community") or "", "v2c", "trap",
+                         oid, json.dumps(vb), text, sig, state, jid, b["id"], "source address and community"))
+            out["traps"] = out.get("traps", 0) + 1
+        con.commit()
+
+    # the report sealed as printed on its day (Report › Print as final): the shipped code when it's free on this copy,
+    # else a new one; the seal holds the job's data as it is now, so the example reads sealed and unchanged since
+    sl = d.get("seal")
+    if sl and sl.get("text"):
+        das._seal_table(con)
+        code = das.seal_code_norm(sl.get("code") or "")
+        if not re.fullmatch(r"[0-9A-Z]{4}-[0-9A-Z]{4}", code) or con.execute("SELECT 1 FROM das_seal WHERE code=?", (code,)).fetchone():
+            code = das.seal_report(con, jid, sl["text"], sl.get("title"), sl.get("result"), sl.get("by") or "")["code"]
+            con.execute("DELETE FROM das_log WHERE job_id=? AND kind='sealed' AND ts>?", (jid, rows[-1]["ts"] if rows else ""))
+        else:
+            job = das.job_row(con, jid)
+            jd = das._canon(das.seal_data(job["data"]))
+            con.execute("INSERT INTO das_seal(code, job_id, at, by, title, result, sha256, job_sha256, job_updated, job_data, content) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                        (code, jid, "", sl.get("by") or "", str(sl.get("title") or "")[:300], str(sl.get("result") or "")[:80],
+                         das._sha(sl["text"]), das._sha(jd), job.get("updated_at") or "", jd, sl["text"]))
+        con.execute("UPDATE das_seal SET at=? WHERE code=?", (_ts(sl.get("at"), das.now()), code))
+        con.commit()
+        out["seal"] = code
+
     # files keep the date they came in
     for name, ts in (d.get("files") or {}).items():
         try:
