@@ -22,9 +22,10 @@ const CELL_PRESETS = {
 };
 const CELL_CARRIERS = ["AT&T", "Verizon", "T-Mobile", "FirstNet", "UScellular", "Dish / Boost"];
 // one name per carrier, whatever a tool calls it (the same rule as das.py carrier_name)
-function carrierName(s){ const t=String(s??"").trim();
-  for(const [re,n] of [[/first\s*net/i,"FirstNet"],[/t-?\s?mobile|sprint/i,"T-Mobile"],[/verizon/i,"Verizon"],[/at&t|\batt\b|cingular/i,"AT&T"],[/us\s?cellular/i,"UScellular"],[/dish|boost|echostar/i,"Dish / Boost"]]) if(re.test(t)) return n;
-  return t||"Unknown carrier"; }
+// one name per carrier: carriers.py keeps the same list (tests/test_carriers.py). null when a name isn't plainly a carrier's
+const CARRIER_RULES=[[/first\s*net|first responder network/i,"FirstNet"],[/\bt-?\s?mobile|\bsprint|nextel|clearwire|metropcs|powertel|omnipoint|voicestream/i,"T-Mobile"],[/verizon|cellco|new york smsa|gte mobilnet|bell atlantic mobile|airtouch/i,"Verizon"],[/at&t|\batt\b|cingular|bellsouth|ameritech/i,"AT&T"],[/united states cellular|us\s?cellular/i,"UScellular"],[/\bdish\b|\bboost\b|echostar/i,"Dish / Boost"]];
+const carrierOfName=s=>{ const t=String(s??""); for(const [re,n] of CARRIER_RULES) if(re.test(t)) return n; return null; };
+function carrierName(s){ const t=String(s??"").trim(); return carrierOfName(t)||t||"Unknown carrier"; }
 // a reading's frequency layer: from 3.3 GHz (C-band, 3.45 GHz, CBRS) or below. From its downlink MHz or band; an LTE EARFCN
 // alone isn't read as MHz (B14's 5330 would look like 5.3 GHz), except CBRS (B48: 55240-56739); a 5G NR-ARFCN is converted
 const nrMhz = n => n<600000 ? n*0.005 : 3000+0.015*(n-600000);
@@ -101,11 +102,35 @@ const CARRIER_ASK = {
 };
 const APPROVAL_PATHS = [["industrial","Industrial booster or off-air DAS: the carrier's express consent (47 CFR 20.21(c))"],["consumer","Consumer booster: register it with the carrier (20.21(a)(2), (h))"],
   ["carrier","Carrier-fed DAS (base station or small cell): carrier agreement, design review, carrier acceptance test"]];
+// What each carrier holds in this county, band by band (spectrum.py): the FCC's market licences in MHz. "Who holds" answers what
+// a scanner leaves open: it shows a sub-band, not whose it is.
+const DC_MHZ = spans => spans.map(([a, b]) => `${+a}–${+b}`).join(", ");
+function dcSpectrum(s){
+  if(!s) return "";
+  if(s.empty) return `<p class="hint" style="margin:10px 0 0">${esc(s.why||"")}</p>`;
+  const low=b=>Math.min(...[...b.dl,...b.ul].flat()), bands=[...new Map(s.carriers.flatMap(c=>c.bands).map(b=>[b.band,b])).values()].sort((a,b)=>low(a)-low(b));
+  const cell=(c,band)=>{ const b=c.bands.find(x=>x.band===band.band); if(!b) return '<td><span class="hint">–</span></td>';
+    const names=b.blocks.map(x=>`${esc(x.block||"held")}${x.part?"*":""}`).join(", ");
+    return `<td><b>${names}</b><div class="hint mono">${b.dl.length?`${b.tdd?"":"↓ "}${DC_MHZ(b.dl)}`:""}${b.ul.length?`<br>↑ ${DC_MHZ(b.ul)}`:""}</div></td>`; };
+  return `<h4 style="margin:12px 0 4px">Spectrum each carrier holds in ${esc(s.county)} <span class="hint">· FCC licences, in MHz</span></h4>
+    <div class="row no-print" style="margin:0 0 6px;align-items:center"><label class="inl" title="A frequency from a scan: who is licensed for it in this county">Who holds <input id="dcWho" type="number" step="any" placeholder="MHz, e.g. 1945" style="width:140px"> MHz</label><span class="hint" id="dcWhoOut"></span></div>
+    <div class="tw wrap"><table id="dcSpecT"><thead><tr><th>Band</th>${s.carriers.map(c=>`<th>${esc(c.brand)}</th>`).join("")}</tr></thead><tbody>
+    ${bands.map(b=>`<tr><td><b>${esc(b.band)}</b><div class="hint">${esc(b.rf)}${b.tdd?" · same up and down":""}</div></td>${s.carriers.map(c=>cell(c,b)).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="hint" style="margin:6px 0 0">↓ what the tower sends, ↑ what the phone sends, MHz. * A licence split inside its market: this holder may not reach this county. ${s.others.length?`Also licensed here: ${esc(s.others.slice(0,6).map(o=>o.licensee).join("; "))}. `:""}</p>
+    <p class="hint" style="margin:4px 0 0">${esc(s.county)} from ${esc(s.county_source||"")}; ${esc(s.source)}, ${esc(s.built_at||"")}. A licence is the right to use a block, not proof it's on the air at a tower. Leases aren't in these files, and 2.5 GHz, T-Mobile's main 5G band, is mostly leased, so it isn't shown. What one tower is sending takes CellMapper or a scan on site.</p>`;
+}
+function dcWhoHolds(s, f){
+  const hits=[], look=(name,bands)=>{ for(const b of bands) for(const x of b.blocks){ const on=spans=>spans.some(([a,z])=>f>=a&&f<z), dir=on(x.dl)?(b.tdd?"":"downlink"):on(x.ul)?"uplink":null;
+    if(on(x.dl)||on(x.ul)) hits.push(`${name}: ${b.band}${x.block?` block ${x.block}`:""}${dir?`, ${dir}`:""}${b.dynamic?", channel assigned by the SAS":""}${x.part?" (split inside this market)":""}`); } };
+  s.carriers.forEach(c=>look(c.brand,c.bands)); s.others.forEach(o=>look(o.licensee,o.bands));
+  return hits.length?hits.join("; "):`No licence in these files covers ${f} MHz in ${s.county}.`;
+}
+
 window.dasCellPresurvey = async (el, j, save) => {
   const d=j.data||{}, C=d.cellular||{}, donor=C.donor||{}, appr=C.approvals||{};
   el.innerHTML='<div class="panel"><h3>Cellular carriers at the building</h3><p class="hint">Looking up carrier coverage and cell sites…</p></div>';
-  const [cov, cs]=await Promise.all([api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`).catch(()=>({carriers:[], loaded:false})),
-    api(`/api/cells?lat=${d.lat}&lon=${d.lon}&radius=1`).catch(()=>({sites:[]}))]);
+  const [cov, cs, spec]=await Promise.all([api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`).catch(()=>({carriers:[], loaded:false})),
+    api(`/api/cells?lat=${d.lat}&lon=${d.lon}&radius=5`).catch(()=>({sites:[]})), api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`).catch(()=>null)]);
   if(!el.isConnected) return;
   const by=new Map(), row=c=>{ const k=carrierName(c); if(!by.has(k)) by.set(k, {carrier:k, cov:[], sites:[], bands:new Set()}); return by.get(k); };
   for(const c of CELL_CARRIERS.slice(0,4)) row(c);
@@ -115,12 +140,15 @@ window.dasCellPresurvey = async (el, j, save) => {
   const list=[...by.values()], measured=list.flatMap(x=>[...x.bands]);
   const flagged=NOT_CONSUMER.filter(([re])=>measured.some(b=>re.test(b))), b66=measured.some(b=>/^(b|n)?66$/i.test(b));
   const vtxt={target:"meets the −85 dBm target", minimum:"meets the −95 dBm minimum only", below:"below the −95 dBm minimum"}, vcol={target:"var(--good)", minimum:"var(--warn)", below:"var(--bad)"};
-  el.innerHTML=`<div class="panel"><h3>Cellular carriers at the building <span class="hint">· commercial DAS: what each carrier has here, its signal at the roof, and its approval</span></h3>
-    <div class="tw wrap"><table><thead><tr><th>Carrier</th><th>FCC Broadband Map (modelled)</th><th>Cell sites within 1 mi</th><th>Rooftop donor (measured)</th><th>Approval</th><th></th></tr></thead><tbody>
-    ${list.map(x=>{ const dn=donor[x.carrier]||{}, v=donorVerdict(dn), a=appr[x.carrier]||{}, near=x.sites[0];
+  el.innerHTML=`<div class="panel"><h3>Cellular carriers at the building <span class="hint">· commercial DAS: what each carrier holds here, its signal at the roof, and its approval</span></h3>
+    ${(cs.sites||[]).length?"":`<div class="row no-print" style="margin:0 0 4px;align-items:center"><button id="dcFetchCells" title="OpenCelliD's crowd-mapped cells within about 3 miles of the pin, kept for next time">Find cell sites here</button><span class="hint" id="dcFetchMsg">Crowd data is loaded for the mission areas; other places load on request.</span></div>`}
+    ${dcSpectrum(spec)}
+    <h4 style="margin:12px 0 4px">Coverage, closest site and approval</h4>
+    <div class="tw wrap"><table><thead><tr><th>Carrier</th><th>FCC Broadband Map (modelled)</th><th>Closest cell site <span class="hint">· within 5 mi</span></th><th>Rooftop donor (measured)</th><th>Approval</th><th></th></tr></thead><tbody>
+    ${list.map(x=>{ const dn=donor[x.carrier]||{}, v=donorVerdict(dn), a=appr[x.carrier]||{}, near=[...x.sites].sort((p,q)=>p.dist_mi-q.dist_mi)[0];
       return `<tr data-car="${esc(x.carrier)}"><td><b>${esc(x.carrier)}</b>${x.bands.size?`<div class="hint">bands measured: ${esc([...x.bands].join(", "))}</div>`:""}</td>
         <td>${x.cov.length?x.cov.map(c=>`${esc(c.tech)}${c.signal!=null?` · ${c.signal} dBm`:""}`).join("<br>"):`<span class="hint">${cov.loaded?"none reported here":"not loaded"}</span>`}</td>
-        <td>${x.sites.length?`${x.sites.length} · nearest ${num(near.dist_mi,2)} mi`:'<span class="hint">none known</span>'}</td>
+        <td>${x.sites.length?`<b>${num(near.dist_mi,2)} mi</b> ${esc(near.radio||"")}<div class="hint">${near.tower?.owner?`${esc(near.tower.owner)} tower · `:""}${x.sites.length} site${x.sites.length===1?"":"s"} known</div>`:'<span class="hint">none known</span>'}</td>
         <td><div class="row" style="gap:4px;flex-wrap:wrap"><input data-dn="rsrp" type="number" placeholder="RSRP" value="${dn.rsrp??""}" style="width:70px"><input data-dn="sinr" type="number" step="0.5" placeholder="SINR" value="${dn.sinr??""}" style="width:62px">
           <input data-dn="band" placeholder="band" value="${esc(dn.band??"")}" style="width:56px"><input data-dn="az" type="number" placeholder="az °" value="${dn.az??""}" style="width:60px"><input data-dn="height_ft" type="number" placeholder="ft" value="${dn.height_ft??""}" style="width:54px"></div>
           ${v?`<span style="color:${vcol[v]}">${vtxt[v]}</span>`:'<span class="hint">RSRP dBm, SINR dB, band, azimuth, antenna height</span>'}</td>
@@ -136,6 +164,11 @@ window.dasCellPresurvey = async (el, j, save) => {
     <p class="hint" style="margin-bottom:0">Donor check from the Providence RFP §3.9, the only published one: design target −85 dBm RSRP with SINR ≥ 5 dB on at least one band per carrier; minimum −95 dBm with SINR ≥ 0 dB, and nothing ordered until the donor is confirmed.
       The FCC keeps no registration for commercial boosters (its signal booster database is for Part 90 Class B). Of the carriers, only T-Mobile's consent form has turned up (on reseller pages); otherwise consent is “a letter, email or other record” from the carrier naming the bands it lets you retransmit (FCC 13-21 ¶112), and the letter here asks for exactly that.
       Carrier coverage is what each carrier tells the FCC (Data &amp; updates: FCC carrier coverage); cell sites are crowd and survey data (Cell sites tab).</p></div>`;
+  $("#dcWho")&&($("#dcWho").oninput=e=>{ const f=parseFloat(e.target.value); $("#dcWhoOut").textContent=isFinite(f)&&f>0?dcWhoHolds(spec,f):""; });
+  $("#dcFetchCells")&&($("#dcFetchCells").onclick=async e=>{ e.target.disabled=true; $("#dcFetchMsg").textContent="Asking OpenCelliD (this can take a minute)…";
+    try{ const r=await post("/api/cells/fetch",{lat:d.lat,lon:d.lon}); if(!el.isConnected) return; if(r.rows) return window.dasCellPresurvey(el, j, save);
+      $("#dcFetchMsg").textContent=r.skipped?`Nothing new: ${r.skipped}.`:"OpenCelliD has no cells mapped here."; }
+    catch(err){ e.target.disabled=false; $("#dcFetchMsg").textContent=err.message; } });
   const keep=async patch=>{ j=await save({cellular:{...(j.data.cellular||{}), ...patch}}); };
   el.querySelectorAll("[data-dn]").forEach(i=>i.onchange=async()=>{ const car=i.closest("tr").dataset.car, all={...((j.data.cellular||{}).donor||{})}, x={...(all[car]||{})};
     x[i.dataset.dn]=i.value===""?null:i.type==="number"?+i.value:i.value; x.at=today(); all[car]=x; await keep({donor:all}); window.dasCellPresurvey(el, j, save); });
@@ -253,13 +286,16 @@ if(typeof document!=="undefined"&&document.addEventListener){
 
 /* ---------- LTE / 5G bands for the link budget (DAS-Cellular research, bands.csv) ---------- */
 // [id, label, UL MHz, DL MHz, carriers, default channel MHz, NR at 30 kHz]
+// Holders are the usual ones nationally and move: AT&T closed on EchoStar's 600 MHz and 3.45 GHz 2026-07-28; T-Mobile sold its 800 MHz to
+// Grain 2026-08-10, which agreed 2026-10-08 to sell it to SpaceX (not closed); EchoStar's AWS-4 went into a trust 2026-05-22 (EchoStar and
+// T-Mobile Q3 2026 10-Qs). By county, read the licence holders (Who holds).
 const DAS_LTE_BANDS = [
-  ["71","B71 / n71 600 MHz",[663,698],[617,652],"T-Mobile",15,false], ["12","B12 / n12 Lower 700",[699,716],[729,746],"AT&T, T-Mobile",10,false],
+  ["71","B71 / n71 600 MHz",[663,698],[617,652],"T-Mobile, AT&T",15,false], ["12","B12 / n12 Lower 700",[699,716],[729,746],"AT&T, T-Mobile",10,false],
   ["17","B17 Lower 700",[704,716],[734,746],"AT&T",10,false], ["29","B29 / n29 700 (downlink only)",null,[717,728],"AT&T",5,false],
   ["13","B13 / n13 Upper 700",[777,787],[746,756],"Verizon",10,false], ["14","B14 / n14 FirstNet",[788,798],[758,768],"FirstNet / AT&T",10,false],
-  ["5","B5 / n5 850",[824,849],[869,894],"AT&T, Verizon",10,false], ["26","B26 / n26 850",[814,849],[859,894],"T-Mobile",10,false],
+  ["5","B5 / n5 850",[824,849],[869,894],"AT&T, Verizon",10,false], ["26","B26 / n26 850",[814,849],[859,894],"Grain (sale to SpaceX pending)",10,false],
   ["2","B2 / n2 PCS 1900",[1850,1910],[1930,1990],"Verizon, AT&T, T-Mobile",20,false], ["25","B25 / n25 PCS 1900",[1850,1915],[1930,1995],"T-Mobile",20,false],
-  ["66","B66 / n66 AWS",[1710,1780],[2110,2200],"Verizon, AT&T, T-Mobile",20,false], ["70","B70 / n70 AWS-4",[1695,1710],[1995,2020],"EchoStar / DISH",15,false],
+  ["66","B66 / n66 AWS",[1710,1780],[2110,2200],"Verizon, AT&T, T-Mobile",20,false], ["70","B70 / n70 AWS-4",[1695,1710],[1995,2020],"Held in trust for SpaceX (ex EchoStar)",15,false],
   ["30","B30 / n30 WCS 2.3 GHz",[2305,2315],[2350,2360],"AT&T",10,false], ["41","B41 / n41 2.5 GHz (TDD)",[2496,2690],[2496,2690],"T-Mobile",100,true],
   ["48","B48 / n48 CBRS (TDD)",[3550,3700],[3550,3700],"neutral host, private",20,false], ["n77a","n77 3.45 GHz (TDD)",[3450,3550],[3450,3550],"AT&T, T-Mobile",40,true],
   ["n77c","n77 C-band (TDD)",[3700,3980],[3700,3980],"Verizon, AT&T, T-Mobile",100,true],

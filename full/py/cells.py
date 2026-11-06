@@ -177,6 +177,26 @@ def sites(con, crowd, lat, lon, radius_mi, mission=None):
                                           ("fcc", "FCC Antenna Structure Registration")) if k == "fcc" or k in crowd_sources()}}
 
 
+FETCH_RADIUS_MI, FETCH_REQUESTS = 3.0, 24  # the nearest tiles first; OpenCelliD's free key allows 1,000 requests a day
+FETCH_PER_DAY, FETCH_KEEP_DAYS = 25, 30
+
+
+def fetch_near(crowd, lat, lon, key):
+    """OpenCelliD's cells around an address, on request. The crowd data otherwise covers only the mission areas, so a new
+    address had no cell sites at all (the 11/4 demo, at both addresses the customer gave). An area fetched in the last month
+    isn't asked again, and a day's fetches are capped, because every login shares the one key."""
+    if not key:
+        raise ValueError("This copy has no OpenCelliD key (Data & updates).")
+    since = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - FETCH_KEEP_DAYS * 86400))
+    if crowd.execute("SELECT 1 FROM ext_fetch WHERE source='opencellid' AND fetched_at>=? AND rows>0 AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 1",
+                     (since, lat - 0.02, lat + 0.02, lon - 0.03, lon + 0.03)).fetchone():
+        return {"rows": 0, "skipped": "fetched for this area in the last month"}
+    day = crowd.execute("SELECT COUNT(*) FROM ext_fetch WHERE source='opencellid' AND fetched_at LIKE ?", (time.strftime("%Y-%m-%d") + "%",)).fetchone()[0]
+    if day >= FETCH_PER_DAY:
+        raise RuntimeError(f"OpenCelliD's share for today is used ({day} areas): try again tomorrow.")
+    return {"rows": connectors.fetch_opencellid(crowd, lat, lon, FETCH_RADIUS_MI, key, max_requests=FETCH_REQUESTS)}
+
+
 def import_ocid(crowd, name, data, boxes=None, log=None):
     """An OpenCelliD download (cell_towers.csv, or a country file like 310.csv.gz) -> the crowd layer.
     boxes: [(s, n, w, e)] to keep (the states in Data & updates); None keeps everything."""

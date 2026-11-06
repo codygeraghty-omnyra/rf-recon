@@ -5,11 +5,12 @@
 const RF_APK = (/github\.io$/.test(location.hostname) || location.protocol === "file:" ? "https://44-207-142-90.sslip.io/" : "") + "static/android/rf-recon-android.apk";
 const HELP = [
   ["start", "Quick start", `
+    <p><b>New to this?</b> The <i>Start</i> tab takes one job from an address to the AHJ package, a question at a time. It's the same job the DAS tab shows, and every other tab stays where it is.</p>
     <ol><li><b>Pick a place.</b> Type an address, town or county in the Pin box and choose a suggestion, paste a Google Maps link,
       type <span class="mono">lat, lon</span>, use ◎ GPS, or click the map. Set the radius.</li>
     <li><b>Search.</b> Everything licensed, every tower and every survey point inside the circle loads, nearest first.</li>
-    <li><b>Narrow it.</b> Click the layer and signal-type chips; open <i>More filters</i> for category, band and station type.
-      Filters apply on every tab.</li>
+    <li><b>Narrow it.</b> The filter rail beside the results (on a phone, the <i>Filters</i> bar): switch sources, signal types,
+      bands, categories and station types off, or press <i>only</i>. Filters apply on the tabs that list the rows: the rail shows on those and leaves the others.</li>
     <li><b>Read it.</b> <i>Area report</i> is the one-page answer; <i>Spectrum</i> and <i>Analyzer</i> go deep.</li>
     <li><b>Go there.</b> Make a mission, import what you collect, and the app tells you what's licensed, what's allowed and what's unexplained.</li></ol>
     <p>The address bar always holds the current view, so a bookmark or a copied link reopens exactly this.</p>`],
@@ -19,9 +20,31 @@ const HELP = [
     <li><b>County</b>: a state and county, exactly as the FCC records it.</li>
     <li><b>Nationwide</b>: licence search anywhere in the US by call sign, licensee, radio service or frequency (like the FCC ULS licence search).</li>
     <li><b>Search</b> box: licensee, call sign, city or address text. <b>Freq from / to</b>: MHz.</li>
-    <li><b>FCC licence search fields</b>: presets (aviation, public safety, business, marine, paging, broadcast auxiliary), radio service
+    <li><b>FCC fields</b> (the licence search): presets (aviation, public safety, business, marine, paging, broadcast auxiliary), radio service
       codes, technology, emission designator, grant and expiry dates.</li>
     <li><b>Fixed sites only</b> hides mobile and area licences that have no transmitter location.</li></ul>`],
+  ["filters", "Filters (the rail)", `
+    <ul><li>The <b>filter rail</b> sits left of the results on Map, Area report, Analyzer, Dashboard, Topology, Site profile, Agencies and
+      Spectrum: the tabs it changes. The other tabs don't use it, so it isn't there. On a wide screen it stays in view as you scroll;
+      <b>‹</b> (or <b>L</b>) folds it to a strip that says how many filters are on, and it stays folded until you open it. From 700 to
+      1,099 px wide the strip opens the rail over the results (Esc or a press outside closes it). On a phone, the <b>Filters</b> bar
+      under the tabs opens it from the bottom at about 60% of the screen, so the map and list stay in view above; drag its handle up for
+      more, and <b>Show N items</b> closes it.</li>
+    <li>At the top: the count (items, frequencies and the radius they're within), <b>⇩ Export</b> (CSV, KML, ATAK package, ⎙ Prep sheet),
+      <b>📡 Push to ATAK</b>, <b>Clear</b> (back to the defaults: the mission's sources, every value on), and a pill for each change
+      (<i>Signal: only DMR</i>); press a pill to undo just that one.</li>
+    <li><b>Sections</b>: Sources (licensed and registered, crowd and networks, your own; sources with nothing here fold into
+      <i>+ n with nothing here</i>, which opens so you can switch them on before a search), Signal type, Band, Category and Station
+      type. Press a section's name to fold or open it (remembered). Its head says what's changed (<i>1 off</i>, <i>only 1/6</i>,
+      <i>2 hidden</i>) and its box switches the whole section: all on, or with everything on, all off.</li>
+    <li><b>Rows</b>: the box in the map's colour is on (ticked) or off (an outline, the name faded); the number is how many items have
+      it with the other filters on, and it stays when the row is off. Everything starts on: untick what you don't want.
+      <b>only</b> (or <b>Alt + click</b>) shows that one alone; press it again for what was on before. A value a new search brings
+      comes in on, and <i>only</i> holds through a pin move.</li>
+    <li>The <b>Filter list</b> box finds a filter by name: sections with a match open, the rest say <i>0 matches</i>.</li>
+    <li>Keys: <b>L</b> the rail (the sheet on a phone), <b>/</b> the filter box, <b>↑ / ↓</b> move through the rows, <b>Space</b> on / off,
+      <b>O</b> only, <b>A</b> all on in that section, <b>← / →</b> fold / open it, <b>Esc</b> leave the rail.</li>
+    <li>The filters are in the address bar too, so a reload or a copied link keeps them.</li></ul>`],
   ["map", "Map", `
     <ul><li>Every result as a dot, sized by how many entries share the site; towers outlined. Click a dot for what's there, then <i>Details</i>.</li>
     <li>Drag the pin (it takes the skin's colour) or click the map to move it; rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
@@ -66,7 +89,7 @@ const HELP = [
     <li><b>Find</b> jumps to a node and lights up its links. <b>Layout</b> and <b>Up to … nodes</b> change how much is drawn and how.</li></ul>`],
   ["profile", "Site profile", `<ul><li>A dossier of the area: counts, the mission's watch-list frequencies checked against everything,
     signal types, categories and the nearest sites. With filters on, the counts and lists follow them; Watch checks every result.</li>
-    <li>⎙ <b>Prep sheet</b> (in the filter bar) prints the frequency checklist for the field: every frequency in the results with a <i>Heard?</i> box.</li></ul>`],
+    <li>⎙ <b>Prep sheet</b> (the filter rail's <i>Export</i>) prints the frequency checklist for the field: every frequency in the results with a <i>Heard?</i> box.</li></ul>`],
   ["agencies", "Agencies", `<ul><li>RadioReference-style: category → licensee → frequencies, with input frequencies, tones and your labels.
     Add alpha tags, tones and descriptions in any record's detail window, or import a RadioReference-style CSV in Data &amp; updates.</li></ul>`],
   ["spectrum", "Spectrum", `
@@ -147,6 +170,8 @@ const HELP = [
     <li><b>Ways in</b> (on Cody's PC, and on the server for the admin): every way people get RF Recon or its data (the 24/7 server, Cody's PC,
       RF Recon for Android, the remote link, the web version, RF Recon lite, field packs, the install kit, the Drive folder, exports, Push to ATAK),
       the version each runs, and which work with Cody's PC off. On the server, field packs and Push to ATAK are the admin's.</li>
+    <li><b>DAS course: who has it</b> (on the server, for the admin): tick the accounts that have the course, and see each one's lessons, mastery,
+      exams passed, current lesson and last use. They open it from the DAS tab; their progress saves to their sign-in.</li>
     <li><b>Data sources</b> are what RF Recon downloads; <b>Used live as you work</b> lists the maps, terrain, address search,
       building outlines, weather radar and live ships it reads as you go; <b>Other open and crowd sources</b> is the research: what else exists,
       what it costs and allows, and why it is or isn't in RF Recon.</li>
@@ -170,6 +195,9 @@ const HELP = [
     <tr><td><b>?</b> or <b>F1</b></td><td>This help, on the current tab's section</td></tr>
     <tr><td><b>N</b></td><td>Leave a note</td></tr>
     <tr><td><b>Ctrl + K</b> (⌘K)</td><td>Search, from anywhere</td></tr>
+    <tr><td><b>L</b></td><td>Show or fold the filter rail (the Filters sheet on a phone)</td></tr>
+    <tr><td><b>/</b></td><td>The filter rail's Filter list box</td></tr>
+    <tr><td><b>↑ / ↓</b>, <b>Space</b>, <b>O</b>, <b>A</b>, <b>← / →</b>, <b>Esc</b></td><td>In the filter rail: move, on / off, only, all on in the section, fold / open the section, leave</td></tr>
     <tr><td><b>Enter</b> in the Pin box</td><td>Take the highlighted suggestion (↑ / ↓ to move), or search coordinates</td></tr>
     <tr><td><b>Ctrl + wheel</b></td><td>Zoom the spectrum or topology at the cursor (the plain wheel scrolls the page)</td></tr>
     <tr><td><b>Drag</b> / <b>Shift + drag</b></td><td>Spectrum: zoom into a range / pan</td></tr>

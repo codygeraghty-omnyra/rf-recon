@@ -185,6 +185,14 @@ def _box(lat, lon, radius_mi):
     return (round(s, 4), round(n, 4), round(w, 4), round(e, 4))
 
 
+def system_tier(licensee, category, trunked, bands):
+    """How likely a system is to be the one a building has to carry. 1: a government's own trunked or 700/800 MHz system;
+    2: any agency's (regional interop, authorities); 3: any agency system; 4: anything licensed for public safety."""
+    big = category in AGENCY_CATS and (trunked or bool(set(bands) & {"700 MHz", "800 MHz"}))
+    return (1 if big and GOV.search(licensee or "") and not REGIONAL.search(licensee or "") else 2 if big
+            else 3 if category in AGENCY_CATS else 4)
+
+
 def load_area(con, s, n, w, e):
     """The agency downlink sites (base and fixed stations, 25-1000 MHz) in a box: one entry per call sign, site,
     band and antenna, at its strongest licensed power. The same filter as das.presurvey."""
@@ -193,7 +201,7 @@ def load_area(con, s, n, w, e):
     rows = con.execute(
         "SELECT call_sign, licensee, service, category, lat, lon, freq_mhz, erp_w, power_out_w, haat_m, height_tip_m, "
         "azimuth, beamwidth FROM tx WHERE status='A' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? "
-        "AND freq_mhz BETWEEN 25 AND 1000 "
+        "AND +freq_mhz BETWEEN 25 AND 1000 "  # + keeps SQLite off tx_freq: walking it took 53-161 s where the box takes under 4 s
         f"AND (service IN ({','.join('?' * len(ps))}) OR category IN ({','.join('?' * len(cats))})) "
         "AND (station_class LIKE 'FB%' OR station_class LIKE 'FX%')", [s, n, w, e] + ps + cats).fetchall()
     systems, sites = {}, {}
@@ -215,11 +223,7 @@ def load_area(con, s, n, w, e):
                           "hb_src": "licensed HAAT" if haat is not None else "antenna height" if tip is not None else "30 m assumed",
                           "tip": tip if tip is not None else 30.0, "az": az, "bw": bw, "band": band}
     for sy in systems.values():
-        big = sy["category"] in AGENCY_CATS and (sy["trunked"] or bool(sy["bands"] & {"700 MHz", "800 MHz"}))
-        # 1: a government's own trunked or 700/800 MHz system; 2: any agency's (regional interop, authorities);
-        # 3: any agency system; 4: anything licensed for public safety
-        sy["tier"] = (1 if big and GOV.search(sy["licensee"]) and not REGIONAL.search(sy["licensee"]) else 2 if big
-                      else 3 if sy["category"] in AGENCY_CATS else 4)
+        sy["tier"] = system_tier(sy["licensee"], sy["category"], sy["trunked"], sy["bands"])
         sy["bands"] = sorted(sy["bands"])
     buckets = {}
     for i, st in enumerate(sites.values()):

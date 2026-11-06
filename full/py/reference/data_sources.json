@@ -22,6 +22,19 @@
    "status": "In RF Recon"
   },
   {
+   "name": "FCC market licences (carrier spectrum)",
+   "updater": [
+    "spectrum"
+   ],
+   "url": "https://www.fcc.gov/wireless/data/public-access-files-database-downloads",
+   "what": "Who holds which block in each market: l_market and l_cell, with the rules' band plans (47 CFR 22.905, 24.229, 27.5)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Bulk files (weekly), about 115 MB",
+   "status": "In RF Recon"
+  },
+  {
    "name": "NOAA Weather Radio",
    "updater": [
     "nwr"

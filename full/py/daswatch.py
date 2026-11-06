@@ -156,7 +156,7 @@ def neighbours(con, area, spans, exclude=(), class_a_khz=CLASS_A_KHZ):
     lim = area["radius_mi"] * geo.MI_KM
     half_a = class_a_khz / 2000.0
     planned = sorted({f for x in spans for f in x["channels"]})
-    where = " OR ".join("(freq_mhz BETWEEN ? AND ?)" for _ in spans)
+    where = " OR ".join("(+freq_mhz BETWEEN ? AND ?)" for _ in spans)  # + keeps a wide passband off tx_freq (need.load_area)
     args = [s, n, w, e] + [v for x in spans for v in (x["lo"] - 0.00625, x["hi"] + 0.00625)]
     rows = con.execute("SELECT call_sign, usi, licensee, freq_mhz, lat, lon, service, category, service_name FROM tx "
                        "WHERE status='A' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND "

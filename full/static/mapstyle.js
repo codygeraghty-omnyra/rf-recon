@@ -86,11 +86,13 @@ function msDialog(){
 }
 
 /* ---------- ATAK style: symbol frames (MIL-STD-2525 affiliation shapes) ---------- */
-// friendly (blue rectangle): your own captures; neutral (green square): licensed and registered (FCC, broadcast,
-// NOAA, FAA, towers); unknown (yellow quatrefoil): crowd-reported. The dot inside is the signal type's colour.
+// friendly (blue rectangle): your own captures; neutral (green square): licensed and registered, the filter rail's
+// first source group (FCC, broadcast, NOAA, FAA, towers, 911 centres and FCC earth stations: core.js LICENSED);
+// unknown (yellow quatrefoil): crowd-reported and imported. The dot inside is the signal type's colour.
+// (Until 11/4 911 centres and earth stations, both FCC data, wore the crowd-reported frame.)
 window.atakIcon = (rs, big) => {
   const r0 = rs.find(r=>r.layer!=="towers") || rs[0], tower = rs.some(r=>r.layer==="towers");
-  const aff = rs.some(r=>r.layer==="captures") ? "f" : ["uls","uls_hist","broadcast","noaa","faa","towers"].includes(r0.layer) ? "n" : "u";
+  const aff = rs.some(r=>r.layer==="captures") ? "f" : LICENSED.has(r0.layer) ? "n" : "u";
   const s = big ? 26 : 20, c = s / 2, dot = `<circle cx="${c}" cy="${c}" r="${s*.16}" fill="${colorOf(r0)}" stroke="#000" stroke-width=".8"/>`;
   const frame = aff === "f" ? `<rect x="1" y="${s*.2}" width="${s-2}" height="${s*.6}" fill="#80e0ff" stroke="#000" stroke-width="1.2"/>`
     : aff === "n" ? `<rect x="${s*.1}" y="${s*.1}" width="${s*.8}" height="${s*.8}" fill="#aaffaa" stroke="#000" stroke-width="1.2"/>`

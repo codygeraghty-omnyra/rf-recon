@@ -10,6 +10,7 @@ person or giving them a new password ends their sessions at once.
 A view login can't reach anything that writes (every POST) except leaving a note for Cody (notes.py: their own,
 size-capped); full logins write too. Neither reaches the BLOCKED parts: the keys and update settings, TAK settings,
 the field-pack folders, or the Signal ID Wiki catalog. An admin login is the owner and reaches everything.
+The DAS course (course.py) is per login: the admin ticks who has it, and a view login may save its own progress there.
 Ships come only from what is already streaming: their looks never start the stream on Cody's aisstream key.
 
 On the 24/7 server (RF_RECON_PUBLIC_URL set, 11/2) this door is the only way in: the server's own https front forwards
@@ -46,6 +47,7 @@ SERVER_URL = (os.environ.get("RF_RECON_PUBLIC_URL") or "").rstrip("/")  # set on
 ROLES = ("view", "full", "admin", "ahj")
 REVIEW_WRITE = re.compile(r"^/api/das/jobs/\d+/review$")  # a review decision or comment: checked per job (dashist.level)
 AHJ_READ = re.compile(r"^(/review|/api/das/jobs|/api/das/jobs/\d+/(review|file))$")  # all an ahj login reaches, besides /static/
+COURSE_SAVE = "/api/course/progress"  # a login's own progress in the DAS course: app.py checks the login has the course
 
 ON = threading.local()  # ON.user is set while a remote request is being answered
 _LOCK = threading.Lock()
@@ -97,12 +99,37 @@ def active():
 
 
 def users():
-    return [{"name": u["name"], "added": u.get("added"), "last": u.get("last"), "role": u.get("role") or "view"} for u in _load().values()]
+    return [{"name": u["name"], "added": u.get("added"), "last": u.get("last"), "role": u.get("role") or "view", "course": _has_course(u)} for u in _load().values()]
 
 
 def role_of(name):
     u = _load().get((name or "").strip().lower())
     return (u.get("role") or "view") if u else None
+
+
+def _has_course(u):
+    role = u.get("role") or "view"
+    return role == "admin" or bool(u.get("course")) and role != "ahj"
+
+
+def has_course(name):
+    """Whether this login has the DAS course: an admin always, an AHJ login never, anyone else when ticked."""
+    u = _load().get((name or "").strip().lower())
+    return bool(u) and _has_course(u)
+
+
+def set_course(name, on):
+    with _LOCK:
+        us = _load()
+        u = us.get((name or "").strip().lower())
+        if u is None:
+            raise LookupError("No one by that name.")
+        if (u.get("role") or "view") == "admin":
+            raise ValueError("An admin always has the DAS course.")
+        if u.get("role") == "ahj":
+            raise ValueError("An AHJ login sees only the reports shared with it.")
+        u["course"] = bool(on)
+        _save(us)
 
 
 def add(name, role=None):
@@ -119,7 +146,7 @@ def add(name, role=None):
         us = _load()
         old = us.get(name.lower(), {})
         us[name.lower()] = {"name": name, "salt": salt, "hash": _hash(pw, salt), "added": old.get("added") or time.strftime("%Y-%m-%d %H:%M"),
-                            "last": old.get("last"), "role": role or old.get("role") or "view"}
+                            "last": old.get("last"), "role": role or old.get("role") or "view", "course": bool(old.get("course"))}
         _save(us)
     return pw
 
@@ -249,7 +276,7 @@ def reads_body(method, path, role):
     a full or admin login makes that isn't refused."""
     if refused(method, path, role):
         return False
-    return note_write(method, path) and role != "ahj" or bool(REVIEW_WRITE.match(path)) and method == "POST" or writer(role)
+    return note_write(method, path) and role != "ahj" or bool(REVIEW_WRITE.match(path)) and method == "POST" or method == "POST" and path == COURSE_SAVE or writer(role)
 
 
 def refused(method, path, role="view"):
@@ -264,6 +291,8 @@ def refused(method, path, role="view"):
         return "An AHJ login sees only the reports shared with it."
     if method == "POST" and REVIEW_WRITE.match(path):
         return None  # a comment or a review: the job's access list says who may (app.py das_route)
+    if method == "POST" and path == COURSE_SAVE:
+        return None  # their own progress: app.py checks they have the course
     if method != "GET" and not note_write(method, path) and not writer(role):
         return "Your login is view only." if SERVER_URL else "View only: changes are made on Cody's PC."
     if path.startswith(BLOCKED):

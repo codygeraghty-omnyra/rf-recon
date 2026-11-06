@@ -33,6 +33,7 @@ SOURCES = {
     "uls:coast": ("FCC ULS: Marine & aviation ground", "fcc", 168, "Coast and ground stations"),
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
     "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
+    "spectrum": ("FCC carrier spectrum (market licences)", "fcc", 168, "Who holds which block in each market: cellular, PCS, AWS, 600, 700, 3.45 GHz, C-band, CBRS (about 115 MB)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
     "bcast": ("FCC broadcast stations (AM / FM / TV)", "fcc", 168, "AM, FM, TV, low-power and translators"),
     "nwr": ("NOAA Weather Radio transmitters", "reference", 168, "~1,000 transmitters and the counties each one warns"),
@@ -59,7 +60,7 @@ SOURCES = {
     "usfa_fd": ("USFA fire department registry (DAS AHJ guess)", "reference", 720, "27,117 fire departments and 8,092 stations with addresses, phones and websites, for a DAS job's AHJ guess (US government; about 12 MB; frozen since June 2026)"),
     "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
 }
-DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects","uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
+DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
                    "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic"}
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
@@ -190,13 +191,22 @@ class Updater:
         saved = self.get("update.status", {}) or {}
         for sid, st in saved.items():
             if sid in self.status:
-                self.status[sid].update({k: v for k, v in st.items() if k != "state"})
+                self.status[sid].update({k: v for k, v in st.items() if k not in ("state", "was_running")})
+                msg = self.status[sid].get("message") or ""
+                # a restart killed this job, and its last progress line would sit beside an idle source for good, reading as
+                # work under way (11/4: six licence rows said "Building search table..." over data from 11/2). The ending
+                # catches lines saved before was_running existed.
+                if st.get("was_running") or msg.endswith(("...", "…")):
+                    last = msg.rstrip(".… ")
+                    self.status[sid]["message"] = ("Stopped by a restart before it finished" + (f" (last step: {last})" if last else "")
+                                                   + ". Run it again.")
 
     def _save(self):
         """Keep the status across restarts. Best effort: while a rebuild holds the database's write lock this can fail,
         and on 11/2 that failure escaped a job's error handler and stopped the server's whole update queue."""
         try:
-            self.set("update.status", {sid: {k: v for k, v in st.items() if k != "state"} for sid, st in self.status.items()})
+            self.set("update.status", {sid: {**{k: v for k, v in st.items() if k != "state"}, "was_running": st.get("state") == "running"}
+                                       for sid, st in self.status.items()})
         except sqlite3.Error:
             pass  # the in-memory status is current; the next save writes it
 
@@ -499,6 +509,10 @@ class Updater:
                 finally:
                     con.close()
                 self._mark(ids, state="ok", message=f"{n:,} call centres (FCC rows of {psap.SOURCE_DATE})", last_checked=now(), last_updated=now(), rows=n)
+            elif job == "spectrum":  # which carrier holds which block in each market (spectrum.py)
+                import spectrum
+                r = spectrum.refresh(uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m).strip()[:200]))
+                self._mark(ids, state="ok", message=f"{r['licences']:,} licence lines in {r['markets']:,} markets", last_checked=now(), last_updated=now(), rows=r["licences"])
             elif job == "mw_pending":  # microwave links filed, not yet granted (mw_pending.py)
                 import mw_pending
                 con = sqlite3.connect(self.db, timeout=60)

@@ -31,6 +31,15 @@ import zipfile
 import ulscontacts
 
 BASE_URL = "https://data.fcc.gov/download/pub/uls/complete/l_{}.zip"
+NO_ASR = ("", "N/A", "NA", "NONE")  # what filers type for "no registered tower". The build's SQL below lists the same values
+
+
+def asr_number(v):
+    """An FCC antenna structure number, or None for a placeholder. About 773,000 licence rows hold one, and code that took
+    "N/A" for a number put them all on one tower."""
+    v = (v or "").strip()
+    return None if v.upper() in NO_ASR else v
+
 DEFAULT_SERVICES = ["LMpriv", "LMcomm", "LMbcast", "paging", "coast"]
 OPTIONAL_SERVICES = ["micro", "cell", "market"]
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -525,7 +534,8 @@ def build_tx(con, log):
             if d not in dl:
                 dl.append(d)
     q = """
-    SELECT l.usi, l.call_sign, l.service, l.licensee, l.grant_date, l.expired_date, l.status, lo.tower_reg,
+    SELECT l.usi, l.call_sign, l.service, l.licensee, l.grant_date, l.expired_date, l.status,
+           CASE WHEN UPPER(TRIM(lo.tower_reg)) IN ('', 'N/A', 'NA', 'NONE') THEN NULL ELSE lo.tower_reg END,
            f.loc_num, lo.address, lo.city, lo.county, lo.state, lo.lat, lo.lon, lo.ground_elev_m,
            lo.radius_km, f.ant_num, a.height_tip_m, a.haat_m, a.gain_dbi, a.azimuth,
            f.station_class, f.freq_mhz, f.freq_upper_mhz, f.power_out_w, f.erp_w, f.units,

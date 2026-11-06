@@ -259,6 +259,8 @@ window.DAS_ACCEPT = DAS_ACCEPT;
 document.head.insertAdjacentHTML("beforeend", `<style>@media print{body.print-das *{visibility:hidden}body.print-das #dasPrint,body.print-das #dasPrint *{visibility:visible}
   body.print-das #dasPrint{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;border:0;box-shadow:none}body.print-das #dasPrint .hint{color:#444}
   body.print-das #dasPrint td,body.print-das #dasPrint th{white-space:normal;overflow-wrap:anywhere}}</style>`);  /* tables wrap on paper: the app's td nowrap cut letters' uplink channels off the page (11/3) */
+document.head.insertAdjacentHTML("beforeend", `<style>details.ps-more summary{cursor:pointer;width:max-content}.ps-hit{background:var(--warn);color:#000;border-radius:3px;padding:0 3px}
+  tr.ps-tier td{padding-top:12px;white-space:normal}.das-pinwarn{margin:6px 0;padding:6px 10px;border-left:3px solid var(--warn);display:flex;gap:10px;align-items:center;flex-wrap:wrap}</style>`);
 // a short line at the foot of the window for a DAS save that failed; it stays 8 s (no toast existed before 11/3)
 function dasSay(t){ let b=document.getElementById("dasSay");
   if(!b){ b=Object.assign(document.createElement("div"), {id:"dasSay", role:"alert"}); b.className="status err"; b.style.cssText="position:fixed;left:16px;bottom:16px;z-index:3000;max-width:min(520px,calc(100vw - 32px));margin:0;box-shadow:var(--g-shadow-up)"; document.body.appendChild(b); }
@@ -291,6 +293,7 @@ function dasLifeNeed(x){
   if(x.state==="due") return `${what} due in ${x.days} days`;
   return `${what}: ${x.note||"open"}`;
 }
+window.dasOpenView = view => { S.das = S.das || {view:"board", q:"", job:null, sub:"overview"}; S.das.view = view; S.das.job = null; render(); };
 S.views.das = async v => {
   const D=S.das=S.das||{view:"board", q:"", job:null, sub:"overview"};
   const gen=D.gen=(D.gen||0)+1;  // a draw overtaken by a newer one while it waited stops, instead of binding to the newer one's screen
@@ -316,7 +319,7 @@ S.views.das = async v => {
     if(j.stage!=="Closed") for(const t of (D.mon||{})[j.id]||[]) need.push([j, t, -1e6, {url:"https://oci.georgia.gov/document/document/nfpa-1225-chapter-18/download", source:"NFPA 1225 (2022) 18.14 System Monitoring"}]); }  // a BDA in alarm or gone quiet comes first
   need.sort((a,b)=>a[2]-b[2]);
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
-      <button class="primary" id="dsNew">+ New job</button>
+      <button class="primary" id="dsNew">+ New job</button>${S.me?.course?'<a class="hbtn" id="dsCourse" href="/course" target="_blank" rel="noopener" style="text-decoration:none">DAS course ↗</a>':""}
       <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["prospects","Prospects"],["pitch","Pitch"],["mail",window.rfMail?.ready_n?`Mail · ${rfMail.ready_n}`:"Mail"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
       <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
       <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
@@ -515,11 +518,13 @@ async function dasJob(v, id){
       <input id="djName" value="${esc(j.name)}" style="font-size:18px;font-weight:700;min-width:260px">
       <label class="inl">Stage <select id="djStage">${D.stages.map(s=>`<option ${s===j.stage?"selected":""}>${esc(s)}</option>`).join("")}</select></label>
       <div class="seg" id="djSub">${subs.map(([k,l])=>`<button data-s="${k}" class="${D.sub===k?"on":""}">${l}</button>`).join("")}</div>
-      <span style="margin-left:auto" class="row"><button id="djExp">⇩ Job JSON</button><button id="djDel">Delete job</button></span></div>
-    <div id="djGuide"></div><div id="djX"></div><div id="djBody"></div>`;
+      <span style="margin-left:auto" class="row"><button id="djToStart" title="This job on the Start tab, step by step">Step by step</button><button id="djExp">⇩ Job JSON</button><button id="djDel">Delete job</button></span></div>
+    <div id="djStart"></div><div id="djGuide"></div><div id="djX"></div><div id="djBody"></div>`;
+  window.startBackBar?.($("#djStart"), j);  // opened from the Start tab: the way back (start.js)
   window.dasJobGuide?.($("#djGuide"), j, D.sub);  // an example job explains each step (dasexample.js)
   window.dasXBanner?.($("#djX"), j);  // open FCC licence changes and existing-system problems (dasx.js)
   $("#djBack").onclick=()=>{ D.job=null; render(); };
+  $("#djToStart").onclick=()=>window.startOpenJob?.(id);
   $("#djName").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{name:e.target.value}); };
   $("#djStage").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{stage:e.target.value}); };
   $("#djSub").onclick=e=>{ const b=e.target.closest("button"); if(b){ D.sub=b.dataset.s; render(); } };
@@ -533,12 +538,13 @@ async function dasJob(v, id){
 
 function dasOverview(el, j, save){
   const d=j.data||{}, ck=d.checks||{}, cs=S.das.contacts, roles=d.contacts||{};
-  const floors=Array.isArray(d.floors)?d.floors:[];
+  const floors=Array.isArray(d.floors)?d.floors:[], pn=S.das.pinNote?.id===j.id?S.das.pinNote:null;
   el.innerHTML=`<div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Building</h3>
       <div class="row"><label class="grow">Client<input data-k="client" value="${esc(d.client||"")}"></label><label class="grow">Address<input data-k="address" value="${esc(d.address||"")}"></label></div>
       <div class="row" style="margin-top:6px"><label>Latitude<input data-k="lat" type="number" step="any" value="${d.lat??""}" style="width:130px"></label><label>Longitude<input data-k="lon" type="number" step="any" value="${d.lon??""}" style="width:130px"></label>
         <button id="doPin" title="Use the pin from the search panel">Use current pin</button><button id="doGo" title="Search the area around the building">Show on map</button></div>
+      ${pn?`<p class="hint" id="doPinNote" style="margin:6px 0 0">Pin moved to this address, ${num(pn.mi,pn.mi<10?1:0)} mi from where it was.${pn.stale?` ${esc(pn.stale)} still describe${pn.stale.includes(",")||pn.stale.includes(" and ")?"":"s"} the old spot: run again.`:""} <a href="#" id="doPinUndo">Undo</a></p>`:""}<div id="doPinWarn"></div>
       <div class="row" style="margin-top:6px"><label>Floors <input id="doFloors" type="number" min="0" value="${floors.length||""}" style="width:80px"></label>
         <label>Area (sq ft)<input data-k="area_sqft" type="number" value="${d.area_sqft??""}" style="width:110px"></label>
         <label>Construction <select data-k="construction" style="max-width:270px">${Object.keys(DAS.loss).map(c=>`<option ${c===d.construction?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
@@ -576,6 +582,19 @@ function dasOverview(el, j, save){
       return o?{...o, ...x}:x; });
     j=await save({testing:{...(j.data.testing||{}),instruments}}); };
   el.querySelectorAll("[data-k]").forEach(i=>i.onchange=async()=>{ const k=i.dataset.k, val=i.type==="number"?(i.value===""?null:+i.value):i.value; j=await save({[k]:val}); });
+  // A suggestion taken in the Address box brings its coordinates, and the pin follows in the same save. Before 11/5 they were
+  // dropped: every step runs off the pin, so in the demo the map sat 15 mi from an address edited seven times. A street
+  // address moves it; a town or county only sets a job with no pin, since it's vaguer than a pin already placed.
+  const addrIn=el.querySelector('input[data-k="address"]'); let took=null;
+  addrIn.addEventListener("rf-addr", e=>{ took=e.detail; });
+  addrIn.onchange=async()=>{ const t=took, dd=j.data||{}, had=dd.lat!=null&&dd.lon!=null, patch={address:addrIn.value}; took=null;
+    const mi=t&&had?geoMi(dd.lat,dd.lon,t.lat,t.lon):null, move=t&&t.lat!=null&&(!had||(t.kind==="address"&&mi>0.03));
+    if(move) Object.assign(patch,{lat:t.lat,lon:t.lon});
+    j=await save(patch); if(!move) return;
+    const old=[dd.building&&"The building outline",dd.nsi&&"the NSI record",dd.ahj_guess&&"the AHJ guess"].filter(Boolean);
+    S.das.pinNote=had?{id:j.id, mi, was:[dd.lat,dd.lon], stale:mi>0.1&&old.length?old.join(", ").replace(/, ([^,]*)$/," and $1"):""}:null;
+    render(); };
+  $("#doPinUndo")&&($("#doPinUndo").onclick=async e=>{ e.preventDefault(); const [lat,lon]=S.das.pinNote.was; S.das.pinNote=null; j=await save({lat,lon}); render(); });
   el.querySelectorAll("[data-ck]").forEach(i=>i.onchange=async()=>{ const checks={...(j.data.checks||{}),[i.dataset.ck]:i.value}; const patch={checks};
     if(i.dataset.ck==="accepted_on"){ patch.accepted_on=i.value; patch.retest_due=addYear(i.value); }
     j=await save(patch); render(); });
@@ -593,7 +612,8 @@ function dasOverview(el, j, save){
       if(dd.area_sqft==null&&n.sqft) patch.area_sqft=n.sqft;  // the NSI's sq ft is the whole building's floor area (an estimate)
       if(!(Array.isArray(dd.floors)&&dd.floors.length)&&n.stories) patch.floors=Array.from({length:Math.min(200,n.stories)},(_,i)=>({name:String(i+1),grids:DAS.grids}));
       j=await save(patch); render(); }catch(e){ b.disabled=false; $("#doNsiMsg").textContent=e.message; } };
-  $("#doPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ alert("Drop a pin or type the address in the search panel first."); return; } j=await save({lat:p[0],lon:p[1]}); render(); };
+  $("#doPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ alert("Drop a pin or type the address in the search panel first."); return; } S.das.pinNote=null; j=await save({lat:p[0],lon:p[1]}); render(); };
+  dasPinCheck($("#doPinWarn"), j, async hit=>{ j=await save({lat:hit.lat,lon:hit.lon}); render(); });
   dasLifeWire(el, () => j, async patch => { j = await save(patch); render(); });
   window.dasMonitor?.($("#doMon"), j, async patch => (j = await save(patch)));  // BDA monitoring by SNMP trap (dasmonitor.js, snmpwatch.py)
   window.dasCertRegister?.($("#doCerts"), j, async patch => { j = await save(patch); render(); });  // calibration certificates (dasahj.js)
@@ -790,6 +810,21 @@ function dasFlagPop(btn, sys){
   document.addEventListener("pointerdown", down, true); document.addEventListener("keydown", key); addEventListener("scroll", scroll, true); addEventListener("resize", close);
 }
 
+/* The pin drives every location step, and an address is only text until something ties the two. A taken suggestion moves
+   the pin (dasOverview); this catches the rest: an address typed and left, or a job from before 11/5. Only a street number
+   the lookup finds again is judged, so a vaguer address or no signal says nothing rather than guessing. */
+async function dasPinCheck(box, j, move){
+  const d=j.data||{}, a=(d.address||"").trim(), no=(a.match(/^\d+[a-z]?\b/i)||[])[0];
+  if(!box||d.lat==null||d.lon==null||!no) return;
+  let r; try{ r=await api(`/api/geocode?q=${encodeURIComponent(a)}&lat=${d.lat}&lon=${d.lon}`); }catch(e){ return; }
+  if(!box.isConnected) return;
+  const zip=(a.match(/\b\d{5}\b/)||[])[0], hit=(r.results||[]).find(x=>x.kind==="address"&&x.lat!=null&&(x.full||"").startsWith(no+" ")&&(!zip||x.full.includes(zip)));
+  if(!hit) return;
+  const mi=geoMi(d.lat,d.lon,hit.lat,hit.lon); if(mi<1) return;
+  box.innerHTML=`<div class="das-pinwarn" role="status"><span>The pin is <b>${num(mi,mi<10?1:0)} mi</b> from this address, and every step here runs from the pin.</span> <button class="sm" type="button">Move the pin to ${esc(hit.full)}</button></div>`;
+  box.querySelector("button").onclick=()=>move(hit);
+}
+
 /* ---------- pre-survey: the agency systems serving the building ---------- */
 async function dasPresurvey(el, j, save){
   const d=j.data||{}, ps=d.presurvey||{};
@@ -815,6 +850,12 @@ async function dasPresurvey(el, j, save){
   const planOf=list=>{ const out=[]; for(const s of list) for(const c of s.down) out.push({system:s.licensee, call_sign:s.call_sign, service:s.service_name, trunked:s.trunked?"yes":"no",
     technology:s.tech.join(" / "), downlink_mhz:c.freq, uplink_mhz:(c.up||[]).join(" "), band:c.band, emission:c.emission||"", bandwidth_khz:c.bw_khz??"", best_outdoor_dbm:c.best_out??"", realistic_outdoor_dbm:s.real?.out_dbm??""}); return out; };
   const plan=planOf(chosen);
+  // every channel is in the page: past six they fold, and Ctrl+F and the Find box both reach them. Cut to six with a "+13",
+  // a customer's own control channel couldn't be found on screen (11/4 demo: 852.3625, 9th of 19)
+  const psCh=f=>`<span data-ch="${fmtF(f)}">${fmtF(f)}</span>`;
+  const psFold=(list,cell)=>list.slice(0,6).map((c,i)=>cell(c,i)).join("<br>")+(list.length>6?`<details class="ps-more"><summary class="hint">+${list.length-6} more</summary>${list.slice(6).map((c,i)=>cell(c,i+6)).join("<br>")}</details>`:"");
+  const psTier={1:"Government trunked and 700/800 MHz systems",2:"Other agency trunked and 700/800 MHz systems",3:"Other agency systems",4:"Other public safety licences"};
+  const psHead=(s,i)=>s.tier&&s.tier!==r.systems[i-1]?.tier?`<tr class="ps-tier"><td colspan="14"><b>${psTier[s.tier]}</b> <span class="hint">· ${r.systems.filter(x=>x.tier===s.tier).length}</span></td></tr>`:"";
   const bands=new Map(); for(const p of plan){ for(const f of [p.downlink_mhz, ...String(p.uplink_mhz).split(" ").filter(Boolean).map(Number)]){ const b=dasBand(f); const x=bands.get(b)||{lo:1e9,hi:0,set:new Set()}; x.lo=Math.min(x.lo,f); x.hi=Math.max(x.hi,f); x.set.add(f); x.n=x.set.size; bands.set(b,x); } }
   el.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <label class="inl">Within <input id="psR" type="number" value="${P.radius}" min="1" max="60" style="width:70px"> mi</label>
@@ -822,26 +863,31 @@ async function dasPresurvey(el, j, save){
         <input id="psL" type="number" value="${P.loss}" min="0" max="120" style="width:64px"> dB</label>
       <label class="inl" title="The realistic estimate's land type (Okumura-Hata): urban is the most loss, open land the least">Realistic as <select id="psEnv">${[["urban","Hata urban"],["suburban","Hata suburban"],["open","Hata open land"]].map(([k,l])=>`<option value="${k}" ${P.env===k?"selected":""}>${l}</option>`).join("")}</select></label>
       <label class="inl">Needs at least <input id="psT" type="number" value="${P.threshold}" style="width:80px"> dBm inside</label>
-      <button id="psPick">Tick fire, police, EMS, 911</button><button id="psNone">Untick all</button>
+      <button id="psPick">Tick fire, police, EMS, 911</button><button id="psNone">Untick all</button><button id="psToCell" title="AT&T, T-Mobile and Verizon here: coverage, closest site and the spectrum each holds, below the public safety list">Cellular carriers ↓</button>
       <button id="psTer" title="Line of sight from each system's donor site to the roof, with the loss over hills (terrain data, cached on this PC once fetched). Ticked systems, or the 20 strongest.">⛰ Terrain paths</button>
       <button id="psAim" ${(any?chosen:r.systems).length?"":"disabled"} title="For each chosen system's donor site: true and magnetic bearing, elevation angle, distance and terrain clearance; print or save as PDF">⎙ Donor aiming sheet</button>
       <button id="psPlan" ${plan.length?"":"disabled"}>⇩ Channel plan CSV</button><button id="psCsv">⇩ Systems CSV</button><button id="psKml">⇩ KML</button><button id="psTak">⇩ ATAK</button>
       <button id="psLet" ${chosen.length?"":"disabled"} title="One letter per licensee asking consent to retransmit (47 CFR 90.219(b)(1)); print or save as PDF">⎙ Consent letters</button>${window.rfMail?`<button id="psLetMail" ${chosen.length?"":"disabled"} title="Email each licensee the consent request from your own mailbox; the reply files itself">✉ Email them</button>`:""}</div><div id="psLetMailBox"></div>
-    <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi. ${esc(verdict)}</p>
+    <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi of the job's pin <span class="mono hint">${num(d.lat,5)}, ${num(d.lon,5)}</span>. ${esc(verdict)}</p><div id="psPinChk"></div>
     ${r.entry_loss?`<p class="hint" id="psEntry" style="margin:-6px 2px 10px">Building loss <b>${num(r.entry_loss.db,0)} dB</b>, ${esc(r.entry_loss.model)}: ${esc(r.entry_loss.parts.map(p=>`${num(p[0],0)} dB ${p[1]}`).join(" + "))}. Basis: ${r.entry_loss.basis==="NSI"?"the NSI record (Overview, Look up building)":"the building's type and size; Look up building (Overview) adds its year"}. <a href="${esc(r.entry_loss.source)}" target="_blank" rel="noopener">ITU-R P.2109-2</a></p>`:""}
     <div class="grid2" style="margin-top:0;align-items:stretch">
       <div class="panel"><h3>Bands a booster must pass <span class="hint">· chosen systems, downlink and uplink</span></h3>${bands.size?`<table><thead><tr><th>Band</th><th>From MHz</th><th>To MHz</th><th class="n">Channels</th></tr></thead><tbody>${[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([b,x])=>`<tr><td>${esc(b)}</td><td class="mono">${fmtF(x.lo)}</td><td class="mono">${fmtF(x.hi)}</td><td class="n">${x.n}</td></tr>`).join("")}</tbody></table>
         <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) is licensed to the FirstNet Authority (AT&amp;T runs it): its written retransmission authorization is needed, and it isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI). Click one for what it means.</p>
         <div id="psBoost"></div>`:'<p class="hint">Tick systems below.</p>'}</div>
       <div class="panel" style="padding:0;overflow:hidden;display:flex;min-height:300px"><div id="psMap" style="flex:1;min-height:300px"></div></div></div>
-    <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· strongest first on free space · each level is an estimate from licensed power, not a measurement</span></h3>
+    <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· government trunked and 700/800 MHz systems first, then other agencies; trunked first, then strongest on free space · each level is an estimate from licensed power, not a measurement</span></h3>
+      ${(()=>{ const fd=ps.federal||{}; return `<div class="status" id="psFed" style="margin:0 0 8px"><b>Federal systems are not on this list.</b> It comes from FCC licences. Federal radio (military, VA police, federal courts and agencies) is assigned through NTIA, so an empty list proves nothing on federal land or with a federal tenant or responder.
+        <div class="row no-print" style="margin-top:6px;align-items:center;gap:10px;flex-wrap:wrap"><label class="inl">Federal systems here? <select id="psFedState"><option value="">Not asked yet</option><option value="none" ${fd.state==="none"?"selected":""}>Asked: none serve this building</option><option value="yes" ${fd.state==="yes"?"selected":""}>Yes: they serve this building</option></select></label>
+          <label class="inl">Who said so <input id="psFedNote" value="${esc(fd.note||"")}" placeholder="Name, office, date" style="width:260px;max-width:100%"></label></div>
+        ${fd.state==="yes"?`<p class="hint" style="margin:6px 0 0">On a base, ask the installation spectrum manager; at a civil site, the agency's security or telecom office. Get the retransmission answer in writing, and sweep federal bands only with written permission.</p>`:""}</div>`; })()}
+      <div class="row no-print" style="margin:0 0 6px;align-items:center"><label class="inl">Find <input id="psFind" type="search" value="${esc(S.das.psFind||"")}" placeholder="Channel, call sign or agency, e.g. 852.3625" style="width:300px"></label><span class="hint" id="psFindN"></span></div>
       ${RM?`<p class="hint" style="margin:0 0 6px"><b>Realistic</b>: ${esc(RM.desc)} <b>Free space</b>: the best case, no terrain, no clutter.</p>`:""}
       <div class="tw" style="max-height:60vh"><table><thead><tr><th></th><th>Agency</th><th>Call sign</th><th>Type</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Donor site</th><th class="n" title="${esc(RM?.desc||"")}">Outside dBm<div class="hint">realistic</div></th><th class="n">Inside dBm<div class="hint">realistic</div></th><th class="n">Margin dB<div class="hint">realistic</div></th><th class="n" title="Free space, best case">Outside dBm<div class="hint">free space</div></th><th class="n">Inside dBm<div class="hint">free space</div></th><th class="n">Margin dB<div class="hint">free space</div></th><th>Terrain to the roof</th></tr></thead><tbody>
-      ${r.systems.map(s=>{ const st=dasDonorSite(s), rl=realOf(s), mc=m=>m==null?"":m<0?"var(--bad)":m<10?"var(--warn)":"var(--good)", decl=st?declHere:null; return `<tr><td><input type="checkbox" data-cs="${esc(s.call_sign)}" ${inc.has(s.call_sign)?"checked":""}></td><td style="white-space:normal;min-width:170px;max-width:260px"><b>${esc(s.licensee)}</b><div class="hint">${esc(s.category||"")}</div></td>
+      ${r.systems.map((s,si)=>{ const st=dasDonorSite(s), rl=realOf(s), mc=m=>m==null?"":m<0?"var(--bad)":m<10?"var(--warn)":"var(--good)", decl=st?declHere:null; return `${psHead(s,si)}<tr data-find="${esc([s.licensee,s.call_sign,s.service_name,...s.down.map(c=>fmtF(c.freq)),...s.up.map(fmtF)].join(" ").toLowerCase())}"><td><input type="checkbox" data-cs="${esc(s.call_sign)}" ${inc.has(s.call_sign)?"checked":""}></td><td style="white-space:normal;min-width:170px;max-width:260px"><b>${esc(s.licensee)}</b><div class="hint">${esc(s.category||"")}</div></td>
         <td class="mono">${s.usi?`<a href="https://wireless2.fcc.gov/UlsApp/UlsSearch/license.jsp?licKey=${s.usi}" target="_blank" rel="noopener">${esc(s.call_sign)}</a>`:esc(s.call_sign)}</td>
         <td>${esc(s.trunked?"Trunked":"Conventional")} · ${esc(s.tech.join(", "))}<div class="hint">${esc(s.service_name||"")}</div></td>
-        <td class="mono">${s.down.slice(0,6).map((c,i)=>`${fmtF(c.freq)}${(c.flags||[]).length?` <button type="button" class="das-flag" data-flag-cs="${esc(s.call_sign)}" data-i="${i}" title="${esc(c.flags.join("; "))} (click for what it means)" aria-haspopup="dialog" aria-expanded="false">⚠</button>`:""}`).join("<br>")}${s.down.length>6?`<br><span class="hint">+${s.down.length-6}</span>`:""}</td>
-        <td class="mono">${s.up.slice(0,6).map(fmtF).join("<br>")||'<span class="hint">ask licensee</span>'}${s.up.length>6?`<br><span class="hint">+${s.up.length-6}</span>`:""}
+        <td class="mono">${psFold(s.down,(c,i)=>`${psCh(c.freq)}${(c.flags||[]).length?` <button type="button" class="das-flag" data-flag-cs="${esc(s.call_sign)}" data-i="${i}" title="${esc(c.flags.join("; "))} (click for what it means)" aria-haspopup="dialog" aria-expanded="false">⚠</button>`:""}`)}</td>
+        <td class="mono">${psFold(s.up,psCh)||'<span class="hint">ask licensee</span>'}
           <div class="hint" style="font-family:var(--font)">${esc([...new Set(s.down.map(c=>c.up_src).filter(Boolean))].join(", "))}</div></td>
         <td>${st?`${num(st.dist_mi,2)} mi ${esc(st.compass)} (${st.bearing}° true${decl!=null?`, ${num(((st.bearing-decl)%360+360)%360,0)}° magnetic`:""})<div class="hint">${s.n_sites} site${s.n_sites===1?"":"s"}${rl&&rl.site?" · strongest realistic, not on free space":""} · <a href="#" data-aim="${esc(s.call_sign)}" title="Print this system's donor aiming sheet: true and magnetic bearing, elevation angle, terrain">⎙ aim</a></div>`:""}</td>
         <td class="n" title="${rl?esc(`${rl.freq} MHz · Hata ${rl.hata_db} dB path loss, effective height ${rl.hb_m} m (${rl.hb_src})${rl.pattern_db?`, ${rl.pattern_db} dB off the antenna's beam`:""}; terrain ${rl.terrain}${rl.terrain_db?` −${rl.terrain_db} dB`:""}${rl.note?`; ${rl.note}`:""}`):"no power on file"}">${rl?num(rl.out_dbm,0):"–"}${rl?.note?' <span class="hint">~</span>':""}</td>
@@ -852,10 +898,21 @@ async function dasPresurvey(el, j, save){
     <div id="psX" style="margin-top:10px"></div>
     <div id="psCell" style="margin-top:10px"></div>`;
   window.dasCellPresurvey?.($("#psCell"), j, save);  // the commercial carriers here (dascell.js)
+  $("#psToCell").onclick=()=>$("#psCell").scrollIntoView({behavior:"smooth", block:"start"});
+  dasPinCheck($("#psPinChk"), j, async hit=>{ j=await save({lat:hit.lat,lon:hit.lon}); dasPresurvey(el, j, save); });
+  { const box=$("#psFind"), rows=[...el.querySelectorAll("tr[data-find]")], heads=[...el.querySelectorAll("tr.ps-tier")];
+    const go=()=>{ const q=box.value.trim().toLowerCase(); S.das.psFind=box.value; let n=0;
+      rows.forEach(tr=>{ const on=!q||tr.dataset.find.includes(q); tr.style.display=on?"":"none"; n+=on?1:0;
+        tr.querySelectorAll("[data-ch]").forEach(c=>c.classList.toggle("ps-hit", !!q&&c.dataset.ch.includes(q)));
+        tr.querySelectorAll("details.ps-more").forEach(x=>{ x.open=!!x.querySelector(".ps-hit"); }); });
+      heads.forEach(t=>{ t.style.display=q?"none":""; }); $("#psFindN").textContent=q?`${n} of ${rows.length} systems`:""; };
+    box.oninput=go; if(box.value) go(); }
   window.dasPresurveyX?.($("#psX"), j, save, r, chosen);  // passband licensees and consent, licence watch, tunnels (dasx.js)
   // the chosen systems' channel plan is saved with the job, so the AHJ report and exports have it without the FCC data
   const store=async patch=>{ const incl=new Set(patch.include??[...inc]);
     j=await save({presurvey:{...(j.data.presurvey||{}),...P,...patch, plan:planOf(r.systems.filter(s=>incl.has(s.call_sign)))}}); dasPresurvey(el, j, save); };
+  $("#psFedState").onchange=e=>store({federal:{...(ps.federal||{}), state:e.target.value}});
+  $("#psFedNote").onchange=e=>store({federal:{...(ps.federal||{}), note:e.target.value}});
   $("#psLet").onclick=async()=>{ await window.dasConsentPrefetch?.(chosen); dasConsent(j, chosen); };  // addressed from each licence's FCC contact
   $("#psAim").onclick=()=>dasDonorSheet(j, (any?chosen:r.systems.slice(0,10)).filter(s=>s.sites[0]), r, ps);
   el.querySelectorAll("[data-aim]").forEach(b=>b.onclick=e=>{ e.preventDefault(); dasDonorSheet(j, r.systems.filter(s=>s.call_sign===b.dataset.aim), r, ps); });
@@ -986,7 +1043,8 @@ function dasRequire(el, j, save){
         ${DASJ.tool_lock?`<br><b style="color:var(--bad)">${esc(DASJ.tool_lock)}</b>`:""}</p>
       <details id="pfSrc" style="margin-top:4px"><summary class="hint" style="cursor:pointer">Where each number comes from</summary><div class="kvg" style="margin-top:6px">${dasProfileSources().map(([k,v,s])=>`<div>${esc(k)}</div><div><b>${esc(v)}</b> <span class="hint">· ${esc(s)}</span></div>`).join("")}</div></details>
       <p class="hint">Local amendments differ: some AHJs ask DAQ 3.4 (Orange County Sheriff, Burbank, Pierce County), −95 dBm both ways, 24 h batteries, or Class A boosters only.</p></div>
-    <div class="panel"><h3>What the code asks <span class="hint">· ${esc(d.code||"IFC 510 + NFPA 1225")}; your AHJ's amendments win</span></h3>
+    <div class="panel"><h3>What the code asks <span class="hint">· ${esc(d.code||"IFC 510 + NFPA 1225")}</span></h3>
+      <p class="st-auth" style="margin:0 0 8px">The AHJ has final authority here. What's in the code they have to enforce, they can require more, and what they tell you in writing wins over anything on this page.</p>
       <div class="kvg">${rows.map(([k,v2])=>`<div>${esc(k)}</div><div>${esc(v2)}</div>`).join("")}</div>
       <p class="hint" id="drSrc" style="margin-top:8px"></p></div>
     <div class="panel" id="drCrit"><h3>Critical areas in this building</h3>${DAS.critical_areas.map(a=>`<label class="inl" style="display:flex;padding:3px 0"><input type="checkbox" data-ca="${esc(a)}" ${(req.critical||[]).includes(a)?"checked":""}> ${esc(a)}</label>`).join("")}

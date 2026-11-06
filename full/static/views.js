@@ -7,13 +7,13 @@ const countBy=(rows,fn)=>{ const m=new Map(); for(const r of rows) for(const k o
 function bars(entries, colorFn, click){ if(!entries.length) return NO_DATA; const max=Math.max(1,...entries.map(e=>e[1]));
   return `<div class="bars">${entries.map(([k,n])=>`<div ${click?`data-click="${esc(click)}" data-v="${esc(k)}"`:""}><span title="${esc(k)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span><span class="bar" style="width:${Math.max(2,100*n/max)}%;${colorFn?`background:${colorFn(k)}`:""}"></span><span class="mono" style="text-align:right">${n.toLocaleString()}</span></div>`).join("")}</div>`; }
 document.addEventListener("click", e=>{ const b=e.target.closest("[data-click]"); if(!b) return;
-  const k=b.dataset.click, v=b.dataset.v;
+  const k=b.dataset.click, v=k==="agency"?agencyKey(b.dataset.v):b.dataset.v;
   // a source bar shows only that source on every tab (as the panel's hint says); the same bar again puts the layers
   // back. It used to switch the source off, so every tab dropped to 0 and the bar to undo it vanished (11/3).
   if(k==="layer"){ const id=Object.keys(LAYERS).find(x=>LAYERS[x].label===v)||v;
     if(S.layerSolo===id && S.layerPrev){ S.layerOn=new Set(S.layerPrev); S.layerSolo=S.layerPrev=null; }
     else { if(!S.layerSolo) S.layerPrev=new Set(S.layerOn); S.layerOn=new Set([id]); S.layerSolo=id; }
-    render(); }
+    S.shown=600; render(); }
   else toggleChip(k,v); });
 // a bar that doesn't filter: a tap shows its whole name (cut short in the row, and a hover tip can't be reached by touch)
 document.addEventListener("click", e=>{ const r=e.target.closest(".bars > div:not([data-click])"); if(r) r.classList.toggle("full"); });
@@ -424,7 +424,7 @@ S.views.profile = (v, rows) => {
   const digital=uls.filter(r=>/P25|DMR|NXDN|Digital|Data|TETRA/.test(r.mode||"")).length;
   const rpt=uls.filter(r=>r.station_class==="FB2"||r.station_class==="FB4").length;
   const where=S.center?`${S.center[0].toFixed(5)}, ${S.center[1].toFixed(5)} · ${S.radius} mi`:`${$("#county").value?$("#county").value+" County, ":""}${$("#state").value}`;
-  const filtersOn=Object.values(S.chips).some(s=>s.size)||$("#q").value||$("#fmin").value||$("#fmax").value;
+  const filtersOn=filtersChanged()||$("#q").value||$("#fmin").value||$("#fmax").value||S.franges;
   const fcc=(/FCC data ([\d-]+ [\d:]+)/.exec($("#meta")?.textContent||"")||[])[1];
   const nearest=S.center?Math.min(...rows.filter(r=>r.layer==="uls"&&r.dist_mi!=null).map(r=>r.dist_mi)):Infinity;
   const strongestLv=Math.max(...rows.map(lvOf).filter(x=>x!=null));
@@ -460,7 +460,7 @@ S.views.profile = (v, rows) => {
     <div class="panel"><h3>By signal type <span class="hint">· ${unit}</span></h3>${barsPct(countMode(rows,typeOf,P.count).slice(0,P.top),allT,typeColor,"type")}</div>
     <div class="panel"><h3>By band <span class="hint">· ${unit}</span></h3>${barsPct(countMode(rows,r=>r.band||"Other",P.count).slice(0,P.top),allT,null,"band")}</div>
     <div class="panel"><h3>By category <span class="hint">· ${unit}</span></h3>${barsPct(countMode(rows,r=>r.category||"Other",P.count).slice(0,P.top),allT,null,"cat")}</div>
-    <div class="panel"><h3>Top licensees <span class="hint">· ${P.count==="lic"?"frequencies":unit}</span></h3>${barsPct(countMode(uls,r=>r.licensee||"?",P.count==="lic"?"freq":P.count).slice(0,P.top),P.count==="lic"?countMode(uls,()=>"all","freq")[0]?.[1]||0:licT)}</div></div>`;
+    <div class="panel"><h3>Top licensees <span class="hint">· ${P.count==="lic"?"frequencies":unit}</span></h3>${barsPct(countMode(uls,r=>r.licensee||"?",P.count==="lic"?"freq":P.count).slice(0,P.top),P.count==="lic"?countMode(uls,()=>"all","freq")[0]?.[1]||0:licT,null,"agency")}</div></div>`;
   if(S.center){ const strong=rows.filter(r=>lvOf(r)!=null).sort((a,b)=>lvOf(b)-lvOf(a)).slice(0,P.list);
     html+=`<div class="grid2">
       <div class="panel"><h3>Where the sites are <span class="hint">· by direction and distance from the pin</span></h3>${polarSites(rows,S.radius)}</div>

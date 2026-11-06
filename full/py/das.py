@@ -20,6 +20,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import zipfile
 
+import carriers
 import dashist
 import geo
 import overture
@@ -120,7 +121,7 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=None, threshold_dbm=-95.0, 
             ch["best_out"], ch["site"] = round(out, 1), f"{r['lat']:.5f},{r['lon']:.5f}"
         sk = f"{r['lat']:.5f},{r['lon']:.5f}"
         site = sysd["sites"].setdefault(sk, {"lat": r["lat"], "lon": r["lon"], "dist_mi": round(d / geo.MI_KM, 2), "bearing": round(b),
-                                             "compass": geo.compass(b), "tower_reg": r["tower_reg"], "height_m": r["height_tip_m"],
+                                             "compass": geo.compass(b), "tower_reg": uls_import.asr_number(r["tower_reg"]), "height_m": r["height_tip_m"],
                                              "best_out": None, "freqs": set(), "address": ", ".join(x for x in (r["address"], r["city"]) if x)})
         site["freqs"].add(f)
         if out is not None and (site["best_out"] is None or out > site["best_out"]):
@@ -178,7 +179,12 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=None, threshold_dbm=-95.0, 
             "down": down, "up": ups, "sites": sites[:8], "n_sites": len(sites), "best_out": best, "best_in": inside,
             "margin_db": round(inside - threshold_dbm, 1) if inside is not None else None,
             "nearest_mi": min(x["dist_mi"] for x in sites) if sites else None})
-    out_systems.sort(key=lambda x: (-(x["best_out"] if x["best_out"] is not None else -1e9)))
+    # The system a building has to carry isn't the loudest on free space: strongest-first put a county's 800 MHz trunked
+    # system 101st of 158, behind school and Red Cross channels (11/4 demo). The same tiers as the RF need estimate.
+    import need as need_mod  # imported here: need is a local in this function
+    for x in out_systems:
+        x["tier"] = need_mod.system_tier(x["licensee"], x["category"], x["trunked"], {c["band"] for c in x["down"]})
+    out_systems.sort(key=lambda x: (x["tier"], not x["trunked"], -(x["best_out"] if x["best_out"] is not None else -1e9)))
     bands = [{"band": b, "lo": min(fs), "hi": max(fs), "channels": len(set(fs))} for b, fs in need.items()]
     bands.sort(key=lambda x: x["lo"])
     return {"systems": out_systems, "bands": bands, "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db,
@@ -589,11 +595,7 @@ def _points(pts):
 def carrier_name(s):
     """One name per carrier, whatever a tool calls it ("T-Mobile US", "Verizon Wireless", "FirstNet (AT&T)")."""
     t = str(s or "").strip()
-    for pat, name in ((r"first\s*net", "FirstNet"), (r"t-?\s?mobile|sprint", "T-Mobile"), (r"verizon", "Verizon"),
-                      (r"at&t|\batt\b|cingular", "AT&T"), (r"us\s?cellular", "UScellular"), (r"dish|boost|echostar", "Dish / Boost")):
-        if re.search(pat, t, re.I):
-            return name
-    return t
+    return carriers.name_of(t) or t
 
 
 def nr_arfcn_mhz(n):

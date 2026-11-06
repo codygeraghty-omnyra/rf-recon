@@ -13,6 +13,7 @@ import time
 
 import das
 import geo
+import uls_import
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS talkgroup(system TEXT, dec INTEGER, hex TEXT, alpha_tag TEXT, mode TEXT, description TEXT,
@@ -131,7 +132,11 @@ def network(con, call_sign, freq=None, lat=None, lon=None, tower_reg=None, radiu
 
     # the tower: its registration, and everyone else on it (or within 50 m when it has no registration)
     tower, colo = None, []
-    treg = tower_reg or next((s["tower_reg"] for s in site_list if s["tower_reg"]), None)
+    # the tower of the site asked about: a licence can have sites on registered towers and sites with none, and "N/A" is
+    # no tower (it listed 150 unrelated licensees as sharing one, and took 10 s on the server)
+    here = (min(site_list, key=lambda s: geo.haversine_km(lat, lon, s["lat"], s["lon"])) if site_list and lat is not None
+            else site_list[0] if site_list else None)
+    treg = uls_import.asr_number(tower_reg) or uls_import.asr_number(here and here["tower_reg"])
     if treg:
         t = con.execute("SELECT * FROM tower WHERE reg=?", (treg,)).fetchone()
         tower = dict(t) if t else {"reg": treg}

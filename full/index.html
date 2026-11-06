@@ -70,15 +70,6 @@ button:disabled{opacity:.5;cursor:default}
 .chip.on b{color:inherit}
 .chip.off{opacity:.45;text-decoration:line-through}
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
-.fgroup{margin-top:8px}
-/* the filter chips fold away (Collapse): rows animate from their height to none, with the kit's motion */
-#filterBody{display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--t-panel) var(--ease)}
-#filterBody>div{min-height:0;overflow:hidden}
-#filters.folded #filterBody{grid-template-rows:0fr}
-#filterFold .chev{display:inline-block;width:7px;height:7px;margin:0 8px 1px 1px;border:solid currentColor;border-width:0 1.6px 1.6px 0;
-  transform:rotate(-135deg) translate(-1px,-1px);transition:transform var(--t-move) var(--ease)}
-#filters.folded #filterFold .chev{transform:rotate(45deg) translate(-2px,-2px)}
-.fgroup h4{margin:0;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px;overflow-x:auto;position:sticky;top:46px;background:var(--bg);z-index:1000}
 .tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 13px;white-space:nowrap;color:var(--muted)}
 .tabs button.on{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
@@ -231,6 +222,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
   /* ⎙ Prep sheet (body.print-prep) prints its checklist alone; any other print (⎙ Print report) prints the page */
   body.print-prep .print-only{display:block}
   body.print-prep #view > *:not(#printSheet){display:none!important}
+  #work{display:block!important}
 }
 </style>
 <style id="glass">
@@ -288,7 +280,6 @@ button.primary,button.primary:hover{background-image:linear-gradient(180deg,rgba
 input,select,textarea{box-shadow:inset 0 1px 3px rgba(0,0,0,.22),inset 0 0 0 1px var(--line)}
 .status{padding:0 4px}
 h3{font-size:14.5px;text-transform:none;letter-spacing:-.005em;color:var(--ink);font-weight:600;margin-bottom:12px}
-.fgroup h4{color:var(--ink-2)}
 .card{background:var(--wash);border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:16px;padding:12px 14px}
 .card .v{font-family:var(--font);font-size:24px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .card .k{color:var(--ink-2)}
@@ -409,6 +400,254 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 .das-flagpop p{margin:0 0 6px}
 .das-flagpop .x{position:absolute;top:6px;right:6px;min-height:0;min-width:0;padding:2px 9px;font-size:16px;line-height:1.2}
 </style>
+<style id="rail">
+/* the filter rail (rail.js). Cody 11/4, "best one wins": a layer rail docked beside the view it filters, as SDR++, SDR#,
+   QGIS and Google Earth do; a bar and a bottom sheet on a phone, as ATAK does upright. RF Recon's own glass and skins. */
+:root{--rail-w:288px;--rail-top:136px;--rail-max:calc(100vh - var(--rail-top) - 14px)}
+@supports (height:1dvh){ :root{--rail-max:calc(100dvh - var(--rail-top) - 14px)} }
+#work{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);gap:14px;align-items:start;transition:grid-template-columns var(--t-panel) var(--ease)}
+#content{min-width:0}
+#filters{position:sticky;top:var(--rail-top);z-index:1002;min-width:0}
+.rail-panel{display:flex;flex-direction:column;max-height:var(--rail-max);min-height:0;border:1px solid var(--g-edges);border-radius:var(--radius);
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+.rail-bar,.rail-strip,.rail-grab,.rail-show{display:none}
+.rail-head{padding:12px 12px 9px;border-bottom:1px solid var(--grid)}
+.rail-count{display:flex;align-items:flex-start;gap:8px}
+.rail-count strong{flex:1;min-width:0;padding-top:4px;font-size:13.5px;font-weight:650;line-height:1.35;font-variant-numeric:tabular-nums}
+#railFold{flex:none;width:30px;height:30px;padding:0;font-size:17px;line-height:1}
+.rail-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.rail-side{display:flex;margin-top:9px}
+.rail-side button{flex:1 1 auto;padding:5px 6px;font-size:12px;white-space:nowrap}
+.rail-actions button,.rail-menu button{padding:5px 10px;font-size:12px}
+#clearChips{margin-left:auto}
+#railExportBtn[aria-expanded="true"]{background-color:var(--wash-2)}
+.rail-menu{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.rail-menu[hidden]{display:none!important}
+.rail-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.rail-pills:empty{display:none}
+/* Where and Frequency on one line over the map (Cody 11/5). Every control stays; on a wide screen the labels become
+   placeholders, and on a phone the panel keeps its labels, under the map, as before */
+#content{display:flex;flex-direction:column}
+#content>*{min-width:0}
+#searchPanel{position:relative;z-index:5}
+#map{isolation:isolate}
+.bar-slide{min-width:140px}
+/* Start: one job, step by step (start.js). It has no search bar: the questions are the page */
+body.tab-start #searchPanel,body.tab-start #status,body.tab-start .filter-line{display:none}
+.st{max-width:980px;margin:0 auto}
+.st-hero h2,.st-top h2{margin:0;font-size:24px;font-weight:700}
+.st-hero{margin:10px 2px 14px}.st-hero p{margin:6px 0 0;max-width:640px;color:var(--ink-2)}
+.st-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 10px}
+.st-top>div{flex:1 1 200px;min-width:0}.st-top p{margin:2px 0 0}
+.st-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px 16px}
+.st-q{display:flex;flex-direction:column;gap:4px;min-width:0}
+.st-q label{font-size:13.5px;font-weight:600;color:var(--ink)}
+.st-q input,.st-q select{width:100%;min-width:0;max-width:100%}
+.st-q.left label{color:var(--bad)}
+.st-q.left input,.st-q.left select{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+.st-next{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
+.st-next .btn{display:inline-block;white-space:nowrap}
+.st-steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0 0 10px;padding:0}
+.st-steps li{flex:1 1 140px;min-width:0}
+.st-steps button{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;text-align:left}
+.st-steps button.on{background:var(--inv);color:var(--inv-ink)}
+.st-steps button[disabled]{opacity:.55;cursor:not-allowed}
+.st-n{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:700;background:var(--wash-2)}
+.st-steps .done .st-n{background:var(--good);color:#fff}
+.st-goal{margin:0 2px 10px;font-size:15px;color:var(--ink-2)}
+.st-jobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+.st-jobs button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;text-align:left}
+.st-pill{margin-top:4px;font-size:12px;font-weight:600;color:var(--accent)}
+.st-foot{margin:12px 2px}
+.st-foot label{display:inline-flex;margin-left:8px}
+.st-report h2{margin:0;font-size:20px}
+.st-report h4,.st h4{margin:14px 0 6px;font-size:13.5px}
+.st-report table{width:100%;border-collapse:collapse;font-size:13px}
+.st-report td,.st-report th{padding:4px 8px 4px 0;text-align:left;vertical-align:top;border-top:1px solid var(--line);white-space:normal;overflow-wrap:anywhere}
+.st-report td.mono{white-space:nowrap}
+.st-main{font-size:11px;color:var(--accent)}
+.st-report ul{margin:4px 0;padding-left:18px}
+.st-verdict{margin:6px 0 12px;padding:10px 14px;border-left:4px solid var(--accent);background:var(--wash)}
+.st-verdict p{margin:4px 0 0}
+.st-auth{font-weight:600}
+.st-print-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:12px;color:var(--ink-2)}
+.st-print-head b{font-size:15px;color:var(--ink)}
+.st-checks{display:flex;flex-direction:column}
+.st-check{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.st-check>span:nth-child(2){flex:1 1 auto;min-width:0}
+.st-mark{flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;box-shadow:inset 0 0 0 1px var(--line);font-size:13px}
+.st-check.ok .st-mark{background:var(--good);color:#fff;box-shadow:none}
+.st-skip{margin:6px 0;padding:6px 10px;border-left:3px solid var(--warn);font-weight:600}
+.st-skipper{margin:8px 2px}
+.st-why{text-align:right;margin:4px 2px}
+.st-back{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+.st-how{margin:6px 0}.st-how ol,.st-failed ol{margin:6px 0;padding-left:20px}
+.st-failed{margin:8px 0;padding:8px 12px;border-left:3px solid var(--bad)}
+.st-failed p{margin:4px 0}
+.filter-line{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px;margin:0 2px 6px;font-size:12.5px;color:var(--ink-2);min-height:26px}
+.filter-line:has(#flCount:empty){display:none}
+body.rail-none .filter-line{display:none}
+.fl-count{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.fl-pills{display:flex;flex-wrap:wrap;gap:5px}
+.fl-pills .fl-note{padding:2px 0}
+.filter-line button{padding:3px 9px;font-size:12px}
+.fl-views{position:relative;margin-left:auto}
+.views-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:2000;width:min(320px,calc(100vw - 24px));margin:0;padding:8px;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up)}
+.views-menu[hidden]{display:none!important}
+.views-menu .vrow{display:flex;gap:4px;align-items:stretch;margin-bottom:3px}
+.views-menu .vrow button:first-child{flex:1 1 auto;text-align:left;display:flex;flex-direction:column;gap:1px}
+.views-menu .vrow .hint{font-size:11px}
+.views-menu form{display:flex;gap:4px;margin-top:6px}
+.views-menu form input{flex:1 1 auto;min-width:0}
+.rfbox{position:relative;display:flex;align-items:center}
+.rfbox label{flex:1 1 auto}
+#rf{padding-right:26px!important}
+#rf.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+#rfPick{position:absolute;right:3px;bottom:3px;padding:3px 6px;border:0;background:none;box-shadow:none;color:var(--ink-2);font-size:12px}
+.rf-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:2000;width:min(470px,calc(100vw - 24px));margin:0;padding:10px;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up)}
+.rf-menu[hidden]{display:none!important}
+.rf-menu h4{margin:9px 0 4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.rf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:4px}
+.rf-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:5px 8px;font-size:12px;text-align:left;line-height:1.25}
+.rf-grid .hint{font-size:10.5px}
+#rfFields{display:contents}
+.bar-mi{display:none}
+#go.stale{background:var(--accent);color:var(--on-accent,var(--inv-ink))}
+@media (min-width:700px){
+  #searchPanel{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 10px;margin-bottom:6px}
+  #searchPanel>.row{display:contents}
+  #searchPanel .lb{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  #searchPanel label{flex-direction:row;align-items:center;gap:5px}
+  #searchPanel .grow{flex:1 1 130px;min-width:120px}
+  #searchPanel .grow input{width:100%;min-width:0}
+  /* a picked place reads in the box, one line; a click shows the coordinates to edit */
+  #locWrap{position:relative}
+  #locLabel{position:absolute!important;left:10px;right:8px;top:50%;transform:translateY(-50%);margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;color:var(--ink);pointer-events:none}
+  #locWrap:focus-within #locLabel{visibility:hidden}
+  #locWrap:has(#locLabel:not(:empty)) #loc:not(:focus){color:transparent}
+  #searchPanel .seg button{padding:5px 9px;font-size:12px}
+  #searchPanel input:not([type=checkbox]):not([type=range]){padding:6px 8px;font-size:12.5px}
+  #searchPanel label.inl{font-size:12.5px;white-space:nowrap}
+  #radius{width:52px!important}
+  #rf{width:150px}
+  .bar-slide{min-width:84px}
+  #radiusSlider{width:84px}
+  #heatKind{max-width:210px}
+  .bar-mi{display:inline;font-size:12px;color:var(--muted)}
+  #advSearch{margin-top:0!important}
+  #advSearch[open]{flex:1 1 100%}
+}
+/* the FCC data line gives way before the header wraps: a signed-in header has one more chip, and a second row costs the map 46 px */
+@media (min-width:901px){ #meta{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right} }
+@media (max-width:699px){
+  #mapTop{order:-1;display:flex;flex-direction:column}
+  #mapTop .maptools{order:2;margin-top:8px}
+  #mapTop #mapHint{order:1}
+  #mapTop #emitPanel{order:3}
+}
+.rail-all{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
+.rail-why{margin-top:9px;font-size:12px;line-height:1.4;color:var(--muted)}
+.rail-why[hidden]{display:none!important}
+.rail-why button{padding:2px 8px;font-size:12px;margin-left:2px}
+.rpill{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;font-size:12px;font-weight:600;text-align:left;background-color:var(--accent-wash);box-shadow:inset 0 0 0 1px var(--accent)}
+.rpill>span{font-size:11px;opacity:.8}
+#railQ{width:100%;margin-top:9px;padding:6px 12px;font-size:13px}
+.rail-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 6px 8px}
+.rsec{padding:3px 0}
+.rsec+.rsec{border-top:1px solid var(--grid)}
+.rsec-h,.rsub-h{display:flex;align-items:center;gap:7px;padding:0 6px;min-height:32px}
+.rchev{all:unset;box-sizing:border-box;flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;color:var(--ink-2);
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:color var(--t-hover) ease}
+.rchev::before{content:"";flex:none;width:6px;height:6px;margin:0 2px 2px 1px;border:solid currentColor;border-width:0 1.6px 1.6px 0;transform:rotate(-45deg);transition:transform var(--t-move) var(--ease)}
+.rchev[aria-expanded="true"]::before{transform:rotate(45deg)}
+.rchev:hover{color:var(--ink)}
+.rsub{margin-left:8px}
+.rsub-h .rchev{text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;color:var(--ink)}
+.rsum{flex:none;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rsum.on{color:var(--ink);font-weight:700}
+[data-body][hidden]{display:none!important}
+.rrow{display:grid;grid-template-columns:16px minmax(0,1fr) auto 40px;align-items:center;gap:8px;min-height:30px;padding:4px 6px;border-radius:9px;cursor:pointer;
+  font-size:13px;line-height:1.25;user-select:none;transition:background-color var(--t-hover) ease}
+.rrow:hover{background:var(--wash)}
+.rlab{overflow-wrap:anywhere}
+.rnum{font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.rrow.off .rlab{opacity:.55}
+.rrow.off .rnum{color:var(--ink-2)}
+.rbox{box-sizing:border-box;width:16px;height:16px;flex:none;display:inline-grid;place-items:center;border-radius:4px;cursor:pointer;
+  box-shadow:inset 0 0 0 1.5px var(--ink-2);transition:background-color var(--t-hover) ease}
+.rbox[aria-checked="true"]{background:var(--c,var(--accent));box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+.rbox[aria-checked="true"]::after{content:"";width:4px;height:8px;margin-top:-2px;border:solid var(--tk,var(--on-accent,var(--inv-ink)));border-width:0 2px 2px 0;transform:rotate(45deg)}
+.rbox[aria-checked="mixed"]{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.rbox[aria-checked="mixed"]::after{content:"";width:8px;height:2px;border-radius:1px;background:var(--ink)}
+.rbox:focus-visible,.rzero:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* "only": the button is the tap area, the pill inside it is what shows */
+.ronly{all:unset;box-sizing:border-box;justify-self:end;display:inline-flex;align-items:center;cursor:pointer;opacity:0;transition:opacity var(--t-hover) ease}
+.ronly>span{padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);transition:background-color var(--t-hover) ease}
+.rrow:hover .ronly,.rrow:focus-within .ronly,.rrow.solo .ronly{opacity:1}
+.ronly:hover>span{color:var(--ink);background:var(--wash-2)}
+.rrow.solo .ronly>span{background:var(--accent);color:var(--on-accent,var(--inv-ink));box-shadow:none}
+.rzero{all:unset;box-sizing:border-box;display:block;width:100%;padding:5px 6px 5px 30px;border-radius:9px;cursor:pointer;font-size:12px;color:var(--ink-2)}
+.rzero:hover{color:var(--ink);background:var(--wash)}
+.rnone{padding:4px 6px 6px 30px;font-size:12px;color:var(--ink-2)}
+.rail-foot{padding:0 12px;border-top:1px solid var(--grid)}
+.rail-foot .rfk-legend{margin:7px 0;font-size:11px;gap:2px 10px}
+/* folded (‹ or L, remembered) on a wide screen, and always from 700 to 1,099 px: a 44 px strip that opens the rail */
+.rail-strip{flex-direction:column;align-items:center;gap:10px;width:44px;padding:7px 0 14px;cursor:pointer;border:1px solid var(--g-edges);border-radius:22px;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+#railOpen{width:30px;height:30px;padding:0;font-size:17px;line-height:1}
+.rail-badge{padding:1px 6px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap;background:var(--accent);color:var(--on-accent,var(--inv-ink))}
+.rail-badge:empty{display:none}
+.rail-vlabel{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+@keyframes railIn{from{opacity:0;transform:translateX(-10px)}}
+@media (min-width:1100px){
+  body.rail-folded #work{grid-template-columns:44px minmax(0,1fr)}
+  body.rail-folded .rail-panel{display:none}
+  body.rail-folded .rail-strip{display:flex}
+}
+/* 700-1,099 px: the strip; the rail opens over the content on a click (never on hover) and closes on Esc or a press outside */
+@media (min-width:700px) and (max-width:1099px){
+  #work{grid-template-columns:44px minmax(0,1fr)}
+  .rail-strip{display:flex}
+  .rail-panel{display:none}
+  #filters.open .rail-panel{display:flex;position:absolute;left:0;top:0;width:var(--rail-w);animation:railIn var(--t-move) var(--ease);
+    background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up)}
+}
+/* phones: a bar under the tab bar; the sheet opens at 60% height so the map and list stay live above it, drags to 92% */
+@media (max-width:699px){
+  #work{display:block}
+  #filters{margin:0 0 8px}
+  .rail-bar{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 14px;border-radius:14px;font-size:13px;font-weight:500;
+    background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong)}
+  .rail-bar>span:first-child{flex:1;text-align:left}
+  .rail-bar b{font-weight:700}
+  #railBarCount{color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .rail-caret{display:inline-block;transition:transform var(--t-move) var(--ease)}
+  #filters.sheet .rail-caret{transform:rotate(180deg)}
+  .rail-panel{position:fixed;left:0;right:0;bottom:0;z-index:1;height:60vh;height:60dvh;max-height:92vh;max-height:92dvh;border-bottom:0;border-radius:22px 22px 0 0;
+    background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up);transform:translateY(102%);visibility:hidden;
+    transition:transform var(--t-panel) var(--ease),visibility 0s linear var(--t-panel)}
+  #filters.sheet .rail-panel{transform:none;visibility:visible;transition:transform var(--t-panel) var(--ease)}
+  .rail-panel.dragging{transition:none!important}
+  .rail-grab{display:flex;justify-content:center;align-items:center;min-height:24px;padding-top:6px;cursor:grab;touch-action:none}
+  .rail-grab span{width:44px;height:5px;border-radius:3px;background:var(--ink-2);opacity:.55}
+  .rail-head{padding-top:4px}
+  #railQ{font-size:16px}
+  .rail-show{display:block;flex:none;min-height:44px;margin:8px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+}
+/* fingers and gloves: rows, section heads and buttons 44 px, and "only" always in sight */
+@media (pointer:coarse), (max-width:699px){
+  .rrow{min-height:44px;padding-top:0;padding-bottom:0;grid-template-columns:18px minmax(0,1fr) auto auto}
+  .rbox{width:18px;height:18px}
+  .ronly{opacity:1;min-height:44px;padding:0 2px 0 10px}
+  .ronly>span{padding:5px 11px;font-size:12px}
+  .rchev,.rzero,.rail-bar{min-height:44px}
+}
+/* a tab the filters don't change: no rail, the content takes the full width */
+body.rail-none #work{display:block}
+body.rail-none #filters{display:none}
+</style>
 <link rel="stylesheet" href="web.css">
 <link rel="icon" href="../icons/icon-192.png">
 </head>
@@ -458,6 +697,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
   <section class="panel no-print" id="welcome" hidden></section>
   <div class="tabbar no-print">
   <nav class="tabs no-print" id="tabs">
+    <button data-t="start" title="One job, step by step: no RF background needed">Start</button>
     <button data-t="map" class="on">Map</button>
     <button data-t="find" title="Search everything RF Recon holds (Ctrl+K)">Search</button>
     <button data-t="report">Area report</button>
@@ -475,14 +715,52 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
     <button data-t="data">Data &amp; updates</button>
   </nav>
   </div>
-  <section id="mapTop"></section>
+  <!-- the filter rail beside the tab's content (rail.js): docked on a wide screen, a strip that opens over the content
+       from 700 to 1,099 px, a bar and a bottom sheet on a phone; gone on the tabs the filters don't change -->
+  <div id="work">
+  <aside class="no-print" id="filters" aria-label="Filters">
+    <button id="railBar" class="rail-bar" aria-expanded="false" aria-controls="railPanel"><span><b>Filters</b><span id="railBarOn"></span></span><span id="railBarCount"></span><span class="rail-caret" aria-hidden="true">▴</span></button>
+    <div class="rail-strip" id="railStrip">
+      <button id="railOpen" aria-expanded="false" aria-controls="railPanel" aria-label="Show the filters (L)" title="Show the filters (L)">›</button>
+      <span class="rail-badge" id="railBadge"></span>
+      <span class="rail-vlabel" aria-hidden="true">Filters</span>
+    </div>
+    <div class="rail-panel" id="railPanel" role="region" aria-label="Filters">
+      <div class="rail-grab" id="railGrab" aria-hidden="true"><span></span></div>
+      <div class="rail-head">
+        <div class="rail-count"><strong id="resultCount"></strong><button id="railFold" aria-label="Fold the filters (L)" title="Fold the filters (L)">‹</button></div>
+        <div class="seg rail-side" id="railSide" role="group" aria-label="Which work">
+          <button data-side="ps" title="Band first, with the public safety agencies picked">Public safety</button><button data-side="cell" title="Carrier first, with the rows that name a carrier picked">Cellular</button><button data-side="all" title="Every source, in the rail's own order">Everything</button>
+        </div>
+        <div class="rail-actions">
+          <button id="railExportBtn" aria-expanded="false" aria-controls="railMenu">⇩ Export ▾</button>
+          <button id="takPush" title="Send what's on the map straight into ATAK, iTAK and WinTAK on this network (live markers that update when you push again), and open WinTAK">📡 Push to ATAK</button>
+          <button id="clearChips" title="Back to the default filters">Clear</button>
+        </div>
+        <div class="rail-menu" id="railMenu" hidden>
+          <button id="csvBtn">⇩ CSV</button>
+          <button id="kmlBtn">⇩ KML</button>
+          <label class="rail-all" title="CSV and KML follow the filters. Tick this for every row the search found."><input type="checkbox" id="exportAll"> Everything the search found</label>
+          <button id="takBtn" title="TAK data package for ATAK, iTAK and WinTAK: a marker per site, the search ring, and the heatmap when one is on">⇩ ATAK package</button>
+          <button id="printBtn">⎙ Prep sheet</button>
+        </div>
+        <div class="rail-pills" id="railPills"></div>
+        <div class="rail-why" id="railWhy" hidden></div>
+        <input id="railQ" type="search" placeholder="/  Filter list…" aria-label="Find a filter by name" autocomplete="off">
+      </div>
+      <div class="rail-body" id="railBody"></div>
+      <div class="rail-foot" id="railFoot"></div>
+      <button class="primary rail-show" id="railShow"></button>
+    </div>
+  </aside>
+  <div id="content">
   <section class="panel no-print" id="searchPanel">
     <div class="row">
       <div class="seg" id="modeSeg"><button data-m="point" class="on">Pin + radius</button><button data-m="county">County</button></div>
-      <label class="grow" id="locWrap">Pin (lat, lon or Maps link — or click / drag on the map)
+      <label class="grow" id="locWrap"><span class="lb">Pin (lat, lon or Maps link — or click / drag on the map)</span>
         <input id="loc" placeholder="38.8895, -77.0353"></label>
-      <label>Radius (mi)<input id="radius" type="number" value="5" min="0.25" step="0.25" style="width:80px"></label>
-      <label style="min-width:140px">&nbsp;<input id="radiusSlider" type="range" min="0.25" max="50" step="0.25" value="5"></label>
+      <label><span class="lb">Radius (mi)</span><input id="radius" type="number" value="5" min="0.25" step="0.25" style="width:80px"><span class="bar-mi">mi</span></label>
+      <label class="bar-slide"><span class="lb">&nbsp;</span><input id="radiusSlider" type="range" min="0.25" max="50" step="0.25" value="5"></label>
       <button id="gpsBtn" title="Use this device's GPS">◎ GPS</button>
       <span id="countyWrap" class="row" style="display:none">
         <label>State <select id="state"></select></label>
@@ -490,45 +768,36 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
       </span>
     </div>
     <div class="row" style="margin-top:8px">
-      <label class="grow">Search (licensee, call sign, city)<input id="q" placeholder="sheriff, WQ…, Fairfax"></label>
-      <label>Freq from MHz<input id="fmin" type="number" step="any" style="width:100px"></label>
-      <label>to<input id="fmax" type="number" step="any" style="width:100px"></label>
+      <label class="grow"><span class="lb">Search (licensee, call sign, city)</span><input id="q" placeholder="Licensee, call sign, city"></label>
+      <div class="rfbox" id="rfWrap">
+        <label><span class="lb">Frequency: a channel, range, band or list</span><input id="rf" autocomplete="off" spellcheck="false" placeholder="Freq: 851-869, B13"></label>
+        <button id="rfPick" type="button" aria-expanded="false" aria-controls="rfMenu" aria-label="Pick a band" title="Pick a band">▾</button>
+        <div class="rf-menu panel" id="rfMenu" hidden></div>
+      </div>
+      <span id="rfFields"><label><span class="lb">Freq from MHz</span><input id="fmin" type="number" step="any" style="width:100px" placeholder="From MHz"></label>
+      <label><span class="lb">to</span><input id="fmax" type="number" step="any" style="width:100px" placeholder="To MHz"></label></span>
       <label class="inl"><input type="checkbox" id="hideMobile" checked> Fixed sites only</label>
       <button class="primary" id="go">Search</button>
     </div>
   </section>
 
-  <section class="panel no-print" id="filters" style="display:none">
-    <div class="row" style="justify-content:space-between">
-      <div class="row" style="align-items:center;gap:10px"><strong id="resultCount"></strong><span class="hint" id="foldNote"></span></div>
-      <div class="row">
-        <button id="filterFold" aria-expanded="true" aria-controls="filterBody" title="Fold the filters away so the map gets the room"><span class="chev"></span><span class="lbl">Collapse</span></button>
-        <button id="clearChips">Clear filters</button>
-        <button id="csvBtn">⇩ CSV</button>
-        <button id="kmlBtn">⇩ KML</button>
-        <button id="takBtn" title="TAK data package for ATAK, iTAK and WinTAK: a marker per site, the search ring, and the heatmap when one is on">⇩ ATAK</button>
-        <button id="takPush" title="Send what's on the map straight into ATAK, iTAK and WinTAK on this network (live markers that update when you push again), and open WinTAK">📡 Push to ATAK</button>
-        <button id="printBtn">⎙ Prep sheet</button>
-      </div>
-    </div>
-    <div id="filterBody"><div>
-    <div class="fgroup"><h4>Layers — sources (click to show / hide everywhere)</h4><div class="chips" id="fLayer"></div></div>
-    <div class="fgroup"><h4>Signal type</h4><div class="chips" id="fType"></div></div>
-    <details id="moreFilters" class="fgroup"><summary class="hint" style="cursor:pointer">More filters — category, band, station type <span id="moreCount"></span></summary>
-      <div class="fgroup"><h4>Category</h4><div class="chips" id="fCat"></div></div>
-      <div class="fgroup"><h4>Band</h4><div class="chips" id="fBand"></div></div>
-      <div class="fgroup"><h4>Station type</h4><div class="chips" id="fClass"></div></div></details>
-    </div></div>
-  </section>
-
   <div class="status" id="status">Drop a pin (or pick a county) and Search.</div>
+  <div class="filter-line no-print" id="filterLine">
+    <span class="fl-count" id="flCount"></span><span class="fl-pills" id="flPills"></span>
+    <button id="flClear" hidden>Clear all</button><button id="flUndo" hidden>Undo</button>
+    <span class="fl-views"><button id="viewsBtn" aria-expanded="false" aria-controls="viewsMenu">Views ▾</button><div class="views-menu panel" id="viewsMenu" hidden></div></span>
+  </div>
+  <section id="mapTop"></section>
   <section id="view"></section>
+  </div>
+  </div>
 </main>
 <dialog id="dlg"><div class="dlg-h"><strong id="dlgTitle"></strong><span style="flex:1"></span>
   <button onclick="document.getElementById('dlg').close()">✕</button></div><div class="dlg-b" id="dlgBody"></div></dialog>
 <script src="static/vendor/leaflet/leaflet.js"></script>
 <script src="static/zoombar.js"></script>
 <script src="static/vendor/cytoscape.min.js"></script>
+<script src="static/rfparse.js"></script>
 <script src="../vendor/sqljs/sql-wasm.js"></script>
 <script src="shim.js"></script>
 <script src="static/core.js"></script>
@@ -544,6 +813,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/search.js"></script>
 <script src="static/spectrum.js"></script>
 <script src="static/keys.js"></script>
+<script src="static/rail.js"></script>
 <script src="static/checklists.js"></script>
 <script src="static/addrfill.js"></script>
 <script src="static/help.js"></script>
@@ -553,6 +823,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 <script src="static/cells.js"></script>
 <script src="static/find.js"></script>
 <script src="static/das.js"></script>
+<script src="static/start.js"></script>
 <script src="static/dasrev.js"></script>
 <script src="static/dasahj.js"></script>
 <script src="static/fieldref.js"></script>

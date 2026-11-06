@@ -40,6 +40,11 @@ RESEARCH_TABLES = {  # table: (label, the columns searched / shown)
 }
 
 
+def mhz_text(f):
+    """852.3625 as 852.3625: :g keeps six figures and printed the customer's control channel as 852.362."""
+    return f"{f:.6f}".rstrip("0").rstrip(".")
+
+
 def words(q):
     return [w for w in re.findall(r"[A-Za-z0-9.'-]+", q or "") if w.strip(".'-")][:8]
 
@@ -263,17 +268,17 @@ def everything(con, crowd, q, lat=None, lon=None, scope=None, per=25):
             fr = rows("""SELECT call_sign, MAX(licensee) licensee, MAX(service_name) service, MAX(station_class) cls, COUNT(DISTINCT lat || ',' || lon) sites,
                          MAX(lat) lat, MAX(lon) lon, MAX(city) city, MAX(state) state, MAX(mode) mode FROM tx WHERE freq_mhz BETWEEN ? AND ? AND status='A'
                          GROUP BY call_sign LIMIT 500""", (f - 0.00051, f + 0.00051))
-            items = [{"kind": "licence", "title": r["licensee"] or r["call_sign"], "call_sign": r["call_sign"], "freq": f, "sub": f"{r['call_sign']} · {f:g} MHz · {r['service'] or ''}",
+            items = [{"kind": "licence", "title": r["licensee"] or r["call_sign"], "call_sign": r["call_sign"], "freq": f, "sub": f"{r['call_sign']} · {mhz_text(f)} MHz · {r['service'] or ''}",
                       "facts": [r["mode"] or "", f"{r['sites']} site{'s' * (r['sites'] != 1)}", ", ".join(x for x in (r["city"], r["state"]) if x)], "lat": r["lat"], "lon": r["lon"]} for r in fr]
             # stations whose own group isn't asked for sit with the licences (the "Licences & frequencies" scope)
             items += (bc if not want("broadcast") else []) + (fa if not want("aviation") else []) + (nw if not want("noaa") else [])
-            add("frequency", f"On {f:g} MHz", items, more=len(fr) >= 500)
+            add("frequency", f"On {mhz_text(f)} MHz", items, more=len(fr) >= 500)
         if want("broadcast"):
-            add("broadcast", f"Broadcast on {f:g} MHz", bc)
+            add("broadcast", f"Broadcast on {mhz_text(f)} MHz", bc)
         if want("aviation"):
-            add("aviation", f"Aviation (FAA) on {f:g} MHz", fa)
+            add("aviation", f"Aviation (FAA) on {mhz_text(f)} MHz", fa)
         if want("noaa"):
-            add("noaa", f"NOAA Weather Radio on {f:g} MHz", nw)
+            add("noaa", f"NOAA Weather Radio on {mhz_text(f)} MHz", nw)
     if want("towers"):
         add("towers", "Towers (FCC ASR)", [{"kind": "tower", "title": f"{r['struct_type'] or 'Structure'} {r['overall_agl_m'] or '?'} m · {r['owner'] or 'owner not on file'}",
                                             "sub": f"ASR {r['reg']}", "reg": r["reg"], "lat": r["lat"], "lon": r["lon"], "rank": 0 if r["reg"] == q else 1,

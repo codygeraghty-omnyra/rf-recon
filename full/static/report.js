@@ -35,7 +35,7 @@ S.views.report = (v, rows) => {
   const techs = countBy(uls, typeOf);
   const digitalPct = uls.length ? Math.round(100 * uls.filter(r => DIGITAL.test(r.mode || "")).length / uls.length) : 0;
   const nearest = uls.length ? Math.min(...uls.map(r => r.dist_mi ?? 1e9)) : null;
-  const filtersOn = Object.values(S.chips).some(s => s.size) || $("#q").value || $("#fmin").value || $("#fmax").value;
+  const filtersOn = filtersChanged() || $("#q").value || $("#fmin").value || $("#fmax").value || S.franges;
   if (!S.reportBand || !byBand.has(S.reportBand)) S.reportBand = bands.slice().sort((a, b) => b.freqs - a.freqs)[0]?.band;
   const maxF = Math.max(1, ...bands.map(b => b.freqs)), maxL = Math.max(1, ...bands.map(b => b.lics));
 

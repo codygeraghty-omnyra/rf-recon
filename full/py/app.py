@@ -53,6 +53,7 @@ import kitupdate  # noqa: E402
 import basemaps  # noqa: E402
 import takpush  # noqa: E402
 import captures  # noqa: E402
+import carriers  # noqa: E402
 import cells  # noqa: E402
 import coverage  # noqa: E402
 import das  # noqa: E402
@@ -63,6 +64,7 @@ import provenance  # noqa: E402
 import faa  # noqa: E402
 import fieldpack  # noqa: E402
 import geo  # noqa: E402
+import course  # noqa: E402
 import network  # noqa: E402
 import notes  # noqa: E402
 import opensources  # noqa: E402
@@ -143,7 +145,7 @@ def init():
         print(f"Note: no FCC database yet at {DB_PATH}. The app will start; use Data & updates > Update now,\n"
               f"or run  python uls_import.py  first.")
     con = sqlite3.connect(DB_PATH)
-    con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA + notes.SCHEMA)
+    con.executescript(uls_import.SCHEMA + APP_SCHEMA + captures.SCHEMA + das.SCHEMA + network.SCHEMA + notes.SCHEMA + course.SCHEMA)
     das.migrate(con)  # columns added to the DAS tables after they were first made
     notes.migrate(con)
     captures.migrate(con)
@@ -353,6 +355,68 @@ def decorate(f, area):
     return True
 
 
+def carrier_of(f):
+    """(carrier, the field it was read from) for a row, or None. A filter's convenience: see carriers.py."""
+    layer = f.get("layer")
+    if layer == "towers":
+        name, read = carriers.name_of(f.get("owner")), "tower owner"
+    elif layer in ("uls", "uls_hist"):
+        name, read = carriers.name_of(f.get("licensee")), "licensee"
+    elif layer in ("opencellid", "wigle"):
+        ids = cells.parse_id(f.get("ext_id") or "")
+        name, read = carriers.name_of(cells.operator(ids[0], ids[1])) if ids else None, "cell ID"
+    else:
+        return None
+    return (name, read) if name else None
+
+
+def agency_key(r):
+    """agencyOf in core.js: one name per licensee, by case and punctuation only. "FAIRFAX, COUNTY OF" and "Fairfax, County
+    of" are one agency; merging further would be a guess, and a wrong guess sends a consent letter to the wrong agency."""
+    return re.sub(r"[^A-Z0-9]+", " ", (r.get("licensee") or "").upper()).strip() or "No agency"
+
+
+def row_type(r):
+    """typeOf in core.js."""
+    return {"towers": "Tower / structure", "psap": "911 call centre"}.get(r.get("layer")) or r.get("sig_type") or "Unknown"
+
+
+def class_key(r):
+    """classKey in core.js: classGroup for a licence and a tower, the layer for anything else (the page labels those)."""
+    layer = r.get("layer")
+    if layer == "towers":
+        return "Towers"
+    if layer not in ("uls", "uls_hist"):
+        return layer
+    c = r.get("station_class") or ""
+    if c in ("FB2", "FB4"):
+        return "Repeaters"
+    return "Base stations" if c.startswith("FB") else "Fixed / control" if c.startswith("FX") else "Mobiles" if c.startswith("MO") else "Other"
+
+
+FACET_PARAMS = (("types", row_type), ("bands", lambda r: r.get("band") or "Other"),
+                ("cats", lambda r: r.get("category") or "Other"), ("cls", class_key),
+                ("carriers", lambda r: r.get("carrier") or "No carrier"), ("agencies", agency_key))
+
+
+def facet_keep(qs):
+    """The Map's filter groups as a test of one row (passes() in core.js). A group with no list doesn't filter."""
+    groups = [(read, set(filter(None, fstr(qs, k).split("|")))) for k, read in FACET_PARAMS]
+    groups = [(read, vals) for read, vals in groups if vals]
+    drop = set(filter(None, fstr(qs, "xagencies").split("|")))  # a licensee list can run to hundreds: the hidden names are sent instead
+    return lambda r: all(read(r) in vals for read, vals in groups) and not (drop and agency_key(r) in drop)
+
+
+def freq_ranges(text):
+    """'851-869,146.52-146.53' -> [(851.0, 869.0), (146.52, 146.53)]. What doesn't read as a range is left out."""
+    out = []
+    for part in (text or "").split(","):
+        m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*", part)
+        if m:
+            out.append(tuple(sorted((float(m.group(1)), float(m.group(2))))))
+    return out
+
+
 def query_area(qs):
     area = area_filter(qs)
     if not area:
@@ -361,7 +425,21 @@ def query_area(qs):
     mission = fnum(qs, "mission")
     text = fstr(qs, "q")
     fmin, fmax = fnum(qs, "fmin"), fnum(qs, "fmax")
+    franges = freq_ranges(fstr(qs, "franges"))
+    if franges and fmin is None and fmax is None:
+        fmin, fmax = min(r[0] for r in franges), max(r[1] for r in franges)  # the outer bounds: every source already reads these
+
+    def keep(f):
+        """In the area, and on one of the listed ranges when there's a list. An earth station counts by the band it receives."""
+        if franges and f.get("freq_mhz") is not None:
+            lo, hi = f.get("freq_lo_mhz") or f["freq_mhz"], f.get("freq_hi_mhz") or f["freq_mhz"]
+            if not any(a <= hi and b >= lo for a, b in franges):
+                return False
+        return decorate(f, area)
     hide_mobile = fstr(qs, "hide_mobile") == "1"
+    freq_on = fmin is not None or fmax is not None
+    keep_nofreq = fstr(qs, "keep_nofreq") == "1"  # a frequency filter can't say a row with no frequency matches: left off, counted
+    set_aside = {}
     adv_where, adv_args = uls_filters(qs)
     if area.get("nationwide") and not (text or adv_where or fmin is not None or fmax is not None):
         return {"error": "A nationwide search needs a call sign, licensee, radio service, technology or frequency."}
@@ -402,13 +480,14 @@ def query_area(qs):
                 obs[(round(o["freq_mhz"], 5), o["call_sign"])] = dict(o)
         for r in rows[:MAX_ROWS]:
             f = dict(r)
+            f["tower_reg"] = uls_import.asr_number(f.get("tower_reg"))  # data imported before 11/5 still holds "N/A"
             f["layer"] = "uls" if f.get("status") == "A" else "uls_hist"
             f["fid"] = f"uls:{f['id']}"
             f["label"] = f["licensee"]
             f["sig_type"] = sigid.from_uls_mode(f.get("mode")) or "Unknown"
             if f["layer"] == "uls_hist":
                 f["category"] = "History: " + {"E": "Expired", "C": "Cancelled", "T": "Terminated"}.get(f.get("status"), f.get("status") or "Inactive")
-            if not decorate(f, area):
+            if not keep(f):
                 continue
             k = (f["call_sign"], round(f["freq_mhz"], 5))
             if k in ov:
@@ -436,7 +515,7 @@ def query_area(qs):
                              category="History: Removed", status="REMOVED",
                              sig_type=sigid.from_uls_mode(f.get("mode")) or "Unknown",
                              band=uls_import.band_for(f["freq_mhz"]))
-                    if decorate(f, area):
+                    if keep(f):
                         out.append(f)
 
     if "towers" in layers:
@@ -451,12 +530,13 @@ def query_area(qs):
             trows = con.execute(f"SELECT * FROM tower WHERE {area['sql']} LIMIT 5000", area["args"]).fetchall()
         for r in trows:
             f = dict(r)
-            if filtered and f["reg"] not in regs and not (text and text.lower() in (f.get("owner") or "").lower()):
+            owner = f.get("owner") or ""
+            if filtered and f["reg"] not in regs and not (text and text.lower() in f"{owner} {carriers.name_of(owner) or ''}".lower()):
                 continue
             f.update(layer="towers", fid="tower:" + f["reg"], label=f"{f.get('struct_type') or 'Structure'} "
                      f"{f.get('overall_agl_m') or '?'} m · {f.get('owner') or ''}".strip(), category="Tower / structure",
                      sig_type=None, freq_mhz=None)
-            if decorate(f, area):
+            if keep(f):
                 out.append(f)
 
     if "broadcast" in layers and area["point"] and has_table(con, "bcast"):
@@ -474,7 +554,7 @@ def query_area(qs):
                      sig_type=BCAST_TYPE.get(f["band"]), erp_w=(f["erp_kw"] or 0) * 1000 or None, haat_m=f["haat_m"],
                      label=f"{f['call_sign']} {'%g kHz' % (f['freq_mhz'] * 1000) if f['band'] == 'AM' else '%g MHz' % f['freq_mhz']} {f['band']}"
                            + (f" (ch {f['channel']})" if f["band"] == "TV" else ""))
-            if decorate(f, area):
+            if keep(f):
                 out.append(f)
 
     if "faa" in layers and area["point"] and has_table(con, "faa"):
@@ -493,7 +573,7 @@ def query_area(qs):
                      label=f"{f['ident']} {f['name'] or ''} · {f['use'] or f['kind']}".strip(),
                      details=json.dumps({"Facility": f"{f['ident']} {f['name'] or ''} ({f['kind']})", "Use": f["use"], "Radio call": f["call"],
                                          "Sector": f["sector"], "Status": f["status"], "Remark": f["remark"], "Source": f"FAA NASR {f['source']}"}))
-            if decorate(f, area):
+            if keep(f):
                 out.append(f)
 
     if "noaa" in layers and not area.get("nationwide") and has_table(con, "nwr"):
@@ -515,7 +595,7 @@ def query_area(qs):
                      details=json.dumps({"Status": f["status"], "Forecast office": f["wfo"], "Transmitter power": f"{f['power_w']:g} W" if f["power_w"] else "",
                                          "Counties warned": "; ".join(f"{c['county']} {c['st']}{' (' + c['part'] + ')' if c['part'] else ''}" for c in cs),
                                          "SAME codes": " ".join(c["same"] for c in cs if c["same"])}))
-            if decorate(f, area):
+            if keep(f):
                 out.append(f)
 
     if "captures" in layers and not area.get("nationwide"):
@@ -535,42 +615,82 @@ def query_area(qs):
                      band=uls_import.band_for(f.get("freq_mhz")))
             if not f.get("label"):
                 f["label"] = f.get("ident") or ""
-            if decorate(f, area):
+            if keep(f):
                 out.append(f)
     if "fss" in layers and area["point"] and has_table(con, "fss_earth"):  # protected C-band earth stations (receive only)
-        for r in con.execute(f"SELECT * FROM fss_earth WHERE status = 'Active' AND {area['sql']} LIMIT 2000", area["args"]):  # inactive ones lost their protection
+        where, args = ["status = 'Active'", area["sql"]], list(area["args"])  # inactive ones lost their protection
+        if fmin is not None:
+            where.append("freq_hi_mhz >= ?"); args.append(fmin)
+        if fmax is not None:
+            where.append("freq_lo_mhz <= ?"); args.append(fmax)
+        if text:
+            where.append("(licensee LIKE ? OR call_sign LIKE ? OR number LIKE ?)"); args += [f"%{text}%"] * 3
+        for r in con.execute(f"SELECT * FROM fss_earth WHERE {' AND '.join(where)} LIMIT 2000", args):
             f = fss.feature(r)
-            if decorate(f, area):
+            if keep(f):
                 out.append(f)
     if "psap" in layers and area["point"] and has_table(con, "psap"):  # 911 call centres, placed at their town's centre
-        for r in con.execute(f"SELECT * FROM psap WHERE {area['sql']} LIMIT 2000", area["args"]):
+        where, args = [area["sql"]], list(area["args"])
+        if text:  # "sheriff" still finds a sheriff's 911 centre
+            where.append("(name LIKE ? OR city LIKE ? OR county LIKE ? OR psap_id LIKE ?)"); args += [f"%{text}%"] * 4
+        for r in con.execute(f"SELECT * FROM psap WHERE {' AND '.join(where)} LIMIT 2000", args):
             f = dict(r)
             f.update(layer="psap", fid=f"psap:{f['psap_id']}", label=f["name"], category="911 call centre (PSAP)", sig_type=None, freq_mhz=None,
                      details=json.dumps({"PSAP ID": f["psap_id"], "City": f["city"], "County": f["county"], "State": f["state"],
                                          "Position": f"approximate: {f['located']} (the registry has no addresses)",
                                          "Registry": f"FCC 911 Master PSAP Registry, rows last updated {psap.SOURCE_DATE}"}))
-            if decorate(f, area):
-                out.append(f)
+            if keep(f):
+                if freq_on and not keep_nofreq:
+                    set_aside["psap"] = set_aside.get("psap", 0) + 1
+                else:
+                    out.append(f)
     con.close()
 
     crowd = [l for l in ("wigle", "opencellid", "repeaterbook", "custom") + tuple(opensources.SOURCES) if l in layers and build.allowed(l)]
     if crowd and area["point"]:
         cc = cdb()
-        crowd_rows = []
-        for r in cc.execute(f"SELECT * FROM ext_point WHERE {area['sql']} AND source IN ({','.join('?'*len(crowd))}) "
-                            f"LIMIT {MAX_ROWS}", list(area["args"]) + crowd):
-            f = dict(r)
-            f.update(layer=f["source"], fid=f"ext:{f['id']}", category=f["layer"],
-                     band=uls_import.band_for(f.get("freq_mhz")))
-            if decorate(f, area):
-                crowd_rows.append(f)
+
+        def crowd_load(clause, clause_args):
+            where, args = [area["sql"], f"source IN ({','.join('?' * len(crowd))})"], list(area["args"]) + crowd
+            if clause:
+                where.append(clause); args += clause_args
+            found = []
+            for r in cc.execute(f"SELECT * FROM ext_point WHERE {' AND '.join(where)} LIMIT {MAX_ROWS}", args):
+                f = dict(r)
+                f.update(layer=f["source"], fid=f"ext:{f['id']}", category=f["layer"],
+                         band=uls_import.band_for(f.get("freq_mhz")))
+                if text:  # in Python: a cell's carrier is only in its ID
+                    c = carrier_of(f)
+                    if text.lower() not in " ".join(str(f.get(k) or "") for k in ("label", "ext_id", "mode", "details")).lower() + " " + (c[0].lower() if c else ""):
+                        continue
+                if keep(f):
+                    found.append(f)
+            return found
+        ranges = [("freq_mhz >= ?", fmin), ("freq_mhz <= ?", fmax)]
+        ranges = [(c, v) for c, v in ranges if v is not None]
+        crowd_rows = crowd_load(" AND ".join(c for c, _ in ranges), [v for _, v in ranges])
+        if freq_on:
+            blank = crowd_load("freq_mhz IS NULL", [])
+            if keep_nofreq:
+                crowd_rows += blank
+            else:
+                for f in opensources.merge(blank):
+                    set_aside[f["layer"]] = set_aside.get(f["layer"], 0) + 1
         cc.close()
         out.extend(opensources.merge(crowd_rows))  # the same emitter from several sources shows once, with every source's data
 
     if area["point"]:
         out.sort(key=lambda f: (f.get("dist_mi", 1e9), f.get("freq_mhz") or 0))
+    for f in out:
+        if f.get("layer") in ("uls", "uls_hist") and (f.get("sig_type") or "Unknown") == "Unknown":
+            f["sig_type"] = sigid.service_kind(f.get("service")) or "Unknown"
+        c = carrier_of(f)
+        if c:
+            f["carrier"], f["carrier_from"] = c
+            if f["layer"] == "towers":  # the owner on the record: other carriers may rent space on it
+                f["label"] = f"{c[0]}-registered structure · {f.get('label') or ''}"
     return {"rows": out, "truncated": truncated, "center": list(area["point"]) if area["point"] else None,
-            "radius": area["radius"]}
+            "radius": area["radius"], "set_aside": set_aside}
 
 
 # ---------------------------------------------------------------- field packs for the phone app
@@ -609,7 +729,7 @@ def start_fieldpack(d):
 # ---------------------------------------------------------------- one emitter: coverage, network; cell sites
 
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
-                "/api/cells", "/api/cells/import", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
+                "/api/cells", "/api/cells/import", "/api/cells/fetch", "/api/spectrum", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
                 "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid"}
 
@@ -630,7 +750,7 @@ def coverage_args(qs):
 # ---------------------------------------------------------------- backup of your own work
 
 BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at RF Recon\backups in Drive (shared)
-USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES
+USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES
 NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: RF Recon\notes in Drive)
 
 
@@ -784,12 +904,24 @@ def geocode(qs):
                 full = ", ".join(x for x in (street or pr.get("name"), pr.get("city") or pr.get("district") or pr.get("county"),
                                              " ".join(y for y in (st, pr.get("postcode")) if y)) if x)
                 remote.append({"label": head + (f", {tail}" if tail else ""), "sub": (pr.get("osm_value") or pr.get("type") or "").replace("_", " ").title(),
-                               "full": full, "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "photon"})
+                               "full": full, "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "photon",
+                               "number": pr.get("housenumber") or ""})
             if len(GEO_CACHE) > 500:
                 GEO_CACHE.clear()
             GEO_CACHE[key] = remote
         except Exception:
             remote = None  # offline or the service is down: the local half still answers
+        # A street address Photon didn't answer, or answered with something else: for "3440 Beltline Blvd" it gave bus stops on
+        # 36th Street first (the 11/5 walk). The Census Bureau's geocoder (ahj.py) goes in front, and the typed number wins.
+        m = re.match(r"(\d+)[a-z]?\s+[a-z0-9]", q, re.I)
+        if m and len(q) >= 8:
+            if not any(x.get("number") == m.group(1) for x in remote or []):
+                import ahj
+                got = ahj.census_address(q)
+                if got is not None:
+                    remote = got + (remote or [])
+            if remote:
+                remote = GEO_CACHE[key] = sorted(remote, key=lambda x: x.get("source") != "census" and x.get("number") != m.group(1))
     first = (remote or []) if q[:1].isdigit() else []  # a house number means an address: put streets first
     rest = [x for x in (remote or []) if x not in first]
     return {"results": (first + local + rest)[:10], "online": remote is not None}
@@ -1195,9 +1327,7 @@ def heatmap(qs):
     size = max(60, min(size, 600 if kind != "terrain" else 220))  # terrain is slower per cell
     grid = geo.make_grid(lat, lon, radius, size)
     rows = res["rows"]
-    types = set(filter(None, fstr(qs, "types").split("|")))
-    bands = set(filter(None, fstr(qs, "bands").split("|")))
-    cats = set(filter(None, fstr(qs, "cats").split("|")))
+    chosen = facet_keep(qs)
     ident = fstr(qs, "ident")
     files = set(filter(None, fstr(qs, "files").split("|")))  # survey files: "cap:<capture id>" or "<layer>:<layer name>"
     fq, ftol = fnum(qs, "freq"), fnum(qs, "ftol", 0.0125)
@@ -1207,11 +1337,7 @@ def heatmap(qs):
             return False
         if fq is not None and (r.get("freq_mhz") is None or abs(r["freq_mhz"] - fq) > ftol):
             return False
-        if types and (r.get("sig_type") or "Unknown") not in types:
-            return False
-        if bands and (r.get("band") or "Other") not in bands:
-            return False
-        if cats and (r.get("category") or "Other") not in cats:
+        if not chosen(r):
             return False
         if ident and ident.lower() not in (f"{r.get('ident') or ''} {r.get('ext_id') or ''} {r.get('label') or ''}").lower():
             return False
@@ -1700,6 +1826,52 @@ class H(BaseHTTPRequestHandler):
         b = self.raw_body()
         return json.loads(b or b"{}")
 
+    def course_people(self):
+        con = db()
+        try:
+            return self.send(200, {"people": course.overview(con, remote.users())})
+        finally:
+            con.close()
+
+    def course_route(self, method, p):
+        """The DAS course (course.py). Only through the sign-in door, and only for a login that has it."""
+        login = getattr(remote.ON, "login", None)
+        if not login:  # this PC's own port: no logins, so no one to save for. The PC has the course as a file
+            return self.send(404, {"error": "not found"})
+        if not remote.has_course(login):
+            if p == "/course":
+                return self.send(403, course.off_page(), "text/html; charset=utf-8")
+            return self.send(403, {"error": "The DAS course isn't on for this login."})
+        key = login.strip().lower()
+        if p == "/course":
+            page = course.page(login)
+            if page is None:
+                return self.send(404, b"The DAS course isn't on this copy.", "text/plain; charset=utf-8")
+            con = sqlite3.connect(DB_PATH, timeout=2)  # "last used" is never worth holding the page while the FCC refresh writes
+            try:
+                course.opened(con, key)
+            except sqlite3.OperationalError:
+                pass
+            finally:
+                con.close()
+            return self.send(200, page, "text/html; charset=utf-8")
+        if int(self.headers.get("Content-Length") or 0) > course.MAX_BODY:
+            self.headers.replace_header("Content-Length", "0")
+            self.close_connection = True
+            return self.send(413, {"error": "That's too much to save."})
+        con = db()
+        try:
+            if method == "GET":
+                return self.send(200, course.load(con, key))
+            try:
+                d = self.body_json()
+                r = course.save(con, key, d.get("rev"), d.get("data"), d.get("summary"))
+            except (ValueError, AttributeError) as e:
+                return self.send(400, {"error": str(e)})
+            return self.send(409 if r.get("conflict") else 200, r)
+        finally:
+            con.close()
+
     def attach(self, data, fname, ctype):
         return self.send(200, data, ctype, {"Content-Disposition": f'attachment; filename="{fname}"'})
 
@@ -1860,6 +2032,18 @@ class H(BaseHTTPRequestHandler):
                                                    states=get_setting("update.states", "") or ""))
                     finally:
                         cc.close()
+                if p == "/api/cells/fetch" and method == "POST":  # the crowd's cells around an address (its own route: /api/crowd/ is the admin's)
+                    a = self.body_json()
+                    cc = connectors.open_db(CROWD_PATH)
+                    try:
+                        return self.send(200, cells.fetch_near(cc, float(a["lat"]), float(a["lon"]), (get_setting("creds", {}) or {}).get("opencellid_key", "")))
+                    finally:
+                        cc.close()
+                if p == "/api/spectrum":  # which carrier holds which spectrum in this county (spectrum.py)
+                    import spectrum
+                    if fnum(qs, "lat") is None or fnum(qs, "lon") is None:
+                        raise ValueError("Carrier spectrum needs a location.")
+                    return self.send(200, spectrum.at(fnum(qs, "lat"), fnum(qs, "lon"), uls_import.DATA_DIR, con))
                 if p == "/api/cells/import" and method == "POST":  # an OpenCelliD download, kept to the states in Data & updates
                     states = [s for s in re.split(r"[,\s]+", get_setting("update.states", "") or "") if s]
                     boxes = [b for b in (fieldpack.trimmed_bbox(con, [st]) for st in states) if b]
@@ -2416,6 +2600,8 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.startswith("/share/"):  # a read-only share link (off unless the admin turned them on; dashist.py)
                 return self.share_route(p, qs)
+            if p in ("/course", remote.COURSE_SAVE):  # the DAS course: a ticked login's, through the door only (course.py)
+                return self.course_route("GET", p)
             if p == "/review":  # the review page: an AHJ login's whole RF Recon (dasreview.js)
                 with open(os.path.join(STATIC, "review.html"), "rb") as fh:
                     return self.send(200, fh.read(), "text/html; charset=utf-8")
@@ -2483,6 +2669,8 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"remote": False, "data": uls_import.DATA_DIR})
             if p == "/api/remote":  # who can use RF Recon remotely, and the public link (remote.py); door 0 = this copy has none
                 return self.send(200, {"people": remote.users(), "link": remote.link() if REMOTE_PORT else {}, "door": REMOTE_PORT})
+            if p == "/api/remote/course":  # who has the DAS course and how far each has got (admin only: /api/remote is blocked)
+                return self.course_people()
             if p == "/api/meta":
                 con = db()
                 meta = {r["k"]: r["v"] for r in con.execute("SELECT k, v FROM meta")}
@@ -2531,11 +2719,11 @@ class H(BaseHTTPRequestHandler):
                 finally:
                     cc.close()
             if p == "/api/export.csv":
-                return self.attach(to_csv(query_area(qs).get("rows", [])), "rf_recon.csv", "text/csv")
+                return self.attach(to_csv([r for r in query_area(qs).get("rows", []) if facet_keep(qs)(r)]), "rf_recon.csv", "text/csv")
             if p == "/api/export.kml":
                 res = query_area(qs)
                 mid = fnum(qs, "mission")
-                return self.attach(features_kml(res.get("rows", []), res.get("center"), res.get("radius"),
+                return self.attach(features_kml([r for r in res.get("rows", []) if facet_keep(qs)(r)], res.get("center"), res.get("radius"),
                                                 int(mid) if mid is not None else None),
                                    "rf_recon.kml", "application/vnd.google-earth.kml+xml")
             if p == "/api/heatmap":
@@ -2676,6 +2864,15 @@ class H(BaseHTTPRequestHandler):
                 self.send(200, done)
                 kitupdate.restart()
                 return
+            if p == remote.COURSE_SAVE:
+                return self.course_route("POST", p)
+            if p == "/api/remote/course":  # tick or untick an account for the DAS course
+                d = self.body_json()
+                try:
+                    remote.set_course(d.get("name"), d.get("on"))
+                except ValueError as e:
+                    return self.send(400, {"error": str(e)})
+                return self.course_people()
             if p == "/api/remote/add":  # a new person (or a new password): shown once, for Cody to pass on
                 d = self.body_json()
                 return self.send(200, {"name": (d.get("name") or "").strip(), "password": remote.add(d.get("name"), d.get("role") or None), "people": remote.users()})
@@ -2964,11 +3161,11 @@ class RemoteH(H):
             return handler()
         if not user:
             self.close_connection = keep  # a refused note's body is never read
-            if method == "GET" and p in ("/", "/index.html"):
+            if method == "GET" and p in ("/", "/index.html", "/course"):
                 return self.send(303, b"", "text/plain", {"Location": "/remote/login"})
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})
         if p == "/api/me":
-            return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL)})
+            return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL), "course": remote.has_course(user)})
         if role == "ahj" and p in ("/", "/index.html"):  # an AHJ reviewer's RF Recon is the review page
             return self.send(303, b"", "text/plain", {"Location": "/review"})
         if p in remote.EMPTY and role != "admin":

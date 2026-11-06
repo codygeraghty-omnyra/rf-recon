@@ -3,7 +3,7 @@
    people and companies; the ERCES ones carry real FCC licences near their pin): two mid-way, to learn each step (a public
    safety ERCES office at Acceptance, a carrier cellular warehouse at Design), and the same two finished, In service, to
    see the end result (Cody 11/4: "show me a completed job example for both cellular and ERCES"). "Add example jobs"
-   makes them from those files (job JSON as Job JSON exports it, then each floor's plan image and the job's other files);
+   makes them (the shared set, or a team login's own private copies) from those files (job JSON as Job JSON exports it, then each floor's plan image and the job's other files);
    a finished one then gets its history from the server (dasexample.py: its people, the supplier quotes compared, the
    licensees' consent, the dated log and the mail, every address a .example one, nothing sent). A job whose data.example
    is set shows, on every step, what the step is for, what you fill in and what to look at in that example. The board's
@@ -109,17 +109,27 @@ const dasExPref = (k, d) => { try{ return localStorage.getItem(k) ?? d; }catch(e
 const dasExKeep = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
 const DAS_EX_NAME = /\((completed )?example\)$/;  // every example job's name ends so
 
+// a team login makes its own copies (Cody 11/5: "let them make their own too"): the shared set stays as it is, each copy
+// is named for the login and opens for it and the admin only. The admin and the PC add the shared set, as before
+const dasExWho = () => String(S.remote?.user || "").split("@")[0];
+// what Add example jobs last said: the board redraws once the jobs are in, and that would wipe it, a failed history included
+let dasExSaid = null;
+const dasExRecent = () => dasExSaid && Date.now() - dasExSaid.at < 60000 ? dasExSaid.text : "";
+const dasExName = (name, who) => who ? name.replace(/ (\((completed )?example\))$/, `, ${who}'s copy $1`) : name;
+
 // make the example jobs from the shipped files; one already on the board (same name) is left as it is. A finished one
 // gets its history (people, quotes, consent, log, mail) from the server; if that part fails the job stays, and says so
 async function dasAddExamples(msg){
   const idx = await (await fetch(DAS_EX_DIR + "index.json", {cache: "no-cache"})).json();
   const have = new Set(((await api("/api/das/jobs")).jobs || []).map(j => j.name));
-  let added = 0, skipped = 0; const short = [];
+  let added = 0, skipped = 0; const short = [], who = dasExWho();
   for(const ex of idx.examples){
-    if(have.has(ex.name)){ skipped++; continue; }
-    msg(`Adding ${ex.name}…`);
+    const jobName = dasExName(ex.name, who);
+    if(have.has(jobName)){ skipped++; continue; }
+    msg(`Adding ${jobName}…`);
     const x = await (await fetch(DAS_EX_DIR + ex.file, {cache: "no-cache"})).json();
-    const j = await post("/api/das/jobs", {name: x.name, stage: x.stage, data: x.data});
+    const j = await post("/api/das/jobs", {name: jobName, stage: x.stage, data: x.data});
+    if(who) await post(`/api/das/jobs/${j.id}/access`, {who: "*", level: "none"});  // a new job opens for the whole team: this one is theirs
     // plans keep their own names; other files ship under plain names and are kept under the name the job knows them by
     for(const [name, src] of [...(ex.plans || []).map(p => [p, p]), ...Object.entries(ex.files || {})]){
       const f = await fetch(DAS_EX_DIR + src, {cache: "no-cache"}); if(!f.ok) throw new Error(`${src}: ${f.status}`);
@@ -134,21 +144,23 @@ window.dasBoardGuide = (el, D) => {
   if(!el || ["contacts","prospects","pitch"].includes(D.view)) return;  // the board's guide, not the outreach views
   const open = dasExPref("rfr.dasFlow", "1") === "1", hasEx = (D.jobs || []).some(j => DAS_EX_NAME.test(j.name));
   const four = "two mid-way, to learn each step (a public safety ERCES office at Acceptance, a carrier cellular warehouse at Design), and two finished, to see the end result (the same office and warehouse, In service)";
+  const who = dasExWho(), own = who ? `Add example jobs makes your own copy of all four, named “${who}'s copy”. Only you and the admin can open them, so change anything you like; the team's stay as they are. Delete yours when you're done; add them again any time.` : "";
   el.innerHTML = `<details class="panel" id="dxFlow" ${open ? "open" : ""} style="margin-bottom:10px">
     <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none">
       <h3 style="margin:0">How a DAS job moves <span class="hint">· stage by stage, and the steps that do it</span></h3>
       <span style="margin-left:auto" class="row"><button id="dxAdd" title="Four worked jobs to open and learn from: ${esc(four)}. Fictional buildings, people and companies.">＋ Add example jobs</button></span></summary>
     <div class="tw wrap" style="margin-top:8px"><table><thead><tr><th>Stage</th><th>What happens</th><th>Where in the job</th></tr></thead><tbody>
       ${DAS_FLOW.map(([s, what, where]) => `<tr><td><b>${esc(s)}</b></td><td>${esc(what)}</td><td class="hint">${esc(where)}</td></tr>`).join("")}</tbody></table></div>
-    <p class="hint" id="dxMsg" style="margin:6px 0 0">${hasEx ? "The example jobs are on the board: the two named “(example)” stop mid-way, to learn each step; the two named “(completed example)” are finished, to see the end result. Open one, and each step says what it's for, what you fill in and what to look at."
-      : `Add example jobs puts four jobs on the board: ${esc(four)}. Each step in them explains itself. Fictional buildings, people and companies. Delete them when you're done; add them again any time.`}</p></details>`;
+    <p class="hint" id="dxMsg" style="margin:6px 0 0">${dasExRecent() ? esc(dasExRecent()) : hasEx ? "The example jobs are on the board: the two named “(example)” stop mid-way, to learn each step; the two named “(completed example)” are finished, to see the end result. Open one, and each step says what it's for, what you fill in and what to look at." + (own ? " " + esc(own) : "")
+      : own ? `${esc(own)} They are ${esc(four)}.` : `Add example jobs puts four jobs on the board: ${esc(four)}. Each step in them explains itself. Fictional buildings, people and companies. Delete them when you're done; add them again any time.`}</p></details>`;
   // found inside el, not the page: a board drawn after the view moved on (a slow redraw) is detached, and $ would miss it
   el.querySelector("#dxFlow").addEventListener("toggle", e => dasExKeep("rfr.dasFlow", e.target.open ? "1" : "0"));
   el.querySelector("#dxAdd").onclick = async e => { e.preventDefault(); const b = e.currentTarget, m = t => { const x = el.querySelector("#dxMsg"); if(x) x.textContent = t; };
     b.disabled = true;
     try{ const r = await dasAddExamples(m);
-      m(r.added ? `Added ${r.added} example job${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} already here)` : ""}. Open one to start.${r.short.length ? ` ${r.short.join(" · ")}` : ""}` : "All four example jobs are already on the board.");
-      if(r.added) render(); }
+      const said = r.added ? `Added ${r.added} example job${r.added === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} already here)` : ""}. Open one to start.${r.short.length ? ` ${r.short.join(" · ")}` : ""}` : `All four ${who ? "of your own copies" : "example jobs"} are already on the board.`;
+      m(said);
+      if(r.added){ dasExSaid = {text: said, at: Date.now()}; render(); } }
     catch(err){ m(`Couldn't add the examples: ${err.message}`); }
     b.disabled = false; };
 };

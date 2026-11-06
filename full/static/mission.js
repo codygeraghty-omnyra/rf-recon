@@ -10,6 +10,7 @@ async function loadMission(id, applyArea){
   try{ const t=await api(`/api/missions/${id}/tracks`); S.mission.tracks=t.tracks; }catch(e){ /* no tracks for this mission yet: the map draws none */ }
   $("#missionName").textContent=`${m.name} · ${m.status}`;
   const lay=m.settings.layers||{}; S.layerSolo=S.layerPrev=null; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !(k==="uls_hist"&&!lay[k])));
+  S.layerDef=new Set(S.layerOn);  // the mission's sources are its defaults: the filter rail's Clear comes back to them
   $("#hideMobile").checked=m.settings.fixed_sites_only!==false;
   if(applyArea && m.lat!=null){ setMode("point"); $("#loc").value=`${m.lat}, ${m.lon}`; $("#radius").value=m.radius_mi||5; $("#radiusSlider").value=m.radius_mi||5; }
 }
@@ -167,7 +168,7 @@ S.views.mission = async (v) => {
   v.querySelectorAll("[data-mt],[data-mb]").forEach(c=>c.onclick=()=>c.classList.toggle("on"));
   $("#m_addWatch").onclick=()=>$("#m_watch").insertAdjacentHTML("beforeend",watchRow({}));
   $("#m_watch").onclick=e=>{ if(e.target.matches("[data-rmw]")) e.target.closest(".row").remove(); };
-  if($("#m_applyTargets")) $("#m_applyTargets").onclick=()=>{ S.chips.type=new Set(s.target_types||[]); S.chips.band=new Set(s.target_bands||[]); setTab("map"); };
+  if($("#m_applyTargets")) $("#m_applyTargets").onclick=()=>{ setOnly("type", s.target_types||[]); setOnly("band", s.target_bands||[]); setTab("map"); };
   $("#mSave").onclick=async()=>{
     const watch=[...$$("#m_watch .row")].map(r=>({freq:parseFloat(r.querySelector("[data-w=freq]").value),tol_khz:parseFloat(r.querySelector("[data-w=tol]").value)||12.5,label:r.querySelector("[data-w=label]").value})).filter(w=>w.freq);
     const layers={}; v.querySelectorAll("[data-ml]").forEach(x=>layers[x.dataset.ml]=x.checked);
@@ -354,6 +355,10 @@ S.views.data = async (v) => {
       <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option><option value="ahj">AHJ reviewer: only the jobs shared with it</option></select></label><button class="primary" id="raAdd">Add and make a password</button></div>
     <p class="hint" id="raMsg" style="margin:6px 0 0"></p>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Person</th><th>Can</th><th>Added</th><th>Last here</th><th></th></tr></thead><tbody id="raList"></tbody></table></div></div>
+  <div class="panel" id="dcPanel" hidden><h3>DAS course: who has it</h3>
+    <p class="hint" style="margin-top:0">Tick an account to give it the course. They open it from the DAS tab, and their progress saves to their sign-in. Unticking keeps their progress. Admins always have it; AHJ reviewer logins can't. <span id="dcSum"></span></p>
+    <p class="hint" id="dcMsg" style="margin:6px 0 0"></p>
+    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Account</th><th>Has it</th><th>Lessons</th><th>Mastery</th><th>Exams passed</th><th>On lesson</th><th>Last used</th></tr></thead><tbody id="dcList"></tbody></table></div></div>
   <div class="panel"><h3>Push to ATAK</h3>
     <p class="hint" style="margin-top:0">📡 Push to ATAK (beside the exports) sends what's on the map as live markers. They go to every ATAK, iTAK and WinTAK on this PC's networks over the TAK multicast those apps listen on out of the box, and to your TAK Server if you set one. Pushing again updates the same markers; they fade a day after the last push. Anyone on the same network with a TAK app sees them.</p>
     <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><label class="inl"><input type="checkbox" id="tkMc"> Network multicast</label>
@@ -481,6 +486,7 @@ S.views.data = async (v) => {
   const raPaint=async()=>{ if(!$("#raList")) return; let r; try{ r=await api("/api/remote"); }catch(e){ if($("#raLink")) $("#raLink").innerHTML=`<p class="hint">${esc(e.message)}</p>`; return; }
     if(!$("#raList")) return;  // left the tab while it loaded
     $("#raList").closest(".panel").hidden=!r.door;  // a copy without the remote door (the install kit) has nothing to show here
+    $("#dcPanel").hidden=!r.door; if(r.door) dcPaint();
     $("#waysPanel").hidden=!(r.door||S.me);  // and Ways in is about sharing that copy: the PC's door, or the server's admin
     if(!$("#waysPanel").hidden) waysVersions();
     const L=r.link||{}, n=r.people.length, ts={NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running";
@@ -504,6 +510,18 @@ S.views.data = async (v) => {
     $("#raList").querySelectorAll("[data-rarm]").forEach(b=>b.onclick=async()=>{  // two presses, so a stray click doesn't lock someone out
       if(b.dataset.sure!=="1"){ b.dataset.sure="1"; b.textContent="Press again to remove"; setTimeout(()=>{ if(b.isConnected){ b.dataset.sure=""; b.textContent="Remove"; } },4000); return; }
       try{ await post("/api/remote/remove",{name:b.dataset.rarm}); $("#raMsg").textContent=`${b.dataset.rarm} can't sign in any more.`; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); }); };
+  // the DAS course (course.py): who has it, by account, and how far each has got
+  const dcPaint=async()=>{ if(!$("#dcList")) return; let r; try{ r=await api("/api/remote/course"); }catch(e){ if($("#dcMsg")) $("#dcMsg").textContent=e.message; return; }
+    if(!$("#dcList")) return;  // left the tab while it loaded
+    const has=r.people.filter(u=>u.has), began=r.people.filter(u=>u.done!=null);
+    $("#dcSum").textContent=`${has.length} of ${r.people.length} ${r.people.length===1?"account has":"accounts have"} it; ${began.length} started.`;
+    $("#dcList").innerHTML=r.people.map(u=>{ const fixed=u.role==="admin"||u.role==="ahj";
+      return `<tr><td>${esc(u.name)}</td><td><label class="inl"><input type="checkbox" data-dcname="${esc(u.name)}" ${u.has?"checked":""} ${fixed?"disabled":""}> ${u.role==="admin"?"Admin":u.role==="ahj"?"Not for AHJ":u.has?"Yes":"No"}</label></td>
+        <td>${u.done!=null?`${u.done} of ${u.total}`:"-"}</td><td>${u.mastery!=null?`${u.mastery}% · ${esc(u.rank||"")}`:"-"}</td><td>${u.exams?`${u.passed} of ${u.exams}`:"-"}</td>
+        <td>${u.last?`${esc(u.last)} ${esc(u.last_title||"")}`:"-"}</td><td>${esc(u.saved_at||u.opened_at||"Not opened")}</td></tr>`; }).join("")
+      ||'<tr><td colspan="7" class="hint">No accounts yet. Add a person under Remote access.</td></tr>';
+    $("#dcList").querySelectorAll("[data-dcname]").forEach(c=>c.onchange=async()=>{ const who=c.dataset.dcname;
+      try{ await post("/api/remote/course",{name:who, on:c.checked}); $("#dcMsg").textContent=c.checked?`${who} has the DAS course now.`:`${who} no longer has the DAS course. Their progress is kept.`; }catch(e){ $("#dcMsg").textContent=e.message; } dcPaint(); }); };
   const raAdd=async (name, renew)=>{ name=(name||"").trim(); if(!name){ $("#raMsg").textContent="Type their name first."; return; }
     try{ const r=await post("/api/remote/add",renew?{name}:{name, role:$("#raRole").value}); $("#raName").value="";
       $("#raMsg").innerHTML=`Password for <b>${esc(r.name)}</b>: <span class="mono" style="user-select:all;font-size:15px">${esc(r.password)}</span> · Shown only now: send it to them with the link. Their old password, if any, no longer works.`; raPaint(); }

@@ -214,6 +214,32 @@ def place_of(lat, lon, data_dir, fetch=None):
     return out
 
 
+CENSUS_GEOCODER = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
+
+
+def _titled(s):
+    return re.sub(r"(\d)(St|Nd|Rd|Th)\b", lambda m: m.group(1) + m.group(2).lower(), (s or "").title())
+
+
+def census_address(q, fetch=None):
+    """A street address from the Census Bureau's geocoder (public domain, no key): the fallback when Photon, a free public
+    service, is slow (11/5: 5-8 s where it had taken under one, past its 4 s limit, and every address box went empty).
+    A list of results, [] when it knows no such address, None when it can't be reached."""
+    url = CENSUS_GEOCODER + "?" + urllib.parse.urlencode({"address": q, "benchmark": "Public_AR_Current", "format": "json"})
+    try:
+        d = (fetch or (lambda u: json.loads(_fetch(u, timeout=6))))(url)
+    except (OSError, ValueError):
+        return None
+    out = []
+    for m in ((d or {}).get("result") or {}).get("addressMatches") or []:
+        c, parts = m.get("coordinates") or {}, [x.strip() for x in (m.get("matchedAddress") or "").split(",")]
+        if c.get("x") is None or c.get("y") is None or len(parts) != 4:
+            continue
+        full = f"{_titled(parts[0])}, {_titled(parts[1])}, {parts[2]} {parts[3]}"
+        out.append({"label": full, "sub": "U.S. Census address", "full": full, "lat": round(c["y"], 6), "lon": round(c["x"], 6), "kind": "address", "source": "census"})
+    return out
+
+
 def parse_address(addr):
     """City, state and ZIP from a typed address ("1 Main St, Arlington, VA 22201"), as a fallback."""
     m = re.search(r",\s*([^,]+?)\s*,?\s+([A-Z]{2})\s+(\d{5})(?:-\d{4})?\s*$", addr or "")

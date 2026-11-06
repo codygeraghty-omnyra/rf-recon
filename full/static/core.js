@@ -27,11 +27,25 @@ const LAYERS = {
   psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}, fss:{label:"Satellite earth stations (FCC)", color:"#0b6e99"},
   meshtastic:{label:"Meshtastic mesh radios", color:"#67ea94"}, helium:{label:"Helium IoT hotspots", color:"#474dff"}};
 
+// the filter rail's three source groups (rail.js), in their fixed order; the ATAK frames follow the same split (mapstyle.js)
+const SOURCE_GROUPS = [
+  ["licensed", "Licensed & registered", ["uls","uls_hist","broadcast","noaa","faa","towers","psap","fss"]],
+  ["crowd", "Crowd & networks", ["wigle","opencellid","repeaterbook","ttn","helium","meshtastic","satnogs","wspr","pskreporter"]],
+  ["mine", "Mine", ["captures","custom"]]];
+const LICENSED = new Set(SOURCE_GROUPS[0][2]);  // FCC and other government records, not crowd reports
+
 const S = { mode:"point", rows:[], center:null, radius:5, tab:"map",
   layerOn: new Set(["uls","broadcast","noaa","faa","towers","captures","wigle","opencellid","repeaterbook","custom","ttn","satnogs","wspr","pskreporter","psap","fss","meshtastic","helium"]),
-  chips:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set()},
+  // each filter group is "all on, untick to hide" (hide) or "only these" (chips, the include sets links and other tabs
+  // have always used); one of the two is set at a time
+  chips:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set(), carrier:new Set(), agency:new Set()},
+  hide:{type:new Set(), cat:new Set(), band:new Set(), cls:new Set(), carrier:new Set(), agency:new Set()},
+  side:"all",
   sort:{k:"dist_mi", dir:1}, shown:600, lib:{}, mission:null, missionId:null, heat:{kind:"off", opacity:.75},
   sel:null, filterExpr:"", views:{} };
+S.layerDef = new Set(S.layerOn);  // the default sources (a mission sets its own): what Clear goes back to
+// the defaults among the sources this copy has (the web version drops RepeaterBook from LAYERS after this line runs)
+const layerDefaults = () => new Set([...S.layerDef].filter(l => LAYERS[l]));
 
 /* ---------- decoders ---------- */
 const EM1={N:"Unmodulated carrier",A:"AM, double sideband",H:"SSB, full carrier",R:"SSB, reduced carrier",J:"SSB, suppressed carrier",B:"Independent sidebands",C:"Vestigial sideband",F:"Frequency modulation (FM)",G:"Phase modulation (PM)",D:"AM + angle modulation",P:"Unmodulated pulses",K:"Pulse, amplitude-mod.",L:"Pulse, width-mod.",M:"Pulse, position-mod.",Q:"Pulse, angle-mod.",V:"Pulse, combination",W:"Combination",X:"Other"};
@@ -46,6 +60,8 @@ const CLASS={FB:"Base station",FB2:"Repeater (mobile relay)",FB4:"Community repe
 const classLabel=c=>!c?"":CLASS[c]||(c.startsWith("FB")?`Base / repeater (${c})`:c.startsWith("FX")?`Fixed (${c})`:c.startsWith("MO")?`Mobile (${c})`:c);
 function classGroup(r){ if(r.layer==="towers") return "Towers"; if(r.layer!=="uls"&&r.layer!=="uls_hist") return LAYERS[r.layer]?.label||r.layer;
   const c=r.station_class||""; if(c==="FB2"||c==="FB4") return "Repeaters"; if(c.startsWith("FB")) return "Base stations"; if(c.startsWith("FX")) return "Fixed / control"; if(c.startsWith("MO")) return "Mobiles"; return "Other"; }
+// the same groups by a key the server can read: it doesn't know the source labels, so anything but a licence goes by its layer
+const classKey = r => r.layer==="uls"||r.layer==="uls_hist"||r.layer==="towers" ? classGroup(r) : r.layer;
 const typeOf = r => r.layer==="towers" ? "Tower / structure" : r.layer==="psap" ? "911 call centre" : (r.sig_type || "Unknown");
 const colorOf = r => r.layer==="towers" ? "#57606a" : (S.lib[r.sig_type]?.color || LAYERS[r.layer]?.color || "#8c959f");
 const erpOf = r => r.erp_w ?? r.power_out_w;
@@ -68,6 +84,8 @@ function params(extra){
   else { p.set("state",$("#state").value); if($("#county").value) p.set("county",$("#county").value); }
   for(const [id,k] of [["#q","q"],["#fmin","fmin"],["#fmax","fmax"]]) if($(id).value) p.set(k,$(id).value);
   if(window.searchFields) window.searchFields(p);  // FCC licence search fields (search.js)
+  if(S.franges) p.set("franges",S.franges);
+  if(S.keepNoFreq) p.set("keep_nofreq","1");
   if($("#hideMobile").checked) p.set("hide_mobile","1");
   if(S.missionId) p.set("mission",S.missionId);
   p.set("layers", Object.keys(LAYERS).join(","));
@@ -79,13 +97,14 @@ async function runSearch(){
   if(S.mode==="point" && !parseLoc($("#loc").value)){ st.textContent="Type an address, place or county (pick a suggestion), enter coordinates, or click the map."; if(S.tab!=="map") setTab("map"); return; }
   if(S.mode==="county" && !$("#state").value){ st.textContent="Pick a state."; st.className="status err"; return; }
   st.textContent="Searching…"; $("#go").disabled=true;
+  S.lastQuery=params().toString(); searchDirty();
   const gen=S.searchGen=(S.searchGen||0)+1;  // a slow earlier search must not overwrite a newer one (pin drags, radius slider)
   try{
     const res = await api("/api/area?"+params());
     if(gen!==S.searchGen) return;
     S.rows=res.rows; S.center=res.center; S.radius=res.radius||parseFloat($("#radius").value)||5; S.shown=600;
-    st.textContent = res.truncated ? "Large area — showing the first 25,000 licensed entries. Narrow the radius or add filters." : "";
-    $("#filters").style.display="";
+    S.setAside=res.set_aside||{}; S.searched=true;
+    st.textContent = res.truncated ? "Large area — showing the first 25,000 licensed entries. Narrow the radius or add filters." : (window.railWhy?.()||"");
     render();
     if(S.heat.kind!=="off") loadHeat();
   }catch(e){ if(gen===S.searchGen){ st.textContent="Error: "+e.message; st.className="status err"; } }
@@ -93,70 +112,60 @@ async function runSearch(){
 }
 
 /* ---------- filters ---------- */
+// what each filter group reads from a row (the server's heatmap reads sig_type, band and category the same way)
+const agencyKey = s => String(s||"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim();  // agency_key in app.py: case and punctuation only
+const agencyOf = r => r._ag ??= agencyKey(r.licensee)||"No agency";
+const FACETS = {type:typeOf, cat:r=>r.category||"Other", band:r=>r.band||"Other", cls:classGroup, carrier:r=>r.carrier||"No carrier", agency:agencyOf};
+// a row passes when its source is on and, in every group but `skip`, its value is in "only" (when set) or not hidden.
+// With nothing hidden this is the include-set test the chips always used, so the same choices give the same rows.
 function passes(r, skip){
   if(!S.layerOn.has(r.layer)) return false;
-  const c=S.chips;
-  if(skip!=="type" && c.type.size && !c.type.has(typeOf(r))) return false;
-  if(skip!=="cat" && c.cat.size && !c.cat.has(r.category||"Other")) return false;
-  if(skip!=="band" && c.band.size && !c.band.has(r.band||"Other")) return false;
-  if(skip!=="cls" && c.cls.size && !c.cls.has(classGroup(r))) return false;
+  for(const k in FACETS){ if(k===skip) continue;
+    const only=S.chips[k], hide=S.hide[k];
+    if(only.size){ if(!only.has(FACETS[k](r))) return false; }
+    else if(hide.size && hide.has(FACETS[k](r))) return false; }
   return true;
 }
 const filtered = () => S.rows.filter(r => passes(r));
-function facet(key, getter, el, colorFn){
-  const counts=new Map();
-  for(const r of S.rows) if(passes(r,key)) { const v=getter(r); counts.set(v,(counts.get(v)||0)+1); }
-  for(const v of S.chips[key]) if(!counts.has(v)) counts.set(v,0);
-  el.innerHTML=[...counts].sort((a,b)=>b[1]-a[1]).map(([v,n])=>`<span class="chip ${S.chips[key].has(v)?"on":""}" data-k="${key}" data-v="${esc(v)}">${colorFn?`<span class="dot" style="background:${colorFn(v)}"></span>`:""}${esc(v)} <b>${n.toLocaleString()}</b></span>`).join("")||'<span class="hint">—</span>';
+const facetChanged = k => !!(S.chips[k].size || S.hide[k].size);
+const filtersChanged = () => Object.keys(FACETS).some(facetChanged);  // any signal type, band, category or station filter on
+// "only these" for a group, from another tab or a link (a mission's targets): what was hidden there no longer applies
+function setOnly(k, vals){ S.chips[k]=new Set(vals); S.hide[k].clear(); if(S.railSolo) delete S.railSolo[k]; }
+// a Dashboard bar: only that value, and the same bar again brings the rest back (the include toggle it always was)
+function toggleChip(key, v){ const set=S.chips[key]; if(set.has(v)) set.delete(v); else { set.add(v); S.hide[key].clear(); }
+  if(S.railSolo) delete S.railSolo[key]; S.shown=600; render(); }
+// Clear: back to the defaults (the mission's sources, every value on, no Analyzer display filter)
+function filtersReset(){ for(const k in FACETS){ S.chips[k].clear(); S.hide[k].clear(); } S.filterExpr=""; S.side="all";
+  S.layerOn=layerDefaults(); S.layerSolo=S.layerPrev=null; S.railSolo={}; S.shown=600; }
+// the include list the server's heatmap takes for a group: "only" as it is; hidden values as every other value in the
+// results (as the server reads them), or one no row has when everything is hidden
+function heatList(k){
+  const only=S.chips[k], hide=S.hide[k]; if(!only.size && !hide.size) return [];
+  const srv = k==="cls" ? classKey : FACETS[k], keep=new Set();
+  for(const r of S.rows) if(only.size ? only.has(FACETS[k](r)) : !hide.has(FACETS[k](r))) keep.add(srv(r));
+  return keep.size ? [...keep] : ["(none)"];
 }
-function renderFacets(){
-  const lc=new Map(); for(const r of S.rows) lc.set(r.layer,(lc.get(r.layer)||0)+1);
-  $("#fLayer").innerHTML=Object.entries(LAYERS).map(([k,l])=>`<span class="chip ${S.layerOn.has(k)?"":"off"}" data-layer="${k}"><span class="dot" style="background:${l.color}"></span>${esc(l.label)} <b>${(lc.get(k)||0).toLocaleString()}</b></span>`).join("");
-  facet("type", typeOf, $("#fType"), t => S.lib[t]?.color || (t==="Tower / structure"?"#57606a":"#8c959f"));
-  facet("cat", r=>r.category||"Other", $("#fCat"));
-  facet("band", r=>r.band||"Other", $("#fBand"));
-  facet("cls", classGroup, $("#fClass"));
-  const n=S.chips.cat.size+S.chips.band.size+S.chips.cls.size; $("#moreCount").textContent=n?`· ${n} active`:"";
-  foldNote();
-}
-// Collapse: the filter chips fold away so the map gets the room; folded, the header still says how many are on.
-// Remembered on this browser.
-function foldNote(){
-  const n=S.chips.type.size+S.chips.cat.size+S.chips.band.size+S.chips.cls.size;
-  $("#foldNote").textContent=$("#filters").classList.contains("folded")&&n?`· ${n} filter${n===1?"":"s"} on`:"";
-}
-function setFold(folded, keep=true){
-  $("#filters").classList.toggle("folded",folded);
-  const b=$("#filterFold"); b.querySelector(".lbl").textContent=folded?"Show filters":"Collapse"; b.setAttribute("aria-expanded",String(!folded));
-  b.title=folded?"Show the layer and signal filters":"Fold the filters away so the map gets the room";
-  foldNote(); if(keep) try{ localStorage.setItem("rfr.filtersFolded",folded?"1":""); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ }
-}
-$("#filterFold").onclick=()=>setFold(!$("#filters").classList.contains("folded"));
-// on a phone the chips run several screens long, so they start folded until someone opens them there
-try{ const f=localStorage.getItem("rfr.filtersFolded");
-  if(f==="1") setFold(true); else if(f===null && matchMedia("(max-width:600px)").matches) setFold(true,false); }catch(e){ /* storage blocked (a private window): the filters open unfolded */ }
-document.addEventListener("click", e => {
-  const lc=e.target.closest(".chip[data-layer]");
-  if(lc){ const k=lc.dataset.layer; S.layerOn.has(k)?S.layerOn.delete(k):S.layerOn.add(k); S.shown=600; render(); return; }
-  const ch=e.target.closest(".chip[data-k]"); if(!ch) return;
-  const set=S.chips[ch.dataset.k], v=ch.dataset.v; set.has(v)?set.delete(v):set.add(v); S.shown=600; render();
-});
-function toggleChip(key, v){ const set=S.chips[key]; set.has(v)?set.delete(v):set.add(v); render(); }
+// the groups as the server reads them (facet_keep in app.py): the heatmap and the CSV and KML follow what's on screen
+const facetParams = () => ({types:heatList("type").join("|"), bands:heatList("band").join("|"), cats:heatList("cat").join("|"), cls:heatList("cls").join("|"), carriers:heatList("carrier").join("|"),
+  agencies:[...S.chips.agency].join("|"), xagencies:S.chips.agency.size?"":[...S.hide.agency].join("|")});
+// the filter rail draws the groups (rail.js); the count line is drawn here so it's right on every tab
+function renderFacets(rows){ if(window.railRender) window.railRender(rows); }
 
 /* ---------- render dispatch ---------- */
 function setTab(t){ S.tab=t; render(); }
 function getFile(url){ location.href=url; }  // a file the server makes (the web version fetches it through the page instead)
 function render(){
-  renderFacets();
   const rows=filtered();
   const fq=new Set(rows.filter(r=>r.freq_mhz).map(r=>fmtF(r.freq_mhz)));
-  $("#resultCount").textContent=`${rows.length.toLocaleString()} items · ${fq.size.toLocaleString()} frequencies${S.center?` · within ${S.radius} mi`:""}`;
+  $("#resultCount").textContent=`${rows.length.toLocaleString()} item${rows.length===1?"":"s"} · ${fq.size.toLocaleString()} freq${fq.size===1?"":"s"}${S.center?` · within ${S.radius} mi`:""}`;
+  renderFacets(rows);  // before the view: the rail shows or goes for this tab, so the view draws at its own width
   $$("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===S.tab));
+  document.body.classList.toggle("tab-start", S.tab==="start");
   const tb=$("#tabs"), on=$("#tabs button.on");  // on a phone the tab bar scrolls sideways: keep the open tab on screen
   if(on && tb.scrollWidth>tb.clientWidth){ const l=on.offsetLeft-tb.offsetLeft, r=l+on.offsetWidth;
     if(l<tb.scrollLeft || r>tb.scrollLeft+tb.clientWidth) tb.scrollLeft=l-(tb.clientWidth-on.offsetWidth)/2; }
   const v=$("#view");
-  if(S.tab!=="map"){ if(S.map){ S.map.remove(); S.map=null; } $("#mapTop").innerHTML=""; }  // the map's slot above the search panel
+  if(S.tab!=="map"){ if(S.map){ S.map.remove(); S.map=null; } $("#mapTop").innerHTML=""; }  // the map's slot under the search bar
   if(S.tab!=="dashboard" && S.dashMap){ S.dashMap.remove(); S.dashMap=null; }
   const fn = S.views[S.tab];
   S.viewGen=(S.viewGen||0)+1;  // a tab that waits for data checks this after the wait: a newer draw since means stop
@@ -177,7 +186,7 @@ function groupItems(rows){
   return [...m.values()];
 }
 S.views.map = (v, rows) => {
-  const top=$("#mapTop");  // the map sits above the search panel, its list and table below it (Cody 11/4)
+  const top=$("#mapTop");  // under the one-line search bar (Cody 11/5, which replaces his 11/4 order), its list and table below it
   top.innerHTML = `
     <div class="maptools no-print">
       <label class="inl" title="Standard, ATAK style (symbols, imagery, MGRS) or a map you imported">Map <select id="mapStyle"></select></label>
@@ -192,12 +201,12 @@ S.views.map = (v, rows) => {
       ${S.heat.kind==="measured"&&(S.heat.ident||S.heat.freq)?`<span class="tag">Signal: ${esc(S.heat.signal||S.heat.ident||S.heat.freq)} <a href="#" id="heatSigClear" title="Back to every signal">✕</a></span>`:""}
       <label class="inl">Opacity <input type="range" id="heatOp" min="0.1" max="1" step="0.05" value="${S.heat.opacity}" style="width:90px"></label>
       <button id="heatExport" title="KMZ for Google Earth / ATAK, GeoTIFF for QGIS / ArcGIS / Global Mapper">⇩ Heatmap (KMZ + GeoTIFF)</button>
-      <span class="hint" id="mapHint" style="margin-left:auto">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
-      <div class="seg"><button data-lv="list" class="${S.listMode!=="table"?"on":""}">List</button><button data-lv="table" class="${S.listMode==="table"?"on":""}">Table</button></div>
+      <div class="seg" style="margin-left:auto"><button data-lv="list" class="${S.listMode!=="table"?"on":""}">List</button><button data-lv="table" class="${S.listMode==="table"?"on":""}">Table</button></div>
     </div>
     <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
     </div>
+    <span class="hint" id="mapHint">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
     <div id="emitPanel"></div>`;
   v.innerHTML = `<div class="side" id="side" style="${S.listMode==="table"?"display:none":""}"></div>
     <div id="mapTable"></div>`;
@@ -447,8 +456,7 @@ async function heatCarrierFill(){
 function heatParams(kind){
   const s=S.mission?.settings||{};
   return {kind, size:s.heat_size||200, metric:s.heat_metric||"mean", combine:s.heat_combine||"max", alpha:s.heat_alpha||190,
-    types:[...S.chips.type].join("|"), bands:[...S.chips.band].join("|"), cats:[...S.chips.cat].join("|"),
-    layers:[...S.layerOn].join(","), name:(S.mission?.name||"rf")+"_"+kind,
+    ...facetParams(), layers:[...S.layerOn].join(","), name:(S.mission?.name||"rf")+"_"+kind,
     ...(kind==="measured"?{files:[...(S.heat.files||[])].join("|"), ident:S.heat.ident||"", freq:S.heat.freq??""}:{}),
     ...(kind==="carrier"?{provider:(S.heat.carrier||":").split(":")[0], tech:(S.heat.carrier||":").split(":")[1], ...(S.heat.env!==undefined&&S.heat.env!==""?{env:S.heat.env}:{})}:{})};
 }
@@ -538,7 +546,7 @@ function openDetail(fid){
   } else if(r.layer==="towers"){
     html += `<div class="sec"><h3>Structure</h3>${kvg([["Registration",`<span class="mono">${esc(r.reg)}</span>`],["Type",esc(r.struct_type)],["Structure height",r.height_m!=null?`${r.height_m} m`:""],
       ["Overall height AGL",r.overall_agl_m!=null?`${r.overall_agl_m} m (${Math.round(r.overall_agl_m*3.281)} ft)`:""],["Overall AMSL",r.overall_amsl_m!=null?`${r.overall_amsl_m} m`:""],
-      ["Ground elevation",r.ground_elev_m!=null?`${r.ground_elev_m} m`:""],["Owner",esc(r.owner)],["Status",esc(r.status)],["Constructed",esc(r.constructed)],["FAA study",esc(r.faa_study)],
+      ["Ground elevation",r.ground_elev_m!=null?`${r.ground_elev_m} m`:""],["Owner",esc(r.owner)],["Carrier",r.carrier?`${esc(r.carrier)}-registered structure. That's the owner on the FCC record: other carriers may rent space here.`:""],["Status",esc(r.status)],["Constructed",esc(r.constructed)],["FAA study",esc(r.faa_study)],
       ["Address",esc([r.street,r.city,r.state].filter(Boolean).join(", "))]])}
       <h3 style="margin-top:10px">Licensed transmitters on this structure</h3><p>${esc([...new Set(S.rows.filter(x=>x.tower_reg===r.reg).map(x=>`${x.licensee} (${fmtF(x.freq_mhz)})`))].slice(0,30).join("; ")||"None linked in the current results.")}</p></div>`;
   } else {
@@ -599,15 +607,29 @@ function setMode(m){ S.mode=m; $$("#modeSeg button").forEach(x=>x.classList.togg
   for(const el of [$("#radius").closest("label"), $("#radiusSlider").closest("label"), $("#gpsBtn")]) el.style.display=m==="nationwide"?"none":""; }
 $("#modeSeg").addEventListener("click", e=>{ const b=e.target.closest("button"); if(b) setMode(b.dataset.m); });
 $("#go").onclick=runSearch;
-for(const id of ["#loc","#q","#fmin","#fmax"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
+// the filters the server reads. On a desktop they search by themselves after a pause; on a phone, or nationwide, they wait for
+// the button and it says so (Cody 11/5: a search is 1.7 to 22 MB, and a phone on a roof shouldn't pay for a half-typed frequency)
+const AUTO_MS=700;
+const autoRuns=()=>matchMedia("(min-width:700px) and (pointer:fine)").matches && S.mode!=="nationwide" && (S.mode==="point"?!!parseLoc($("#loc").value):!!$("#state").value);
+let dirtyT;
+function searchDirty(){
+  const stale=S.lastQuery!=null && params().toString()!==S.lastQuery, auto=autoRuns(), go=$("#go");
+  clearTimeout(dirtyT);
+  go.classList.toggle("stale",stale&&!auto); go.textContent=stale&&!auto?"Search to apply":"Search";
+  if(stale&&auto&&$("#q").value.trim().length!==1) dirtyT=setTimeout(runSearch,AUTO_MS);
+}
+for(const id of ["#q","#fmin","#fmax"]) $(id).addEventListener("input",searchDirty);
+$("#hideMobile").addEventListener("change",searchDirty);
+for(const id of ["#loc","#q","#fmin","#fmax","#rf"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
 let rT; const radiusChanged=v=>{ $("#radius").value=v; $("#radiusSlider").value=v; clearTimeout(rT); rT=setTimeout(()=>{ if(parseLoc($("#loc").value)) runSearch(); },450); };
 $("#radius").oninput=e=>radiusChanged(e.target.value); $("#radiusSlider").oninput=e=>radiusChanged(e.target.value);
 $("#gpsBtn").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{ $("#loc").value=`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`; setMode("point"); runSearch(); },
   err=>{ $("#status").textContent="GPS unavailable: "+err.message+" (browsers only allow GPS on localhost or HTTPS)."; }, {enableHighAccuracy:true}):null;
 $("#state").onchange=async()=>{ const cs=await api("/api/counties?state="+$("#state").value);
   $("#county").innerHTML='<option value="">— whole state —</option>'+cs.map(c=>`<option value="${esc(c.county)}">${esc(c.county)} (${c.n.toLocaleString()})</option>`).join(""); };
-$("#clearChips").onclick=()=>{ for(const k in S.chips) S.chips[k].clear(); S.filterExpr=""; render(); };
-const exportParams=()=>params({layers:[...S.layerOn].join(",")});
+$("#clearChips").onclick=()=>{ filtersReset(); render(); };
+// what's on screen; "Everything the search found" leaves the filter groups out
+const exportParams=()=>params({layers:[...S.layerOn].join(","), ...($("#exportAll")?.checked?{}:facetParams())});
 $("#csvBtn").onclick=()=>getFile("/api/export.csv?"+exportParams());
 $("#kmlBtn").onclick=()=>getFile("/api/export.kml?"+exportParams());
 $("#printBtn").onclick=()=>{ setTab("profile"); setTimeout(()=>{ document.body.classList.add("print-prep"); window.print(); setTimeout(()=>document.body.classList.remove("print-prep"),500); },80); };
@@ -622,9 +644,11 @@ async function boot(){
     S.lib=lib.library; S.bandplan=lib.bandplan; S.meta=meta;
     $("#meta").textContent = meta.built_at ? `FCC data ${meta.built_at} · ${Number(meta.tx_rows||0).toLocaleString()} entries${meta.towers_rows?` · ${Number(meta.towers_rows).toLocaleString()} towers`:""}` : "No FCC data yet — see Data & updates";
     $("#state").innerHTML='<option value="">—</option>'+states.map(s=>`<option>${esc(s.state)}</option>`).join("");
+    $("#meta").title=$("#meta").textContent;
   }catch(e){ $("#meta").textContent="Server error: "+e.message; }
   if(window.missionBoot) await window.missionBoot();
   if(S.meta && !S.meta.built_at && !S.remote && window.welcome) window.welcome();  // a new copy with no data yet (welcome.js)
+  try{ if(!location.hash && localStorage.getItem("rfr.landing")==="start") S.tab="start"; }catch(e){ /* storage blocked: the Map, as always */ }
   if(window.applyUrlState && window.applyUrlState()) runSearch();  // a link to a view wins over the mission's area
   render();
 }

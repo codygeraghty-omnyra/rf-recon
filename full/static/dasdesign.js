@@ -128,6 +128,7 @@ function lbCompute0(I){
   // checks: ok is true, false, "warn", or null when an input is missing. A limit left blank skips its check.
   const C=[], chk=(id,name,ok,detail)=>C.push({id,name,ok,detail});
   const dlNeed=num0(I.dl_min_dbm)+num0(I.margin_db);
+  if(I.model!=="fspl"&&walls>0) chk("walls_twice","Walls on top of P.1238","warn",`${walls} dB of walls is added to P.1238, whose N already allows for the walls on a floor: leave this at 0, or use Free space + walls`);
   if(I.cell){  // LTE / 5G: the cellular target, the 20.21 consumer caps for scale, isolation and headroom; no agency-site or 90.219 checks
     chk("dl_edge","RSRP at the far edge",edge>=dlNeed,`${edge.toFixed(1)} dBm vs ${dlNeed.toFixed(1)} dBm needed (${num0(I.dl_min_dbm)} target + ${num0(I.margin_db)} dB margin; Requirements, Cellular)`);
     const dlComp=bdaOut+re+10*Math.log10(nch);
@@ -411,14 +412,25 @@ function dsScene(d, f, I, R, opt={}){
     (o.antennas||[]).forEach((a,i)=>ants.push({x:a.x*ow, y:a.y*ow*oar, z:n*st.h_ft, n, lf:L.db, eirp:eirpOf(a), label:a.label||`A${i+1}`, floor:g.name, own:false, i})); });
   const walls=(fl.walls||[]).map(w=>{ const fixed=w.db!=null&&w.db!=="", tl=tune&&!fixed&&tune.walls&&tune.walls[w.label]!=null;
     return {x1:w.x1*wFt, y1:w.y1*hFt, x2:w.x2*wFt, y2:w.y2*hFt, label:w.label||w.mat||"Wall", fixed, db:tl?+tune.walls[w.label]:dsWallDb(w, I.f_dl)}; });
-  return {f, fl, wFt, hFt, ar, ants, walls, far, st, lfSrc, tune, f_dl:I.f_dl, N:tune?.N??(+I.N||30), model:tune?"p1238":I.model};
+  // P.1238's N already allows for the walls on a floor (P.1238-13), so adding drawn walls on top of it counts them twice. But free
+  // space + walls needs every wall drawn, and read 16 dB hot on a floor with five walls drawn (the ERCES example, 11/5). So a path
+  // takes the larger of the two losses: P.1238 carries the clutter nobody drew, and a heavy wall near the antenna still shadows
+  // (the max-of-two form of 3GPP TR 38.901's indoor NLOS). Design's "Drawn walls" keeps the older sum.
+  const max=!tune&&I.model!=="fspl"&&walls.length>0&&(d.design||{}).wall_rule!=="both";
+  return {f, fl, wFt, hFt, ar, ants, walls, far, st, lfSrc, tune, f_dl:I.f_dl, N:tune?.N??(+I.N||30), model:tune?"p1238":max?"max":I.model};
 }
+// in words, which path model a floor's map used (the submittal says so beside the map)
+function dsMapModel(d, I, nWalls, tuned){ const N=+I.N||30;
+  if(tuned) return "tuned to the walk";
+  if(I.model==="fspl") return "free space + drawn walls";
+  if(!nWalls) return `ITU-R P.1238, N ${N}, which allows for this floor's walls`;
+  return (d.design||{}).wall_rule==="both"?`ITU-R P.1238, N ${N}, + drawn walls`:`the larger of ITU-R P.1238 (N ${N}) and free space + drawn walls, so no wall counts twice`; }
 // the level from one antenna at (x, y) ft, and what the path crossed (for the fit)
 function dsPath(sc, a, x, y, fMHz){
   const dM=LB.ft2m(Math.hypot(x-a.x, y-a.y, a.z)), f=fMHz||sc.f_dl; let wl=0; const cross=[];
   for(const w of sc.walls) if(segX(a.x,a.y,x,y,w.x1,w.y1,w.x2,w.y2)){ wl+=w.db; cross.push(w); }
-  const pl=sc.model==="fspl"?LB.fspl(dM,f):LB.p1238(dM,f,sc.N,0);
-  return {L:a.eirp-pl-a.lf-wl, dM, cross};
+  const loss=sc.model==="max"?Math.max(LB.p1238(dM,f,sc.N,0), LB.fspl(dM,f)+wl):(sc.model==="fspl"?LB.fspl(dM,f):LB.p1238(dM,f,sc.N,0))+wl;
+  return {L:a.eirp-loss-a.lf, dM, cross};
 }
 function dsLevelAt(sc, x, y, fMHz){ let best=-Infinity, who=-1;
   for(let i=0;i<sc.ants.length;i++){ const L=dsPath(sc, sc.ants[i], x, y, fMHz).L; if(L>best){ best=L; who=i; } }
@@ -568,6 +580,7 @@ async function dsFloors(el, j, save){
       <span class="hint">Antenna EIRP ${R.eirp.toFixed(1)} dBm per channel (Link budget) · pass at ≥ ${target} dBm</span></div>
     <div class="maptools no-print" id="dfStackRow" style="gap:10px;flex-wrap:wrap;margin-top:-4px">
       <label class="inl" title="Antennas on the floors above and below reach this floor through the slab (ITU-R P.1238 floor penetration loss)"><input type="checkbox" id="dfStack" ${st.on?"checked":""}> Other floors' antennas</label>
+      ${I.model!=="fspl"?`<label class="inl" title="P.1238's N already allows for the walls on a floor, so adding drawn walls to it counts them twice and reads low. The larger of the two losses counts nothing twice, and needs no wall-by-wall drawing. Free space + walls is under Link budget, In-building model: it needs every wall drawn. A fit to the walk replaces all of these.">Drawn walls <select id="dfWallRule"><option value="">Larger of P.1238 and free space + walls</option><option value="both" ${(d.design||{}).wall_rule==="both"?"selected":""}>P.1238 + walls (older, reads low)</option></select></label>`:""}
       <label class="inl">Floor to floor <input id="dfFh" type="number" step="any" value="${(((d.design||{}).stack)||{}).h_ft??""}" placeholder="${st.h_ft.toFixed(1)}" style="width:70px"> ft</label>
       <label class="inl" title="Blank: ITU-R P.1238 office, 0.9 GHz (9 / 19 / 24 dB through 1 / 2 / 3 floors)">Loss a floor <input id="dfSlab" type="number" step="any" value="${st.slab_db??""}" placeholder="P.1238" style="width:84px"> dB</label>
       <label class="inl"><input type="checkbox" id="dfWkShow" ${D.dsWkShow!==false?"checked":""}> Walk points</label>
@@ -596,6 +609,7 @@ async function dsFloors(el, j, save){
   $("#dfW").onchange=e=>keep({width_ft:+e.target.value||null});
   const stk=(d.design||{}).stack||{};
   $("#dfStack").onchange=e=>keepD({stack:{...stk, on:e.target.checked}});
+  $("#dfWallRule")?.addEventListener("change", e=>keepD({wall_rule:e.target.value||null}));
   $("#dfFh").onchange=e=>keepD({stack:{...stk, h_ft:e.target.value===""?null:+e.target.value}});
   $("#dfSlab").onchange=e=>keepD({stack:{...stk, slab_db:e.target.value===""?null:+e.target.value}});
   $("#dfWkShow").onchange=e=>{ D.dsWkShow=e.target.checked; draw(); };
@@ -823,7 +837,18 @@ async function dsSubDetails(el, j, save){
       <h3 style="margin-top:12px">Designer</h3>${grp("designer","Designer",[["name","Name"],["company","Company"],["grol","FCC GROL"],["nicet","NICET IB-PSC level and number",200],["cert","Certification number"]])}
       <h3 style="margin-top:12px">Installer qualifications</h3>${grp("installer","Installer",[["company","Company"],["license","Contractor licence"],["grol","FCC GROL"],["nicet","NICET IB-PSC level and number",200],["mfr","Manufacturer certificate (maker, number)",220],["expires","Certificates expire",120]])}
       <h3 style="margin-top:12px">Isolation calculation</h3>${grp("iso","Isolation",[["fb_db","Donor antenna front-to-back dB",120,"datasheet"],["disc_db","Server antenna discrimination toward the roof dB",120,"0"],["dist_ft","Roof antenna to the nearest server antenna ft",120,"from floor height"],["roof_db","Roof slab loss dB",120,"P.1238 1 floor"]])}
-      <p class="hint">Isolation ≈ free-space loss over that distance (ITU-R P.525) + roof slab loss + front-to-back − donor gain − server antenna gain toward the roof. A measured isolation (Link budget, Checks) is printed beside it and decides.</p></div></div>`;
+      <p class="hint">Isolation ≈ free-space loss over that distance (ITU-R P.525) + roof slab loss + front-to-back − donor gain − server antenna gain toward the roof. A measured isolation (Link budget, Checks) is printed beside it and decides.</p></div></div>
+    <div class="panel" style="margin-top:10px"><h3>Installation details <span class="hint">· sheets ER-15 to ER-19, NFPA 1225 A.18.2.1 items 5, 6, 9, 10 and 12. What is left blank prints as a blank to fill by hand.</span></h3>
+      <h4 style="margin:8px 0 4px">Donor antenna mounting (ER-15)</h4>${grp("mount","Mounting",[["type","Mount type",190,"Non-penetrating sled, mast"],["location","Location",190,"Roof, NE corner"],["above_roof","Height above the roof",130],["structure","Structural or roof approval",200],["entry","Where the cable enters",190],["sign","Sled sign, if movable",170]])}
+      <h4 style="margin:10px 0 4px">Grounding and surge (ER-16)</h4>${grp("surge","Surge",[["listing","Discharge unit listing",170,"UL 497C"],["location","Where it is installed",190,"At the building entry"],["bond_to","Bonded to",190],["conductor","Bonding conductor",140],["mast","Antenna and mast grounding",190],["rack","Equipment and rack bonding",190]])}
+      <h4 style="margin:10px 0 4px">Pathway survivability (ER-17)</h4><div class="row" style="gap:10px;flex-wrap:wrap;align-items:end">
+        <label>High-rise<select data-sg="surv" data-k="high_rise"><option value="">–</option>${["Yes","No"].map(x=>`<option ${(s.surv||{}).high_rise===x?"selected":""}>${x}</option>`).join("")}</select></label>
+        <label>Primary structural frame<select data-sg="surv" data-k="frame"><option value="">–</option>${["2 h or more","Heavy timber","Under 2 h","Unrated"].map(x=>`<option ${(s.surv||{}).frame===x?"selected":""}>${x}</option>`).join("")}</select></label></div>
+      <div style="margin-top:6px">${grp("surv","Survivability",[["method","Method",240,"2-hour rated cable, 2-hour enclosure"],["route","Backbone route",240],["splices","Splice and tap locations",240]])}</div>
+      <p class="hint" style="margin:4px 0 0">${esc(dsSurvivability(s).says)}</p>
+      <h4 style="margin:10px 0 4px">Power (ER-18)</h4>${grp("power","Power",[["panel","Panel",120],["circuit","Circuit",90],["breaker","Breaker, locked or marked",190],["volts","Voltage",90],["conductor","Conductors and raceway",190],["room","Equipment location",170],["battery_wire","Battery wiring and disconnect",200],["generator","Generator or emergency panel",190]])}
+      <h4 style="margin:10px 0 4px">Monitoring (ER-19)</h4><div class="row" style="gap:10px;flex-wrap:wrap;align-items:end">${grp("mon","Monitoring",[["facu","Fire alarm control unit",190],["location","Where it is",170],["module","Interface",170,"Monitor module, dry contacts"],["annunciator","Dedicated annunciator",190],["ann_location","Annunciator location",170],["station","Supervising station",170]])}
+        <label>One input for all signals<select data-sg="mon" data-k="single"><option value="">No</option><option ${(s.mon||{}).single==="Yes"?"selected":""}>Yes</option></select></label></div></div>`;
   el.querySelectorAll("[data-sd]").forEach(i=>i.onchange=()=>keep({[i.dataset.sd]:i.value}));
   el.querySelectorAll("[data-sg]").forEach(i=>i.onchange=()=>{ const g=i.dataset.sg; keep({[g]:{...(s[g]||{}), [i.dataset.k]:i.value}}); });
   el.querySelectorAll("[data-ct]").forEach(i=>i.onchange=()=>keep({floors:{...s.floors, [i.dataset.ct]:i.value}}));
@@ -865,7 +890,24 @@ async function dsDonorPaths(j, d){
 const DS_SHEETS = [["ER-0","Cover sheet and statement of compliance"],["ER-1","Systems retransmitted and system diagram"],["ER-2","Link budget per band"],["ER-3","Link budget per antenna"],
   ["ER-4","Donor path: azimuth, distance and profile"],["ER-5","Isolation calculation"],["ER-6","Floor designs with test grids"],["ER-7","Materials attenuation, 700 / 800 MHz"],
   ["ER-8","Prediction checked against the walk"],["ER-9","Bill of materials"],["ER-10","Standby power (battery calculation)"],["ER-11","Material rules"],["ER-12","Acceptance test plan"],
-  ["ER-13","Licensee consent"],["ER-14","Qualifications and sign-off"]];
+  ["ER-13","Licensee consent"],["ER-14","Qualifications and sign-off"],["ER-15","Donor antenna mounting and cable"],["ER-16","Grounding and surge suppression"],
+  ["ER-17","Pathway survivability"],["ER-18","Primary and standby power"],["ER-19","Monitoring and fire alarm interface"]];
+// NFPA 1225 (2022) A.18.2.1, the design submittal's 18 items, and the sheet that carries each
+const DS_A18 = [["DAQ signal source level measurements","ER-4"],["Local code requirements and statement of compliance","ER-0"],["Site, floor and elevation plans","ER-6"],["Donor path profiles, link budgets, azimuths, distances","ER-2, ER-4"],
+  ["Donor antenna mounting and cable details","ER-15"],["Grounding and surge suppression details","ER-16"],["Backbone and distribution cable diagrams","ER-1"],["Device locations on floor plans","ER-6"],["Pathway survivability design","ER-17"],
+  ["Primary and backup power design and wiring","ER-18"],["Backup power calculations","ER-10"],["Monitoring design, fire alarm interfaces, annunciators","ER-19"],["Donor and DAS antenna isolation calculations","ER-5"],["Predicted DAQ or coverage maps on floor plans","ER-6"],
+  ["Designer qualifications","ER-14"],["Installer qualifications","ER-14"],["Test grids on floor plans, or an approved walk plan","ER-6, ER-12"],["Spec sheets for all equipment and cable","ER-9"]];
+// the IFC's supervisory signals (2024 510.4.2.5); NFPA 1225 (2022) 18.14 has the same list with its seven annunciator indications
+const DS_SIGNALS = ["Normal AC power loss","Battery charger failure","Signal source malfunction","Active RF-emitting device failure","Low battery capacity, at 70% depletion","Critical component failure","Fire alarm link failure","Oscillation"];
+// What the backbone needs: NFPA 1225 (2022) 18.12.3.3 and 18.12.3.4. A fully sprinklered high-rise fits both clauses, and the text
+// does not say which controls: the stronger reading applies 18.12.3.4, which names high-rise on its own, and the AHJ decides.
+function dsSurvivability(s){ const v=s.surv||{}, sp=s.sprinkler||"", hr=v.high_rise||"", fr=v.frame||"", full=sp==="NFPA 13";
+  if(!sp) return {h:null, says:"Set the sprinkler type (Submittal details, Building)."};
+  if(full&&hr==="No") return {h:0, says:"Fully sprinklered to NFPA 13 and not a high-rise: the backbone needs no fire rating (18.12.3.3)."};
+  if(full&&!hr) return {h:null, says:"Fully sprinklered to NFPA 13: say whether this is a high-rise, which decides the clause."};
+  if(!fr) return {h:null, says:"Set the primary structural frame's required rating."};
+  const h=fr==="Unrated"?0:fr==="Under 2 h"?1:2, ask=full&&hr==="Yes";
+  return {h, ask, says:`${ask?"A fully sprinklered high-rise fits both 18.12.3.3 and 18.12.3.4, and the text does not say which controls. On the stronger reading, 18.12.3.4 applies":`${sp==="None"?"Not sprinklered":sp==="NFPA 13"?"High-rise":`${sp} is not full NFPA 13 coverage`}: 18.12.3.4 applies`}. ${h?`${fr} primary frame: a ${h}-hour rated cable or a ${h}-hour rated enclosure.`:"Unrated primary frame: no rating required."}${ask?" Get the AHJ's reading in writing.":""}`}; }
 window.dasSubmittal = async (el, j) => {
   await Promise.all([frLoad("budget"), frLoad("parts"), frLoad("plans")]);
   const jobFiles=new Set((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files.map(f=>f.name));  // spec sheets gathered (Materials)
@@ -905,9 +947,11 @@ window.dasSubmittal = async (el, j) => {
       <tr><th>Installer</th><td>${esc(s.installer.company||"")||person(gc)}</td></tr><tr><th>AHJ</th><td>${person(who("ahj"))||esc(d.ahj||"–")}</td></tr></tbody></table>
     <h4 style="margin:10px 0 4px">Scope of work</h4><p style="margin:0">${esc(s.scope)}</p>
     <h4 style="margin:10px 0 4px">Statement of compliance</h4><p style="margin:0">This system is designed to comply with ${esc([s.fire_code, s.nfpa, s.fcc, s.local].filter(Boolean).join("; "))}. Coverage, signal levels and DAQ follow the AHJ profile on sheet ER-12; standby power follows ${esc(bc.rule.name)} (ER-10).</p>
-    <h4 style="margin:10px 0 4px">Sheet index</h4><table><thead><tr><th>Sheet</th><th>Title</th></tr></thead><tbody>${DS_SHEETS.map(([k,t])=>`<tr><td class="mono">${k}</td><td>${esc(t)}</td></tr>`).join("")}</tbody></table>`);
+    <h4 style="margin:10px 0 4px">Sheet index</h4><table><thead><tr><th>Sheet</th><th>Title</th></tr></thead><tbody>${DS_SHEETS.map(([k,t])=>`<tr><td class="mono">${k}</td><td>${esc(t)}</td></tr>`).join("")}</tbody></table>
+    <h4 style="margin:10px 0 4px">Where each NFPA 1225 A.18.2.1 item is</h4><table><thead><tr><th class="n">Item</th><th>What the annex asks for</th><th>Sheet</th></tr></thead><tbody>${DS_A18.map(([t,k],i)=>`<tr><td class="n">${i+1}</td><td>${esc(t)}</td><td class="mono">${k}</td></tr>`).join("")}</tbody></table>`);
   // ER-1 systems and diagram
   sheets.push(`${sh(1)}${plan.length?`<table><thead><tr><th>Agency</th><th>Call sign</th><th>Downlink MHz</th><th>Uplink MHz</th><th>Type</th></tr></thead><tbody>${plan.map(p=>`<tr><td>${esc(p.system)}</td><td class="mono">${esc(p.call_sign)}</td><td class="mono">${esc(p.downlink_mhz)}</td><td class="mono">${esc(p.uplink_mhz)}</td><td>${esc(p.technology)}</td></tr>`).join("")}</tbody></table>`:'<p>None chosen in the pre-survey.</p>'}
+    ${(()=>{ const fd=(d.presurvey||{}).federal||{}, by=fd.note?` (${esc(fd.note)})`:""; return fd.state==="yes"?`<p><b>Federal systems also serve this building${by}.</b> They are assigned through NTIA, not FCC licences, so they are not in the table above.</p>`:fd.state==="none"?`<p class="hint">Federal systems: asked, none serve this building${by}.</p>`:""; })()}
     <h3>System diagram: signal path, start to finish</h3>${window.dasSchematic(d)}`);
   // ER-2 link budget per band
   sheets.push(`${sh(2)}${bands.map(b=>{ const I=dsInputs(d,b), R=lbCompute(I), cap=dsCapValues(d, I); return `<div style="break-inside:avoid;margin-bottom:10px"><h4 style="margin:6px 0">${esc(b.band)} · ${b.n_ch} channel${b.n_ch===1?"":"s"}, worst case ${b.f_dl} MHz down / ${b.f_ul} MHz up</h4>
@@ -936,7 +980,7 @@ window.dasSubmittal = async (el, j) => {
       <p class="hint">Estimate = free-space loss over the distance (ITU-R P.525, at the band's lowest frequency) + roof slab (${esc(isoRows[0].x.roofSrc)}) + the donor's front-to-back − donor gain − server antenna gain toward the roof. Distance: ${esc(isoRows[0].x.distSrc)}. Needed = the larger BDA gain + the margin (Link budget, Checks). The isolation test at installation decides.</p>`:'<p>No public safety band in the link budget.</p>'}`);
   // ER-6 floors with grids
   sheets.push(`${sh(6, worst?` (${esc(worst.band)})`:"")}${floors.map((f,i)=>{ const p=pics[i]; return `<div style="break-inside:avoid;margin-bottom:12px"><h4 style="margin:6px 0">Sheet ER-6.${i+1} · Floor ${esc(f.name)}${p?.stats?`: ${p.stats.pct}% of the floor predicted at or above ${p.target} dBm`:""}</h4>
-      ${p?`<img src="${p.src}" style="width:100%;max-width:720px;border:1px solid #999"><p class="hint" style="margin:2px 0">${p.antennas} server antenna${p.antennas===1?"":"s"}${p.stats?.other?` (+${p.stats.other} on other floors counted through the floor)`:""}, ${p.walls} wall${p.walls===1?"":"s"} drawn; test grid: ${p.grids} squares numbered as tested, C marks a critical area. Green ≥ ${p.target+5} dBm, amber within 5 dB of the requirement, red below it. Predicted, not measured.</p>`:'<p class="hint">No design for this floor yet.</p>'}</div>`; }).join("")}`);
+      ${p?`<img src="${p.src}" style="width:100%;max-width:720px;border:1px solid #999"><p class="hint" style="margin:2px 0">${p.antennas} server antenna${p.antennas===1?"":"s"}${p.stats?.other?` (+${p.stats.other} on other floors counted through the floor)`:""}, ${p.walls} wall${p.walls===1?"":"s"} drawn; path model: ${esc(dsMapModel(d, dsInputs(d,worst), p.walls, !!tuneOf(worst.band)))}; test grid: ${p.grids} squares numbered as tested, C marks a critical area. Green ≥ ${p.target+5} dBm, amber within 5 dB of the requirement, red below it. Predicted, not measured.</p>`:'<p class="hint">No design for this floor yet.</p>'}</div>`; }).join("")}`);
   // ER-7 materials
   sheets.push(`${sh(7)}<table><thead><tr><th>Material</th>${matF.map(([l,fm])=>`<th class="n">${l} (${fm} MHz) dB</th>`).join("")}<th>Basis</th><th class="n">Walls drawn</th></tr></thead><tbody>
       ${DS_WALLS.map(([l])=>{ const w={label:l}, a=dsWallInfo(w, 770), b2=dsWallInfo(w, 851), t7=tuneOf("700 MHz")?.walls?.[l], t8=tuneOf("800 MHz")?.walls?.[l];
@@ -945,7 +989,7 @@ window.dasSubmittal = async (el, j) => {
   // ER-8 prediction vs walk
   sheets.push(`${sh(8)}${walkRows.some(w=>w.st.n||w.t)?`<table><thead><tr><th>Band</th><th class="n">Walk readings</th><th>Floors</th><th class="n">Mean error dB</th><th class="n">Spread (SD) dB</th><th>Model</th></tr></thead><tbody>
       ${walkRows.map(w=>`<tr><td>${esc(w.b.band)}</td><td class="n">${w.st.n}</td><td>${esc(w.floors.join(", ")||"–")}</td><td class="n">${sg(w.st.mean)}</td><td class="n">${f1(w.st.sd)}</td>
-        <td>${w.t&&w.t.on?`tuned to the walk (${esc(w.t.at||"")}): N ${w.t.N} (default ${w.t.N0??"–"}), ${Object.entries(w.t.walls||{}).map(([l,v])=>`${esc(l)} ${v} dB`).join(", ")||"no wall types"}${w.t.floor_db!=null?`, ${w.t.floor_db} dB a floor`:""}; before tuning mean ${sg(w.t.before?.mean)}, SD ${f1(w.t.before?.sd)} dB`:"defaults (P.1238, measured wall losses)"}</td></tr>`).join("")}</tbody></table>
+        <td>${w.t&&w.t.on?`tuned to the walk (${esc(w.t.at||"")}): N ${w.t.N} (default ${w.t.N0??"–"}), ${Object.entries(w.t.walls||{}).map(([l,v])=>`${esc(l)} ${v} dB`).join(", ")||"no wall types"}${w.t.floor_db!=null?`, ${w.t.floor_db} dB a floor`:""}; before tuning mean ${sg(w.t.before?.mean)}, SD ${f1(w.t.before?.sd)} dB`:(d.design||{}).wall_rule==="both"?"defaults (P.1238 + drawn walls, measured wall losses)":"defaults (the larger of P.1238 and free space + drawn walls; measured wall losses)"}</td></tr>`).join("")}</tbody></table>
       <p class="hint">Error = measured − predicted at each walk point (public safety downlink, dBm). Fit: least squares of P.1238's N, each wall type's loss and the loss a floor to this job's own readings, held toward the defaults.</p>`
       :'<p>No walk readings on floors with a design yet: the prediction has not been checked against measurements.</p>'}`);
   // ER-9 BOM
@@ -970,7 +1014,41 @@ window.dasSubmittal = async (el, j) => {
       <tr><th>Certification / licence</th><td>${q(s.designer,"cert")}</td><td>${q(s.installer,"license")}</td></tr>
       <tr><th>Manufacturer certificate</th><td>–</td><td>${q(s.installer,"mfr")}${s.installer.expires?` (expires ${esc(s.installer.expires)})`:""}</td></tr></tbody></table>
     <p style="margin-top:18px">Designer signature: ______________________ Date: ________</p><p>AHJ review: ______________________ Date: ________</p>
-    ${window.dasCredits?dasCredits(d):""}</div>`);
+    ${window.dasCredits?dasCredits(d):""}`);
+  // the job's own details for what the annex asks for and the rules only list (ER-11): what isn't entered prints a blank to fill
+  const rule=t=>{ const x=(P?.das||[]).find(r=>r.topic===t); return x?`<p class="hint" style="margin:6px 0 0">${esc(x.requirement)} (${esc(x.code)})</p>`:""; };
+  const blanks=(o,rows)=>`<table><tbody>${rows.map(([k,l])=>`<tr><th>${esc(l)}</th><td>${esc(o[k]||"")||"__________"}</td></tr>`).join("")}</tbody></table>`;
+  const bomHas=re=>(d.bom||[]).filter(x=>re.test(`${x.item||""} ${x.part||""}`));
+  const bomRow=(re,none)=>{ const m=bomHas(re); return m.length?m.map(x=>`${esc(x.item)}${x.part?` (<span class="mono">${esc(x.part)}</span>)`:""}, qty ${esc(x.qty??"")}`).join("; "):none; };
+  const mI=worst?dsInputs(d,worst):{}, dc=mI.donor_cable, firstAim=donor&&donor[0]?donor[0][1]:null;
+  // ER-15 donor mounting and cable
+  sheets.push(`${sh(15)}<table><tbody><tr><th>Donor antenna</th><td>${bomRow(/donor|yagi|log.?periodic/i, mI.donor_gain_dbi!=null?`${esc(String(mI.donor_gain_dbi))} dBi (Link budget)`:"__________")}</td></tr>
+      <tr><th>Height</th><td>about ${num(dasRoof(d),0)} m above ground (Pre-survey)</td></tr>
+      <tr><th>Aimed at</th><td>${firstAim?`<b>${dasDeg(firstAim.true_deg)}</b> true, ${dasDeg(firstAim.mag_deg)} magnetic, to ${esc(donor[0][0].call_sign)} (ER-4)`:"ER-4, when the systems are chosen"}</td></tr>
+      <tr><th>Donor cable</th><td>${dc?`${esc(dc.cable||"")} ${esc(String(dc.ft??""))} ft, ${esc(String(mI.donor_connectors??2))} connectors`:"__________"}</td></tr></tbody></table>
+    <h4 style="margin:10px 0 4px">Mounting</h4>${blanks(s.mount||{}, [["type","Mount type"],["location","Location on the roof or wall"],["above_roof","Height above the roof"],["structure","Structural or roof approval"],["entry","Where the cable enters the building"],["sign","Sled sign, if movable"]])}
+    ${rule("Donor antenna mounting and isolation")}`);
+  // ER-16 grounding and surge
+  sheets.push(`${sh(16)}<table><tbody><tr><th>Discharge unit</th><td>${bomRow(/surge|arrest|lightning|discharge|polyphaser/i, "__________")}</td></tr></tbody></table>
+    <h4 style="margin:10px 0 4px">Details</h4>${blanks(s.surge||{}, [["listing","Discharge unit listing"],["location","Where it is installed"],["bond_to","Bonded to (grounding electrode system point)"],["conductor","Bonding conductor size"],["mast","Antenna and mast grounding"],["rack","Equipment and rack bonding"]])}
+    ${rule("Lightning / surge protection on the donor line")}${rule("Grounding the coax shield at entry")}`);
+  // ER-17 survivability
+  const sv=dsSurvivability(s), sq=s.surv||{};
+  sheets.push(`${sh(17)}<table><tbody><tr><th>Sprinklers</th><td>${esc(s.sprinkler||"–")}</td></tr><tr><th>High-rise</th><td>${esc(sq.high_rise||"–")}</td></tr><tr><th>Primary structural frame</th><td>${esc(sq.frame||"–")}</td></tr>
+      <tr><th>Backbone rating needed</th><td><b>${sv.h==null?"Not decided yet":sv.h?`${sv.h}-hour`:"None"}</b></td></tr></tbody></table><p>${esc(sv.says)}</p>
+    <h4 style="margin:10px 0 4px">How it is met</h4><table><tbody><tr><th>Method</th><td>${esc(sq.method||"")||"__________"}</td></tr><tr><th>Rated cable on the bill</th><td>${bomRow(/2.?h(ou)?r|2196|fire.?rated|fire.?resist|dragonskin/i, "none listed")}</td></tr><tr><th>Backbone route</th><td>${esc(sq.route||"")||"__________"}</td></tr><tr><th>Splice and tap locations</th><td>${esc(sq.splices||"")||"__________"}</td></tr></tbody></table>
+    <p class="hint" style="margin:6px 0 0">Where backbone and distribution cables meet in a rated enclosure, the splices stay inside it unless both the cable and the components are rated (NFPA 1225 18.12.3.5, 18.12.3.6).</p>
+    ${rule("Backbone survivability (fire resistance)")}${rule("Older-edition survivability rules (jurisdictions still on them)")}${rule("Cable fire ratings (plenum / riser)")}`);
+  // ER-18 power
+  sheets.push(`${sh(18)}<h4 style="margin:0 0 4px">Primary power</h4>${blanks(s.power||{}, [["panel","Panel"],["circuit","Circuit"],["breaker","Breaker, and how it is locked or marked"],["volts","Voltage"],["conductor","Conductors and raceway"],["room","Equipment location"]])}
+    <h4 style="margin:10px 0 4px">Standby power</h4>${bc.B.items.length?`<p style="margin:0">${dsBatterySays(bc)}</p><p class="hint" style="margin:4px 0 0">The calculation is on ER-10.</p>`:"<p>No battery calculation yet (Design, Battery).</p>"}
+    ${blanks(s.power||{}, [["battery_wire","Battery wiring and disconnect"],["generator","Generator or emergency panel, if used"]])}${rule("Secondary (standby) power")}`);
+  // ER-19 monitoring
+  const mq=s.mon||{};
+  sheets.push(`${sh(19)}${blanks(mq, [["facu","Fire alarm control unit (make, model)"],["location","Where it is"],["module","Interface (monitor module, dry contacts)"],["annunciator","Dedicated annunciator (make, model)"],["ann_location","Annunciator location"],["station","Supervising station"]])}
+    <p style="margin:8px 0 0"><b>Inputs:</b> ${mq.single==="Yes"?"one supervisory input for all signals (needs the AHJ's approval: IFC 2024 510.4.2.5.1, NFPA 1225 18.14)":"one point per signal, as below"}.</p>
+    <table style="margin-top:6px"><thead><tr><th>Supervisory signal</th><th>Point on the panel</th></tr></thead><tbody>${DS_SIGNALS.map(x=>`<tr><td>${esc(x)}</td><td>__________</td></tr>`).join("")}</tbody></table>
+    ${rule("Supervisory signals to the fire alarm system")}${rule("Dedicated annunciator")}</div>`);
   el.innerHTML=`<div class="maptools no-print"><div class="seg" id="drView"><button data-rv="test">Test report</button><button data-rv="submittal" class="on">Design submittal</button></div>
       <button class="primary" id="dsPrint">⎙ Print / save as PDF</button><span class="hint">Prints the submittal only, a sheet a page, with the project, revision and page number on every page. Licensee consent letters print from the Pre-survey.</span></div>
     <div class="panel" id="dasPrint" style="line-height:1.45"><style>#dasPrint td,#dasPrint th{white-space:normal;vertical-align:top}#dasPrint table{width:100%}#dasPrint tbody th{text-align:left;width:22%}</style>

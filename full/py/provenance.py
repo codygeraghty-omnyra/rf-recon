@@ -14,6 +14,7 @@ Grades are worked out when a page asks, from the raw rows (RULES names the versi
 import re
 import time
 
+import carriers
 import geo
 
 RULES = "provenance rules v1 (2026-11-02)"
@@ -75,13 +76,9 @@ def earned_grade(confirmed, contradicted):
 
 def carrier_key(name):
     """One name per carrier, whether it came from the FCC's coverage map (brand) or a cell ID's operator."""
-    n = re.sub(r"[^a-z]", "", (name or "").lower())
-    for key, words in (("att", ("att", "firstnet", "cingular")), ("verizon", ("verizon", "cellco")),
-                       ("tmobile", ("tmobile", "sprint", "metropcs")), ("uscellular", ("uscellular",)),
-                       ("dish", ("dish", "boost", "echostar"))):
-        if any(n.startswith(w) or w in n for w in words):
-            return key
-    return n or None
+    key = {"AT&T": "att", "FirstNet": "att", "Verizon": "verizon", "T-Mobile": "tmobile", "UScellular": "uscellular",
+           "Dish / Boost": "dish"}.get(carriers.name_of(name))
+    return key or re.sub(r"[^a-z]", "", (name or "").lower()) or None
 
 
 def origin(source):

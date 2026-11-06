@@ -7,6 +7,7 @@
 (() => {
 const PACK_VERSION = 1, MAX_ROWS = 25000, MI_KM = 1.609344, EARTH_KM = 6371.0088, SQLJS = "../vendor/sqljs/";
 const rad = d => d * Math.PI / 180;
+const asrNumber = v => { const s = String(v ?? "").trim(); return /^(|n\/a|na|none)$/i.test(s) ? null : s; };  // uls_import.asr_number: a placeholder isn't a tower
 
 /* ---------- storage: the phone app's database, so a pack loaded in either works in both ---------- */
 const idb = (() => {
@@ -206,7 +207,12 @@ function queryArea(p, hist = []) {
   const area = areaFilter(p);
   if (!area) return {error: "Drop a pin or pick a state/county."};
   const layers = new Set((fstr(p, "layers") || "uls,broadcast,noaa,faa,towers").split(","));
-  const text = fstr(p, "q"), fmin = fnum(p, "fmin"), fmax = fnum(p, "fmax"), hideMobile = fstr(p, "hide_mobile") === "1";
+  const text = fstr(p, "q"), hideMobile = fstr(p, "hide_mobile") === "1", setAside = {};
+  // freq_ranges in app.py: fmin and fmax become the list's outer bounds, and keep() holds a row to the list
+  const ranges = fstr(p, "franges").split(",").map(x => /^\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*$/.exec(x)).filter(Boolean).map(m => [+m[1], +m[2]].sort((a, b) => a - b));
+  let fmin = fnum(p, "fmin"), fmax = fnum(p, "fmax");
+  if (ranges.length && fmin == null && fmax == null) { fmin = Math.min(...ranges.map(r => r[0])); fmax = Math.max(...ranges.map(r => r[1])); }
+  const keep = f => (!ranges.length || f.freq_mhz == null || ranges.some(([a, b]) => a <= f.freq_mhz && b >= f.freq_mhz)) && decorate(f, area);
   const [advWhere, advArgs] = ulsFilters(p);
   if (area.nationwide && !(text || advWhere.length || fmin != null || fmax != null))
     return {error: "A search across the pack needs a call sign, licensee, radio service, technology or frequency."};
@@ -222,8 +228,8 @@ function queryArea(p, hist = []) {
     const rows = q(`SELECT * FROM tx WHERE ${where.join(" AND ")} LIMIT ${MAX_ROWS + 1}`, args);
     truncated = rows.length > MAX_ROWS;
     for (const f of rows.slice(0, MAX_ROWS)) {
-      Object.assign(f, {layer: "uls", fid: `uls:${f.id}`, label: f.licensee, sig_type: f.sig_type || "Unknown"});
-      if (decorate(f, area)) out.push(f);
+      Object.assign(f, {layer: "uls", fid: `uls:${f.id}`, label: f.licensee, sig_type: f.sig_type || "Unknown", tower_reg: asrNumber(f.tower_reg)});
+      if (keep(f)) out.push(f);
     }
   }
   if (layers.has("uls_hist")) for (const h of hist) {  // licences that aren't active, then entries gone since an earlier import
@@ -235,7 +241,7 @@ function queryArea(p, hist = []) {
     for (const f of qd(h, `SELECT * FROM tx_old WHERE ${where.join(" AND ")} LIMIT ${MAX_ROWS + 1}`, args)) {
       Object.assign(f, {layer: "uls_hist", fid: `uls:${f.id}`, label: f.licensee, sig_type: f.sig_type || "Unknown",
         category: "History: " + ({E: "Expired", C: "Cancelled", T: "Terminated"}[f.status] || f.status || "Inactive")});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) out.push(f);
     }
     const hw = [area.sql], ha = [...area.args];
     freq(hw, ha);
@@ -244,7 +250,7 @@ function queryArea(p, hist = []) {
     for (const f of qd(h, `SELECT * FROM tx_history WHERE ${[...hw, ...w2].join(" AND ")} LIMIT 5000`, [...ha, ...a2])) {
       Object.assign(f, {layer: "uls_hist", fid: "hist:" + f.hkey, label: f.licensee, category: "History: Removed", status: "REMOVED",
         sig_type: f.sig_type || "Unknown"});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) out.push(f);
     }
   }
   if (layers.has("towers")) {
@@ -254,10 +260,10 @@ function queryArea(p, hist = []) {
     if (area.nationwide) { const rl = [...(regs || [])]; trows = []; for (let i = 0; i < rl.length; i += 900) trows.push(...q(`SELECT * FROM tower WHERE reg IN (${rl.slice(i, i + 900).map(() => "?").join(",")})`, rl.slice(i, i + 900))); }
     else trows = q(`SELECT * FROM tower WHERE ${area.sql} LIMIT 5000`, area.args);
     for (const f of trows) {
-      if (filtered && !regs.has(f.reg) && !(text && (f.owner || "").toLowerCase().includes(text.toLowerCase()))) continue;
+      if (filtered && !regs.has(f.reg) && !(text && `${f.owner || ""} ${carrierOfName(f.owner) || ""}`.toLowerCase().includes(text.toLowerCase()))) continue;
       Object.assign(f, {layer: "towers", fid: `tower:${f.reg}`, label: `${f.struct_type || "Structure"} ${f.overall_agl_m ?? "?"} m · ${f.owner || ""}`.trim(),
         category: "Tower / structure", sig_type: null, freq_mhz: null});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) out.push(f);
     }
   }
   if (layers.has("broadcast") && area.point && hasTable("bcast")) {
@@ -267,7 +273,7 @@ function queryArea(p, hist = []) {
     for (const f of q(`SELECT * FROM bcast WHERE ${where.join(" AND ")} LIMIT 3000`, args)) {
       Object.assign(f, {layer: "broadcast", fid: `bc:${f.id}`, category: "Broadcast / Media", erp_w: f.erp_kw ? f.erp_kw * 1000 : null,
         label: `${f.call_sign} ${fmtMhz(f.freq_mhz, f.kind)} ${f.kind}${f.kind === "TV" ? ` (ch ${f.channel})` : ""}`});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) out.push(f);
     }
   }
   if (layers.has("faa") && area.point && hasTable("faa")) {
@@ -279,7 +285,7 @@ function queryArea(p, hist = []) {
         label: `${f.ident} ${f.name || ""} · ${f.use || f.kind}`.trim(),
         details: JSON.stringify({"Facility": `${f.ident} ${f.name || ""} (${f.kind})`, "Use": f.use, "Radio call": f.call, "Sector": f.sector,
           "Status": f.status, "Remark": f.remark, "Source": `FAA NASR ${f.source}`})});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) out.push(f);
     }
   }
   if (layers.has("noaa") && !area.nationwide && hasTable("nwr")) {
@@ -295,20 +301,30 @@ function queryArea(p, hist = []) {
         licensee: "NOAA National Weather Service", label: `${f.call_sign} ${f.site} ${f.freq_mhz.toFixed(3)} MHz`,
         details: JSON.stringify({"Status": f.status, "Forecast office": f.wfo, "Transmitter power": f.power_w ? `${f.power_w} W` : "",
           "Counties warned": cs.map(c => `${c.county} ${c.st}${c.part ? ` (${c.part})` : ""}`).join("; "), "SAME codes": cs.map(c => c.same).filter(Boolean).join(" ")})});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) out.push(f);
     }
   }
   if (layers.has("psap") && area.point && hasTable("psap")) {  // 911 call centres, placed at their town's centre
-    for (const f of q(`SELECT * FROM psap WHERE ${area.sql} LIMIT 2000`, area.args)) {
+    const where = [area.sql], args = [...area.args];
+    if (text) { where.push("(name LIKE ? OR city LIKE ? OR county LIKE ? OR psap_id LIKE ?)"); for (let i = 0; i < 4; i++) args.push(`%${text}%`); }
+    for (const f of q(`SELECT * FROM psap WHERE ${where.join(" AND ")} LIMIT 2000`, args)) {
       Object.assign(f, {layer: "psap", fid: `psap:${f.psap_id}`, label: f.name, category: "911 call centre (PSAP)", sig_type: null, freq_mhz: null,
         details: JSON.stringify({"PSAP ID": f.psap_id, "City": f.city, "County": f.county, "State": f.state,
           "Position": `approximate: ${f.located} (the registry has no addresses)`,
           "Registry": `FCC 911 Master PSAP Registry, rows last updated ${META?.psap_source_date || ""}`})});
-      if (decorate(f, area)) out.push(f);
+      if (keep(f)) { if ((fmin != null || fmax != null) && fstr(p, "keep_nofreq") !== "1") setAside.psap = (setAside.psap || 0) + 1; else out.push(f); }
     }
   }
   if (area.point) out.sort((a, b) => (a.dist_mi ?? 1e9) - (b.dist_mi ?? 1e9) || (a.freq_mhz || 0) - (b.freq_mhz || 0));
-  return {rows: out, truncated, center: area.point, radius: area.radius};
+  for (const f of out) {  // carrier_of in app.py; the packs hold no cell sites
+    if ((f.layer === "uls" || f.layer === "uls_hist") && (f.sig_type || "Unknown") === "Unknown")  // service_kind in sigid.py
+      f.sig_type = ["YW", "SY", "YE", "YF", "YP"].includes(f.service) ? "Trunked, mode not on file" : ["CF", "MG", "MW"].includes(f.service) ? "Microwave link" : "Unknown";
+    const tower = f.layer === "towers", name = tower ? carrierOfName(f.owner) : f.layer === "uls" || f.layer === "uls_hist" ? carrierOfName(f.licensee) : null;
+    if (!name) continue;
+    f.carrier = name; f.carrier_from = tower ? "tower owner" : "licensee";
+    if (tower) f.label = `${name}-registered structure · ${f.label || ""}`;
+  }
+  return {rows: out, truncated, center: area.point, radius: area.radius, set_aside: setAside};
 }
 
 function mwlinks(p) {  // microwave backhaul links with an end in the map's box (app.py /api/mwlinks)
@@ -349,10 +365,8 @@ function heatmap(p) {
   const kind = fstr(p, "kind") || "predicted", size = Math.max(60, Math.min(Math.round(fnum(p, "size", 200)), 600));
   const [s, n, w, e] = bbox(lat, lon, radius), dy = (n - s) / size, dx = (e - w) / size;
   const vals = new Float64Array(size * size).fill(NaN);
-  const set = k => new Set(fstr(p, k).split("|").filter(Boolean));
-  const types = set("types"), bands = set("bands"), cats = set("cats"), ident = fstr(p, "ident").toLowerCase();
-  const rows = res.rows.filter(r => (!types.size || types.has(r.sig_type || "Unknown")) && (!bands.size || bands.has(r.band || "Other"))
-    && (!cats.size || cats.has(r.category || "Other")) && (!ident || `${r.ident || ""} ${r.label || ""}`.toLowerCase().includes(ident)));
+  const chosen = facetKeep(p), ident = fstr(p, "ident").toLowerCase();
+  const rows = res.rows.filter(r => chosen(r) && (!ident || `${r.ident || ""} ${r.label || ""}`.toLowerCase().includes(ident)));
   let unit = "dBm", desc;
   if (kind === "predicted") {
     const seen = new Set(), tx = [];
@@ -493,11 +507,23 @@ function download(name, text, type) {
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
+// agency_key in app.py
+const agencyOf = r => String(r.licensee || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim() || "No agency";
+// facet_keep in app.py: the Map's filter groups as a test of one row
+function facetKeep(p) {
+  const list = k => new Set(fstr(p, k).split("|").filter(Boolean)), type = r => ({towers: "Tower / structure", psap: "911 call centre"})[r.layer] || r.sig_type || "Unknown";
+  const cls = r => { if (r.layer === "towers") return "Towers"; if (r.layer !== "uls" && r.layer !== "uls_hist") return r.layer;
+    const c = r.station_class || ""; return c === "FB2" || c === "FB4" ? "Repeaters" : c.startsWith("FB") ? "Base stations" : c.startsWith("FX") ? "Fixed / control" : c.startsWith("MO") ? "Mobiles" : "Other"; };
+  const groups = [["types", type], ["bands", r => r.band || "Other"], ["cats", r => r.category || "Other"], ["cls", cls], ["carriers", r => r.carrier || "No carrier"], ["agencies", agencyOf]].map(([k, read]) => [read, list(k)]).filter(([, vals]) => vals.size);
+  const drop = list("xagencies");
+  return r => groups.every(([read, vals]) => vals.has(read(r))) && !(drop.size && drop.has(agencyOf(r)));
+}
 function exportFile(kind, qs) {
-  const res = queryArea(new URLSearchParams(qs));
+  const p = new URLSearchParams(qs), res = queryArea(p);
   if (res.error) throw new Error(res.error);
-  if (kind === "csv") download("rf_recon.csv", toCsv(res.rows), "text/csv");
-  else download("rf_recon.kml", toKml(res.rows, res.center, res.radius), "application/vnd.google-earth.kml+xml");
+  const rows = res.rows.filter(facetKeep(p));
+  if (kind === "csv") download("rf_recon.csv", toCsv(rows), "text/csv");
+  else download("rf_recon.kml", toKml(rows, res.center, res.radius), "application/vnd.google-earth.kml+xml");
 }
 
 /* ---------- one emitter's coverage (coverage.py, terrain.py): the same models; terrain straight from AWS ---------- */
@@ -694,7 +720,7 @@ function network(p) {
       + "AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 400", [freq - 0.0006, freq + 0.0006, cs, s, n, w, e])
       .map(r => ({...r, dist_mi: +(distKm(lat, lon, r.lat, r.lon) / MI_KM).toFixed(1)})).filter(r => r.dist_mi <= radius).sort((a, b) => a.dist_mi - b.dist_mi).slice(0, 80);
   }
-  const treg = fstr(p, "tower") || siteList.find(s => s.tower_reg)?.tower_reg;
+  const treg = asrNumber(fstr(p, "tower")) || siteList.map(s => asrNumber(s.tower_reg)).find(Boolean);
   if (treg) { tower = q("SELECT * FROM tower WHERE reg = ?", [treg])[0] || {reg: treg};
     colocated = q("SELECT licensee, call_sign, service_name, COUNT(DISTINCT freq_mhz) freqs, GROUP_CONCAT(DISTINCT freq_mhz) f FROM tx WHERE tower_reg = ? AND call_sign <> ? AND status = 'A' GROUP BY call_sign ORDER BY licensee LIMIT 150", [treg, cs])
       .map(c => ({...c, f: [...new Set(String(c.f || "").split(",").filter(Boolean).map(x => +(+x).toFixed(5)))].sort((a, b) => a - b).slice(0, 12)})); }

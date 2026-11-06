@@ -5,8 +5,8 @@
    Enter or a click takes it, Esc closes. Enter only takes a suggestion you moved to with the arrows, so a typed address
    is never swapped out from under you.
    Boxes: a DAS job's Address, the firm's mailing address, Prospects' Where, and any input marked data-addr. The Pin box
-   on the map has its own (search.js). A taken suggestion fires input and change (so the page saves it as if typed) and
-   an "rf-addr" event with {label, full, lat, lon} for pages that want the coordinates too. */
+   on the map has its own (search.js). A taken suggestion fires an "rf-addr" event with {label, full, lat, lon, kind} for
+   pages that want the coordinates too, then input and change (so the page saves it as if typed, coordinates included). */
 (function addrFill() {
   const SEL = 'input[data-k="address"], input[data-pf="address"], input[data-addr], #prWhere';
   const st = { el: null, items: [], active: -1, timer: null, seq: 0, box: null, moved: false };
@@ -21,7 +21,7 @@
   const text = r => r.full || r.label;
   function paint(online) {
     if (!st.el) return; const b = box(); place();
-    if (!st.items.length) { b.innerHTML = `<div class="hint" style="padding:6px 8px">${online === false ? "No signal: only towns and counties work offline." : "No address matches yet: keep typing."}</div>`; b.hidden = false; return; }
+    if (!st.items.length) { b.innerHTML = `<div class="hint" style="padding:6px 8px">${online === false ? "The address lookup isn't answering. Towns and counties still work." : "No address matches yet: keep typing."}</div>`; b.hidden = false; return; }
     b.innerHTML = st.items.map((r, i) => `<div class="item" role="option" data-i="${i}" aria-selected="${i === st.active}" style="cursor:pointer;padding:8px;border-radius:8px;min-height:32px;${i === st.active ? "background:var(--sel, rgba(0,0,0,.06))" : ""}">
       <span class="t">${esc(text(r))}</span> <span class="hint">${esc(r.sub || "")}</span></div>`).join("");
     b.hidden = false;
@@ -32,16 +32,18 @@
     try {
       const r = await api(`/api/geocode?q=${encodeURIComponent(q)}${near}`);
       if (seq !== st.seq || !st.el || st.el.value.trim() !== q) return;
-      // street addresses first (they're what these boxes hold), then places, then towns
-      st.items = (r.results || []).slice().sort((a, b) => (b.kind === "address" && /^\d/.test(text(b))) - (a.kind === "address" && /^\d/.test(text(a))));
+      // the house number typed first, then other street addresses, then places, then towns. A house number has a space after
+      // it: "36th Street West" is a street, and a bus stop on it came first for "3440 Beltline Blvd" (11/5)
+      const no = (q.match(/^\d+/) || [""])[0], rank = x => x.kind !== "address" ? 2 : no && text(x).startsWith(no + " ") ? 0 : /^\d+\s/.test(text(x)) ? 1 : 2;
+      st.items = (r.results || []).slice().sort((a, b) => rank(a) - rank(b));
       st.active = -1; st.moved = false; paint(r.online);
     } catch (e) { close(); }
   }
   function take(r) {
     const el = st.el; close(); if (!el || !r) return;
     el.value = text(r);
-    el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true }));
     el.dispatchEvent(new CustomEvent("rf-addr", { bubbles: true, detail: { label: r.label, full: text(r), lat: r.lat, lon: r.lon, kind: r.kind } }));
+    el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true }));
   }
   document.addEventListener("input", e => {
     const el = e.target; if (!(el instanceof HTMLInputElement) || !el.matches(SEL) || !e.isTrusted && !el.dataset.addrTest) return;

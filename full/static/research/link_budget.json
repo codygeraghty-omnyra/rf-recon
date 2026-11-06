@@ -2826,7 +2826,7 @@
   },
   {
    "item": "Propagation delay",
-   "value": "Max rated configuration's propagation delay must comply with P25 Phase 2 requirements",
+   "value": "Propagation delay must meet the manufacturer's maximum specified delay. The 3rd edition struck the earlier P25 Phase 2 wording, so get any Phase 2 delay limit from the licensee or AHJ",
    "code": "UL 2524 3rd ed. (2024)",
    "section": "34.4",
    "sources": [

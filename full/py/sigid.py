@@ -54,6 +54,15 @@ LIBRARY = {
 }
 
 
+TRUNKED_KIND, MICROWAVE_KIND = "Trunked, mode not on file", "Microwave link"
+
+
+def service_kind(service):
+    """What a licence is when the FCC record has no mode: read from its radio service, not from a verified system. The biggest
+    filter value was Unknown, and 184 of one job's Unknowns were Public Safety 800 MHz Trunked."""
+    return TRUNKED_KIND if service in ("YW", "SY", "YE", "YF", "YP") else MICROWAVE_KIND if service in ("CF", "MG", "MW") else None
+
+
 def sigid_url(sig_type):
     term = LIBRARY.get(sig_type, LIBRARY["Unknown"])[2] or sig_type
     return SIGID_SEARCH + quote(term)

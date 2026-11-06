@@ -320,9 +320,12 @@ function pcEditor(box, p, fields, on={}){
 window.dasMaterials = async (el, j, save) => {
   const r=await frLoad("parts"), d=j.data||{}, bom=Array.isArray(d.bom)?d.bom:[], mchecks=d.material_checks||{};
   if(!el.isConnected) return;  // a newer draw took over while this one waited
-  const cat=r.empty?[]:[...(r.cables||[]).map(c=>({cat:"Cable", item:c.name, part:(c.part_examples||"").toString().split(/[,;]/)[0].trim(), supplier:c.vendor||""})),
+  // part_examples: plain names for cables, {vendor, part, ...} for components (its text was "[object Object]", in the list and in a picked BOM line)
+  const ex1=c=>{ const x=Array.isArray(c.part_examples)?c.part_examples[0]:c.part_examples; return x&&typeof x==="object"?x:{part:x??""}; };
+  const part1=c=>String(ex1(c).part||"").split(/[,;]/)[0].trim();
+  const cat=r.empty?[]:[...(r.cables||[]).map(c=>({cat:"Cable", item:c.name, part:part1(c), supplier:c.vendor||""})),
     ...(r.connectors||[]).map(c=>({cat:"Connector", item:c.name, part:"", supplier:""})),
-    ...(r.components||[]).map(c=>({cat:"Component", item:c.type, part:(c.part_examples||"").toString().split(/[,;]/)[0].trim(), supplier:(c.vendors||"").toString().split(/[,;]/)[0].trim()}))];
+    ...(r.components||[]).map(c=>({cat:"Component", item:c.type, part:part1(c), supplier:String(ex1(c).vendor||(c.vendors||"").toString().split(/[,;]/)[0]).trim()}))];
   const sum=bom.reduce((a,x)=>(a[x.cat||"Other"]=(a[x.cat||"Other"]||0)+(+x.qty||0),a),{});
   // the parts catalogue (Joe 11/3): the BOM lines' own parts (for their spec sheets) and the standard parts
   const pids=[...new Set(bom.map(x=>x.pid).filter(Boolean))];
