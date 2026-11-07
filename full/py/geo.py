@@ -427,15 +427,58 @@ def grid_predicted(grid, transmitters, floor_dbm=-120, combine="max"):
                 v = float(best[r, c])
                 grid.values[r][c] = v if v >= floor_dbm else None
         return grid
-    for r in range(grid.rows):
-        for c in range(grid.cols):
-            la0, lo0 = grid.cell_center(r, c)
-            vals = [fspl_rx_dbm(erp, haversine_km(la0, lo0, la, lo), f) for la, lo, erp, f in tx]
-            if combine == "max":
-                v = max(vals)
+    return _grid_predicted_py(grid, tx, floor_dbm, combine)
+
+
+def _grid_predicted_py(grid, tx, floor_dbm, combine):
+    """The same free-space levels without numpy (the 24/7 server has none), fast enough to wait for: 400 transmitters over 200 x 200
+    cells took 16.6 s one haversine and two logs at a time (QA 11/7, Wilmington 5 mi). On a regular grid the haversine separates:
+    a = A[row] + B[row] * C[col] for each transmitter, so a cell costs one multiply-add and one divide per transmitter, and the level
+    is 10*log10 of the strongest (or summed) W / a, one log per cell. For a transmitter within about 127 km of every cell (a <= 1e-4)
+    asin(sqrt(a)) is taken as sqrt(a), off by under 0.0002 dB; one farther out takes the exact haversine."""
+    rows, cols = grid.rows, grid.cols
+    rad = math.radians
+    lat_r = [rad(grid.cell_center(r, 0)[0]) for r in range(rows)]
+    lon_c = [grid.cell_center(0, c)[1] for c in range(cols)]
+    cos_r = [math.cos(x) for x in lat_r]
+    two_r = 2 * EARTH_KM
+    a_floor = (0.05 / two_r) ** 2  # fspl_rx_dbm's 50 m floor on distance, in the same units as a
+    acc = [[0.0] * cols for _ in range(rows)]
+    row_min = [0.0] * rows  # the weakest cell in each row so far: a row no transmitter can lift is skipped (strongest only)
+    is_max = combine == "max"
+    # strongest first, so the weak ones mostly find nothing left to lift
+    tx = sorted(tx, key=lambda t: -(10 * math.log10(t[2] * 1000) - 20 * math.log10(t[3])))
+    for la, lo, erp, f in tx:
+        p1 = rad(la)
+        cp1 = math.cos(p1)
+        A = [math.sin((x - p1) / 2) ** 2 for x in lat_r]
+        B = [cp1 * c for c in cos_r]
+        C = [math.sin(rad(x - lo) / 2) ** 2 for x in lon_c]
+        c_min = min(C)
+        k_db = 10 * math.log10(erp * 1000) + 2.15 - 20 * math.log10(f) - 32.44  # level = k_db - 20*log10(d_km)
+        near = max(A) + max(B) * max(C) <= 1e-4
+        w = 10 ** (k_db / 10) / (two_r * two_r) if near else 10 ** (k_db / 10)  # near: d = 2R*sqrt(a), so 10**(level/10) = w / a
+        for r in range(rows):
+            ar, br = A[r], B[r]
+            if is_max:
+                a_low = ar + br * c_min  # this transmitter's nearest point in the row bounds what it can give it
+                if (w / (a_low if a_low > a_floor else a_floor) if near else w / max((two_r * math.asin(min(1.0, math.sqrt(a_low)))) ** 2, 0.0025)) <= row_min[r]:
+                    continue
+            old = acc[r]
+            if near:
+                new = [w / (x if (x := ar + br * cc) > a_floor else a_floor) for cc in C]
+            else:  # exact haversine: 10**(level/10) = w / d**2
+                new = [w / max((two_r * math.asin(min(1.0, math.sqrt(ar + br * cc)))) ** 2, 0.0025) for cc in C]
+            if is_max:
+                acc[r] = row = [n if n > o else o for o, n in zip(old, new)]
+                row_min[r] = min(row)
             else:
-                v = 10 * math.log10(sum(10 ** (x / 10) for x in vals))
-            grid.values[r][c] = v if v >= floor_dbm else None
+                acc[r] = [o + n for o, n in zip(old, new)]
+    for r in range(rows):
+        row, out = acc[r], grid.values[r]
+        for c in range(cols):
+            v = 10 * math.log10(row[c]) if row[c] > 0 else None
+            out[c] = v if v is not None and v >= floor_dbm else None
     return grid
 
 

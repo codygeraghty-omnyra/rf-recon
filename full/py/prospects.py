@@ -788,14 +788,35 @@ def highrises(data_dir, lat, lon, radius_mi=3, log=print, fetch_csv=None):
     return n
 
 
+def db_stamp(path):
+    """What changes when a WAL database is written: the file's and its -wal's time and size."""
+    out = []
+    for p in (path, path + "-wal"):
+        try:
+            s = os.stat(p)
+            out.append((s.st_mtime_ns, s.st_size))
+        except OSError:
+            out.append(None)
+    return tuple(out)
+
+
+_COUNTS = {}  # path -> (stamp, counts): counting the whole list cost ~0.4 s a Prospects request, and it changes only on an update (11/7)
+
+
 def counts(data_dir):
     """{kind: rows, "updated": the newest refresh time}; empty kinds are left out."""
-    if not os.path.exists(db_path(data_dir)):
+    path = db_path(data_dir)
+    if not os.path.exists(path):
         return {"updated": None}
-    con = sqlite3.connect(db_path(data_dir), timeout=30)
+    stamp = db_stamp(path)
+    hit = _COUNTS.get(path)
+    if hit and hit[0] == stamp:
+        return dict(hit[1])
+    con = sqlite3.connect(path, timeout=30)
     try:
         out = {k: n for k, n in con.execute("SELECT kind, COUNT(*) FROM prospect GROUP BY kind")}
         out["updated"] = con.execute("SELECT MAX(updated) FROM prospect").fetchone()[0]
+        _COUNTS[path] = (stamp, dict(out))
         return out
     except sqlite3.OperationalError:
         return {"updated": None}

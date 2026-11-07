@@ -20,6 +20,7 @@ name the job before the walls close.
 Own sqlite file (permits.db in the data folder, WAL) so a pull never locks the other data. Standard library only.
 """
 import csv
+import functools
 import io
 import json
 import math
@@ -849,6 +850,7 @@ _SUFFIX = {"street": "st", "avenue": "ave", "av": "ave", "road": "rd", "boulevar
            "south": "s", "east": "e", "west": "w", "northwest": "nw", "northeast": "ne", "southwest": "sw", "southeast": "se"}
 
 
+@functools.lru_cache(maxsize=65536)  # the same addresses are keyed again and again while matching (29,000 calls for one Prospects list, 11/7)
 def addr_key(a):
     """'1201 wilson' from '1201 Wilson Boulevard, Arlington VA': the house number and the street's first name word."""
     s = re.sub(r"[^a-z0-9 ]", " ", (a or "").lower())
@@ -947,12 +949,14 @@ def link_cos(perms):
     cos = [p for p in perms if p["kind"] == "co_issued"]
     if not cos:
         return
+    keys = [addr_key(c.get("address")) for c in cos]  # once per CO, not once per pair (11/7)
+    band = CO_LINK_MI / 69.0 * 1.5  # a CO further than this in latitude can't be within CO_LINK_MI: skip the haversine
     for p in perms:
         if p["kind"] != "new_building" or p.get("co_date"):
             continue
         k = addr_key(p.get("address"))
-        for c in cos:
-            same = (k and k == addr_key(c.get("address"))) or _hav(p["lat"], p["lon"], c["lat"], c["lon"]) <= CO_LINK_MI
+        for c, ck in zip(cos, keys):
+            same = (k and k == ck) or (abs(c["lat"] - p["lat"]) <= band and _hav(p["lat"], p["lon"], c["lat"], c["lon"]) <= CO_LINK_MI)
             if same and (c.get("co_date") or "") >= (p.get("issued") or p.get("filed") or ""):
                 p["co_date"] = c["co_date"]
                 p["why"] = (p.get("why") or "") + f"; CO {c['permit_id']} ({c['source']}) issued {c['co_date']}"
@@ -982,6 +986,16 @@ def attach(data_dir, rows, lat, lon, radius_mi, only=None, extra=True, today=Non
             by_addr.setdefault(k, []).append(r)
         if r.get("precision") != "zip":
             pts.append(r)
+    # the buildings in a grid of cells as wide as the largest match distance (with the old latitude window's margin), so a permit
+    # looks only at the buildings in its own cell and the eight around it: every building within the match distance is there.
+    # Candidates are taken in the buildings' own order, so a tie goes to the same building as before. A Prospects list near DC
+    # spent 2.7 to 4.2 s here walking all ~600 buildings for each of thousands of permits (11/7).
+    cell_lat = MATCH_MI["large"] / 69.0 * 1.5
+    far = max((abs(r["lat"]) for r in pts), default=0.0) + 1.0
+    cell_lon = MATCH_MI["large"] / (69.0 * max(0.01, math.cos(math.radians(min(89.0, far))))) * 1.5
+    cells = {}
+    for i, r in enumerate(pts):
+        cells.setdefault((math.floor(r["lat"] / cell_lat), math.floor(r["lon"] / cell_lon)), []).append(i)
     got = {}
     left = []
     for p in perms:
@@ -992,7 +1006,9 @@ def attach(data_dir, rows, lat, lon, radius_mi, only=None, extra=True, today=Non
             if d <= 1.0 and (best is None or d < best[0]):
                 best = (d, r)
         if best is None:
-            for r in pts:
+            gi, gj = math.floor(p["lat"] / cell_lat), math.floor(p["lon"] / cell_lon)
+            near_idx = sorted(i for di in (-1, 0, 1) for dj in (-1, 0, 1) for i in cells.get((gi + di, gj + dj), ()))
+            for r in (pts[i] for i in near_idx):
                 lim = MATCH_MI["large"] if r.get("kind") in LARGE else MATCH_MI["default"]
                 if abs(r["lat"] - p["lat"]) > lim / 69.0 * 1.5:
                     continue
@@ -1108,17 +1124,34 @@ def as_prospect(data_dir, pid):
     return as_row(dict(zip(COLS, r)))
 
 
+_COUNTS = {}  # (path, only) -> (stamp, counts): kept until the file or its -wal changes (a Prospects request counted every time, 11/7)
+
+
 def counts(data_dir, only=None):
     """{kind: rows} of the permits kept (only: dataset ids)."""
-    if not os.path.exists(db_path(data_dir)):
+    path = db_path(data_dir)
+    if not os.path.exists(path):
         return {}
-    con = sqlite3.connect(db_path(data_dir), timeout=30)
+    stamp = []
+    for f in (path, path + "-wal"):
+        try:
+            s = os.stat(f)
+            stamp.append((s.st_mtime_ns, s.st_size))
+        except OSError:
+            stamp.append(None)
+    key = (path, tuple(only) if only is not None else None)
+    hit = _COUNTS.get(key)
+    if hit and hit[0] == stamp:
+        return dict(hit[1])
+    con = sqlite3.connect(path, timeout=30)
     try:
         sql, args = "SELECT kind, COUNT(*) FROM permit", []
         if only is not None:
             sql += f" WHERE source IN ({','.join('?' * len(only)) or 'NULL'})"
             args = list(only)
-        return dict(con.execute(sql + " GROUP BY kind", args).fetchall())
+        out = dict(con.execute(sql + " GROUP BY kind", args).fetchall())
+        _COUNTS[key] = (stamp, dict(out))
+        return out
     except sqlite3.OperationalError:
         return {}
     finally:

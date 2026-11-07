@@ -356,7 +356,8 @@
      "src": [
       "d-2026-10-28",
       "d-2026-11-05-2200",
-      "static/core.js"
+      "static/core.js",
+      "d-2026-11-07-1646"
      ]
     },
     {
@@ -3169,7 +3170,8 @@
      "group": "mail and prospects",
      "src": [
       "d-2026-11-03-pm",
-      "static/dasprospects.js"
+      "static/dasprospects.js",
+      "d-2026-11-07-1646"
      ]
     },
     {
