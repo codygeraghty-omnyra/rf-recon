@@ -94,7 +94,7 @@ def entry_loss(row, nsi=None):
     year = nsi.get("year_built") or (time.gmtime().tm_year if kind == "under_construction" else None)  # a permitted new building
     parts = []
     if kind == "tunnel":
-        return {"db": SUBTERRANEAN_DB, "parts": [[SUBTERRANEAN_DB, "tunnel: subterranean (NIST TN 1552 upper medians)"]],
+        return {"db": SUBTERRANEAN_DB, "parts": [[SUBTERRANEAN_DB, "tunnel: 90 dB, a judgement (NIST TN 1552 measured buildings above ground, not tunnels): measure it"]],
                 "basis": "type", "year": None, "floors": None}
     if year and year >= EFFICIENT_FROM:
         parts.append([EFFICIENT_DB, f"built {year}: thermally efficient (low-E glass), ITU-R P.2109 median"])

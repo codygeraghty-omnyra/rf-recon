@@ -53,6 +53,8 @@ function dxContactCell(calls){
 
 /* ---------- consent per licensee ---------- */
 const DX_CONSENT = ["not asked", "asked", "given", "refused", "not needed"];
+// who this job's booster passes, so who has to consent: a Class A passes what's next to its channels, a Class B its whole span
+const dxPasses = d => { const isB = (d.booster_class || "Class A (channelized)").startsWith("Class B"); return x => x.chosen || (isB ? x.class_b : x.class_a); };
 async function dxSetConsent(j, row, patch){
   return post(`/api/das/x/consent/${j.id}`, { key: row.key, licensee: row.licensee, calls: row.calls, ...patch });
 }
@@ -63,6 +65,64 @@ window.dasConsentSent = async (j, lic, ss) => {
   try{ await dxSetConsent(j, { key: k, licensee: lic, calls: ss.map(s => s.call_sign) }, { status: "asked", date: today() }); }
   catch(e){ dasSay("Consent status not saved: " + e.message); }
 };
+/* ---------- the job's one list of emails (dasmail.js jobAll): who still has to be asked, in the letters' own words ---------- */
+const DX_ASKED = ["asked", "given", "refused", "not needed"], DX_CROWD = 10;
+window.dasJobMailRows = async (j, r) => {
+  let crowd = false;
+  const d = j.data || {}, scope = dasScope(d), rows = [], off = new Set(r.off || []), sent = new Set(r.sent || []), plan = (d.presurvey || {}).plan || [], where = d.address ? `, ${d.address}` : "";
+  if(!S.das?.contacts){ const c = await api("/api/das/contacts"); S.das = S.das || { view: "board", q: "", job: null, sub: "overview" }; S.das.contacts = c.contacts; }
+  const add = x => { if(!off.has(x.key)) rows.push({ kind: "job", group: r.group, ...x }); };
+  const noMail = a => `No email on the FCC record${a?.phone ? `: call ${a.phone}` : ""}. Type one here if you have it.`;
+  // Discovery names the main system: its radio shop says what the building has to carry. Once a plan's saved, that's been answered
+  const main = d.guided?.discovery?.main;
+  if(scope.ps && main?.call && !plan.length && ["Lead", "Pre-survey"].includes(j.stage) && !sent.has(`J${j.id} MAIL RADIO`)){
+    await dxContacts([main.call]); const a = dxAddr([main.call]);
+    add({ key: `radio:${j.id}`, refs: { job_id: j.id, topic: "MAIL", extra: "RADIO" }, to: a?.email || "", to_name: main.licensee, blocked: a?.email ? "" : noMail(a),
+      subject: `Radio system for ${j.name}${where}`, why: `${main.licensee} looks like the main system here, and only its radio shop knows what the building has to carry`,
+      body: `Hello,\n\nWe're looking at in-building emergency responder radio coverage at ${j.name}${where}. Licence ${main.call} looks like the main system here. Could you tell us:\n\n1. Which system and channels this building has to carry\n2. Whether it falls under a subsystem\n3. Who we should ask for consent to retransmit\n\nThank you,\n${r.sig || ""}` });
+  }
+  if(scope.ps && plan.length){
+    const pb = await api(`/api/das/x/passband/${j.id}`), passes = dxPasses(d);
+    const todo = pb.licensees.filter(x => passes(x) && !DX_ASKED.includes(x.consent.status));
+    crowd = todo.filter(x => x.chosen).length > DX_CROWD;  // one press reaches every ticked row: this many says the plan needs a look first
+    if(todo.length){
+      await dxContacts(todo.flatMap(x => x.calls.slice(0, 3)));
+      const inc = new Set((d.presurvey || {}).include || []), ps = todo.some(x => x.chosen) ? await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${(d.presurvey || {}).radius || 15}&job=${j.id}&threshold=-95&env=suburban`).catch(() => ({})) : {};
+      const chosen = (ps.systems || []).filter(s => inc.has(s.call_sign));
+      for(const x of todo){
+        const got = x.chosen ? chosen.filter(s => dxKey(s.licensee) === x.key) : [], ss = got.length ? got : dxSys(x), a = dxAddr(x.calls);
+        add({ key: `consent:${j.id}:${x.key}`, refs: { job_id: j.id, topic: "CONSENT", extra: ss[0]?.call_sign || x.calls[0] }, to: a?.email || "", to_name: x.licensee, blocked: a?.email ? "" : noMail(a),
+          subject: `Consent to retransmit ${x.calls.slice(0, 6).join(", ")}: ${j.name}`, body: dasConsentText(j, x.licensee, ss),
+          untick: !x.chosen || crowd, why: x.chosen ? `The booster passes ${x.licensee}'s channels, and it hasn't been asked (47 CFR 90.219(b)(1))` : `The booster would pass ${x.licensee}'s channels, but this job doesn't carry it. Unticked until you've checked it needs asking (47 CFR 90.219(b)(1))`, after: () => window.dasConsentSent(j, x.licensee, ss) });
+      }
+    }
+  }
+  if(scope.cell && window.dasCellConsentMail){
+    const cell = { ...(d.cellular || {}), approvals: { ...((d.cellular || {}).approvals || {}) } };
+    for(const c of (d.cellular?.profile?.carriers || [])){
+      const car = carrierName(c), ap = cell.approvals[car] || {}, m = window.dasCellConsentMail(j, car);
+      if(ap.asked || ap.consent || sent.has(`J${j.id} CONSENT ${(m.refs.extra || "").toUpperCase()}`)) continue;
+      add({ ...m, key: `carrier:${j.id}:${m.refs.extra}`, to_name: car, want_file: "consent", blocked: m.to ? "" : `No consent address on file for ${car}. Type the one they gave you.`, why: `${car} hasn't been asked for its consent (47 CFR 20.21(c))`,
+        after: async () => { cell.approvals[car] = { ...(cell.approvals[car] || {}), asked: today() }; await post(`/api/das/jobs/${j.id}`, { data: { cellular: cell } }); } });
+    }
+  }
+  // one press reaches every licensee on the list, so the Pre-survey's warning about these addresses comes with it
+  const fcc = rows.some(x => x.key.startsWith("consent:") || x.key.startsWith("radio:"));
+  if(crowd) return { rows, note: `That's more than ${DX_CROWD} licensees on this job's plan, so none of them start ticked. Check the channel plan on the Pre-survey, then tick the ones to ask.` };
+  return { rows, note: scope.ps && !plan.length && j.stage !== "Lead" ? "Licensee consent requests join this list once the channel plan is saved."
+    : fcc ? "Licensee addresses come from each licence's FCC record. That's often a radio shop or a consultant, not the agency: check them before you press." : "" };
+};
+
+// the AHJ's contact, found or made, so an email to the AHJ has somewhere to go: Use as AHJ, This one and Run it for me all land here
+window.dasAhjContact = async x => {
+  const cs = (await api("/api/das/contacts")).contacts || [];
+  let c = cs.find(k => (k.org || "") === x.name && /AHJ|fire marshal/i.test(k.role || ""));
+  if(c) return c;
+  c = await post("/api/das/contacts", { name: "Fire marshal's office", org: x.name, role: "AHJ / fire marshal", phone: x.phone || "",
+    notes: `From the USFA National Fire Department Registry (records before June 2026)${x.fdid ? `, FDID ${x.fdid}` : ""}.${x.hq ? ` HQ: ${x.hq}.` : ""}${x.website ? ` Website: ${x.website}.` : ""} Confirm who signs off ERCES with its fire prevention or fire marshal office.` });
+  return c.contact || c;
+};
+
 // letter "systems" for licensees outside the chosen ones: one per call sign, with the frequencies inside the passbands
 const dxSys = row => (row.calls || []).map(c => ({ licensee: row.licensee, call_sign: c, down: ((row.by_call || {})[c] || []).map(f => ({ freq: f })), up: [] }));
 
@@ -83,7 +143,7 @@ async function dxPassband(el, j, r, chosen){
   await dxContacts(pb.licensees.flatMap(x => x.calls.slice(0, 3)));
   if(!el.isConnected) return;
   const cls = d.booster_class || "Class A (channelized)", isB = cls.startsWith("Class B");
-  const passes = x => x.chosen || (isB ? x.class_b : x.class_a);
+  const passes = dxPasses(d);
   const showAll = !!S.das.pxAll, rows = pb.licensees.filter(x => showAll || passes(x));
   const need = pb.licensees.filter(passes), given = need.filter(x => x.consent.status === "given" || x.consent.status === "not needed");
   const how = x => x.esmr && !x.chosen ? '<span class="tag w">ESMR (commercial): keep out</span>' : x.chosen ? "chosen system" : [x.class_a ? "Class A and B" : "Class B only", x.co_channel ? "on a job channel" : x.adjacent ? "next to a job channel" : "", x.firstnet ? "Band 14" : ""].filter(Boolean).join(" · ");
@@ -130,8 +190,73 @@ function dxConsentAll(j, need){
   const ck = ((j.data || {}).checks || {});
   if(!need.length || ck.consent || !need.every(x => ["given", "not needed"].includes(x.consent.status))) return;
   if(confirm(`Every licensee this booster passes has consented. Mark "Licensee consent" done on the Overview (Compliance) with today's date?`))
-    post(`/api/das/jobs/${j.id}`, { data: { checks: { ...ck, consent: today() } } }).catch(e => dasSay("Not saved: " + e.message));
+    return post(`/api/das/jobs/${j.id}`, { data: { checks: { ...ck, consent: today() } } }).catch(e => dasSay("Not saved: " + e.message));
 }
+
+/* ---------- a reply on the board's Needs you (dasmail.py): it fills the form, a person presses. Nothing here keeps a record of its own:
+   a press saves through the same routes as the Pre-survey's and the Code check's own controls, so the stage gate, the one list of emails
+   and Walk me through see it with nothing further. Then the reply is closed. The open reader lives in S.das, since render() redraws
+   the board on every search landing. ---------- */
+const DX_MARK = { given: "Mark given", refused: "Mark refused", confirmed: "Mark confirmed" };
+const dxMarkBtn = (k, primary) => `<button ${primary ? 'class="primary" ' : ""}data-rpmark="${k}">${DX_MARK[k]}</button>`;
+window.dasReplyBtns = r => `${(r.line || []).map(k => dxMarkBtn(k, true)).join("")}<button data-rpread="${r.id}">Read it</button>`;
+async function dxMark(jid, r, how){  // saves, then says what's left to offer once the line is closed
+  const said = `From the reply of ${r.date}, ${r.from}`;
+  if(how === "confirmed"){
+    const P = await api(`/api/das/x/code/${jid}`).catch(() => ({}));  // the state goes too, as the card's Save sends it: that's how a later change to the state's row warns
+    await post(`/api/das/x/code/${jid}`, { confirmed_by: r.confirmed_by, confirmed_on: r.confirmed_on, how: r.how, state: P.state, ...(P.check?.note ? {} : { note: said }) });
+    return null;
+  }
+  if(r.kind === "carrier"){  // the Pre-survey's carrier table: a consent date on the carrier's row
+    const C = (await api(`/api/das/jobs/${jid}`)).data.cellular || {}, all = C.approvals || {};
+    await post(`/api/das/jobs/${jid}`, { data: { cellular: { ...C, approvals: { ...all, [r.carrier]: { ...(all[r.carrier] || {}), consent: r.date } } } } });
+    return null;
+  }
+  const pb = await api(`/api/das/x/passband/${jid}`).catch(() => ({ licensees: [] }));
+  const row = pb.licensees.find(x => x.key === r.key || (r.call && x.calls.includes(r.call))) || (r.key ? r : null);
+  if(!row) throw new Error(`nothing on this job says whose licence ${r.call || "this is"}. Set it in the Pre-survey.`);
+  const j = await dxSetConsent({ id: jid }, row, { status: how, date: r.date, note: said });
+  return () => dxConsentAll(j, pb.licensees.filter(dxPasses(j.data)).map(n => n.key === row.key ? { ...n, consent: { status: how } } : n));
+}
+async function dxPress(btns, jid, r, how, after){
+  btns.forEach(b => { b.disabled = true; });  // one press, one save
+  let more = null;
+  if(how !== "cleared") try{ more = await dxMark(jid, r, how); }
+    catch(e){ btns.forEach(b => { b.disabled = false; }); dasSay("Not saved: " + e.message); return; }
+  // the job has it by now, and a job's own record takes the line off the board: a failure here is only a note
+  try{ await post(`/api/das/x/reply/${jid}`, { id: r.id, done: how }); }catch(e){ dasSay("Saved on the job, but the reply wasn't closed: " + e.message); }
+  if(S.das.rpOpen === r.id) S.das.rpOpen = null;
+  if(more) await more();
+  after();
+}
+const dxFills = r => r.kind === "code" ? `Mark confirmed saves: confirmed by ${r.confirmed_by}, ${r.confirmed_on}, how: ${r.how}.`
+  : r.kind === "carrier" ? `Mark given saves ${r.date} as ${r.carrier}'s consent date.`
+  : r.kind === "consent" ? `It saves ${r.licensee || r.call} with the date ${r.date}.` : "";
+async function dxReplyOpen(box, jid, r, after){
+  S.das.rpOpen = r.id; box.innerHTML = '<p class="hint" style="margin:6px 0">Opening the email…</p>';
+  let m; try{ m = await post(`/api/das/x/reply/${jid}`, { id: r.id }); }
+  catch(e){ S.das.rpOpen = null; if(box.isConnected) box.innerHTML = `<p class="status err">${esc(e.message)}</p>`; return; }
+  if(!box.isConnected || S.das.rpOpen !== r.id) return;
+  box.innerHTML = `<div class="panel" style="margin:6px 0 2px;padding:10px 12px">
+    <div><b>${esc(m.name ? `${m.name} <${m.from}>` : m.from)}</b> <span class="hint">${esc((m.ts || "").slice(0, 16))}</span></div>
+    <div class="hint" style="overflow-wrap:anywhere">${esc(m.subject || "")}</div>
+    <pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:6px 0;max-height:320px;overflow:auto">${esc(m.body || "(no message)")}</pre>
+    ${m.files.length ? `<div class="hint" style="overflow-wrap:anywhere">In the job's files: ${m.files.map(f => `<a href="/api/das/jobs/${jid}/file?name=${encodeURIComponent(f)}" target="_blank" rel="noopener">${esc(f)}</a>`).join(", ")}</div>` : ""}
+    ${r.trusted ? (r.reader || []).length ? `<p class="hint" style="margin:6px 0">${esc(dxFills(r))} Nothing changes until you press.</p>` : "" : `<p class="hint" style="margin:6px 0">We didn't write to ${esc(r.from)}, so nothing can be marked from this. If it's real, set it on the job yourself.</p>`}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">${(r.reader || []).map(k => dxMarkBtn(k, false)).join("")}<button data-rpclear title="Takes this line off Needs you. Nothing changes on the job">Clear this line</button></div></div>`;
+  const all = () => [...box.querySelectorAll("button"), ...(box.parentElement?.querySelectorAll(`[data-rprow="${r.id}"] button`) || [])];
+  box.querySelectorAll("[data-rpmark]").forEach(b => b.onclick = () => dxPress(all(), jid, r, b.dataset.rpmark, after));
+  box.querySelector("[data-rpclear]").onclick = () => dxPress(all(), jid, r, "cleared", after);
+}
+// items: [{jid, r}], each with a [data-rprow] and a [data-rpbox] of its own under el. after: redraw what's holding them
+window.dasReplyWire = (el, items, after) => { if(!el) return;
+  S.das = S.das || { view: "board", q: "", job: null, sub: "overview" };  // Start's list can come first
+  for(const { jid, r } of items){
+    const row = el.querySelector(`[data-rprow="${r.id}"]`), box = el.querySelector(`[data-rpbox="${r.id}"]`); if(!row || !box) continue;
+    row.querySelectorAll("[data-rpmark]").forEach(b => b.onclick = () => dxPress([...row.querySelectorAll("button")], jid, r, b.dataset.rpmark, after));
+    row.querySelector("[data-rpread]").onclick = () => { if(S.das.rpOpen === r.id){ S.das.rpOpen = null; box.innerHTML = ""; return; } dxReplyOpen(box, jid, r, after); };
+    if(S.das.rpOpen === r.id) dxReplyOpen(box, jid, r, after);
+  } };
 
 /* ---------- the licence watch ---------- */
 async function dxWatch(el, j, force){
@@ -335,11 +460,7 @@ window.dasAhjGuess = (el, j, save) => {
     catch(e){ b.disabled = false; msg.textContent = e.message; } };
   $("#ahjGo").onclick = go;
   el.querySelectorAll("[data-ahj]").forEach(b => b.onclick = async () => { const x = G.list[+b.dataset.ahj];
-    try{ const cs = S.das.contacts || [];
-      let c = cs.find(c => (c.org || "") === x.name && /AHJ|fire marshal/i.test(c.role || ""));
-      if(!c) c = await post("/api/das/contacts", { name: "Fire marshal's office", org: x.name, role: "AHJ / fire marshal", phone: x.phone || "",
-        notes: `From the USFA National Fire Department Registry (records before June 2026)${x.fdid ? `, FDID ${x.fdid}` : ""}. HQ: ${x.hq}.${x.website ? ` Website: ${x.website}.` : ""} Confirm who signs off ERCES with its fire prevention or fire marshal office.` });
-      if(c.contact) c = c.contact;
+    try{ const c = await window.dasAhjContact(x);
       await save({ ahj: x.name, contacts: { ...(j.data.contacts || {}), ahj: c.id } });
       render(); }
     catch(e){ dasSay("Not saved: " + e.message); } });

@@ -18,7 +18,7 @@ window.rfMail = (() => {
   }
   const ready = async () => { const a = await account(); return !!(a.available && a.account); };
   const when = t => t ? String(t).slice(5, 16).replace("T", " ") : "";
-  const badge = s => ({ applied: ["filed", "good"], proposal: ["prices to apply", "warn"], reply: ["read it", "warn"], held: ["held: check it", "warn"],
+  const badge = s => ({ applied: ["filed", "good"], proposal: ["prices to apply", "warn"], offer: ["on Needs you", "warn"], reply: ["read it", "warn"], held: ["held: check it", "warn"],
     error: ["couldn't file", "bad"], sent: ["sent", ""] }[s] || [s || "", ""]);
 
   // an address as pasted: no spaces, zero-width or direction marks, <> or quotes (mailbox.clean_address does the same)
@@ -73,7 +73,7 @@ window.rfMail = (() => {
   }
 
   // ---- compose and send (inline, in the tab you're on)
-  // o: {kind: "rfq"|"prospect"|"job", refs, to, subject, body, files: [job files offered], rfqSheet, title, onSent, write}
+  // o: {kind: "rfq"|"prospect"|"job", refs, to, subject, body, files: [job files offered], ticked: [those that come ticked], rfqSheet, title, onSent, write}
   // Cody 11/4: pick who from RF Recon's contacts (or type an address), RF Recon writes it, a preview every time, then Send.
   // o.write: a free-form email (nothing written for you): it opens on the message box instead of the preview.
   async function compose(el, o) {
@@ -115,7 +115,7 @@ window.rfMail = (() => {
         <label>Subject<input data-msub value="${esc(st.subject)}"></label>
         <label>Message<textarea data-mbody rows="12">${esc(st.body)}</textarea></label></div>
       ${o.rfqSheet ? `<label class="hint" style="display:block"><input type="checkbox" data-msheet checked style="width:auto"> Attach the quote sheet (CSV): filled in and sent back, it reads straight into the comparison</label>` : ""}
-      ${(o.files || []).length ? `<details><summary class="hint" style="cursor:pointer">Attach job files</summary>${o.files.map(f => `<label class="hint" style="display:block"><input type="checkbox" data-mfile="${esc(f)}" style="width:auto"> ${esc(f)}</label>`).join("")}</details>` : ""}
+      ${(o.files || []).length ? `<details ${(o.ticked || []).length ? "open" : ""}><summary class="hint" style="cursor:pointer">Attach job files</summary>${o.files.map(f => `<label class="hint" style="display:block"><input type="checkbox" data-mfile="${esc(f)}" ${(o.ticked || []).includes(f) ? "checked" : ""} style="width:auto"> ${esc(f)}</label>`).join("")}</details>` : ""}
       <div class="row" style="gap:8px;margin-top:8px;align-items:center"><button data-medbtn type="button"></button><button class="primary" data-msend>✉ Send</button><a class="hint" data-mmailto href="#">or open in my mail</a></div>
       <p class="hint" data-mmsg style="margin:6px 0 0"></p></div>`;
     const q = s => el.querySelector(s);
@@ -153,7 +153,7 @@ window.rfMail = (() => {
       const name = window.prompt("Save as contact: their name", x.name || e.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()));
       if (name == null) { btn.disabled = false; return; }
       try { await post("/api/das/contacts", { name, email: e, org: x.org || "", notes: jid != null ? `Saved from mail about job ${jid}` : "Saved from mail" });
-        if (window.S?.das) S.das.contacts = (await api("/api/das/contacts")).contacts;
+        if (typeof S !== "undefined" && S.das) S.das.contacts = (await api("/api/das/contacts")).contacts;
         await loadPeople(); drawPeople(); drawWho(); say(`${name} saved to Contacts.`);
       } catch (err) { btn.disabled = false; say(err.message); }
     };
@@ -168,7 +168,7 @@ window.rfMail = (() => {
     el.querySelectorAll("[data-mfile], [data-msheet]").forEach(x => x.onchange = drawPrev);
     q("[data-mimp]").onchange = async e => { const f = e.target.files[0]; if (!f) return;
       try { const r = await api(`/api/das/contacts/import?name=${encodeURIComponent(f.name)}`, { method: "POST", body: await f.arrayBuffer() });
-        if (window.S?.das) S.das.contacts = (await api("/api/das/contacts")).contacts;
+        if (typeof S !== "undefined" && S.das) S.das.contacts = (await api("/api/das/contacts")).contacts;
         await loadPeople(); drawPeople(); drawWho(); say(`Contacts: ${r.added} added of ${r.found} in ${f.name}.`);
       } catch (err) { say(`Couldn't import ${f.name}: ${err.message}`); } e.target.value = ""; };
     drawPeople(); drawWho(); drawPrev();
@@ -221,7 +221,7 @@ window.rfMail = (() => {
       const name = window.prompt("Save as contact: their name", btn.dataset.mname || e.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()));
       if (name == null) return; btn.disabled = true;
       try { await post("/api/das/contacts", { name, email: e, notes: q.job != null ? `Replied by email about job ${q.job}` : "Replied by email" });
-        if (window.S?.das) S.das.contacts = (await api("/api/das/contacts")).contacts; say(`${name} saved to Contacts.`); thread(el, q, onChange);
+        if (typeof S !== "undefined" && S.das) S.das.contacts = (await api("/api/das/contacts")).contacts; say(`${name} saved to Contacts.`); thread(el, q, onChange);
       } catch (err) { btn.disabled = false; say(err.message); } });
     el.querySelector("[data-mcheck]").onclick = async e => { e.preventDefault(); e.stopPropagation(); const r2 = await post("/api/mail/check").catch(x => ({ error: x.message }));
       say(r2.error ? `Mail: ${r2.error}` : r2.new ? `${r2.new} new tagged email${r2.new === 1 ? "" : "s"} filed.` : "No new tagged mail."); thread(el, q, onChange); if (r2.new && onChange) onChange(); };
@@ -274,6 +274,72 @@ window.rfMail = (() => {
       setTimeout(() => queue(el, onChange), ok === list.length ? 0 : 4000); onChange && onChange();
     };
   }
+  // ---- every email a job needs, on one list, one press (Cody 11/5: "one press"). The server's list (mailqueue.job_items) plus the
+  // consent requests, whose words live with the letters (dasx.js). Everything ready comes ticked. A row with no address gets a box for
+  // one. An email that says something's attached waits for the file: the licensee or AHJ never gets an "attached" with nothing on it
+  const MJ_WANT = { design: [/(submittal|design).*\.pdf$/i, "Save the design submittal as a PDF in the job's Files first: this email says it's attached."],
+    consent: [/(consent|letter).*\.pdf$/i, "Print the consent letter to PDF and add it to the job's Files first: this email says it's attached."] };
+  const MJ_ADDR = /^[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24}$/;
+  async function jobAll(el, j, o = {}) {
+    if (!el) return;
+    const gen = el._mj = (el._mj || 0) + 1;
+    let r; try { r = await api(`/api/mail/job/${j.id}`); } catch (e) { el.innerHTML = ""; return; }  // a look-only login, or the web version: nothing to send from here
+    let more = { rows: [] };
+    try { more = await window.dasJobMailRows(j, r); } catch (e) { more = { rows: [], note: `The consent requests couldn't be worked out: ${e.message}` }; }
+    const names = ((await api(`/api/das/jobs/${j.id}/files`).catch(() => ({ files: [] }))).files || []).map(f => f.name), a = await account();
+    if (el._mj !== gen || !el.isConnected) return;
+    const list = [...r.items.filter(x => x.group === r.group), ...more.rows, ...r.items.filter(x => x.group !== r.group)];
+    for (const x of list) { const w = MJ_WANT[x.want_file]; if (!w) continue; const f = names.find(n => w[0].test(n)); if (f) x.files = [f]; else x.fileMiss = w[1]; }
+    const replies = r.replies || [];  // waiting on a press, the same lines as Needs you (dasmail.py board, dasx.js)
+    if (!list.length && !replies.length) { el.innerHTML = ""; return; }
+    const can = !!(a.available && a.account), held = x => !!x.fileMiss || !!(x.blocked && x.to);
+    el.innerHTML = `<div class="panel" id="mjAll" style="margin:0 0 10px"><h3 style="margin-top:0">${list.length ? "Emails this job needs" : "Replies on this job"} <span class="hint" id="mjSum"></span></h3>
+      ${replies.map(x => `<div class="mq-item" data-mjreply style="border-top:1px solid var(--line);padding:6px 0"><div class="row" style="gap:8px;align-items:center"><span style="flex:1 1 300px">${esc(x.text)}</span><span data-rprow="${x.reply.id}" style="display:inline-flex;flex-wrap:wrap;gap:6px">${window.dasReplyBtns?.(x.reply) || ""}</span></div><div data-rpbox="${x.reply.id}"></div></div>`).join("")}
+      ${list.map((x, i) => `<div class="mq-item" data-mjrow="${esc(x.key)}" style="border-top:1px solid var(--line);padding:6px 0">
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+          ${can ? `<input type="checkbox" data-mj="${i}" aria-label="Send this one" ${x.to && !held(x) ? (x.untick ? "" : "checked") : "disabled"} style="width:auto;margin:0">` : ""}
+          <span style="flex:1 1 300px"><b>${esc(x.to_name || x.to || "(no address)")}</b>${x.to && x.to_name ? ` <span class="hint">&lt;${esc(x.to)}&gt;</span>` : ""} · ${esc(x.subject)}
+            <div class="hint">${esc(x.why)}${x.files?.length ? ` · 📎 ${esc(x.files.join(", "))}` : ""}</div>
+            ${x.fileMiss || x.blocked ? `<div class="status err" style="margin:2px 0 0">${esc(x.fileMiss || x.blocked)}</div>` : ""}
+            ${x.to ? "" : `<input type="email" data-mjto="${i}" placeholder="Their email address" aria-label="Their email address" autocomplete="off" style="max-width:320px;margin-top:4px">`}</span>
+          <button class="sm" data-mjopen="${i}">Preview</button><button class="sm" data-mjlater="${i}" title="Put it off a week">Later</button><button class="sm" data-mjdrop="${i}" title="Don't suggest this one again">✕</button></div>
+        <div data-mjbox="${i}"></div></div>`).join("")}
+      ${more.note ? `<p class="hint" style="margin:6px 0 0">${esc(more.note)}</p>` : ""}
+      <div class="row" style="gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;${list.length ? "" : "display:none"}">${can ? `<button class="primary" id="mjSend" disabled>✉ Send</button>` : a.available ? `<button id="mjConn">Connect your mailbox to send these at once</button>` : ""}
+        <span class="hint" id="mjMsg">${can ? "Read the list, then press once. Preview one to change it. Replies file themselves." : a.available ? "" : esc(a.why || "")}</span></div><div data-mjconn></div></div>`;
+    window.dasReplyWire?.(el.querySelector("#mjAll"), replies.map(x => ({ jid: j.id, r: x.reply })), () => { jobAll(el, j, o); o.onSent && o.onSent(); });
+    const P = el.querySelector("#mjAll"), q = s => P.querySelector(s), typed = i => cleanAddr(q(`[data-mjto="${i}"]`)?.value || ""), toOf = i => list[i].to || typed(i);
+    const sel = () => [...P.querySelectorAll("[data-mj]:checked")].map(c => +c.dataset.mj);
+    const upd = () => { const n = sel().length, ready = list.filter((x, i) => toOf(i) && !held(x)).length, b = q("#mjSend");
+      q("#mjSum").textContent = !list.length ? "" : `· ${ready} ready${list.length > ready ? `, ${list.length - ready} need something first` : ""}`;
+      if (b) { b.disabled = !n; b.textContent = n ? `✉ Send ${n === 1 ? "this one" : `these ${n}`} from ${a.account.address}` : "✉ Send"; } };
+    P.addEventListener("change", upd); upd();
+    P.querySelectorAll("[data-mjto]").forEach(t => t.oninput = () => { const i = +t.dataset.mjto, c = q(`[data-mj="${i}"]`), good = MJ_ADDR.test(typed(i)) && !held(list[i]);
+      if (c) { c.disabled = !good; c.checked = good; } upd(); });
+    const later = async (i, days) => { await post("/api/mail/queue/later", { key: list[i].key, days }); jobAll(el, j, o); qBadge(); };
+    P.querySelectorAll("[data-mjlater]").forEach(b => b.onclick = () => later(+b.dataset.mjlater, 7));
+    P.querySelectorAll("[data-mjdrop]").forEach(b => b.onclick = () => later(+b.dataset.mjdrop, 0));
+    P.querySelectorAll("[data-mjopen]").forEach(b => b.onclick = () => { const i = +b.dataset.mjopen, x = list[i], box = P.querySelector(`[data-mjbox="${i}"]`);
+      if (box.innerHTML) { box.innerHTML = ""; return; }
+      compose(box, { kind: x.kind, refs: x.refs, to: toOf(i), subject: x.subject, body: x.body, in_reply_to: x.in_reply_to, title: x.why, files: names,
+        onSent: async () => { if (x.after) await x.after(); jobAll(el, j, o); o.onSent && o.onSent(); qBadge(); } }); });
+    const conn = q("#mjConn"); if (conn) conn.onclick = () => connectPanel(q("[data-mjconn]"), () => { jobAll(el, j, o); });
+    const send = q("#mjSend");
+    if (send) send.onclick = async () => {
+      const idx = sel(), m = q("#mjMsg"); if (!idx.length) return;
+      send.disabled = true; P.querySelectorAll("input,button").forEach(x => { x.disabled = true; }); let ok = 0;
+      for (const i of idx) { const x = list[i], to = toOf(i);
+        m.textContent = `Sending ${ok + 1} of ${idx.length}: ${to}…`;
+        try { await post("/api/mail/send", { kind: x.kind, refs: x.refs, to, subject: x.subject, body: x.body, in_reply_to: x.in_reply_to, files: x.files }); ok++; }
+        catch (err) { m.className = "status err"; m.textContent = `Sent ${ok} of ${idx.length}. Stopped at ${to}: ${err.message}`; break; }
+        if (x.after) await x.after().catch(err => say(`Sent, but not marked on the job: ${err.message}`));
+        await new Promise(res => setTimeout(res, 1200));  // a steady pace: mail providers dislike bursts
+      }
+      if (ok === idx.length) say(`Sent ${ok} email${ok === 1 ? "" : "s"}. Replies file themselves.`);
+      setTimeout(() => jobAll(el, j, o), ok === idx.length ? 0 : 6000); o.onSent && o.onSent(); qBadge();
+    };
+  }
+
   // the count on DAS › Mail: emails written and ready to send
   function qCount(n) { if (window.rfMail) window.rfMail.ready_n = n; const b = document.querySelector('#dsView [data-v="mail"]'); if (b) b.textContent = n ? `Mail · ${n}` : "Mail"; }
   async function qBadge() { if (!(await ready())) return; try { qCount((await api("/api/mail/queue")).ready); } catch (e) { /* the count is a help only */ } }
@@ -311,5 +377,5 @@ window.rfMail = (() => {
   }, 120000);
 
   setTimeout(qBadge, 1500); setInterval(() => { if (!document.hidden) qBadge(); }, 300000);
-  return { account, ready, connectPanel, compose, thread, view, queue, badge: qBadge };
+  return { account, ready, connectPanel, compose, thread, view, queue, jobAll, badge: qBadge };
 })();

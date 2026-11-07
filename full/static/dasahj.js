@@ -77,6 +77,13 @@ window.dasCertRegister = async (el, j, savePatch) => {
 };
 
 /* ---------- the AHJ packet: each item the AHJ lists, where the job fills it ---------- */
+// which recorded kinds (intake.py KINDS) satisfy a file item, by the item's own name pattern in ahj_packets.json. A kind is an exact
+// match: testing the pattern against a label would let "PE" find "spec sheet". tests/test_intake.py keeps this whole
+const AHJ_FILE_KINDS = {
+  "as.?built": ["as_built"], "photo|\\.jpe?g$|\\.png$|\\.heic$": ["photo"], "rebroadcast|retransmi": ["rebroadcast"], "maint": ["maintenance"], "permit": ["permit"],
+  "seal|stamp": ["sealed_drawings"], "\\.zip$|audio|\\.wav$|\\.mp3$": ["audio"], "b-?03": ["b03"], "sequence": ["sequence"], "seal|stamp|PE": ["sealed_drawings"],
+  "pass.?through|alignment": ["pass_through"], "survey information": ["survey_info"], "operator|pctel|anritsu": ["operator_cert"], "sweep": ["sweep"], "stamp|seal": ["sealed_drawings"],
+  "DIT|design approval": ["design_approval"]};
 let AHJ_PACKETS = null;
 const ahjPackets = () => AHJ_PACKETS || (AHJ_PACKETS = fetch("static/research/ahj_packets.json")  /* relative: the web version serves the app under full/ */.then(r => { if (!r.ok) throw new Error(`the AHJ packet lists didn't load (${r.status})`); return r.json(); }).catch(e => { AHJ_PACKETS = null; throw e; }));
 // fill key: where to fill it in the app (app), where it sits in the printed packet (pk), and whether the job has it (ok)
@@ -90,7 +97,7 @@ const AHJ_FILL = {
   heat_maps: {app: "Design › antennas on every floor", pk: "Design submittal §3", ok: c => c.floors.length > 0 && c.floors.every(f => ((((c.d.design || {}).floors || {})[f.name] || {}).antennas || []).length > 0)},
   schematic: {app: "Materials › bill of materials", pk: "Report: System diagram", ok: c => (c.d.bom || []).length > 0},
   bom: {app: "Materials › bill of materials", pk: "Design submittal §4", ok: c => (c.d.bom || []).length > 0},
-  spec_sheets: {app: "Materials › Build spec sheets", pk: "Attached: spec sheets", ok: c => c.files.some(n => /^Spec sheet - /.test(n))},
+  spec_sheets: {app: "Materials › Build spec sheets", pk: "Attached: spec sheets", ok: c => c.files.some(n => /^Spec sheet - /.test(n) || (c.kinds || {})[n] === "spec_sheet")},
   battery_calc: {app: "Design › Battery", pk: "Design submittal §5", ok: c => ((((c.d.design || {}).battery) || {}).items || []).length > 0},
   test_plan: {app: "Overview: floors (Grid test squares)", pk: "Design submittal §7", ok: c => c.floors.length > 0},
   grid: {app: "Grid test: every square", pk: "Report: floor pages", ok: c => c.st.length > 0 && c.st.every(x => x.untested === 0)},
@@ -116,7 +123,7 @@ function ahjCtx(d, files){
 function ahjItem(x, c){
   if (x.outside) return {state: "outside", pk: "Outside this packet", app: "Done outside the packet"};
   if (x.file) { let re; try { re = new RegExp(x.file, "i"); } catch (e) { re = /$^/; }
-    const hit = c.files.find(n => re.test(n));
+    const want = AHJ_FILE_KINDS[x.file] || [], hit = c.files.find(n => want.includes((c.kinds || {})[n])) || c.files.find(n => re.test(n));
     return hit ? {state: "ok", pk: `Attached: ${hit}`, app: `Files: ${hit}`} : {state: "missing", pk: "Not attached", app: `Files: add ${x.hint || "the document"}`}; }
   if (x.fill && x.fill.startsWith("acc:")) { const id = x.fill.slice(4), t = ahjTests(c.d)[id], a = DAS_ACCEPT.find(y => y.id === id);
     const ok = t && (t.status === "pass" || t.status === "fail");
@@ -127,8 +134,10 @@ function ahjItem(x, c){
   return {state: ok ? "ok" : "missing", pk: ok ? F.pk : "Missing", app: F.app};
 }
 const ahjPacketKey = (d, P) => d.packet_ahj && P.packets[d.packet_ahj] ? d.packet_ahj : DASJ.packet && P.packets[DASJ.packet] ? DASJ.packet : "nfpa1225";
+// files: names, or the Files route's own rows, which also say what each file is
 function ahjPacketRows(d, P, files){
-  const key = ahjPacketKey(d, P), pk = P.packets[key], c = ahjCtx(d, files);
+  const names = files.map(f => typeof f === "string" ? f : f.name), key = ahjPacketKey(d, P), pk = P.packets[key], c = ahjCtx(d, names);
+  c.kinds = Object.fromEntries(files.filter(f => f && f.kind).map(f => [f.name, f.kind]));
   return {key, pk, rows: pk.items.map(x => ({...x, ...ahjItem(x, c)}))};
 }
 function ahjPacketHtml(R){
@@ -190,7 +199,11 @@ function ahjSignForm(box, j, done){
 /* ---------- the sealed report ---------- */
 // what is sealed: the printed report's text, whitespace evened out (the plans and signature are images: the job data's
 // own hash covers them)
-const ahjSealText = el => (el.innerText || el.textContent || "").replace(/[ \t ]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+const ahjSealText = el => { const off = [...el.querySelectorAll(".no-print")], was = off.map(x => x.style.display);  // what doesn't print isn't sealed: a dropped PDF is checked against this, letter by letter (das.py seal_of_pdf)
+  off.forEach(x => { x.style.display = "none"; });
+  const t = (el.innerText || el.textContent || "").replace(/[ \t ]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+  off.forEach((x, i) => { x.style.display = was[i]; });
+  return t; };
 window.dasSealPrint = async (el, j) => {
   const src = el.querySelector("#dasPrint"); if (!src) return;
   const r = await post("/api/das/seal", {job_id: j.id, title: (src.querySelector("h2") || {}).textContent || "Report", result: (src.querySelector(".res-pass,.res-fail") || {}).textContent || "not complete", text: ahjSealText(src)});
@@ -202,13 +215,23 @@ window.dasSealPrint = async (el, j) => {
   const tail = document.createElement("p"); tail.className = "ahj-seal-tail"; tail.style.cssText = "margin-top:14px;font-size:11px;border-top:1px solid #999;padding-top:6px";
   tail.textContent = `${foot}. Sealed copy of this report kept with the job; a changed job no longer matches it.`;
   src.appendChild(tail);
+  // the next step is on the page before the print window opens, and stays there until the PDF is filed. A browser won't hand a print to the
+  // page, so the shortest way is: the name filled in (Save as PDF offers the page's title), then one drop or one press
+  await ahjSealList($("#apSeals"), j).catch(() => {});
+  $("#apNext")?.scrollIntoView({ block: "center" });
+  await new Promise(ok => setTimeout(ok, 60));
+  const title = document.title; if (r.file) document.title = r.file.replace(/\.pdf$/i, "");
   dasPrintCopy(src);
-  setTimeout(() => { tail.remove(); css.remove(); }, 600);
+  setTimeout(() => { tail.remove(); css.remove(); document.title = title; }, 600);
   return r;
 };
 function ahjSealList(box, j){
-  api(`/api/das/seal?job=${j.id}`).then(r => { if (!box.isConnected) return; const s = r.seals || [];
-    box.innerHTML = s.length ? `<div class="hint" style="margin:6px 2px">Sealed: ${s.slice(0, 6).map(x => `<span class="mono">${esc(x.code)}</span> ${esc(x.at.slice(0, 16))}${x.changed ? ' <b style="color:var(--warn)">job changed since</b>' : ""}`).join(" · ")}${s.length > 6 ? ` · ${s.length - 6} earlier` : ""}</div>` : ""; }).catch(() => {});
+  return api(`/api/das/seal?job=${j.id}`).then(r => { if (!box || !box.isConnected) return; const s = r.seals || [], wait = s[0] && !s[0].file && !s[0].changed ? s[0] : null;
+    const where = x => x.packet ? " · PDF in Files and the packet" : x.file && x.changed ? " · PDF left out of the packet" : x.file ? " · PDF in Files" : "";
+    box.innerHTML = `${wait ? `<div class="ap-next" id="apNext"><b>Next: file the PDF</b><ol><li>In the print window, pick <b>Save as PDF</b>. The name is filled in for you.</li><li>Drop the saved PDF anywhere on this page, or press Choose the PDF.</li></ol>
+        <p class="hint">RF Recon checks its verify code, <span class="mono">${esc(wait.code)}</span>, then files it on this job, adds it to the AHJ packet and ticks it in the email box. Nothing is sent.</p>${window.intakePick ? `<button class="primary" id="apPdf">Choose the PDF</button>` : ""}</div>` : ""}
+      ${s.length ? `<div class="hint" style="margin:6px 2px">Sealed: ${s.slice(0, 6).map(x => `<span class="mono">${esc(x.code)}</span> ${esc(x.at.slice(0, 16))}${where(x)}${x.changed ? ' <b style="color:var(--warn)">job changed since</b>' : ""}`).join(" · ")}${s.length > 6 ? ` · ${s.length - 6} earlier` : ""}</div>` : ""}`;
+    const b = box.querySelector("#apPdf"); if (b) b.onclick = () => window.intakePick(j.id); }).catch(() => {});
 }
 // Verify a report (DAS board): what was sealed under a code, and whether the job changed since
 window.dasVerifyBox = el => {
@@ -254,7 +277,7 @@ window.dasReportAhj = async (el, j) => {
     return;
   }
   let P, files;
-  try { [P, files] = await Promise.all([ahjPackets(), api(`/api/das/jobs/${j.id}/files`).then(r => (r.files || []).map(f => f.name)).catch(() => [])]); }
+  try { [P, files] = await Promise.all([ahjPackets(), api(`/api/das/jobs/${j.id}/files`).then(r => r.files || []).catch(() => [])]); }
   catch (e) { if (top) top.innerHTML = `<p class="status err">${esc(e.message)}</p>`; return; }
   if (!el.isConnected) return;
   const R = ahjPacketRows(d, P, files), miss = R.rows.filter(x => x.state === "missing");
@@ -264,7 +287,7 @@ window.dasReportAhj = async (el, j) => {
   const list = rows => rows.map(x => `<li><b>${esc(x.t)}</b> <span class="hint">(${esc(x.s)})</span>: ${esc(x.app)}</li>`).join("");
   top.innerHTML = `<div class="panel" style="margin:8px 0"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <label class="inl">AHJ packet <select id="apPick">${Object.entries(P.packets).map(([k, v]) => `<option value="${esc(k)}" ${k === R.key ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select></label>
-      <span class="row" style="gap:8px;flex-wrap:wrap"><button id="apSign">${d.signoff?.name ? "✎ Edit the signature" : "✎ Sign the report"}</button><button id="apZip" title="The bill of materials, every spec sheet and every calibration certificate, in one zip">⇩ Packet files (zip)</button></span></div>
+      <span class="row" style="gap:8px;flex-wrap:wrap"><button id="apSign">${d.signoff?.name ? "✎ Edit the signature" : "✎ Sign the report"}</button><button id="apZip" title="The bill of materials, every spec sheet, every calibration certificate and the sealed report's PDF, in one zip">⇩ Packet files (zip)</button></span></div>
     ${miss.length ? `<p class="status err" style="margin:8px 0 4px"><b>Missing before you print: ${miss.length} of ${R.rows.length}</b> items ${esc(R.pk.name)} lists.</p>
       ${missA.length ? `<b>Acceptance report</b><ul style="margin:2px 0 6px">${list(missA)}</ul>` : ""}${missD.length ? `<details><summary style="cursor:pointer"><b>Design submittal</b> (${missD.length})</summary><ul style="margin:2px 0 6px">${list(missD)}</ul></details>` : ""}`
       : `<p class="status" style="margin:8px 0 4px">Every item ${esc(R.pk.name)} lists is in the packet.</p>`}

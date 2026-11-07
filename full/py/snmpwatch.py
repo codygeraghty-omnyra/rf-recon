@@ -1,5 +1,6 @@
 """
 BDA monitoring (lane D, 11/4; beat-ahead area 7 "Monitoring of installed BDAs"): a stdlib SNMP v1 / v2c trap receiver.
+SNMPv3 traps too since 11/6 (USM: SHA or SHA-2 or MD5 authentication, AES-128 privacy; passphrases in the sealed key file).
 BUILT SWITCHED OFF. Nothing listens until an admin turns it on (a job's Overview > Monitoring > Switch on, saved as the
 setting "snmp.monitor": {"on", "port" (default 1162, so no root is needed), "bind"}). Off, no socket is opened.
 
@@ -16,12 +17,14 @@ The server's firewall is not opened by this code: the admin opens UDP <port> fro
 """
 import datetime
 import hashlib
+import hmac
 import ipaddress
 import json
 import re
 import socket
 import sqlite3
 import threading
+import time
 
 SETTING = "snmp.monitor"
 DEFAULT = {"on": False, "port": 1162, "bind": "0.0.0.0"}
@@ -88,7 +91,7 @@ RUN = None        # the receiver while it runs
 LAST_ERROR = ""   # why it isn't running, when it should be
 
 
-# ---------------------------------------------------------------- BER (ITU-T X.690), only what SNMP v1 / v2c uses
+# ---------------------------------------------------------------- BER (ITU-T X.690), only what SNMP v1 / v2c / v3 uses
 class BerError(ValueError):
     pass
 
@@ -190,9 +193,271 @@ def _varbinds(b):
     return out
 
 
-def decode(packet):
+# ---------------------------------------------------------------- SNMPv3 (11/6, FINDINGS 17: CISA says v3 should be the only version)
+# The message is RFC 3412 6, security is the User-based Security Model (RFC 3414): HMAC-SHA-96 or HMAC-MD5-96 (RFC 3414),
+# HMAC-SHA-2 (RFC 7860), and AES-128 in CFB mode for privacy (RFC 3826). DES privacy isn't read (no DES here, and it's
+# broken). A v3 trap is filed only when its user is set up on a BDA and its key checks out; a v3 inform isn't, because
+# RF Recon never answers the engine discovery an inform needs.
+V3_AUTH = {"sha": ("sha1", 12), "sha224": ("sha224", 16), "sha256": ("sha256", 24), "sha384": ("sha384", 32), "sha512": ("sha512", 48),
+           "md5": ("md5", 12), "none": (None, 0)}  # name -> (hash, MAC bytes)
+V3_PRIV = ("aes", "none")
+V3_WINDOW = 150     # seconds either way, RFC 3414 3.2 step 7(b)
+_KU, _KUL, _SEEN = {}, {}, {}   # password keys, localized keys, each engine's last (boots, time, seen at)
+
+
+class V3Unknown(BerError):
+    """A v3 trap whose user isn't set up here, or whose key doesn't check out: who and from which engine, for the panel."""
+    def __init__(self, msg, user="", engine="", level=""):
+        super().__init__(msg)
+        self.user, self.engine, self.level = user, engine, level
+
+
+# AES-128 (FIPS-197), the forward cipher only: CFB decrypts with it
+_SBOX = []
+
+
+def _aes_tables():
+    if _SBOX:
+        return
+    p = q = 1
+    box = [0] * 256
+    while True:  # the S-box from the multiplicative inverse in GF(2^8) and the affine map
+        p = p ^ ((p << 1) & 0xFF) ^ (0x1B if p & 0x80 else 0)
+        q ^= q << 1
+        q ^= q << 2
+        q ^= q << 4
+        q &= 0xFF
+        if q & 0x80:
+            q ^= 0x09
+        x = q ^ ((q << 1 | q >> 7) & 0xFF) ^ ((q << 2 | q >> 6) & 0xFF) ^ ((q << 3 | q >> 5) & 0xFF) ^ ((q << 4 | q >> 4) & 0xFF)
+        box[p] = x ^ 0x63
+        if p == 1:
+            break
+    box[0] = 0x63
+    _SBOX.extend(box)
+
+
+def _xt(a):
+    return ((a << 1) ^ 0x1B) & 0xFF if a & 0x80 else a << 1
+
+
+def _aes_keys(key):
+    _aes_tables()
+    w, rc = [list(key[i:i + 4]) for i in range(0, 16, 4)], 1
+    for i in range(4, 44):
+        t = list(w[i - 1])
+        if i % 4 == 0:
+            t = [_SBOX[b] for b in t[1:] + t[:1]]
+            t[0] ^= rc
+            rc = _xt(rc)
+        w.append([a ^ b for a, b in zip(w[i - 4], t)])
+    return [sum(w[r * 4:r * 4 + 4], []) for r in range(11)]
+
+
+def _aes_block(rk, block):
+    s = [a ^ b for a, b in zip(block, rk[0])]
+    for r in range(1, 11):
+        s = [_SBOX[b] for b in s]
+        s = [s[(i + 4 * (i % 4)) % 16] for i in range(16)]  # ShiftRows, column-major state
+        if r < 10:
+            m = []
+            for c in range(4):
+                a = s[4 * c:4 * c + 4]
+                t = a[0] ^ a[1] ^ a[2] ^ a[3]
+                m += [a[i] ^ t ^ _xt(a[i] ^ a[(i + 1) % 4]) for i in range(4)]
+            s = m
+        s = [a ^ b for a, b in zip(s, rk[r])]
+    return bytes(s)
+
+
+def aes_cfb(key, iv, data, encrypt=False):
+    """AES-128 in CFB-128 (NIST SP 800-38A 6.3), RFC 3826's mode for SNMP. No padding: the last block is cut to fit."""
+    rk, prev, out = _aes_keys(key), bytes(iv), bytearray()
+    for i in range(0, len(data), 16):
+        chunk = data[i:i + 16]
+        ks = _aes_block(rk, prev)
+        o = bytes(a ^ b for a, b in zip(chunk, ks))
+        out += o
+        prev = (o if encrypt else chunk).ljust(16, b"\0")
+    return bytes(out)
+
+
+def v3_key(proto, password, engine):
+    """RFC 3414 A.2: the password stretched to 1 MB and hashed (Ku), then localized to the engine (Kul)."""
+    h = V3_AUTH[proto][0]
+    if not h or not password:
+        raise ValueError("no key")
+    ku = _KU.get((proto, password))
+    if ku is None:
+        pw = password.encode("utf-8")
+        ku = _KU[(proto, password)] = hashlib.new(h, (pw * (1048576 // len(pw) + 1))[:1048576]).digest()
+    k = (proto, ku, engine)
+    if k not in _KUL:
+        if len(_KUL) > 2000:
+            _KUL.clear()
+        _KUL[k] = hashlib.new(h, ku + engine + ku).digest()
+    return _KUL[k]
+
+
+def _fields(b, s, e):
+    """The TLVs inside b[s:e], each (tag, value start, value end)."""
+    out, i = [], s
+    while i < e:
+        tag, v, j = _tlv(b, i)
+        if j > e:
+            raise BerError("cut short")
+        out.append((tag, j - len(v), j))
+        i = j
+        if len(out) > 500:
+            raise BerError("too many values")
+    return out
+
+
+def _v3_time_ok(engine, boots, etime, now=None):
+    """RFC 3414 3.2 step 7(b), as a receiver of traps keeps it: a trap older than the engine's last by more than the window
+    (or from an earlier boot) is a replay, and isn't filed."""
+    now = time.monotonic() if now is None else now
+    if boots >= 2147483647:
+        return False
+    last = _SEEN.get(engine)
+    if last:
+        lb, lt, at = last
+        if boots < lb or (boots == lb and etime < lt + (now - at) - V3_WINDOW):
+            return False
+    if not last or (boots, etime) >= (last[0], last[1]):
+        if len(_SEEN) > 5000:
+            _SEEN.clear()
+        _SEEN[engine] = (boots, etime, now)
+    return True
+
+
+def decode_v3(packet, creds):
+    """An SNMPv3 trap -> the same dict as a v2c trap, plus user, engine, level and cred (the "<job>:<bda>" whose key it
+    checked out with). creds: [{"cred", "user", "auth", "auth_pass", "priv", "priv_pass"}]. Raises V3Unknown when no user
+    set up here matches, BerError when it isn't a well-formed v3 trap or it's a replay."""
+    _, v0, e0 = _tlv(packet, 0)
+    s0 = e0 - len(v0)
+    f = _fields(packet, s0, e0)
+    if len(f) != 4 or f[1][0] != 0x30 or f[2][0] != 0x04:
+        raise BerError("bad v3 message")
+    g = _fields(packet, f[1][1], f[1][2])
+    if len(g) != 4 or g[2][0] != 0x04 or g[2][2] - g[2][1] != 1:
+        raise BerError("bad v3 header")
+    flags, model = packet[g[2][1]], _int(packet[g[3][1]:g[3][2]])
+    if model != 3:
+        raise BerError("not the user-based security model")
+    auth, priv = bool(flags & 1), bool(flags & 2)
+    if priv and not auth:
+        raise BerError("privacy without authentication")
+    sec = _fields(packet, f[2][1], f[2][2])
+    if len(sec) != 1:
+        raise BerError("bad v3 security parameters")
+    tag, ss, se = sec[0]
+    u = _fields(packet, ss, se)
+    if tag != 0x30 or len(u) != 6 or [x[0] for x in u] != [0x04, 0x02, 0x02, 0x04, 0x04, 0x04]:
+        raise BerError("bad v3 security parameters")
+    val = lambda x: packet[x[1]:x[2]]
+    engine, boots, etime, user = val(u[0]), _int(val(u[1])), _int(val(u[2])), val(u[3]).decode("utf-8", "replace")
+    ap, (as_, ae), pp = val(u[4]), (u[4][1], u[4][2]), val(u[5])
+    level = "authPriv" if priv else "authNoPriv" if auth else "noAuthNoPriv"
+    if not engine or len(engine) > 32 or len(user) > 32:
+        raise BerError("bad v3 engine or user")
+    hit = None
+    for c in creds or []:
+        if c.get("user") != user:
+            continue
+        a = c.get("auth") or "none"
+        if not auth:
+            if a == "none":
+                hit = c
+                break
+            continue
+        if a not in V3_AUTH or a == "none" or (priv and (c.get("priv") or "none") != "aes"):
+            continue
+        h, n = V3_AUTH[a]
+        if ae - as_ != n:
+            continue
+        try:
+            k = v3_key(a, c.get("auth_pass") or "", engine)
+        except ValueError:
+            continue
+        whole = packet[:as_] + b"\0" * n + packet[ae:]
+        if hmac.compare_digest(hmac.new(k, whole, h).digest()[:n], ap):
+            hit = c
+            break
+    if not hit:
+        raise V3Unknown("an SNMPv3 trap from a user that isn't set up here, or whose key doesn't match", user, engine.hex(), level)
+    if auth and not _v3_time_ok(engine, boots, etime):
+        raise BerError("an old SNMPv3 trap (replayed, or the BDA's clock went back): not filed")
+    dt, ds, de = f[3]
+    if priv:
+        if dt != 0x04 or len(pp) != 8:
+            raise BerError("bad v3 encrypted data")
+        try:
+            key = v3_key(hit["auth"], hit.get("priv_pass") or "", engine)[:16]
+        except ValueError:
+            raise V3Unknown("the BDA's privacy passphrase isn't saved here", user, engine.hex(), level)
+        scoped = aes_cfb(key, boots.to_bytes(4, "big") + etime.to_bytes(4, "big") + pp, packet[ds:de])
+        try:
+            t, sv, _ = _tlv(scoped, 0)
+        except BerError:
+            t = None
+        if t != 0x30:  # what a wrong passphrase decrypts to
+            raise V3Unknown("the BDA's privacy passphrase doesn't match", user, engine.hex(), level)
+    elif dt == 0x30:
+        sv = packet[ds:de]
+    else:
+        raise BerError("bad v3 data")
+    sp = _items(sv)
+    if len(sp) != 3 or sp[0][0] != 0x04 or sp[1][0] != 0x04:
+        raise BerError("bad v3 scoped PDU")
+    ptag, pdu = sp[2]
+    if ptag != 0xA7:
+        raise BerError(f"not a v3 trap (PDU 0x{ptag:02x}): informs need engine discovery, which RF Recon never answers")
+    pf = _items(pdu)
+    if len(pf) != 4 or pf[3][0] != 0x30:
+        raise BerError("bad v3 trap")
+    vbs = _varbinds(pf[3][1])
+    trap_oid = next((v[2] for v in vbs if v[0] == TRAPOID_OID and v[1] == "oid"), None)
+    if not trap_oid:
+        raise BerError("v3 trap without snmpTrapOID.0")
+    return {"version": "v3", "community": None, "user": user, "engine": engine.hex(), "level": level, "cred": hit.get("cred"),
+            "pdu": "trap", "trap_oid": trap_oid, "agent": None, "uptime": next((v[2] for v in vbs if v[0] == UPTIME_OID), None),
+            "varbinds": [v for v in vbs if v[0] not in (UPTIME_OID, TRAPOID_OID)]}
+
+
+def v3_creds(con):
+    """Every v3 user set up on a monitored BDA, with its passphrases from the sealed key file (never the job's data)."""
+    out, saved = [], None
+    for jid, _, b in targets(con):
+        v = b.get("v3") or {}
+        if not v.get("user"):
+            continue
+        if saved is None:
+            saved = _secrets()
+        k = f"{jid}:{b['id']}"
+        out.append({"cred": k, "user": v["user"], "auth": v.get("auth") or "sha", "priv": v.get("priv") or "aes", **(saved.get(k) or {})})
+    return out
+
+
+def _secrets():
+    if not _conf.get("data_dir"):
+        return dict(_conf.get("mem_secrets") or {})
+    import keystore
+    return keystore.load(_conf["data_dir"], "snmp") or {}
+
+
+def _save_secrets(s):
+    if not _conf.get("data_dir"):
+        _conf["mem_secrets"] = dict(s)
+        return
+    import keystore
+    keystore.save(_conf["data_dir"], s, "snmp")
+
+
+def decode(packet, creds=None):
     """An SNMP v1 trap, v2c trap or v2c inform -> {version, community, pdu, trap_oid, agent, uptime, varbinds
-    [[oid, type, value]]}. Raises BerError for anything else (v3 included: it is not read)."""
+    [[oid, type, value]]}; a v3 trap with creds (decode_v3). Raises BerError for anything else."""
     if len(packet) > MAX_PACKET:
         raise BerError("too large")
     tag, msg, _ = _tlv(packet, 0)
@@ -203,7 +468,7 @@ def decode(packet):
         raise BerError("not an SNMP message")
     ver = _int(parts[0][1])
     if ver == 3:
-        raise BerError("SNMPv3 isn't read: set the BDA to v2c traps")
+        return decode_v3(packet, creds)
     if ver not in (0, 1) or parts[1][0] != 0x04:
         raise BerError("not SNMP v1 or v2c")
     community = parts[1][1].decode("utf-8", "replace")
@@ -282,18 +547,21 @@ def targets(con):
     return out
 
 
-def match(tgts, src, agent, community):
+def match(tgts, src, agent, community, cred=None, keyed=False):
     """The monitored BDA a trap came from: (job_id, bda, how) or (None, None, ""). The source address (or the v1 agent
     address; an address can be a range, a.b.c.0/24) and the community each count; a shared community ("public",
-    "private") never matches on its own."""
+    "private") never matches on its own. A v3 trap names its BDA by the user whose key it checked out with (keyed), which
+    outranks an address; a v3 user with no key counts like a community."""
     best, score = (None, None, ""), 0
     for jid, _, b in tgts:
         by_addr = _in(src, b.get("address")) or _in(agent, b.get("address"))
         com = str(b.get("community") or "")
-        by_com = bool(com) and com == community and com.lower() not in ("public", "private")
-        s = (2 if by_addr else 0) + (1 if by_com else 0)
+        by_com = community is not None and bool(com) and com == community and com.lower() not in ("public", "private")
+        by_v3 = bool(cred) and cred == f"{jid}:{b.get('id')}"
+        s = (4 if by_v3 and keyed else 0) + (2 if by_addr else 0) + (1 if by_com or (by_v3 and not keyed) else 0)
         if s > score:
-            how = " and ".join(x for x in ("source address" if by_addr else "", "community" if by_com else "") if x)
+            how = " and ".join(x for x in ("SNMPv3 user and key" if by_v3 and keyed else "SNMPv3 user" if by_v3 else "",
+                                           "source address" if by_addr else "", "community" if by_com else "") if x)
             best, score = (jid, b, how), s
     return best
 
@@ -312,9 +580,11 @@ def ensure(con):
 
 def file_trap(con, trap, src, now=None):
     """File one decoded trap: match it to a job's BDA, tag it, keep it. Returns the stored row as a dict."""
-    jid, b, how = match(targets(con), src, trap.get("agent"), trap.get("community") or "")
+    jid, b, how = match(targets(con), src, trap.get("agent"), None if trap["version"] == "v3" else trap.get("community") or "",
+                        trap.get("cred"), trap.get("level") in ("authNoPriv", "authPriv"))
     sig, state = classify(trap, (b or {}).get("map"))
-    row = {"ts": _ts(now), "src": src, "agent": trap.get("agent"), "community": trap.get("community"), "version": trap["version"],
+    row = {"ts": _ts(now), "src": src, "agent": trap.get("agent"),
+           "community": trap.get("community") if trap["version"] != "v3" else f"v3 user {trap.get('user')} ({trap.get('level')})", "version": trap["version"],
            "pdu": trap["pdu"], "trap_oid": trap["trap_oid"], "varbinds": json.dumps(trap["varbinds"])[:8000],
            "text": trap_text(trap), "signal": sig, "state": state, "job_id": jid, "bda": (b or {}).get("id"), "how": how}
     cur = con.execute(f"INSERT INTO bda_trap({','.join(row)}) VALUES({','.join('?' * len(row))})", list(row.values()))
@@ -324,10 +594,20 @@ def file_trap(con, trap, src, now=None):
     return {**row, "id": cur.lastrowid}
 
 
-def file_packet(con, data, src, now=None):
-    """Decode and file one UDP datagram; None (and nothing kept) when it isn't an SNMP v1 / v2c trap."""
+def file_packet(con, data, src, now=None, creds=None):
+    """Decode and file one UDP datagram; None (and nothing kept) when it isn't an SNMP v1 / v2c / v3 trap. A v3 trap from a
+    user not set up here (or with the wrong key) is kept unmatched, with only its user and engine, so the BDA can be set up."""
     try:
-        trap = decode(data)
+        if creds is None and len(data) > 4 and data[:12].find(b"\x02\x01\x03") >= 0:
+            creds = v3_creds(con)
+        trap = decode(data, creds)
+    except V3Unknown as e:
+        row = {"ts": _ts(now), "src": src, "agent": None, "community": f"v3 user {e.user[:32]} ({e.level})", "version": "v3", "pdu": "trap",
+               "trap_oid": "", "varbinds": "[]", "text": f"SNMPv3 from user '{e.user[:32]}', engine {e.engine[:64]}: {e}", "signal": None,
+               "state": "unmapped", "job_id": None, "bda": None, "how": ""}
+        cur = con.execute(f"INSERT INTO bda_trap({','.join(row)}) VALUES({','.join('?' * len(row))})", list(row.values()))
+        con.commit()
+        return {**row, "id": cur.lastrowid}
     except BerError:
         return None
     return file_trap(con, trap, src, now)
@@ -444,9 +724,10 @@ def apply(db_path=None):
     return status()
 
 
-def boot(db_path, get_setting=None, set_setting=None):
-    """At start-up (app.py init): remember where things are; start the receiver only when switched on."""
-    _conf.update({"db": db_path, "get": get_setting, "set": set_setting})
+def boot(db_path, get_setting=None, set_setting=None, data_dir=None):
+    """At start-up (app.py init): remember where things are; start the receiver only when switched on. data_dir: where the
+    sealed key file holds each v3 BDA's passphrases."""
+    _conf.update({"db": db_path, "get": get_setting, "set": set_setting, "data_dir": data_dir})
     con = sqlite3.connect(db_path)
     try:
         ensure(con)
@@ -478,6 +759,7 @@ def job_status(con, job_id, bdas, now=None, on=None):
     now, on = now or _now(), settings()["on"] if on is None else on
     ensure(con)
     out = []
+    saved = _secrets() if any((b or {}).get("v3") for b in bdas or [] if isinstance(b, dict)) else {}
     for b in bdas or []:
         if not isinstance(b, dict) or not b.get("id"):
             continue
@@ -499,7 +781,10 @@ def job_status(con, job_id, bdas, now=None, on=None):
             hours = QUIET_HOURS
         since = last or b.get("added")
         h = _hours_since(since, now) if since else None
+        v3 = b.get("v3") or {}
         out.append({**{k: b.get(k) for k in ("id", "name", "address", "community", "added")}, "quiet_hours": hours, "last": last,
+                    "v3": {"user": v3.get("user"), "auth": v3.get("auth") or "sha", "priv": v3.get("priv") or "aes",
+                           "keys": sorted((saved or {}).get(f"{job_id}:{b['id']}", {}))} if v3.get("user") else None,
                     "count": n, "open": opened, "quiet": bool(on and h is not None and h > hours), "hours_quiet": round(h, 1) if h is not None else None})
     return out
 
@@ -614,6 +899,9 @@ def handle(con, method, p, qs, body_json):
                 return 403, {"error": "Only the admin deletes kept traps."}
             n = con.execute("DELETE FROM bda_trap WHERE job_id=?", (jid,)).rowcount
             con.commit()
+            s = _secrets()
+            if any(k.startswith(f"{jid}:") for k in s):  # the job's v3 passphrases go with its traps
+                _save_secrets({k: v for k, v in s.items() if not k.startswith(f"{jid}:")})
             return 200, {"ok": True, "n": n}
         r = con.execute("SELECT data FROM das_job WHERE id=?", (jid,)).fetchone()
         if not r:
@@ -621,6 +909,21 @@ def handle(con, method, p, qs, body_json):
         bdas = (json.loads(r[0] or "{}").get("monitor") or {}).get("bdas") or []
         if m.group(2) == "reclassify" and method == "POST":
             return 200, {"ok": True, "n": reclassify(con, jid, bdas)}
+        if m.group(2) == "v3" and method == "POST":  # a v3 BDA's passphrases, into the sealed key file; never echoed back
+            d = body_json() or {}
+            ids = {b.get("id") for b in bdas if isinstance(b, dict)}
+            if d.get("bda") not in ids:
+                return 400, {"error": "Add the BDA first, then save its SNMPv3 passphrases."}
+            sec = {k: str(d[k]) for k in ("auth_pass", "priv_pass") if d.get(k)}
+            if any(len(v) < 8 for v in sec.values()):
+                return 400, {"error": "SNMPv3 passphrases are at least 8 characters (RFC 3414 11.2)."}
+            if any(len(v) > 128 for v in sec.values()):
+                return 400, {"error": "That passphrase is longer than 128 characters."}
+            all_ = _secrets()
+            all_ = {k: v for k, v in all_.items() if not k.startswith(f"{jid}:") or k.split(":", 1)[1] in ids}  # BDAs gone from the job
+            all_[f"{jid}:{d['bda']}"] = {**(all_.get(f"{jid}:{d['bda']}") or {}), **sec}
+            _save_secrets(all_)
+            return 200, {"ok": True, "keys": sorted(all_[f"{jid}:{d['bda']}"])}
         if m.group(2) is None:
             return 200, {"on": settings()["on"], "running": bool(RUN), "bdas": job_status(con, jid, bdas), "recent": recent(con, jid)}
     if p == "/api/das/monitor/unmatched":  # traps no job claims: to set a new BDA's address or community from

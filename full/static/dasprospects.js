@@ -59,6 +59,40 @@ const prNsiLine = n => [n.year_built && `built ${n.year_built}`, n.stories && `$
   n.basement ? "basement" : "", n.occupancy_label].filter(Boolean).join(" · ") || "no details";
 const prCells = n => !n.carriers ? "" : !n.carriers.length ? "none claimed here" : n.cell_short ? `${n.cell_short} of ${n.carriers.length} short` : n.cell === "close" ? "close" : "OK";
 
+/* ---------- the prospect watch (leads.py): a new permit or CO in an area someone watches lands as a lead. Nothing is sent: a lead's first email waits in Mail, Ready to send ---------- */
+const prHttp = u => /^https?:\/\//i.test(u || "") ? u : "";  // a link from a city's data opens only as a web page
+const prLeadNeed = n => n ? `RF need: ${(PR_NEED[n.ps] || PR_NEED.unknown)[0].toLowerCase()}${prDb(n)} (an estimate)` : "";
+window.dasLeadLine = x => { const t = x.trigger || {}, bits = [t.label, prLeadNeed(x.need)].filter(Boolean).join(" · ");
+  return `<div class="lead-row" data-lead="${esc(x.id)}"><div class="lead-t"><b>${esc(x.name)}</b> <span class="hint">${esc([x.city, x.state].filter(Boolean).join(", "))}${x.dist_mi != null ? ` · ${x.dist_mi < 10 ? x.dist_mi.toFixed(1) : Math.round(x.dist_mi)} mi from ${esc(x.area || "the area")}` : ""}</span><span data-law></span>
+      <div>${esc(bits)}</div>
+      ${t.desc ? `<div class="hint lead-d">${esc(t.desc.slice(0, 160))}</div>` : ""}
+      <div class="hint">${x.queued ? "First email written: it waits in Mail, Ready to send, for your press." : x.email ? "Email on file." : x.phone ? `No email yet: call ${esc(x.phone)}.` : `No contact on a permit: ${esc(x.approach || "look for who's building it")}.`} ${prHttp(t.url) ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">The permit</a>` : ""}${t.source_name ? ` <span title="${esc(t.license || "")}">Source: ${esc(t.source_name)}</span>` : ""}</div></div>
+    <div class="lead-b"><button class="primary" data-lj title="Puts it on the board as a Lead, with the address, building, permit and contact already filled in">Make a job</button><button data-lx title="Takes it off the list. Nothing else changes">Not for us</button></div></div>`; };
+// the buttons on a list of lead lines; a job made opens, and the state's law stays visible beside each lead (dasStateFlag)
+window.dasLeadWire = (box, leads, opened, changed) => {
+  if (!box) return;
+  window.dasStateRules?.().then(r => { if (!box.isConnected) return; for (const x of leads) { const f = window.dasStateFlag?.(r, x.state), c = box.querySelector(`[data-lead="${CSS.escape(x.id)}"] [data-law]`);
+    if (f && c) c.innerHTML = ` <span class="pr-law ${f.cls}" title="${esc(`${f.name}: ${f.line} (the AHJ confirms it)`)}">${esc(f.short)}</span>`; } });
+  box.onclick = async e => { const b = e.target.closest("[data-lj],[data-lx]"); if (!b) return; const row = b.closest("[data-lead]"), pid = row.dataset.lead, x = leads.find(y => y.id === pid);
+    b.disabled = true;
+    try {
+      if ("lj" in b.dataset) { const j = await post(`/api/das/prospects/${encodeURIComponent(pid)}/job`, { need: x?.need }); opened(j); }
+      else { await post("/api/das/leads/drop", { pid }); changed(); }
+    } catch (err) { b.disabled = false; dasSay(err.message); } };
+};
+// the job's Overview: where the lead came from, with its source and terms
+window.dasLeadPanel = (d, stage) => { const L = d.lead; if (!L) return ""; const t = L.trigger || {}, n = L.need, row = (k, v) => v ? `<div>${esc(k)}</div><div>${v}</div>` : "";
+  const size = [t.floors && `${t.floors} floors`, t.bldg_sqft && `${Math.round(t.bldg_sqft).toLocaleString()} sq ft building`, !t.bldg_sqft && t.sqft && `${Math.round(t.sqft).toLocaleString()} sq ft`, t.use_group, L.size].filter(Boolean).map(esc).join(" · ");
+  const dates = [t.filed && `filed ${t.filed}`, t.issued && `issued ${t.issued}`, t.final && `closed ${t.final}`, t.co_date && `CO ${t.co_date}`].filter(Boolean).join(", ");
+  return `<details class="panel" id="doLead" ${stage === "Lead" ? "open" : ""}><summary><b>Where this lead came from</b> <span class="hint">· carried over from Prospects</span></summary><div class="kvg" style="margin-top:6px">
+    ${row("Building", `${esc(L.kind_label || "")}${L.detail ? ` · ${esc(L.detail)}` : ""}`)}
+    ${row("Permit", t.permit_id ? `${esc(t.permit_id)}${t.status ? ` (${esc(t.status)})` : ""}: ${esc(t.label || "")}${prHttp(t.url) ? ` <a href="${esc(t.url)}" target="_blank" rel="noopener">The permit</a>` : ""}` : "")}
+    ${row("Work", esc(t.desc || ""))}${row("Dates", esc(dates))}${row("Size", size)}
+    ${row("RF need", n ? `${esc((PR_NEED[n.ps] || PR_NEED.unknown)[0])}${esc(prDb(n))} <span class="hint">· an estimate, not a measurement</span>` : "")}
+    ${row("Contact", [L.contact_name, L.contact_title, L.phone, L.email].filter(Boolean).map(esc).join(" · ") || (L.approach ? `None on the permit. ${esc(L.approach)}.` : ""))}
+    ${row("Website", prHttp(L.website) ? `<a href="${esc(L.website)}" target="_blank" rel="noopener">${esc(L.website)}</a>` : "")}
+    ${row("Source", t.source_name ? `${esc(t.attribution || t.source_name)}.${prHttp(t.dataset_url) ? ` <a href="${esc(t.dataset_url)}" target="_blank" rel="noopener">The dataset and its terms</a>` : ""}${L.terms_open === false ? ` <b style="color:var(--warn)">This dataset's terms aren't clearly open: check them before you use this in outreach.</b>` : ""}` : "")}</div></details>`; };
+
 window.dasProspects = async el => {
   const P = S.dasProspects = S.dasProspects || { radius: 10, kinds: PR_KINDS.map(k => k[0]), q: "", status: "", where: null, label: "", rows: null, gen: 0 };
   if (!P.where && S.center) { P.where = [S.center[0], S.center[1]]; P.label = "the search pin"; }
@@ -83,6 +117,7 @@ window.dasProspects = async el => {
         ${window.dasFindTunnels ? `<div class="row" style="gap:8px;margin-top:6px;align-items:center"><button id="prTun" title="Road and rail tunnels from OpenStreetMap within the radius (at most 10 mi)">Find tunnels here</button><span class="hint" id="prTunMsg">Road tunnels (NFPA 502) and rail and transit tunnels (NFPA 130), from OpenStreetMap on a press.</span></div>` : ""}</div>
       <p class="hint" id="prSrc" style="margin:8px 0 0"></p>
     </div>
+    <div id="prWatchBox"></div>
     ${firm.address ? "" : `<p class="status pr-warn" id="prNoAddr">Add your firm's mailing address before emailing anyone: US law (CAN-SPAM) requires it in every commercial email. <a href="#" id="prFirm">Firm details</a></p>`}
     <div id="prBody"></div>
     <details class="panel" style="margin-top:12px"><summary>Why these buildings, and who to approach</summary>
@@ -92,6 +127,25 @@ window.dasProspects = async el => {
       <p class="hint">Malls, venues, hotels and the rest are Overture Maps places (CDLA-Permissive-2.0, Apache-2.0 or CC0; attribution: Overture Maps Foundation). High-rises are Overture buildings (© OpenStreetMap contributors, Overture Maps Foundation, ODbL). A building's own name is used when it has one; otherwise it's named by the business inside it.</p>
     </details>`;
   const body = $("#prBody");
+  // Watch this area: the same press whether the search found buildings or none
+  async function prWatchPress(e) { const b = e.currentTarget; b.disabled = true;
+    try { const r = await post("/api/das/leads/watch", { lat: P.where[0], lon: P.where[1], radius: P.radius, label: P.label && P.label !== "the search pin" ? P.label : "" });
+      prWatchDraw(r); dasSay(`Watching. ${r.new ? `${r.new} new lead${r.new === 1 ? "" : "s"} from the last 45 days${r.queued ? `, ${r.queued} first email${r.queued === 1 ? "" : "s"} waiting in Ready to send` : ""}. ` : "No new permits here yet. "}Nothing is sent.`, true); }
+    catch (err) { dasSay(err.message); } b.disabled = false; }
+  // the areas watched, what each has turned up, and anything keeping a lead from landing
+  const prWatchDraw = r => { const box = $("#prWatchBox"); if (!box) return; const A = r.areas || [], L = r.leads || [];
+    if (!A.length && !L.length) { box.innerHTML = ""; return; }
+    box.innerHTML = `<div class="panel" id="prWatched"><h3>Watching <span class="hint">· a new permit or certificate of occupancy in these areas lands as a lead on Needs you. Nothing is sent.</span></h3>
+      ${A.map(a => `<div class="lead-area"><span><b>${esc(a.label)}</b> <span class="hint">within ${Math.round(a.radius)} mi${a.checked ? ` · checked ${esc(a.checked.slice(0, 16))}, ${Number(a.permits || 0).toLocaleString()} permits on hand here` : ""}</span>
+          ${a.checked && !a.permits ? `<div class="hint">No permit data for this area yet: no leads can land until a dataset covering it is switched on in Data &amp; updates.</div>` : ""}
+          ${a.held_back ? `<div class="hint">${a.held_back} new permit${a.held_back === 1 ? "" : "s"} here came from datasets whose terms aren't clearly open. They stay in the list below, and don't become leads.</div>` : ""}</span>
+        <button data-wx="${a.id}">Stop watching</button></div>`).join("")}
+      ${r.auto ? "" : `<p class="hint" id="prWatchAuto">Automatic updates are off, so new permits arrive only when someone runs Building permits in Data &amp; updates.${r.pulled ? ` Last pull ${esc(r.pulled)}.` : ""}</p>`}
+      ${L.length ? `<div id="prLeads">${L.map(window.dasLeadLine).join("")}</div>` : A.length ? `<p class="hint">No new permits in these areas yet.</p>` : ""}</div>`;
+    box.querySelectorAll("[data-wx]").forEach(b => b.onclick = async () => { b.disabled = true; try { prWatchDraw(await post("/api/das/leads/unwatch", { id: +b.dataset.wx })); } catch (e) { b.disabled = false; dasSay(e.message); } });
+    window.dasLeadWire($("#prLeads"), L, j => { S.das.job = j.id; S.das.sub = "overview"; S.das.rview = null; render(); }, prWatchLoad); };
+  const prWatchLoad = async () => { try { prWatchDraw(await api("/api/das/leads")); } catch (e) { /* a copy with no watch: the list still works */ } };
+  prWatchLoad();
   // RF need: a click on the verdict opens its reasons under the row; "Check the building" asks the NSI (need.py keeps it)
   body.addEventListener("click", async e => {
     const nd = e.target.closest("[data-nd],[data-tg]"), ns = e.target.closest("[data-nsi]");
@@ -221,18 +275,31 @@ window.dasProspects = async el => {
     const k = new Map(rows.map(x => [x, key(x)]));
     return [...rows].sort((a, b) => { const A = k.get(a), B = k.get(b); for (let i = 0; i < A.length; i++) if (A[i] !== B[i]) return A[i] < B[i] ? -1 : 1; return 0; });
   };
+  // the state's rule beside each building: where it can't be required, or only a local code can, "code requires it" isn't true
+  // some list rows carry a bad or blank state (Overture: "AS" for Indianapolis): those take the state most of the search area is in
+  const prArea = () => { const n = {}; for (const x of P.rows || []) if (P.rules?.states?.[x.state]) n[x.state] = (n[x.state] || 0) + 1; return Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0]; };
+  const prFlag = x => window.dasStateFlag?.(P.rules, P.rules?.states?.[x.state] ? x.state : P.areaState);
+  const prLaw = x => { const f = prFlag(x); return f ? `<div><span class="pr-law ${f.cls}" title="${esc(`${f.name}: ${f.line} (${f.read === "read" ? "read" : "search excerpt"}; the AHJ confirms it)`)}">${esc(f.short)}</span></div>` : ""; };
   const paint = () => {
-    const rows = prSort((P.rows || []).filter(x => (!P.status || x.status === P.status) && prTrigOk(x, P.trig) && (!P.q || `${x.name} ${x.city} ${x.detail || ""} ${x.trigger?.label || ""}`.toLowerCase().includes(P.q.toLowerCase()))));
+    if (!P.rules && !P.rulesAsked && window.dasStateRules) { P.rulesAsked = true; window.dasStateRules().then(r => { P.rules = r; if (body.isConnected) paint(); }); }
+    P.areaState = prArea();
+    const rows = prSort((P.rows || []).filter(x => (!P.noLaw || prFlag(x)?.level !== "no_mandate") && (!P.status || x.status === P.status) && prTrigOk(x, P.trig) && (!P.q || `${x.name} ${x.city} ${x.detail || ""} ${x.trigger?.label || ""}`.toLowerCase().includes(P.q.toLowerCase()))));
     const ntrig = f => (P.rows || []).filter(x => prTrigOk(x, f)).length;
     const by = s => (P.rows || []).filter(x => x.status === s).length;
     if (!P.rows) return;
-    if (!P.rows.length) { body.innerHTML = `<p class="hint">No ${P.kinds.map(k => PR_KIND[k].toLowerCase()).join(", ")} within ${P.radius} mi${P.counts?.updated ? "" : " (the lists aren't downloaded yet)"}. Try a wider radius.</p>`; return; }
+    // no buildings on the lists here can still be the place new ones go up: watching it is how a permit there arrives (11/6)
+    if (!P.rows.length) { body.innerHTML = `<p class="hint">No ${P.kinds.map(k => PR_KIND[k].toLowerCase()).join(", ")} within ${P.radius} mi${P.counts?.updated ? "" : " (the lists aren't downloaded yet)"}. Try a wider radius, or watch it for new building permits.</p>
+        <div class="row" style="margin:8px 0"><button id="prWatchGo" title="New building permits and certificates of occupancy around this spot land as leads on Needs you, after each permits update. Nothing is sent">Watch this area</button></div>`;
+      $("#prWatchGo").onclick = prWatchPress; return; }
     body.innerHTML = `<div class="row" style="flex-wrap:wrap;gap:8px;align-items:end;margin:10px 0">
         <b>${P.rows.length.toLocaleString()} building${P.rows.length === 1 ? "" : "s"} within ${P.radius} mi${P.label ? ` of ${esc(P.label)}` : ""}</b>
         <input id="prQ" placeholder="Filter by name or town" value="${esc(P.q)}" style="min-width:180px">
         <select id="prStatus"><option value="">Every status</option>${PR_STATUS.map(s => `<option value="${s}" ${P.status === s ? "selected" : ""}>${s} (${by(s)})</option>`).join("")}</select>
         <select id="prTrig" title="Building permits and certificates of occupancy matched to each building">${PR_TRIG.map(([k, l]) => `<option value="${k}" ${P.trig === k ? "selected" : ""}>${l}${k ? ` (${ntrig(k)})` : ""}</option>`).join("")}</select>
+        <label class="inl" title="States whose law bars anyone requiring a system: a sale there is a choice, not a code requirement"><input type="checkbox" id="prNoLaw" ${P.noLaw ? "checked" : ""}> Hide no-mandate states</label>
         <button id="prCsv" title="The rows shown, as a call list">⇩ Call list (CSV)</button>
+        <button id="prFindAll" title="Reads each building's own website for the address it publishes, one site at a time with a pause, at most 40 a run. A site that refuses isn't asked again. Nothing is sent">Find emails for the ones shown</button>
+        <button id="prWatchGo" title="New building permits and certificates of occupancy around this spot land as leads on Needs you, after each permits update. Nothing is sent">Watch this area</button>
         ${window.rfMail ? `<button id="prQueue" title="Write a first email to each building shown that has an email and hasn't been written to: they wait in DAS › Mail › Ready to send for your click">✉ Queue first emails</button>` : ""}
       </div>
       <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px">
@@ -241,18 +308,22 @@ window.dasProspects = async el => {
         <label class="inl">Map colour <select id="prCol"><option value="need" ${P.colour === "need" ? "selected" : ""}>need</option><option value="status" ${P.colour === "status" ? "selected" : ""}>status</option></select></label>
         <span class="hint" id="prNeedMsg">${P.needMsg || ""}</span>
       </div>
+      ${(() => { const c = {}; for (const x of P.rows || []) { const f = prFlag(x); if (f && f.level !== "unknown") c[f.name + "|" + f.short] = (c[f.name + "|" + f.short] || 0) + 1; }
+        const t = Object.entries(c).map(([k, n]) => { const [a, b] = k.split("|"); return `${esc(a)}: ${esc(b.toLowerCase())} (${n.toLocaleString()})`; }); return t.length ? `<p class="hint" style="margin:0 0 6px"><b>State rule:</b> ${t.join(" · ")}. Don't tell these buildings the code requires it until the AHJ says so.</p>` : ""; })()}
       <div id="prMap" style="height:340px;border-radius:12px;margin-bottom:4px"></div>
       <p class="hint" id="prLegend" style="margin:0 0 8px">${P.colour === "need" ? Object.values(PR_NEED).map(([l, c]) => `<span style="color:${c}">●</span> ${l}`).join(" &nbsp; ") + " &nbsp; (an estimate)"
         : Object.entries(PR_STCOL).filter(([s]) => s !== "meeting").map(([s, c]) => `<span style="color:${c}">●</span> ${s}`).join(" &nbsp; ")}</p>
       <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th title="The building's strongest permit or certificate of occupancy from city and county open data (click one for the permit, its source and the rule)">Trigger<div class="hint">permits</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
       ${rows.slice(0, 400).map(x => `<tr data-pid="${esc(x.id)}" class="${x.status === "do not contact" ? "pr-dnc" : ""}">
-        <td style="white-space:normal;min-width:200px;max-width:320px"><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${x.detail ? `<div class="hint">${esc(x.detail)}</div>` : ""}</td>
+        <td style="white-space:normal;min-width:200px;max-width:320px"><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${prLaw(x)}${x.detail ? `<div class="hint">${esc(x.detail)}</div>` : ""}</td>
         <td data-need>${prNeedCell(x)}</td>
         <td data-trig>${prTrigCell(x)}</td>
         <td>${esc(PR_KIND[x.kind] || x.kind)}${x.priority ? `<div><span class="tag" title="${esc(x.why)}">${esc(x.priority)}</span></div>` : ""}${x.size_label ? `<div class="hint">${esc(x.size_label)}</div>` : ""}</td>
         <td>${x.dist_mi < 10 ? x.dist_mi.toFixed(1) : Math.round(x.dist_mi)}</td>
         <td>${x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phone)}</a>` : ""}${x.website ? `<div><a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">website</a></div>` : ""}
           ${x.email ? `<div><a href="mailto:${esc(x.email)}">${esc(x.email)}</a>${x.email_source ? ` <span class="hint" title="${esc(x.email_source)}">(from their site)</span>` : ""}</div>`
+            : x.fe_tried === "refused" ? `<div class="hint" title="Their site refused to be read, so it isn't asked again">Their site said no: call</div>`
+            : x.fe_tried === "none" ? `<div class="hint">None published: call</div>`
             : x.status !== "do not contact" && x.website ? `<div><button data-fe title="Reads their own website's home and contact pages for the address they publish">Find email</button></div>`
             : x.status !== "do not contact" ? `<div class="hint">No website or email listed: call first.</div>` : ""}
           <div class="hint" title="Who the research says to approach">${esc(x.approach || "")}</div></td>
@@ -266,6 +337,7 @@ window.dasProspects = async el => {
     $("#prStatus").onchange = e => { P.status = e.target.value; paint(); };
     $("#prSort").onchange = e => { P.sort = e.target.value; paint(); };
     $("#prTrig").onchange = e => { P.trig = e.target.value; paint(); };
+    $("#prNoLaw").onchange = e => { P.noLaw = e.target.checked; paint(); };
     $("#prEnv").onchange = e => { P.env = e.target.value; P.needMsg = ""; paint(); needRun(); };
     $("#prCol").onchange = e => { P.colour = e.target.value; paint(); };
     $("#prQueue") && ($("#prQueue").onclick = async e => {  // first emails, lined up in Mail › Ready to send (nothing sent here)
@@ -276,6 +348,29 @@ window.dasProspects = async el => {
         dasSay(`${r.queued} first email${r.queued === 1 ? "" : "s"} written and waiting in DAS › Mail › Ready to send${pick.length > r.max ? ` (the first ${r.max} of ${pick.length})` : ""}. Nothing is sent until you click.`);
         window.rfMail?.badge?.();
       } catch (err) { dasSay(err.message); } b.disabled = false; });
+    $("#prWatchGo").onclick = prWatchPress;
+    // Find email down the list (Cody 11/6, on the recommendation): each building's own site, one at a time, a pause between them, at most 40 a run,
+    // stoppable. A site that refuses is asked nothing more and its row says to call: a refusal stands
+    const fa = $("#prFindAll"), F = P.finding;
+    if (fa) { fa.textContent = F ? `Stop finding (${F.done} of ${F.total})` : "Find emails for the ones shown";
+      fa.onclick = async () => {
+        if (P.finding) { P.finding.stop = true; fa.textContent = "Stopping after this one…"; return; }
+        const todo = rows.filter(x => x.website && !x.email && !x.fe_tried && x.status !== "do not contact").slice(0, 40);
+        if (!todo.length) { dasSay("Every building shown with a website has an email already, or was tried. Widen the list for more."); return; }
+        const run = P.finding = { done: 0, total: todo.length, found: 0, none: 0, refused: 0, stop: false };
+        for (const x of todo) {
+          if (run.stop) break;
+          try { const r = await post(`/api/das/prospects/${encodeURIComponent(x.id)}/find-email`, {});
+            if (r.emails.length) { x.email = r.emails[0].email; x.email_source = r.emails[0].page; run.found++; }
+            else if ((r.refused || []).length) { x.fe_tried = "refused"; run.refused++; }
+            else { x.fe_tried = "none"; run.none++; }
+          } catch (err) { x.fe_tried = "none"; run.none++; }
+          run.done++; paint();
+          if (!run.stop && run.done < run.total) await new Promise(res => setTimeout(res, 3000));  // a person's pace, not a crawler's
+        }
+        P.finding = null; paint();
+        dasSay(`Read ${run.done} building site${run.done === 1 ? "" : "s"}: ${run.found} email${run.found === 1 ? "" : "s"} found, ${run.none} with none published${run.refused ? `, ${run.refused} that refused (call the number shown)` : ""}. Nothing was sent.`, true);
+      }; }
     $("#prCsv").onclick = () => {
       const cols = ["name", "kind", "priority", "address", "city", "state", "zip", "phone", "email", "website", "approach", "dist_mi", "status", "contacted_at"];
       // RF need, as estimates (need.py): the verdict, the numbers behind it and the reasons in words
@@ -319,7 +414,7 @@ window.dasProspects = async el => {
       const jb = tr.querySelector("[data-job]");
       if (jb) jb.onclick = async () => {
         jb.disabled = true;
-        try { const j = await post(`/api/das/prospects/${encodeURIComponent(pid)}/job`, {}); x.job_id = j.id; dasSay(`${x.name} is on the board as a Lead.`); paint(); }
+        try { const j = await post(`/api/das/prospects/${encodeURIComponent(pid)}/job`, { need: P.need[pid] }); x.job_id = j.id; dasSay(`${x.name} is on the board as a Lead.`); paint(); }
         catch (err) { jb.disabled = false; dasSay(err.message); }
       };
       const op = tr.querySelector("[data-open]");

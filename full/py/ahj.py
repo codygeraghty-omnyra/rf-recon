@@ -25,6 +25,7 @@ import sqlite3
 import time
 import urllib.parse
 import urllib.request
+import uuid
 
 UA = "RF-Recon/2.0 (DAS AHJ lookup)"
 SOURCE = {
@@ -39,6 +40,7 @@ SOURCE = {
 }
 TIGER = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_Current/MapServer/{}/query"
 TIGER_LAYERS = {"county": 82, "place": 28, "cdp": 30}
+TRIBAL_LAYERS = (36, 38)  # Federal American Indian Reservations, Off-Reservation Trust Lands
 TIGER_SOURCE = "U.S. Census Bureau TIGERweb (current boundaries)"
 LOCAL = ("Local", "Contract")  # the organisation types that serve the public at large
 COUNTIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reference", "census_counties_2020.txt")
@@ -199,6 +201,13 @@ def place_of(lat, lon, data_dir, fetch=None):
                 out["state"] = out.get("state") or fips_state(a.get("STATE"))
                 if what == "county":
                     out["county_lsad"] = a.get("LSADC")
+        for layer in TRIBAL_LAYERS:  # local code may not apply on tribal land: a person finds the right office
+            q = urllib.parse.urlencode({"geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint", "inSR": 4326,
+                                        "spatialRel": "esriSpatialRelIntersects", "outFields": "NAME", "returnGeometry": "false", "f": "json"})
+            feats = (fetch(TIGER.format(layer) + "?" + q) or {}).get("features") or []
+            if feats:
+                out["tribal"] = (feats[0].get("attributes") or {}).get("NAME") or "tribal land"
+                break
     except (OSError, ValueError):
         return None  # offline: the typed address is the fallback
     if not out.get("state"):
@@ -215,6 +224,7 @@ def place_of(lat, lon, data_dir, fetch=None):
 
 
 CENSUS_GEOCODER = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
+CENSUS_BATCH = "https://geocoding.geo.census.gov/geocoder/locations/addressbatch"
 
 
 def _titled(s):
@@ -237,6 +247,41 @@ def census_address(q, fetch=None):
             continue
         full = f"{_titled(parts[0])}, {_titled(parts[1])}, {parts[2]} {parts[3]}"
         out.append({"label": full, "sub": "U.S. Census address", "full": full, "lat": round(c["y"], 6), "lon": round(c["x"], 6), "kind": "address", "source": "census"})
+    return out
+
+
+def census_batch(q, states, send=None):
+    """One line asked of every state in a single request, for a house number and street with no state on them: the geocoder's own batch door,
+    so a person pausing over "90 Main" isn't fifty requests. It took 6 s for 51 lines (11/6), which is why it waits for a pause. The same
+    list as census_address, [] when no state has it, None when it can't be reached."""
+    street, _, city = (x.strip() for x in str(q or "").partition(","))
+    rows = io.StringIO()
+    csv.writer(rows, lineterminator="\n").writerows([i, street, city, st, ""] for i, st in enumerate(states))
+    edge = uuid.uuid4().hex
+    body = (f'--{edge}\r\nContent-Disposition: form-data; name="benchmark"\r\n\r\nPublic_AR_Current\r\n--{edge}\r\n'
+            f'Content-Disposition: form-data; name="addressFile"; filename="a.csv"\r\nContent-Type: text/csv\r\n\r\n{rows.getvalue()}\r\n--{edge}--\r\n').encode("utf-8")
+    try:
+        if send:
+            raw = send(body)
+        else:
+            req = urllib.request.Request(CENSUS_BATCH, data=body, headers={"Content-Type": f"multipart/form-data; boundary={edge}", "User-Agent": "RF-Recon/2.0"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                raw = r.read().decode("utf-8", "replace")
+    except (OSError, ValueError):
+        return None
+    out = []
+    for r in csv.reader(io.StringIO(raw)):  # id, input, Match, Exact or Non_Exact, address, "lon,lat", ...
+        if len(r) < 6 or r[2] != "Match":
+            continue
+        parts, ll = [x.strip() for x in r[4].split(",")], r[5].split(",")
+        if len(parts) != 4 or len(ll) != 2:
+            continue
+        try:
+            lon, lat = float(ll[0]), float(ll[1])
+        except ValueError:
+            continue
+        full = f"{_titled(parts[0])}, {_titled(parts[1])}, {parts[2]} {parts[3]}"
+        out.append({"label": full, "sub": "U.S. Census address", "full": full, "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "census"})
     return out
 
 
@@ -311,10 +356,11 @@ def lookup(data_dir, lat, lon, address="", fetch=None, limit=6):
         local = (r["org_type"] or "").startswith(LOCAL)
         dname = _norm(r["name"])
         dc = _strip(r["county"])
-        if city and (_norm(r["hq_city"]) == _norm(city) or (p_words and all(w in dname.split() for w in p_words))):
+        named = bool(p_words) and all(w in dname.split() for w in p_words)  # an HQ in the city isn't the city's own: a county's sits there too (11/5, Wilmington)
+        if city and (_norm(r["hq_city"]) == _norm(city) or named):
             if place:
-                score += 50
-                why.append(f"{'HQ in' if _norm(r['hq_city']) == _norm(city) else 'named for'} {city}: the building is inside {where.get('place') or city} ({TIGER_SOURCE})")
+                score += 50 if named else 20
+                why.append(f"{'named for' if named else 'HQ in'} {city}: the building is inside {where.get('place') or city} ({TIGER_SOURCE})")
             else:
                 score += 20
                 why.append(f"HQ in {city} (from the job's address; the building may be outside city limits)")

@@ -385,7 +385,7 @@ window.dasWalkHook = async (el, j, save, ctx) => {
   wkMount(panel, j, save, ctx); };
 
 function wkMount(panel, j0, save, ctx){
-  let j=j0, fw=wkFloorOf(j0, ctx.f.name), sel=null, spot=null, spotPid=null, drag=null;
+  let j=wkRetestOpen(j0), fw=wkFloorOf(j0, ctx.f.name), sel=null, spot=null, spotPid=null, drag=null;
   const U=wkUi(), f=ctx.f, onPlan=!!ctx.hasPlan, uk=`${j.id}|${f.name}`, n=f.grids||DAS.grids, cols=dasCols(f), rows=wkRows(f);
   const d=()=>j.data||{}, ar=()=>wkAr(f, fw, onPlan), undo=()=>WK.undo[uk]||[];
   const cur=()=>wkCur(d()), pv=()=>wkPassView(fw, cur());  // the pass being walked: what the plan shows and what a tap adds to
@@ -413,7 +413,7 @@ function wkMount(panel, j0, save, ctx){
       <button id="wkUndo" ${undo().length?"":"disabled"}>↶ Undo</button>
       <span class="seg" id="wkZoom"><button data-z="-1" aria-label="Zoom out">−</button><button data-z="1" aria-label="Zoom in">+</button></span>
     </div>
-    ${wkPassBar(d(), fw)}
+    ${wkPassBar(d(), fw)}${wkRetestNote(d())}
     <p class="status" id="wkScore" style="margin:0 0 6px"></p>
     <div id="wkScroll" style="${U.zoom>1?"overflow:auto;max-height:75vh;":"overflow:hidden;"}border-radius:10px">
       <div id="wkWrap" style="position:relative;width:${U.zoom*100}%;line-height:0">
@@ -442,14 +442,27 @@ function wkMount(panel, j0, save, ctx){
   // the floor changed: saved with its roll-up into the squares, the page drawn again at once
   const persist=()=>{ const dd=d(), R=wkRollup(dd, f, fw, onPlan);
     const W=dd.walk&&Array.isArray(dd.walk.floors)?dd.walk:{v:1, floors:[]}, floors=[...W.floors.filter(x=>x.name!==f.name), wkClone(fw)];
-    const patch={walk:{...W, v:1, floors}, grid:{...(dd.grid||{}), results:R.results}};
+    const patch={walk:{...W, v:1, floors}, grid:{...(dd.grid||{}), results:R.results}, ...(dd.baseline&&!(j0.data||{}).baseline?{baseline:dd.baseline}:{})};
     j={...j, data:{...dd, ...patch}}; WK.cache[uk]=wkClone(fw);
     WK.next={patch, rev:fw.rev, floor:f.name, save:async p=>{ const nj=await save(p); return nj; }, say:t=>{ const x=$p("#wkSave"); if(x){ x.textContent=t; x.style.color=/^Not/.test(t)?"var(--bad)":""; } }}; wkPump();
     draw(); const u=$p("#wkUndo"); if(u) u.disabled=!undo().length; };
   // a point or tap added goes in the pass being walked (the acceptance pass leaves it unmarked, as before passes)
   const commit=mut=>{ (WK.undo[uk]||=[]).push(JSON.stringify(fw)); if(WK.undo[uk].length>80) WK.undo[uk].shift(); const seq0=fw.seq||0, c=cur(); mut(fw);
     if(c!==WK_PASS0) for(const x of [...(fw.pts||[]), ...(fw.wps||[])]) if(x.id>seq0&&!x.pass) x.pass=c;
-    fw.rev=(fw.rev||0)+1; persist(); };
+    retestLands(c); fw.rev=(fw.rev||0)+1; persist(); };
+  // the first reading in a pass that opened by itself: from here the retest is the test of record. The grid and the Report use it on every
+  // floor, so a floor not walked yet reads untested and not last year's pass; the comparison with acceptance goes on; and if nobody saved
+  // the acceptance results as the baseline, they're kept as it first. Acceptance's own points stay in the walk, unmarked, as they were
+  function retestLands(c){ const dd=d(), p=wkPasses(dd).find(x=>x.id===c); if(!p||!p.auto||!(fw.pts||[]).some(x=>wkPassOf(x)===c&&(x.rs||[]).length)) return;
+    const W=dd.walk, G=dd.grid||{}, named=wkPassName(dd, c), walked=(W.floors||[]).some(x=>wkPassView(x, WK_PASS0).pts.length);
+    const W2={...W, passes:wkPasses(dd).map(x=>{ if(x.id!==c) return x; const {auto, ...y}=x; return y; }), graded:c, ...(walked?{compare:{a:WK_PASS0, b:c, sig:"ps|*", met:"dl"}}:{})};
+    const base=!dd.baseline&&Object.keys(G.results||{}).length?{baseline:{date:dd.accepted_on||(dd.checks||{}).accepted_on||today(), results:{...G.results}, critical:{...(G.critical||{})}}}:{};
+    let results=G.results||{};
+    for(const fl of Array.isArray(dd.floors)?dd.floors:[]){ if(fl.name===f.name) continue; const w2=(W.floors||[]).find(x=>x.name===fl.name); if(w2) results=wkRollup({...dd, walk:W2, grid:{...G, results}}, fl, w2, !!fl.plan).results; }
+    j={...j, data:{...dd, ...base, walk:W2, grid:{...G, results}}};
+    $p("#wkRetestNote")?.remove(); const gs=$p("#wkGraded"); if(gs) gs.value=c;
+    note(`Walk: ${named} opened itself when it came due. First reading in: the grid and the Report use it, compared with acceptance`);
+    say(`${named}: the grid and the Report now use this pass, compared with acceptance.`); }
   const note=t=>post(`/api/das/jobs/${j.id}/note`, {text:t}).catch(e=>say("Not noted in the log: "+e.message));
   const remount=()=>wkMount(panel, j, save, ctx);
 
@@ -856,6 +869,13 @@ async function wkPicture(j, d, f, fw, sig, met, planImg, passLabel){
   return {url:c.toDataURL("image/png"), short:`${what.replace(/\s*\(.*\)$/,"")} ${label}`.replace(/[,]/g,""), caption:`Floor ${f.name}${passLabel?` · ${passLabel}`:""} · ${what} · ${label} · ${cap}`}; }
 
 /* ---------- test passes on the page: the bar above the plan, and the comparison below it ---------- */
+// the retest opens itself (retest.py): while the server says it's open and nothing saved holds it, it's the pass being walked. It's only
+// this page's copy until the first reading lands: a job nobody walks hasn't changed, and the acceptance report's seal still reads unchanged
+function wkRetestOpen(j){ const o=(j.standing||{}).retest, d=j.data||{}; if(!o||!o.open||wkPasses(d).some(p=>p.id===o.id)) return j;
+  const W=d.walk&&Array.isArray(d.walk.floors)?d.walk:{v:1, floors:[]};
+  return {...j, data:{...d, walk:{...W, v:1, passes:[...wkPasses(d), {id:o.id, kind:o.kind, year:o.year, made:today(), auto:1}], cur:o.id}}}; }
+function wkRetestNote(d){ const c=wkCur(d), p=wkPasses(d).find(x=>x.id===c); if(!p||!p.auto) return "";
+  return `<p class="hint" id="wkRetestNote" style="margin:0 0 6px">${esc(wkPassName(d, c))} opened by itself: it's due. The grid and the Report stay on ${esc(wkPassName(d, wkGraded(d)))} until the first reading lands here, then they use this pass and compare it with acceptance. Acceptance stays as it is.</p>`; }
 function wkPassBar(d, fw){ const L=wkPasses(d), c=wkCur(d), gr=wkGraded(d), n=id=>wkPassView(fw, id).pts.length, y=new Date().getFullYear();
   return `<div class="maptools no-print wk-pass" id="wkPassBar" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:flex-end">
     <label class="inl">Test pass <select id="wkPass">${L.map(p=>`<option value="${esc(p.id)}" ${p.id===c?"selected":""}>${esc(wkPassName(d, p.id))} · ${n(p.id)} pt${n(p.id)===1?"":"s"} here</option>`).join("")}</select></label>

@@ -1,0 +1,23 @@
+/* What a PDF's words propose (readers.js, plans.js, dasread.js): each proposal beside the words it came from, with its press. Three columns on a wide screen, stacked on a phone */
+.rd{margin:10px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--wash,transparent);container-type:inline-size}
+.rd h4{margin:0 0 4px;font-size:14px}.rd h4 .hint{font-weight:400}
+.rd h5,.rd-part{margin:0;font-size:13px}.rd-part{margin-top:10px}
+.rd-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}.rd-head h5{margin-right:auto}
+.rd-head button{white-space:normal;height:auto;text-align:left}
+.rd-note{margin:2px 0 4px}
+.rd-say{margin:0}
+.rd-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,2.4fr) minmax(130px,1fr);gap:4px 12px;padding:6px 0;border-top:1px solid var(--line);align-items:start;overflow-wrap:anywhere}
+.rd-what .hint{display:block}.rd-do{text-align:right}.rd-do .hint{display:block}
+.rd-val{overflow-wrap:anywhere}
+.rd-src{font-style:italic;quotes:"\201c" "\201d"}
+.rd-w{color:var(--warn);margin:2px 0}
+.rd-warn{margin:8px 0 0;padding-left:18px;color:var(--warn)}
+.rd-on{margin:6px 0 0;font-size:12.5px;line-height:1.6}
+.rd-pick{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;border-top:1px solid var(--line);padding-top:8px;margin-top:10px}
+.rd-file{cursor:pointer}
+.rd-to{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:flex-end;margin:6px 0}.rd-to label{min-width:220px}
+/* by the box's own width, not the screen's: the Overview's Testing panel is narrow on a wide screen */
+@container (max-width:560px){
+  .rd-row{grid-template-columns:minmax(0,1fr)}.rd-do{text-align:left}
+  .rd-head button{width:100%}
+}

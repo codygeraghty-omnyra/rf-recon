@@ -957,11 +957,11 @@ async function sigwikiRange(lo, hi, limit = 400) {
 /* ---------- your own work: the PC app's own server, run in this browser (pyworker.js, webhost.py) ---------- */
 // what only the PC's code answers: missions, captures, the field log, labels, DAS, talk groups, your layers, cell
 // sites, FCC ID look-ups, the unlisted-signal check and the PC's downloads
-const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|talkgroups|cells|fccid|report\/signals|layers|settings|crowd\/|export\.|heatmap\.zip|coverage\.kmz)/;
+const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|intake|talkgroups|cells|fccid|report\/signals|layers|settings|crowd\/|export\.|heatmap\.zip|coverage\.kmz)/;
 // once something is saved in this browser the PC's code answers the map as well, so captures, labels and layers show
 const PY_WITH_WORK = /^\/(area|heatmap|network|find|mwlinks)$/;
 // asked for at start-up: until something is saved, the empty answer, so a visit that keeps nothing never loads the engine
-const PY_EMPTY = {"/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []},
+const PY_EMPTY = {"/intake": {can: true, items: [], counts: {}, open: 0, kinds: {}}, "/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []},
   "/settings": {creds: {}, states: ""}, "/fccid/grantees": {source: "site", page: "https://apps.fcc.gov/oetcf/eas/reports/GranteeSearch.cfm"}};
 const WORK = "rfr.work";
 const hasWork = () => { try { return localStorage.getItem(WORK) === "1"; } catch (e) { return false; } };

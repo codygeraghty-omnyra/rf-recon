@@ -9,7 +9,7 @@
 const LB = {
   log10: x => Math.log10(x),
   fspl: (dM, fMHz) => 20*Math.log10(Math.max(dM, 1)) + 20*Math.log10(fMHz) - 27.55,          // ITU-R P.525, d in m
-  p1238: (dM, fMHz, N, lf = 0) => 20*Math.log10(fMHz) + N*Math.log10(Math.max(dM, 1)) + lf - 28, // ITU-R P.1238 site-general
+  p1238: (dM, fMHz, N, lf = 0) => 20*Math.log10(fMHz) + N*Math.log10(Math.max(dM, 1)) + lf - 28, // ITU-R P.1238 site-specific, eq. (2) with N and floor loss (the site-general model is eq. (1), alpha/beta/gamma)
   kTB: bHz => -174 + 10*Math.log10(bHz),
   ft2m: ft => ft*0.3048,
 };
@@ -35,7 +35,18 @@ function lbParam(id){
 // the research keys some values by band: VHF, UHF (T-band included), 700, 800; VHF low (30-50 MHz) has none
 const lbBandKey = band => /700/.test(band)?"700":/800/.test(band)?"800":/vhf low/i.test(band)?null:/vhf/i.test(band)?"vhf":/uhf|t-band/i.test(band)?"uhf":null;
 // every default for one band: {field: {v, src, cite}}
-function lbDefaults(band){
+// P.1238's office N for a frequency: the listed office row nearest on a log scale (0.9 GHz 33, 1.25 GHz 32, 1.9 GHz 30). Before 11/6 every band
+// took the 0.9 GHz row, so a PCS or AWS band read 33 where P.1238 gives 30 (FINDINGS 10). With no frequency, 0.9 GHz as before.
+function lbOfficeN(band, fMHz){
+  const rows=(FR.budget?.p1238||[]).filter(x=>x.environment==="office"&&typeof x.n==="number"&&/^[\d.]+ GHz$/.test(String(x.freq_band)));
+  if(!rows.length) return {v:30, src:"no P.1238 table: 30"};
+  const ghz=x=>parseFloat(x.freq_band), f=fMHz>0?fMHz/1000:0.9;
+  const row=rows.reduce((a,b)=>Math.abs(Math.log(ghz(b)/f))<Math.abs(Math.log(ghz(a)/f))?b:a);
+  const top=Math.max(...rows.map(ghz)), off=Math.abs(Math.log(ghz(row)/f))>0.15;
+  const why=/vhf/i.test(band)?" (P.1238 has no VHF values: used as an estimate)":f>top*1.15?` (P.1238's office rows here stop at ${top} GHz: used as the nearest)`:off?" (nearest listed band)":"";
+  return {v:row.n, src:`ITU-R P.1238 office, ${row.freq_band}${why}`, cite:row.sources};
+}
+function lbDefaults(band, fMHz){
   const k=lbBandKey(band), k78=k==="700"||k==="800"?"700_800":k, none={v:null, src:"no researched default for this band: set it"};
   const corr=k78?lbParam(`portable_antenna_corr_${k78}_dbd`):none;
   return {
@@ -43,7 +54,7 @@ function lbDefaults(band){
     body_db: corr.v!=null?{v:+(-(corr.v)-2.15).toFixed(2), src:`portable antenna and body: ${corr.v} dBd (TSB-88.1-C draft) = ${(-(corr.v)-2.15).toFixed(2)} dB below isotropic`, cite:corr.cite}:none,
     server_gain_dbi: k78?lbParam(`server_antenna_gain_${k78}_dbi`):none,
     site_sens_dbm: k==="vhf"?lbParam("site_sensitivity_vhf_dbm"):k?lbParam("site_sensitivity_dbm"):none,
-    N: (()=>{ const row=(FR.budget?.p1238||[]).find(x=>x.environment==="office"&&String(x.freq_band).startsWith("0.9")); return row?{v:row.n, src:`ITU-R P.1238 office, 0.9 GHz${/vhf/i.test(band)?" (P.1238 has no VHF values: used as an estimate)":k==="uhf"?" (nearest listed band)":""}`, cite:row.sources}:{v:30, src:"no P.1238 table: 30"}; })(),
+    N: lbOfficeN(band, fMHz),
     margin_db: lbParam("fade_margin_db"),
     dl_min_dbm: typeof DASJ!=="undefined"&&typeof DASJ?.threshold==="number"?{v:DASJ.threshold, src:"this job's requirement (Requirements)"}:lbParam("dl_min_dbm"), ul_min_dbm: lbParam("ul_min_dbm"), ul_max_dbm: lbParam("ul_max_dbm"),
     connector_db: lbParam("connector_loss_db"), bda_nf_db: lbParam("bda_nf_db"), bw_khz: lbParam("bandwidth_khz"), isolation_margin_db: lbParam("isolation_margin_db"),
@@ -53,12 +64,14 @@ function lbDefaults(band){
 }
 // loss of the passive elements at f: cable runs (datasheet loss), parts with a fixed loss, connectors
 function lbPassive(els, fMHz, connDb){
-  let db=0; const rows=[];
+  let db=0; const rows=[], stop=[];
   for(const e of els||[]){
-    if(e.kind==="cable"){ const c=(FR.parts?.cables||[]).find(x=>x.name===e.cable), L=c&&cableLoss(c,fMHz), v=L?L.db*(+e.ft||0)/100:0; db+=v; rows.push({name:`${e.cable||"cable"} · ${e.ft||0} ft`, db:v}); }
+    if(e.kind==="cable"){ const c=(FR.parts?.cables||[]).find(x=>x.name===e.cable), L=c&&cableLoss(c,fMHz), v=L&&L.db!=null?L.db*(+e.ft||0)/100:0; db+=v;
+      if(L?.stop) stop.push(`${e.cable} (${L.stop} MHz stop band, at ${fMHz} MHz)`);
+      rows.push({name:`${e.cable||"cable"} · ${e.ft||0} ft${L?.stop?": stop band, no loss figure":""}`, db:v}); }
     else { const v=+e.db||0; db+=v; rows.push({name:e.name||"part", db:v}); }
   }
-  return {db, rows};
+  return {db, rows, stop};
 }
 // the whole budget for one band; inputs I (see dasBudget for the fields), returns stages, checks and key numbers
 // With no signal at the roof the whole downlink is unknown: its levels show "–" and every check built on them is open,
@@ -74,8 +87,9 @@ function lbCompute(I){
 function lbCompute0(I){
   const n=v=>(v===""||v==null||isNaN(+v))?null:+v, num0=v=>n(v)??0;
   const conn=num0(I.connector_db), pass_dl=lbPassive(I.passive, I.f_dl, conn), pass_ul=lbPassive(I.passive, I.f_ul||I.f_dl, conn);
-  const donorDl=lbPassive(I.donor_cable?[I.donor_cable]:[], I.f_dl, 0).db+num0(I.donor_connectors)*conn;
-  const donorUl=lbPassive(I.donor_cable?[I.donor_cable]:[], I.f_ul||I.f_dl, 0).db+num0(I.donor_connectors)*conn;
+  const dDl=lbPassive(I.donor_cable?[I.donor_cable]:[], I.f_dl, 0), dUl=lbPassive(I.donor_cable?[I.donor_cable]:[], I.f_ul||I.f_dl, 0);
+  const donorDl=dDl.db+num0(I.donor_connectors)*conn, donorUl=dUl.db+num0(I.donor_connectors)*conn;
+  const stopped=[...new Set([...pass_dl.stop, ...pass_ul.stop, ...dDl.stop, ...dUl.stop])];
   const passDl=pass_dl.db+num0(I.connectors)*conn, passUl=pass_ul.db+num0(I.connectors)*conn;
   const dM=LB.ft2m(num0(I.edge_ft)), walls=num0(I.walls_db);
   const pl=f=>I.model==="fspl"?LB.fspl(dM,f):LB.p1238(dM,f,num0(I.N)||30,num0(I.floor_loss));
@@ -128,6 +142,7 @@ function lbCompute0(I){
   // checks: ok is true, false, "warn", or null when an input is missing. A limit left blank skips its check.
   const C=[], chk=(id,name,ok,detail)=>C.push({id,name,ok,detail});
   const dlNeed=num0(I.dl_min_dbm)+num0(I.margin_db);
+  if(stopped.length) chk("cable_band","Every cable carries this band",false,`${stopped.join("; ")}: a radiating cable doesn't carry its stop bands, so this run has no loss figure and the budget can't be trusted. Pick another cable for this band`);
   if(I.model!=="fspl"&&walls>0) chk("walls_twice","Walls on top of P.1238","warn",`${walls} dB of walls is added to P.1238, whose N already allows for the walls on a floor: leave this at 0, or use Free space + walls`);
   if(I.cell){  // LTE / 5G: the cellular target, the 20.21 consumer caps for scale, isolation and headroom; no agency-site or 90.219 checks
     chk("dl_edge","RSRP at the far edge",edge>=dlNeed,`${edge.toFixed(1)} dBm vs ${dlNeed.toFixed(1)} dBm needed (${num0(I.dl_min_dbm)} target + ${num0(I.margin_db)} dB margin; Requirements, Cellular)`);
@@ -179,7 +194,8 @@ const DS_CAPS = {
     notes:["Oscillation: auto-reset for the first three events in 24 h, disabled on the 4th."]},
   sacramento: {name:"Sacramento Metro Fire FPS 32 (effective 07/10/2025)", src:"https://metrofire.ca.gov/files/09cf2a87a/FPS+32+-+Installation+of+Emergency+Responder+Radio+Coverage+Systems.pdf",
     v:{noise_site_max_dbm:[-150, "21: calculated noise at the donor site no greater than −150 dBm"], noise_limit_dbm:[-43, "21: noise in 10 kHz at the donor antenna ≤ −43 dBm ERP"],
-      isolation_margin_db:[20, "Design 3.a: isolation 20 dB greater than the amplifier's maximum rated gain (> 100 dB desired)"]},
+      isolation_margin_db:[20, "Design 3.a: isolation 20 dB greater than the amplifier's maximum rated gain (> 100 dB desired)"],
+      ul_min_dbm:[-110, "23: SRRCS accepts −90 to −110 dBm at its site receivers (the same item also says −75 to −95 dBm for design)"], ul_max_dbm:[-90, "23: as above"]},
     // 9.b: total uplink gain ≤ 75 dB without approval; idle uplink gain by distance to the donor site (donor antenna gain counts in it)
     table:[[8, Infinity, 81, -44], [4, 8, 75, -50], [2, 4, 69, -56], [1, 2, 63, -62], [0.5, 1, 57, -68], [0.25, 0.5, 51, -74]],
     notes:["9.b: total uplink gain ≤ 75 dB without prior approval; the idle uplink gain row comes from the distance to the donor site, and the donor antenna's gain counts in it.", "22: time delay ≤ 25 µs total."]},
@@ -225,7 +241,7 @@ function dsBands(d){
 }
 // one band's inputs: what the job saved, else the defaults (with where each came from)
 function dsInputs(d, b){
-  const saved=((d.design||{}).bands||{})[b.band]||{}, D=lbDefaults(b.band), v=k=>D[k]?.v;
+  const saved=((d.design||{}).bands||{})[b.band]||{}, D=lbDefaults(b.band, b.f_dl), v=k=>D[k]?.v;
   const def={f_dl:b.f_dl, f_ul:b.f_ul, n_ch:b.n_ch, roof_dbm:b.best, roof_src:b.best!=null?"pre-survey free-space estimate (best case): replace with a measured reading":"",
     donor_gain_dbi:null, donor_cable:null, donor_connectors:2, bda_dl_gain_db:null, bda_ul_gain_db:null, bda_max_dbm:null, bda_ul_max_dbm:null, backoff_db:0,
     bda_nf_db:v("bda_nf_db")??9, passive:[], connectors:0, connector_db:v("connector_db")??0.1, server_gain_dbi:v("server_gain_dbi"), edge_ft:100, walls_db:0,
@@ -285,7 +301,7 @@ async function dsBudget(el, j, save){
   const keep=async patch=>{ const all={...((d.design||{}).bands||{})}, x={...(all[b.band]||{}), ...patch};
     for(const k in patch) if(patch[k]===null) delete x[k];  // a cleared field goes back to its default
     all[b.band]=x; await save({design:{...(d.design||{}), bands:all}}); render(); };
-  const Dflt=lbDefaults(b.band), mine=((d.design||{}).bands||{})[b.band]||{};
+  const Dflt=lbDefaults(b.band, b.f_dl), mine=((d.design||{}).bands||{})[b.band]||{};
   // an LTE / 5G band names its inputs for a phone and RSRP, and says where its own defaults came from
   const CELL_LABEL={roof_dbm:"RSRP at the roof (isotropic)", portable_dbm:"Phone power", body_db:"Head and hand loss", dl_min_dbm:"RSRP needed", n_ch:"Carriers sharing the BDA in this band", bw_khz:"Channel bandwidth"};
   const CELL_NOTE={portable_dbm:"a phone at full power: power class 3, 23 dBm (3GPP, background)", body_db:"a 3 dB placeholder (background): set it",
@@ -1052,7 +1068,7 @@ window.dasSubmittal = async (el, j) => {
   el.innerHTML=`<div class="maptools no-print"><div class="seg" id="drView"><button data-rv="test">Test report</button><button data-rv="submittal" class="on">Design submittal</button></div>
       <button class="primary" id="dsPrint">⎙ Print / save as PDF</button><span class="hint">Prints the submittal only, a sheet a page, with the project, revision and page number on every page. Licensee consent letters print from the Pre-survey.</span></div>
     <div class="panel" id="dasPrint" style="line-height:1.45"><style>#dasPrint td,#dasPrint th{white-space:normal;vertical-align:top}#dasPrint table{width:100%}#dasPrint tbody th{text-align:left;width:22%}</style>
-      ${sheets.join("</div>")}</div>`;
+      ${dasSkipLines(d)}${sheets.join("</div>")}</div>`;
   $("#drView").onclick=e=>{ const b=e.target.closest("[data-rv]"); if(b){ S.das.rview=b.dataset.rv; render(); } };
   $("#dsPrint").onclick=()=>dsPrintSubmittal(j, rev, revDate, s.project_no);
 };
@@ -1078,8 +1094,8 @@ const DS_NFPA1225 = "https://oci.georgia.gov/document/document/nfpa-1225-chapter
 const DS_BATT_RULES = [  // id, name, battery-only hours, battery hours with a generator, generator hours, low-battery %, table, source, what it says
   {id:"nfpa", name:"NFPA 1225 (2022) 18.13.2 / 18.14.1.2", batt_h:12, gen_batt_h:2, gen_h:12, low_pct:70, src:DS_NFPA1225,
     says:"12 h at 100% system operation, or a 2 h battery plus a generator for 12 h; low-battery signal when 70% of the 12-hour capacity is used."},
-  {id:"ifc2024", name:"IFC 2024 510.4.2.3 / 510.4.2.5", batt_h:12, gen_batt_h:null, gen_h:null, low_pct:70, src:"https://up.codes/viewer/phoenix/ifc-2024/chapter/5/fire-service-features",
-    says:"12 h at 100% operation; low battery at 70% of the 12-hour operating capacity. No generator route in this text."},
+  {id:"ifc2024", name:"IFC 2024 510.4.2.3 / 510.4.2.5", batt_h:12, gen_batt_h:2, gen_h:12, low_pct:70, src:"https://up.codes/viewer/phoenix/ifc-2024/chapter/5/fire-service-features",
+    says:"12 h at 100% operation, or a 2 h battery plus the facility generator; low battery at 70% of the 12-hour operating capacity."},
   {id:"la", name:"LA County Fire V7-C3-S21 (02/02/2023)", batt_h:24, gen_batt_h:2, gen_h:24, low_pct:70, src:"https://sbc.memberclicks.net/assets/Useful_Links/2023/v7-c3-s21.pdf",
     says:"A battery for 24 h at 100%, or a generator with 24 h of fuel plus a 2 h battery; low-battery indication at 70% of the 24-hour capacity."},
   {id:"sd", name:"San Diego FD C-1 (2025)", batt_h:12, gen_batt_h:2, gen_h:12, low_pct:70, src:"https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf",
@@ -1090,8 +1106,8 @@ const DS_BATT_RULES = [  // id, name, battery-only hours, battery hours with a g
     says:"24 h at 100% operation.", read:"from the research summary"},
   {id:"cos", name:"Colorado Springs FD (6/30/2023)", batt_h:null, gen_batt_h:null, gen_h:null, low_pct:null, table:"cos", src:"https://coloradosprings.gov/system/files/2023-07/2021_ifc_erces_2023_final.pdf",
     says:"Battery calculations with standby and alarm current per device, model, standby and alarm time, total current, battery size and series / parallel.", read:"from the research summary"},
-  {id:"fdny", name:"FDNY TM-ARCS-2", batt_h:null, gen_batt_h:null, gen_h:null, low_pct:null, table:"fdny", src:"https://www.nyc.gov/assets/fdny/downloads/pdf/business/tm-arcs-2.pdf",
-    says:"Battery type, voltage and Ah; calculated capacity in standby (hours) and full operating mode (minutes); date of manufacture.", read:"from the research summary"},
+  {id:"fdny", name:"FDNY TM-ARCS-2", batt_h:24, gen_batt_h:null, gen_h:null, low_pct:null, table:"fdny", src:"https://www.nyc.gov/assets/fdny/downloads/pdf/business/tm-arcs-2.pdf",
+    says:"24 h supervisory then 6 h full load (BC App. Q 24.9.5.3.1). Battery type, voltage and Ah; calculated capacity in standby (hours) and full operating mode (minutes); date of manufacture."},
 ];
 const DS_BATT_GUESS = [[/los angeles|\bla county/i,"la"],[/san diego/i,"sd"],[/clark county|las vegas|henderson/i,"clark"],[/santa clara/i,"scc"],[/colorado springs/i,"cos"],[/fdny|new york/i,"fdny"]];
 const DS_BATT_TABLES = [["", "Standard (per item, full load)"], ["cos", "Colorado Springs (standby and full-load current per device)"], ["fdny", "FDNY TM-ARCS-2 (standby hours, full-operating minutes)"]];
@@ -1167,7 +1183,8 @@ async function dsBattery(el, j, save){
       <p class="hint" style="margin:6px 0">${esc(c.rule.says)} ${dsSrcLink(c.rule.src, "Source")}${c.rule.read?` · ${esc(c.rule.read)}`:""}</p>
       <div class="row" style="gap:10px;flex-wrap:wrap;align-items:end"><label>System voltage<input id="btV" type="number" step="any" value="${B.volts}" style="width:90px"></label>
         <label title="From the rule until you type one">Hours at full load<input id="btH" type="number" step="any" value="${c.hours}" style="width:90px"></label>${c.typed?`<button id="btHr" title="Back to the rule's hours">Use the rule's ${c.ruleH} h</button>`:""}
-        <label>Safety margin %<input id="btM" type="number" step="any" value="${B.margin_pct}" style="width:90px"></label></div>
+        <label title="20% is a common design margin. NFPA 72 (2022) is reported to size batteries at 1.25 times the load, which is 25%: secondary sources only, not read in the code. Use your AHJ's figure">Safety margin %<input id="btM" type="number" step="any" value="${B.margin_pct}" style="width:90px"></label></div>
+      <p class="hint" style="margin:4px 0 0">Margin: 20% is a common figure. NFPA 72 (2022) is reported to call for 1.25 times the load (25%), from secondary sources only; the AHJ's figure governs.</p>
       <div class="tw" style="margin-top:8px"><table><thead><tr><th>Equipment</th><th class="n">Qty</th><th class="n">Amps each</th><th class="n">or watts</th><th class="n" title="Idle current; blank = full load (NFPA 1225 sizes on 100% operation)">Standby A</th><th class="n">Amps</th><th></th></tr></thead><tbody>
         ${B.items.map((x,i)=>`<tr><td>${esc(x.name)}</td><td class="n">${esc(x.qty??1)}</td><td class="n">${esc(x.amps??"")}</td><td class="n">${esc(x.watts??"")}</td><td class="n"><input data-sba="${i}" type="number" step="any" value="${x.standby_a??""}" placeholder="${c.amps(x).toFixed(2)}" style="width:70px" aria-label="Standby amps, ${esc(x.name)}"></td><td class="n">${((+x.qty||1)*c.amps(x)).toFixed(2)}</td><td><button data-rmb="${i}" aria-label="Remove ${esc(x.name)}">✕</button></td></tr>`).join("")
           ||'<tr><td colspan="7" class="hint">Add the BDA, fiber remotes, the annunciator and anything else on the battery (from each datasheet\'s full-load current).</td></tr>'}</tbody></table></div>

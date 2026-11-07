@@ -56,7 +56,7 @@ LABELS = {":name": "Job name", ":stage": "Stage", "presurvey": "Pre-survey", "fl
           "walk": "Walk test", "require": "Requirements", "profile": "AHJ profile", "testing": "Testing", "checks": "Compliance",
           "building": "Building outline", "contacts": "People", "notes": "Notes", "address": "Address", "client": "Client",
           "ahj": "AHJ", "code": "Code basis", "next_step": "Next step", "due": "Due", "value": "Value", "design": "Design",
-          "bom": "Materials (BOM)", "material_checks": "Materials checks", "pim": "PIM", "screen": "Screening",
+          "bom": "Materials (BOM)", "bom_settings": "Materials settings", "bom_revs": "BOM revisions", "material_checks": "Materials checks", "pim": "PIM", "screen": "Screening",
           "cellular": "Cellular", "legacy": "Existing system", "consents": "Licensee consent", "review": "AHJ review",
           "lat": "Latitude", "lon": "Longitude", "area_sqft": "Area", "construction": "Construction", "nsi": "Building (NSI)",
           "booster_class": "Booster class", "accepted_on": "Accepted on", "retest_due": "Retest due", "lic_watch": "Licence watch",
@@ -602,7 +602,8 @@ def review_files(d, files):
     if isinstance(picked, list):
         return [n for n in names if n in picked]
     plans = {f.get("plan") for f in (d.get("floors") or []) if isinstance(f, dict)}
-    return [n for n in names if n in plans or (n.lower().endswith(".pdf") and "report" in n.lower())]
+    sealed = {f["name"] for f in files if f.get("kind") == "sealed_report"}  # intake.py: its verify code is on file. A guessed kind never shows here
+    return [n for n in names if n in plans or n in sealed or (n.lower().endswith(".pdf") and "report" in n.lower())]
 
 
 def review_view(job, files):

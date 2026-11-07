@@ -87,11 +87,15 @@ function cableLoss(c, f){
   // the table at the usual frequencies, plus the datasheet's other rows (824, 894, 1800 MHz…) where the research kept them
   const pts=Object.entries({...(c.loss_nearest_listed||{}), ...(c.loss_db_100ft||{})}).map(([k,v])=>[+k,v]).filter(([k,v])=>k>0&&typeof v==="number"&&v>0).sort((a,b)=>a[0]-b[0]);
   if(!pts.length||!(f>0)) return null;
+  // a radiating cable's stop bands (RLKU: 650-750, 1330-1430, 2025-2100 MHz): it doesn't carry them, so no loss is shown
+  const sb=(c.stop_bands_mhz||[]).find(([lo,hi])=>f>=lo&&f<=hi);
+  if(sb) return {db:null, stop:`${sb[0]}-${sb[1]}`, how:`inside the cable's ${sb[0]}-${sb[1]} MHz stop band: it doesn't carry this frequency, and the datasheet gives no loss here`};
   const exact=pts.find(p=>p[0]===f); if(exact) return {db:exact[1], how:"datasheet"};
   if(f<pts[0][0]) return {db:pts[0][1]*Math.sqrt(f/pts[0][0]), how:"scaled below the datasheet's lowest frequency"};
   const last=pts[pts.length-1]; if(f>last[0]) return {db:last[1]*Math.sqrt(f/last[0]), how:"scaled above the datasheet's highest frequency"};
   const i=pts.findIndex(p=>p[0]>f), [f0,l0]=pts[i-1], [f1,l1]=pts[i];
-  return {db:Math.exp(Math.log(l0)+(Math.log(l1)-Math.log(l0))*(Math.log(f)-Math.log(f0))/(Math.log(f1)-Math.log(f0))), how:`between the datasheet's ${f0} and ${f1} MHz`};
+  const across=(c.stop_bands_mhz||[]).find(([lo,hi])=>lo>f0&&hi<f1);
+  return {db:Math.exp(Math.log(l0)+(Math.log(l1)-Math.log(l0))*(Math.log(f)-Math.log(f0))/(Math.log(f1)-Math.log(f0))), how:`between the datasheet's ${f0} and ${f1} MHz${across?`, across its ${across[0]}-${across[1]} MHz stop band: an estimate the datasheet doesn't give`:""}`};
 }
 function frCableCalc(r, prefix="cc"){
   const cs=(r.cables||[]).filter(c=>c.loss_db_100ft&&Object.values(c.loss_db_100ft).some(v=>typeof v==="number"));
@@ -106,7 +110,7 @@ function frCableCalcWire(r, prefix="cc"){
   const cs=(r.cables||[]).filter(c=>c.loss_db_100ft&&Object.values(c.loss_db_100ft).some(v=>typeof v==="number"));
   const run=()=>{ const i=+$(`#${prefix}C`).value, f=+$(`#${prefix}F`).value, len=+$(`#${prefix}L`).value, c=cs[i];
     frLocal.set(prefix,{i,f,len}); const L=c&&cableLoss(c,f);
-    $(`#${prefix}Out`).innerHTML=L?`<b>${(L.db*len/100).toFixed(2)} dB</b> over ${len} ft <span class="hint">· ${L.db.toFixed(2)} dB per 100 ft at ${f} MHz, ${esc(L.how)} ${frCite(r,c.sources)}</span>`:'<span class="hint">Pick a cable and a frequency.</span>'; };
+    $(`#${prefix}Out`).innerHTML=L?.stop?`<b>No loss figure</b> <span class="hint">· ${esc(L.how)} ${frCite(r,c.sources)}</span>`:L?`<b>${(L.db*len/100).toFixed(2)} dB</b> over ${len} ft <span class="hint">· ${L.db.toFixed(2)} dB per 100 ft at ${f} MHz, ${esc(L.how)} ${frCite(r,c.sources)}</span>`:'<span class="hint">Pick a cable and a frequency.</span>'; };
   if(!cs.length){ $(`#${prefix}Out`).textContent="No cable loss figures in the research yet."; return; }
   [`#${prefix}C`,`#${prefix}F`,`#${prefix}L`].forEach(s=>$(s).oninput=run); run();
 }
@@ -262,11 +266,11 @@ window.dasPim = async (el, j, save) => {
 };
 
 /* ---------- ERCES code fields on a part (11/4): UL 2524, class, FCC ID, NEMA, 2-hour, PIM, each with where it came from ---------- */
-const PC_LAB={ul2524:"UL 2524", booster_class:"Class", fcc_id:"FCC ID", nema:"NEMA", rating_2h:"2-hour", pim:"PIM"};
-const PC_SRC={grant:"FCC grant", "spec sheet":"spec sheet", typed:"typed"};
+const PC_LAB={ul2524:"UL 2524", booster_class:"Class", fcc_id:"FCC ID", nema:"NEMA", rating_2h:"2-hour", pim:"PIM", freq:"Frequency", connector:"Connector", power:"Power rating"};
+const PC_SRC={grant:"FCC grant", "price list":"price list", "spec sheet":"spec sheet", typed:"typed"};
 // one line of what a part carries and what's still open on it (words, not icons: nothing only on hover)
 const pcSum=p=>{ if(!p) return ""; const c=p.codes||{}, open=(p.checks||[]).filter(x=>x.status!=="check");
-  const have=Object.keys(PC_LAB).filter(k=>c[k]?.v&&!(k==="fcc_id"&&c[k].v===p.part)).map(k=>`${PC_LAB[k]} ${c[k].v}`);
+  const have=Object.keys(PC_LAB).filter(k=>!["freq","connector","power"].includes(k)&&c[k]?.v&&!(k==="fcc_id"&&c[k].v===p.part)).map(k=>`${PC_LAB[k]} ${c[k].v}`);
   if(p.pattern) have.push(`pattern${p.pattern.gain_dbi!=null?` ${p.pattern.gain_dbi} dBi`:""}, ${p.pattern.h_width_measured}° wide`);
   return `${have.length?esc(have.join(" · ")):""}${open.length?` <span class="tag w">${open.length} missing: ${esc([...new Set(open.map(x=>PC_LAB[x.field]))].join(", "))}</span>`
     :p.kind&&p.kind!=="passive"&&!have.length?'<span class="hint">none recorded</span>':""}`; };
@@ -297,22 +301,32 @@ function pcEditor(box, p, fields, on={}){
       Bands ${esc(pcBands(g.bands))} MHz · power ${esc(g.power||"range not kept")}${g.power?' <span class="hint">(the FCC search\'s range, weakest to strongest band)</span>':""} · granted ${esc(g.granted||"")}${g.changed?` · last change ${esc(g.changed)}`:""}
       · <a href="${esc(g.record)}" target="_blank" rel="noopener">FCC record (fccid.io) ↗</a> · <a href="${esc(g.search)}" target="_blank" rel="noopener">FCC search ↗</a></p>`:""}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">${fields.map(f=>{ const x=c[f.key]||{}; return `<label>${esc(f.label)}<input data-pcv="${f.key}" value="${esc(x.v||"")}" placeholder="${esc(f.hint)}">
-      <select data-pcs="${f.key}" aria-label="Where the ${esc(f.label)} value came from">${x.src==="grant"?'<option value="grant" selected>from the FCC grant</option>':""}<option value="spec sheet" ${x.src==="spec sheet"?"selected":""}>from the spec sheet</option><option value="typed" ${x.src!=="grant"&&x.src!=="spec sheet"?"selected":""}>typed</option></select></label>`; }).join("")}</div>
+      <select data-pcs="${f.key}" aria-label="Where the ${esc(f.label)} value came from">${x.src==="grant"?'<option value="grant" selected>from the FCC grant</option>':""}${x.src==="price list"?'<option value="price list" selected>from a price list</option>':""}<option value="spec sheet" ${x.src==="spec sheet"?"selected":""}>from the spec sheet</option><option value="typed" ${x.src!=="grant"&&x.src!=="spec sheet"&&x.src!=="price list"?"selected":""}>typed</option></select></label>`; }).join("")}</div>
     <div class="row" style="gap:8px;align-items:center;margin-top:8px"><button class="primary" id="pcSave">Save code fields</button><button id="pcClose">Close</button><span class="hint" id="pcMsg"></span></div>
-    ${pcChecks(p)}${pcPattern(p)}</div>`;
+    <div class="pc-read"></div>${pcChecks(p)}${pcPattern(p)}</div>`;
   box.scrollIntoView({block:"nearest"});
+  // a redraw brings the editor back (dasMaterials), with what was read and what's typed but not saved: render() runs whenever a search lands
+  S.das.pcOpen=p.id;
+  const held=S.das.pcHeld?.id===p.id?S.das.pcHeld.v:{};
+  for(const [k,x] of Object.entries(held)){ const i=box.querySelector(`[data-pcv="${k}"]`), s=box.querySelector(`[data-pcs="${k}"]`); if(i&&s){ i.value=x.v; s.value=x.s; } }
+  box.oninput=box.onchange=()=>{ const v={}; for(const f of fields){ const i=box.querySelector(`[data-pcv="${f.key}"]`), s=box.querySelector(`[data-pcs="${f.key}"]`), x=c[f.key]||{}; if(i&&s&&(i.value.trim()!==(x.v||"")||s.value!==(x.src||"typed"))) v[f.key]={v:i.value, s:s.value}; } S.das.pcHeld={id:p.id, v}; };
+  // the spec sheet reader (dasread.js): what's in the boxes now counts, saved or not, and a press saves only what it fills
+  const typedNow=()=>Object.fromEntries(fields.map(f=>[f.key, box.querySelector(`[data-pcv="${f.key}"]`)?.value.trim()||""]));
+  window.specReadBox?.(box.querySelector(".pc-read"), p, {form:typedNow, filled:(np, patch)=>{ for(const k in patch) delete S.das.pcHeld?.v?.[k];
+    pcEditor.changed=true; pcEditor(box, np, fields, on);
+    $("#pcMsg").textContent=`Filled from the spec sheet: ${Object.keys(patch).map(k=>PC_LAB[k]).join(", ")}.`; on.saved?.(); }});
   if($("#pcPat")) $("#pcPat").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#pcPatMsg").textContent=`Reading ${f.name}…`;
     try{ const np=await api(`/api/das/parts/${p.id}/pattern?name=${encodeURIComponent(f.name)}`,{method:"POST", body:await f.arrayBuffer()});
       pcEditor.changed=true; pcEditor(box, np, fields, on); $("#pcPatMsg").textContent=`${f.name} kept on the part.`; on.saved?.(); }
     catch(err){ $("#pcPatMsg").textContent=err.message; } };
-  $("#pcClose").onclick=()=>{ box.innerHTML=""; on.closed?.(!!pcEditor.changed); pcEditor.changed=false; };
+  $("#pcClose").onclick=()=>{ S.das.pcOpen=S.das.pcHeld=null; box.innerHTML=""; on.closed?.(!!pcEditor.changed); pcEditor.changed=false; };
   $("#pcSave").onclick=async()=>{ const patch={};
     for(const f of fields){ const v=box.querySelector(`[data-pcv="${f.key}"]`).value.trim(); let s=box.querySelector(`[data-pcs="${f.key}"]`).value; const was=c[f.key]||{};
       if(v===(was.v||"")&&s===(was.src||"typed")) continue;  // unchanged: a grant's own value stays the grant's
-      if(s==="grant") s="typed";  // a grant value changed by hand is typed
+      if(s==="grant"||s==="price list") s="typed";  // a grant's or a price list's value changed by hand is typed
       patch[f.key]={v, src:s}; }
     if(!Object.keys(patch).length){ $("#pcMsg").textContent="Nothing changed."; return; }
-    try{ const np=await post(`/api/das/parts/${p.id}`,{codes:patch}); pcEditor.changed=true; pcEditor(box, np, fields, on); $("#pcMsg").textContent="Saved."; on.saved?.(); }
+    try{ const np=await post(`/api/das/parts/${p.id}`,{codes:patch}); S.das.pcHeld=null; pcEditor.changed=true; pcEditor(box, np, fields, on); $("#pcMsg").textContent="Saved."; on.saved?.(); }
     catch(e){ $("#pcMsg").textContent=e.message; } };
 }
 
@@ -328,7 +342,9 @@ window.dasMaterials = async (el, j, save) => {
     ...(r.components||[]).map(c=>({cat:"Component", item:c.type, part:part1(c), supplier:String(ex1(c).vendor||(c.vendors||"").toString().split(/[,;]/)[0]).trim()}))];
   const sum=bom.reduce((a,x)=>(a[x.cat||"Other"]=(a[x.cat||"Other"]||0)+(+x.qty||0),a),{});
   // the parts catalogue (Joe 11/3): the BOM lines' own parts (for their spec sheets) and the standard parts
-  const pids=[...new Set(bom.map(x=>x.pid).filter(Boolean))];
+  const rv=await api(`/api/das/jobs/${j.id}/bomreview`).catch(e=>({err:e.message}));  // groups, warnings, what's missing, the outputs (dasbom.py)
+  if(!el.isConnected) return;
+  const pids=[...new Set([...bom.map(x=>x.pid), ...(rv.lines||[]).map(l=>l.pid)].filter(Boolean))];
   const [mine, std]=await Promise.all([pids.length?api(`/api/das/parts?ids=${pids.join(",")}`).catch(()=>({parts:[]})):{parts:[]}, api("/api/das/parts?standard=1&limit=500").catch(()=>({parts:[], all:0}))]);
   if(!el.isConnected) return;
   const byId=new Map(mine.parts.map(p=>[p.id,p]));
@@ -339,39 +355,43 @@ window.dasMaterials = async (el, j, save) => {
   const specCell=x=>{ const p=x.pid&&byId.get(+x.pid);
     return p&&p.spec_file?`<a href="/api/das/parts/${p.id}/spec" target="_blank" rel="noopener">PDF</a>`:p&&p.spec_url?`<a href="${esc(p.spec_url)}" target="_blank" rel="noopener">link ↗</a>`
       :x.part||x.item?`<a class="hint" href="${esc(find(x.part||x.item, p?.maker))}" target="_blank" rel="noopener" title="Search for its spec sheet; then keep it on the part in the catalogue below">find ↗</a>`:""; };
+  const B=dasBom({j, d, bom, rv, byId, std, money, specCell, save, keep:b=>keep(b)});
   el.innerHTML=`
     <div class="panel"><h3>Bill of materials</h3>
-      <div class="tw"><table><thead><tr><th>Category</th><th>Item</th><th>Part number</th><th>Supplier</th><th class="n">Qty</th><th>Unit</th><th class="n">Price</th><th class="n">Total</th><th>Spec sheet</th><th>Code fields</th><th>Note</th><th></th></tr></thead><tbody>
-      ${bom.map((x,i)=>`<tr><td>${esc(x.cat||"")}</td><td><b>${esc(x.item||"")}</b></td><td class="mono">${esc(x.part||"")}</td><td>${esc(x.supplier||"")}</td>
-        <td class="n"><input data-bq="${i}" type="number" step="any" value="${esc(x.qty??"")}" style="width:70px"></td><td>${esc(x.unit||"")}</td>
-        <td class="n"><input data-bp="${i}" type="number" step="0.01" value="${esc(x.price??"")}" style="width:84px"></td><td class="n">${money(lineTotal(x))}</td>
-        <td>${specCell(x)}</td><td style="white-space:normal;min-width:11em">${x.pid&&byId.get(+x.pid)?`${pcSum(byId.get(+x.pid))} <button class="sm" data-bcode="${x.pid}">Code fields</button>`:'<span class="hint">not from the catalogue</span>'}</td><td class="hint">${esc(x.note||"")}</td><td><button data-rmb="${i}" aria-label="Remove this line">✕</button></td></tr>`).join("")
-        ||'<tr><td colspan="12" class="hint">Nothing yet: add your standard parts, pick from the catalogue or the research list, or type a line below.</td></tr>'}</tbody></table></div>
+      ${B.summary()}
+      <div id="dmBomBody">${B.view()==="list"?`${B.hand()}${B.listView()}`:`${B.view()==="technician"?B.hand():""}${B.outBar()}<div id="dasPrint" class="bm-sheet">${B.outView()}</div>`}</div>
       <p class="hint" style="margin:6px 0">${Object.entries(sum).map(([k,n])=>`${esc(k)}: ${n}`).join(" · ")}${total?` · <b>Total ${money(total)}</b>`:""}</p>
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
         <button id="dmStd" ${std.parts.length?"":"disabled"} title="Every part starred as standard in the catalogue, with its default quantity; parts already on the list are left as they are">★ Add my standard parts (${std.parts.length})</button>
         <button id="dmSpec" ${bom.length?"":"disabled"} title="Each part's spec sheet into the job's Files, from the PDF kept on the part or its link">⎙ Build spec sheets</button>
-        <a class="btn" href="/api/das/jobs/${j.id}/packet" download style="display:inline-block;white-space:nowrap">⇩ BOM + spec sheets (zip)</a></div>
-      <div id="dmSpecRes"></div>
+        <a class="btn" href="/api/das/jobs/${j.id}/packet" download style="display:inline-block;white-space:nowrap">⇩ BOM + spec sheets (zip)</a>
+        <label class="inl" title="The zip's AHJ workbook never has prices. This is for the CSV beside it, which carries your cost unless this is ticked."><input type="checkbox" id="bmNoPrices" ${rv.settings?.packet_no_prices?"checked":""}> Leave prices out of the zip's CSV</label></div>
+      <div id="dmSpecRes"></div><div id="dmReadBom"></div>
+      ${B.tools()}
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:end">
         <label class="grow">From the research<select id="dmPick"><option value="">Pick a cable, connector or component…</option>${cat.map((c,i)=>`<option value="${i}">${esc(c.cat)}: ${esc(c.item)}${c.part?` (${esc(c.part)})`:""}</option>`).join("")}</select></label></div>
       <div class="row" style="gap:6px;flex-wrap:wrap;align-items:end;margin-top:6px">
-        <label>Category<input id="dmCat" style="width:110px"></label><label class="grow">Item<input id="dmItem"></label><label>Part number<input id="dmPart" style="width:150px"></label>
+        <label>Category<input id="dmCat" list="dmCats" style="width:110px"></label><label class="grow">Item<input id="dmItem"></label><label>Part number<input id="dmPart" style="width:150px"></label>
         <label>Supplier<input id="dmSup" style="width:140px"></label><label>Qty<input id="dmQty" type="number" step="any" style="width:80px"></label>
         <label>Unit<select id="dmUnit"><option>ea</option><option>ft</option><option>m</option><option>box</option><option>reel</option></select></label>
         <label>Price<input id="dmPrice" type="number" step="0.01" style="width:90px"></label>
-        <label class="grow">Note<input id="dmNote"></label><button class="primary" id="dmAdd">Add line</button><button id="dmCsv">⇩ CSV</button></div></div>
+        ${B.addExtras()}
+        <label class="grow">Note<input id="dmNote"></label><button class="primary" id="dmAdd">Add line</button><button id="dmCsv">⇩ CSV</button></div>
+      <datalist id="dmCats">${["Cable","Connector","Component","Antenna","Donor antenna","Tool"].map(x=>`<option value="${x}">`).join("")}</datalist>
+      <div id="dmHits"></div><div id="dmLinePick"></div></div>
+    ${B.checkPanel()}
     <div class="panel" style="margin-top:10px" id="dmQuotes"></div>
     <div class="panel" style="margin-top:10px"><h3>Parts catalogue <span class="hint">· ${std.all||0} part${std.all===1?"":"s"} kept, ${std.parts.length} standard${std.grants?`, ${std.grants.toLocaleString()} boosters from FCC grants`:""} · your suppliers' price lists, and a spec sheet on each part</span></h3>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
         <label>Supplier<input id="dmCatSup" placeholder="e.g. Wireless Supply" style="width:180px"></label>
-        <label class="inl" title="A price list from any supplier: CSV, Excel or JSON. The columns are found by their names (part number, description, manufacturer, price, unit, spec sheet link)">Import a price list <input type="file" id="dmCatImp" accept=".csv,.tsv,.txt,.xlsx,.json"></label>
+        <label title="The date on the price list. An older list adds to each part's price history and leaves today's price alone. Left blank: today.">List dated<input id="dmCatAsOf" type="date"></label>
+        <label class="inl" title="A price list from any supplier: CSV, Excel or JSON. The columns are found by their names (part number, description, manufacturer, price, unit, spec sheet link)">Import a price list <input type="file" id="dmCatImp" accept=".csv,.tsv,.txt,.xlsx,.xls,.json"></label>
         <label class="grow">Find a part<input id="dmCatQ" placeholder="part number, description, maker, supplier or FCC ID"></label>
         <label class="inl" title="Only the Part 90 Class A and B boosters on the FCC's grants"><input type="checkbox" id="dmCatFcc"> FCC boosters only</label>
         <label class="inl" title="Planet .msi / .pln pattern files from an antenna maker: each becomes an antenna part with its pattern (the same name again replaces it)">Antenna patterns <input type="file" id="dmCatPat" accept=".msi,.pln" multiple></label>
         <button id="dmCatGr" title="Every Part 90 Class A and B signal booster on the FCC grants kept here becomes a part (FCC ID, class, bands, power, grant date). Code fields you typed stay.">⟳ Boosters from FCC grants</button></div>
       <p class="hint" id="dmCatMsg" style="margin:6px 0">Star the parts you use on every job: they're your standard parts, added in one go with their default quantity. Keep a spec sheet on each (a PDF, or a link to one) and Build spec sheets puts them in the job's Files for the AHJ.</p>
-      <div id="dmCatList"></div><div id="dmCodeEd"></div></div>
+      <div id="dmCatList"></div><div id="dmCodeEd"></div><div id="dmHist"></div></div>
     <div class="grid2"><div>${r.empty?frEmpty("RF parts"):frCableCalc(r, "dmcc")}</div><div>
       ${r.empty?"":`<div class="panel" id="dmRules"><h3>Material rules for ERCES / DAS</h3>${(r.das||[]).map(x=>{ const k=`${x.topic}|${x.requirement}`; return `<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
         <input type="checkbox" data-mck="${esc(k)}" ${mchecks[k]?"checked":""} style="margin-top:4px;width:auto;flex:none"><span><b>${esc(x.topic)}</b>: ${esc(x.requirement||"")}${x.code?` <span class="tag">${esc(x.code)}</span>`:""}${x.detail?` <span class="hint">· ${esc(x.detail)}</span>`:""} ${frCite(r,x.sources)}</span></label>`; }).join("")}</div>`}</div></div>`;
@@ -383,7 +403,7 @@ window.dasMaterials = async (el, j, save) => {
     box.innerHTML=res.err?`<p class="hint">${esc(res.err)}</p>`:!res.parts.length?`<p class="hint">${fcc&&!res.grants?"No FCC booster grants are kept here: import them in Data & updates, FCC IDs, then press Boosters from FCC grants.":q?"No part matches.":res.all?"No standard parts yet: find a part and star it.":"No parts yet: import a supplier's price list above."}</p>`
       :`<div class="tw" style="max-height:420px"><table><thead><tr><th>★</th><th>Part number</th><th>Description</th><th>Maker</th><th>Supplier</th><th class="n">Price</th><th>Unit</th><th class="n" title="Shipping weight of one, for shipping estimates">lb</th><th class="n">Default qty</th><th>Spec sheet</th><th>Code fields</th><th></th></tr></thead><tbody>
         ${res.parts.map(p=>`<tr><td><button class="sm" data-pstar="${p.id}" aria-pressed="${p.standard}" title="${p.standard?"A standard part: press to unstar":"Star it as a standard part"}">${p.standard?"★":"☆"}</button></td>
-          <td class="mono">${esc(p.part||"")}</td><td style="white-space:normal;min-width:14em">${esc(p.item||"")}</td><td>${esc(p.maker||"")}</td><td>${esc(p.supplier||"")}</td><td class="n">${money(p.price)}</td><td>${esc(p.unit||"")}</td>
+          <td class="mono">${esc(p.part||"")}</td><td style="white-space:normal;min-width:14em">${esc(p.item||"")}</td><td>${esc(p.maker||"")}</td><td>${esc(p.supplier||"")}</td><td class="n">${money(p.price)} <a class="hint" href="#" data-phist="${p.id}">history</a></td><td>${esc(p.unit||"")}</td>
           <td class="n"><input data-pwt="${p.id}" type="number" step="any" min="0" value="${esc(p.weight_lb??"")}" style="width:58px" title="Shipping weight of one (lb)"></td>
           <td class="n">${p.standard?`<input data-pqty="${p.id}" type="number" step="any" value="${esc(p.std_qty??"")}" style="width:64px">`:""}</td>
           <td style="white-space:nowrap">${p.spec_file?`<a href="/api/das/parts/${p.id}/spec" target="_blank" rel="noopener">PDF</a> · `:p.spec_url?`<a href="${esc(p.spec_url)}" target="_blank" rel="noopener">link ↗</a> · `:`<a class="hint" href="${esc(find(p.part||p.item,p.maker))}" target="_blank" rel="noopener">find ↗</a> · `}
@@ -400,11 +420,12 @@ window.dasMaterials = async (el, j, save) => {
     box.querySelectorAll("[data-plink]").forEach(a=>a.onclick=async e=>{ e.preventDefault(); const p=part(a.dataset.plink), u=prompt("Link to this part's spec sheet PDF", p.spec_url||""); if(u==null) return;
       await post(`/api/das/parts/${p.id}`,{spec_url:u.trim()}).catch(err=>alert(err.message)); catList(); });
     box.querySelectorAll("[data-padd]").forEach(b=>b.onclick=()=>{ const p=part(b.dataset.padd); addParts([p]); });
+    box.querySelectorAll("[data-phist]").forEach(a=>a.onclick=e=>{ e.preventDefault(); bmPriceHistory($("#dmHist"), a.dataset.phist); });
     box.querySelectorAll("[data-pcode]").forEach(b=>b.onclick=()=>pcEditor($("#dmCodeEd"), part(b.dataset.pcode), res.code_fields||[], {saved:catList, closed:ch=>{ if(ch) render(); }})); };
   // parts into the BOM: once each (a part already on the list keeps its line and quantity)
   const addParts=ps=>{ const have=new Set(bom.map(x=>x.pid?`id${x.pid}`:`${(x.part||x.item||"").toLowerCase()}`));
     const add=ps.filter(p=>!have.has(`id${p.id}`)&&!have.has((p.part||p.item||"").toLowerCase()))
-      .map(p=>({pid:p.id, cat:p.cat||"", item:p.item||"", part:p.part||"", supplier:p.supplier||"", qty:p.std_qty??"", unit:p.unit||"ea", price:p.price??"", note:""}));
+      .map(p=>({pid:p.id, cat:p.cat||"", item:p.item||"", part:p.part||"", maker:p.maker||"", supplier:p.supplier||"", qty:p.std_qty??"", unit:p.unit||"ea", price:p.price??"", price_at:p.price!=null?(p.updated_at||"").slice(0,10):"", price_by:p.price!=null?"catalogue":"", note:""}));
     if(!add.length){ $("#dmCatMsg").textContent="Already on the bill of materials."; return; }
     keep([...bom, ...add]); };
   $("#dmCatQ").oninput=()=>{ clearTimeout(catList.t); catList.t=setTimeout(catList,300); };
@@ -420,8 +441,8 @@ window.dasMaterials = async (el, j, save) => {
     catch(err){ $("#dmCatMsg").textContent=err.message; } b.disabled=false; };
   el.querySelectorAll("[data-bcode]").forEach(b=>b.onclick=()=>{ const p=byId.get(+b.dataset.bcode); if(p) pcEditor($("#dmCodeEd"), p, std.code_fields||[], {closed:ch=>{ if(ch) render(); }}); });
   $("#dmCatImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const sup=$("#dmCatSup").value.trim(); $("#dmCatMsg").textContent=`Reading ${f.name}…`;
-    try{ const r=await api(`/api/das/parts/import?name=${encodeURIComponent(f.name)}&supplier=${encodeURIComponent(sup)}`,{method:"POST", body:await f.arrayBuffer()});
-      $("#dmCatMsg").textContent=`${f.name}: ${r.added.toLocaleString()} new part${r.added===1?"":"s"}, ${r.updated.toLocaleString()} updated, ${r.total.toLocaleString()} kept in all. Columns read: ${Object.entries(r.columns).map(([k,h])=>`${k} = ${h}`).join(", ")}.`; catList(); }
+    try{ const r=await api(`/api/das/parts/import?name=${encodeURIComponent(f.name)}&supplier=${encodeURIComponent(sup)}&as_of=${encodeURIComponent($("#dmCatAsOf").value)}`,{method:"POST", body:await f.arrayBuffer()});
+      $("#dmCatMsg").textContent=`${f.name}: ${r.added.toLocaleString()} new part${r.added===1?"":"s"}, ${r.updated.toLocaleString()} updated, ${r.total.toLocaleString()} kept in all.${r.prices_changed?` ${r.prices_changed.toLocaleString()} price${r.prices_changed===1?"":"s"} changed, the old ones kept with their dates.`:""}${r.older?` ${r.older.toLocaleString()} from a list older than the price kept: added to the history, today's price left alone.`:""} Columns read: ${Object.entries(r.columns).map(([k,h])=>`${k} = ${h}`).join(", ")}.`; catList(); }
     catch(err){ $("#dmCatMsg").textContent=err.message; } e.target.value=""; };
   $("#dmStd").onclick=()=>addParts(std.parts);
   $("#dmSpec").onclick=async e=>{ const b=e.currentTarget, out=$("#dmSpecRes"); b.disabled=true; out.innerHTML='<p class="hint">Gathering spec sheets…</p>';
@@ -430,6 +451,8 @@ window.dasMaterials = async (el, j, save) => {
         ${r.parts.filter(x=>x.status!=="ok").map(x=>`<div class="hint">✗ ${esc(x.part||x.item)}: ${esc(x.why||"")} · <a href="${esc(find(x.part||x.item,x.maker))}" target="_blank" rel="noopener">find ↗</a></div>`).join("")}`; }
     catch(err){ out.innerHTML=`<p class="status err">${esc(err.message)}</p>`; } b.disabled=false; };
   catList();
+  window.dasSpecBatch?.($("#dmReadBom"), j, mine.parts);  // every spec sheet behind this list, read at once (dasread.js)
+  if(S.das.pcOpen) api(`/api/das/parts?ids=${S.das.pcOpen}`).then(r=>{ const box=$("#dmCodeEd"); if(box&&r.parts[0]) pcEditor(box, r.parts[0], std.code_fields||[], {saved:catList, closed:ch=>{ if(ch) render(); }}); }).catch(()=>{ S.das.pcOpen=null; });
   // Quotes from suppliers (Cody 11/3): a request for quote from this BOM to several suppliers, their quotes entered or
   // imported, and the comparison. RF Recon writes the email; the person sends it from their own mail.
   const quotes=async()=>{ const box=$("#dmQuotes"); if(!box) return;
@@ -467,7 +490,7 @@ window.dasMaterials = async (el, j, save) => {
       <div class="tw"><table><thead><tr><th>Supplier</th><th></th><th class="n">Lines quoted</th><th class="n">Subtotal</th><th class="n">Shipping</th><th class="n">Total</th><th class="n">Ready in</th><th>Quote holds to</th><th></th></tr></thead><tbody>
       ${C.suppliers.map(s=>`<tr><td><b>${esc(s.supplier)}</b>${s.supplier===C.cheapest?' <span class="tag" style="background:var(--good);color:#fff">cheapest</span>':""}${s.supplier===C.fastest?' <span class="tag">fastest</span>':""}</td>
         <td style="white-space:nowrap"><button class="sm" data-qmail="${esc(s.supplier)}" title="Opens the request in your own mail to send">✉ Email</button> <button class="sm" data-qenter="${esc(s.supplier)}">Enter quote</button>
-          <label class="hint" style="cursor:pointer">import<input type="file" data-qimp="${esc(s.supplier)}" accept=".csv,.tsv,.txt,.xlsx,.json" hidden></label></td>
+          <label class="hint" style="cursor:pointer">import<input type="file" data-qimp="${esc(s.supplier)}" accept=".csv,.tsv,.txt,.xlsx,.xls,.json" hidden></label></td>
         <td class="n">${s.received?`${s.quoted} of ${s.of}`:'<span class="hint">waiting</span>'}</td><td class="n">${s.received?cur(s.subtotal):""}</td><td class="n">${s.ship_est?`<span title="${esc(s.ship_est)}">${cur(s.shipping)} <span class="tag">est.</span></span>`:s.received?(/\(online\)$/.test(s.supplier)&&!s.shipping?'<span class="hint">not in their price</span>':cur(s.shipping)):""}</td>
         <td class="n"><b>${s.received?cur(s.total):""}</b></td><td class="n">${s.ready_days!=null?`${Math.round(s.ready_days)} day${Math.round(s.ready_days)===1?"":"s"}`:""}</td><td>${esc(s.valid_until||"")}</td>
         <td>${s.received&&!s.missing.length?`<button class="sm" data-quse="${esc(s.supplier)}" title="Its prices and name onto the bill of materials">Use</button>`:s.missing.length&&s.received?`<span class="hint">${s.missing.length} missing</span>`:""}</td></tr>`).join("")}
@@ -520,21 +543,25 @@ window.dasMaterials = async (el, j, save) => {
       if(s==="__split") for(const x of q.compare.split.lines) pick[x.key]={supplier:x.supplier, price:x.unit_price};
       else for(const x of q.quotes.filter(x=>x.supplier===s&&x.unit_price!=null)) pick[x.key]={supplier:s, price:x.unit_price};
       const key=x=>(x.part||x.item||"").trim().toLowerCase().replace(/\s+/g," ");
-      keep(bom.map(x=>pick[key(x)]?{...x, supplier:pick[key(x)].supplier, price:pick[key(x)].price}:x)); }); };
+      keep(bom.map(x=>{ const h=pick[key(x)]; return h?{...x, supplier:h.supplier, price:h.price, price_at:today(), price_by:/\(online\)$/.test(h.supplier)?"online":"quote"}:x; })); }); };
   quotes();
   if(!r.empty) frCableCalcWire(r, "dmcc");
-  $("#dmPick").onchange=e=>{ const c=cat[+e.target.value]; if(!c) return; $("#dmCat").value=c.cat; $("#dmItem").value=c.item; $("#dmPart").value=c.part; $("#dmSup").value=c.supplier; $("#dmUnit").value=c.cat==="Cable"?"ft":"ea"; $("#dmQty").focus(); };
-  const keep=async b=>{ await save({bom:b}); render(); };
+  $("#dmPick").onchange=e=>{ const c=cat[+e.target.value]; if(!c) return; found=null; $("#dmHits").innerHTML=""; $("#dmCat").value=c.cat; $("#dmItem").value=c.item; $("#dmPart").value=c.part; $("#dmSup").value=c.supplier; $("#dmUnit").value=c.cat==="Cable"?"ft":"ea"; $("#dmQty").focus(); };
+  const keep=async b=>{ await save({bom:b}); window.dasBomHold(); render(); };  // held after the save: Tab has landed by then
+  // a part number found in the catalogue fills the row; Add line keeps what it filled, and an unknown part is just typed
+  let found=null;
+  const fillAdd=p=>{ found=p; if(!p) return; const f=bmFill(p); $("#dmCat").value=f.cat; $("#dmItem").value=f.item; $("#dmMaker").value=f.maker; $("#dmSup").value=f.supplier; $("#dmPrice").value=f.price??""; if([...$("#dmUnit").options].some(o=>o.value===f.unit)) $("#dmUnit").value=f.unit; };
+  bmAddLookup(fillAdd);
   $("#dmAdd").onclick=()=>{ const g=s=>$(s).value.trim(); if(!g("#dmItem")) return;
-    keep([...bom, {cat:g("#dmCat"), item:g("#dmItem"), part:g("#dmPart"), supplier:g("#dmSup"), qty:g("#dmQty"), unit:$("#dmUnit").value, price:g("#dmPrice"), note:g("#dmNote")}]); };
-  // quantity and price edited in the table (each line's total and the grand total follow)
-  el.querySelectorAll("[data-bq],[data-bp]").forEach(i=>i.onchange=()=>{ const k=i.dataset.bq!=null?"qty":"price", n=+(i.dataset.bq??i.dataset.bp);
-    keep(bom.map((x,ix)=>ix===n?{...x,[k]:i.value}:x)); });
-  el.querySelectorAll("[data-rmb]").forEach(b=>b.onclick=()=>keep(bom.filter((_,i)=>i!==+b.dataset.rmb)));
+    const f=found?bmFill(found):{}, same=found&&String(f.price??"")===g("#dmPrice"), group=g("#dmGroup");
+    keep([...bom, {...(found?{pid:found.id}:{}), cat:g("#dmCat"), item:g("#dmItem"), part:g("#dmPart"), maker:g("#dmMaker"), supplier:g("#dmSup"), qty:g("#dmQty"), unit:$("#dmUnit").value, price:g("#dmPrice"),
+      price_at:g("#dmPrice")?(same?f.price_at:today()):"", price_by:g("#dmPrice")?(same?"catalogue":"typed"):"", loc:g("#dmLoc"), ...(group?{group}:{}), note:g("#dmNote")}]); };
+  B.wire();  // the list's own controls (dasbom.js): quantity, price, location, group, part number, outputs, what's missing
   $("#dmCsv").onclick=()=>dasDl(`${fileSafe(j.name)} materials.csv`, csvOf(bom.map(x=>({category:x.cat,item:x.item,part:x.part,supplier:x.supplier,qty:x.qty,unit:x.unit,price:x.price??"",line_total:lineTotal(x)==null?"":lineTotal(x).toFixed(2),note:x.note,
     ...Object.fromEntries(Object.entries(PC_LAB).map(([k,lab])=>{ const c=(byId.get(+x.pid)?.codes||{})[k]; return [lab, c?.v?`${c.v} [${c.src||"typed"}]`:""]; })),
-    "code checks":(byId.get(+x.pid)?.checks||[]).map(c=>`${c.status}: ${c.text}`).join("; ")}))), "text/csv");
+    "code checks":(byId.get(+x.pid)?.checks||[]).map(c=>`${c.status}: ${c.text}`).join("; "), maker:x.maker||"", location:x.loc||"", group:(rv.group_list||[]).find(g=>g.key===(rv.lines||[]).find(l=>bom[l.i]===x)?.group)?.label||""}))), "text/csv");
   el.querySelectorAll("[data-mck]").forEach(c=>c.onchange=()=>{ mchecks[c.dataset.mck]=c.checked||undefined; save({material_checks:mchecks}); });
   window.rfChecks?.($("#dmRules"), {key:"das.materialrules", sel:"[data-mck]", word:"confirmed",  // All / None: one save
     commit:boxes=>{ boxes.forEach(c=>{ mchecks[c.dataset.mck]=c.checked||undefined; }); save({material_checks:mchecks}); }});
+  window.dasBomBack();
 };

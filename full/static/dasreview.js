@@ -105,7 +105,7 @@
       <div class="panel"><h2>Tester</h2><dl class="kv">
         <dt>Tester</dt><dd>${h(T.tester || "not given")}</dd>${T.grol ? `<dt>FCC GROL</dt><dd>${h(T.grol)}</dd>` : ""}${T.nicet ? `<dt>NICET</dt><dd>${h(T.nicet)}</dd>` : ""}
         ${T.date ? `<dt>Tested</dt><dd>${h(T.date)}${T.date2 ? ` to ${h(T.date2)}` : ""}</dd>` : ""}</dl>
-        ${ins.length ? `<h3>Instruments</h3><div class="tw"><table><thead><tr><th>Model</th><th>Serial</th><th>Calibrated</th></tr></thead><tbody>${ins.map(i => `<tr><td>${h(i.model)}</td><td class="mono">${h(i.serial)}</td><td class="mono">${h(i.cal)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="hint">No instruments listed.</p>'}</div></div>
+        ${ins.length ? `<h3>Instruments</h3><div class="tw"><table><thead><tr><th>Model</th><th>Serial</th><th>Calibrated</th></tr></thead><tbody>${ins.flatMap(i => [i, ...(i.prior || []).map(p => ({ ...i, cal: `${p.cal || "–"} (earlier calibration)` }))]).map(i => `<tr><td>${h(i.model)}</td><td class="mono">${h(i.serial)}</td><td class="mono">${h(i.cal)}</td></tr>`).join("")}</tbody></table></div>` : '<p class="hint">No instruments listed.</p>'}</div></div>
       ${(v.floors || []).map(f => floorBlock(v, f)).join("") || '<div class="panel"><p class="hint" style="margin:0">No floors on this job yet.</p></div>'}
       <div class="panel"><h2>Files</h2>${(v.files || []).length ? `<div class="list">${v.files.map(n => `<a class="job" href="${fileUrl(v.id, n)}" target="_blank" rel="noopener"><b>${h(n)}</b><span class="hint">Open</span></a>`).join("")}</div>`
         : '<p class="hint" style="margin:0">No files shared for review.</p>'}</div>

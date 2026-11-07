@@ -9,6 +9,7 @@ uls.db), loaded for the states set in Data & updates. A new release comes twice 
 current release aren't fetched again. Needs a free API token (broadbandmap.fcc.gov, Manage API Access), sent with the
 FCC sign-in email; the FCC's API terms apply.
 """
+import dlstop  # Stop all downloads
 import io
 import json
 import os
@@ -177,6 +178,7 @@ def _download(creds, file_id, path, tries=3):
             with _get(f"/downloads/downloadFile/availability/{file_id}", creds, raw=True) as r, open(path, "wb") as fh:
                 want, got = int(r.headers.get("Content-Length") or 0), 0
                 while True:
+                    dlstop.check()  # Stop all downloads (not an OSError: never retried)
                     chunk = r.read(1 << 20)
                     if not chunk:
                         break

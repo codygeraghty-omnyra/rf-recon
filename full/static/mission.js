@@ -321,7 +321,8 @@ S.views.data = async (v) => {
       <div class="row" style="align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap"><b>Update over</b>
         <div class="seg" id="uLinks">${[["all","All"],["wifi","Wi-Fi"],["ethernet","Ethernet"],["cellular","Cellular / phone tether"]].map(([k,l])=>`<button data-link="${k}">${l}</button>`).join("")}</div></div>
       <p class="hint" id="uLinkNow" style="margin:4px 0 0"></p>
-      <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="primary" id="uUpdAll">⟳ Update all</button><button id="uRunAll">Update all selected now</button><button id="uAllOn">Select all sources</button><button id="uAllOff">Select none</button></div>
+      <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="primary" id="uUpdAll" title="${S.me?.server?"The server downloads every source now, whether or not it's selected. Each one takes only what's newer, and a source with no key saved is left out.":"Every source now, selected or not. Each one takes only what's newer."}">⟳ ${S.me?.server?"Pull everything to the server":"Update all"}</button><button id="uStop" title="Stop every download now: the files being fetched stop, nothing new starts, automatic updates included, until you resume">■ Stop all downloads</button><button id="uRunAll">Update all selected now</button><button id="uAllOn">Select all sources</button><button id="uAllOff">Select none</button></div>
+      <p class="status" id="uStopMsg" style="margin:6px 0 0;display:none"></p>
       <p class="hint" id="uUpdMsg" style="margin:4px 0 0">Update all checks every source below now, selected or not, and downloads only what's newer. Sources whose key isn't saved are left out.</p>
       <label style="margin-top:10px">Limit FCC data to states (blank = whole US)<input id="uStates" value="${esc(settings.states||"")}" placeholder="VA,MD,DC"></label>
       ${dasNote("the pre-survey reads the FCC licences and towers kept for these states")}
@@ -356,9 +357,13 @@ S.views.data = async (v) => {
     <p class="hint" id="raMsg" style="margin:6px 0 0"></p>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Person</th><th>Can</th><th>Added</th><th>Last here</th><th></th></tr></thead><tbody id="raList"></tbody></table></div></div>
   <div class="panel" id="dcPanel" hidden><h3>DAS course: who has it</h3>
-    <p class="hint" style="margin-top:0">Tick an account to give it the course. They open it from the DAS tab, and their progress saves to their sign-in. Unticking keeps their progress. Admins always have it; AHJ reviewer logins can't. <span id="dcSum"></span></p>
+    <p class="hint" style="margin-top:0">Tick an account to give it the course. They open it from the DAS tab, and their progress saves to their sign-in. Unticking keeps their progress. Admins start ticked; AHJ reviewer logins can't have it. <span id="dcSum"></span></p>
     <p class="hint" id="dcMsg" style="margin:6px 0 0"></p>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Account</th><th>Has it</th><th>Lessons</th><th>Mastery</th><th>Exams passed</th><th>On lesson</th><th>Last used</th></tr></thead><tbody id="dcList"></tbody></table></div></div>
+  <div class="panel" id="sfPanel" hidden><h3>Server files</h3>
+    <p class="hint" style="margin-top:0">What the server keeps. Read only: a download is a copy, and nothing here changes a file. Logins, keys and the sign-in secret never show. <span id="sfDisk"></span></p>
+    <div class="sf-wrap"><div class="sf-roots" id="sfRoots"></div><div><p class="hint sf-crumb" id="sfCrumb"></p>
+      <div class="tw"><table><thead><tr><th>Name</th><th>Size</th><th>Changed</th><th></th></tr></thead><tbody id="sfList"></tbody></table></div><p class="hint" id="sfMsg" style="margin:6px 0 0"></p></div></div></div>
   <div class="panel"><h3>Push to ATAK</h3>
     <p class="hint" style="margin-top:0">📡 Push to ATAK (beside the exports) sends what's on the map as live markers. They go to every ATAK, iTAK and WinTAK on this PC's networks over the TAK multicast those apps listen on out of the box, and to your TAK Server if you set one. Pushing again updates the same markers; they fade a day after the last push. Anyone on the same network with a TAK app sees them.</p>
     <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><label class="inl"><input type="checkbox" id="tkMc"> Network multicast</label>
@@ -487,6 +492,7 @@ S.views.data = async (v) => {
     if(!$("#raList")) return;  // left the tab while it loaded
     $("#raList").closest(".panel").hidden=!r.door;  // a copy without the remote door (the install kit) has nothing to show here
     $("#dcPanel").hidden=!r.door; if(r.door) dcPaint();
+    $("#sfPanel").hidden=S.me?.role!=="admin"; if(S.me?.role==="admin"&&!SF.started) sfStart();
     $("#waysPanel").hidden=!(r.door||S.me);  // and Ways in is about sharing that copy: the PC's door, or the server's admin
     if(!$("#waysPanel").hidden) waysVersions();
     const L=r.link||{}, n=r.people.length, ts={NeedsLogin:"signed out",NeedsMachineAuth:"waiting for approval",Stopped:"stopped",Starting:"starting"}[L.state]||"not running";
@@ -515,13 +521,34 @@ S.views.data = async (v) => {
     if(!$("#dcList")) return;  // left the tab while it loaded
     const has=r.people.filter(u=>u.has), began=r.people.filter(u=>u.done!=null);
     $("#dcSum").textContent=`${has.length} of ${r.people.length} ${r.people.length===1?"account has":"accounts have"} it; ${began.length} started.`;
-    $("#dcList").innerHTML=r.people.map(u=>{ const fixed=u.role==="admin"||u.role==="ahj";
-      return `<tr><td>${esc(u.name)}</td><td><label class="inl"><input type="checkbox" data-dcname="${esc(u.name)}" ${u.has?"checked":""} ${fixed?"disabled":""}> ${u.role==="admin"?"Admin":u.role==="ahj"?"Not for AHJ":u.has?"Yes":"No"}</label></td>
+    $("#dcList").innerHTML=r.people.map(u=>{ const fixed=u.role==="ahj";
+      return `<tr><td>${esc(u.name)}</td><td><label class="inl"><input type="checkbox" data-dcname="${esc(u.name)}" ${u.has?"checked":""} ${fixed?"disabled":""}> ${fixed?"Not for AHJ":u.has?"Yes":"No"}</label></td>
         <td>${u.done!=null?`${u.done} of ${u.total}`:"-"}</td><td>${u.mastery!=null?`${u.mastery}% · ${esc(u.rank||"")}`:"-"}</td><td>${u.exams?`${u.passed} of ${u.exams}`:"-"}</td>
         <td>${u.last?`${esc(u.last)} ${esc(u.last_title||"")}`:"-"}</td><td>${esc(u.saved_at||u.opened_at||"Not opened")}</td></tr>`; }).join("")
       ||'<tr><td colspan="7" class="hint">No accounts yet. Add a person under Remote access.</td></tr>';
     $("#dcList").querySelectorAll("[data-dcname]").forEach(c=>c.onchange=async()=>{ const who=c.dataset.dcname;
       try{ await post("/api/remote/course",{name:who, on:c.checked}); $("#dcMsg").textContent=c.checked?`${who} has the DAS course now.`:`${who} no longer has the DAS course. Their progress is kept.`; }catch(e){ $("#dcMsg").textContent=e.message; } dcPaint(); }); };
+  // server files (serverfiles.py): what the server keeps. Read only; a download is a copy
+  const SF={root:"", path:"", started:false, labels:{}};
+  const sfSize=b=>b>=1e9?`${(b/1e9).toFixed(1)} GB`:b>=1e6?`${(b/1e6).toFixed(1)} MB`:`${Math.max(1,Math.round(b/1e3))} KB`;
+  const sfOpen=async(root, path="")=>{ SF.root=root; SF.path=path; if(!$("#sfList")) return; let r;
+    $("#sfRoots").querySelectorAll("[data-sfroot]").forEach(b=>b.classList.toggle("on",b.dataset.sfroot===root));
+    try{ r=await api(`/api/remote/files?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`); }catch(e){ $("#sfMsg").textContent=e.message; return; }
+    if(!$("#sfList")||SF.root!==root||SF.path!==path) return;  // left the tab, or picked another folder while it loaded
+    const parts=r.path?r.path.split("/"):[], join=n=>parts.slice(0,n).join("/"), kids=n=>r.path?`${r.path}/${n}`:n;
+    $("#sfCrumb").innerHTML=[`<button class="sf-go" data-sfgo="">${esc(r.label)}</button>`,...parts.map((p,i)=>`<button class="sf-go" data-sfgo="${esc(join(i+1))}">${esc(p)}</button>`)].join(" › ");
+    const items=n=>n==null?"":`${n>=r.count_to?`${n.toLocaleString()}+`:n.toLocaleString()} item${n===1?"":"s"}`;
+    $("#sfList").innerHTML=[...r.folders.map(f=>`<tr><td><button class="sf-go" data-sfgo="${esc(kids(f.name))}">${esc(f.name)}/</button></td><td>${items(f.items)}</td><td>${esc(f.changed)}</td><td></td></tr>`),
+      ...r.files.map(f=>`<tr><td>${esc(f.name)}</td><td>${sfSize(f.size)}</td><td>${esc(f.changed)}</td><td style="text-align:right">${r.download?`<a class="hbtn" title="Download a copy" aria-label="Download ${esc(f.name)}" download href="/api/remote/files/download?root=${encodeURIComponent(root)}&path=${encodeURIComponent(kids(f.name))}">⇩ Download</a>`:""}</td></tr>`)].join("")
+      ||'<tr><td colspan="4" class="hint">Nothing here yet.</td></tr>';
+    $("#sfMsg").textContent=[r.download?"":"This folder lists sizes only.", r.more?`Showing the first ${(r.folders.length+r.files.length).toLocaleString()}; ${r.more.toLocaleString()} more aren't listed.`:""].filter(Boolean).join(" ");
+    document.querySelectorAll("#sfCrumb [data-sfgo], #sfList [data-sfgo]").forEach(b=>b.onclick=()=>sfOpen(root,b.dataset.sfgo)); };
+  const sfStart=async()=>{ SF.started=true; let r; try{ r=await api("/api/remote/files"); }catch(e){ $("#sfMsg").textContent=e.message; return; }
+    if(!$("#sfRoots")) return;
+    $("#sfDisk").textContent=`${sfSize(r.disk.free)} free of ${sfSize(r.disk.total)}.`;
+    $("#sfRoots").innerHTML=r.folders.map(f=>`<button data-sfroot="${esc(f.id)}">${esc(f.label)}</button>`).join("");
+    $("#sfRoots").querySelectorAll("[data-sfroot]").forEach(b=>b.onclick=()=>sfOpen(b.dataset.sfroot));
+    if(r.folders[0]) sfOpen(r.folders[0].id); };
   const raAdd=async (name, renew)=>{ name=(name||"").trim(); if(!name){ $("#raMsg").textContent="Type their name first."; return; }
     try{ const r=await post("/api/remote/add",renew?{name}:{name, role:$("#raRole").value}); $("#raName").value="";
       $("#raMsg").innerHTML=`Password for <b>${esc(r.name)}</b>: <span class="mono" style="user-select:all;font-size:15px">${esc(r.password)}</span> · Shown only now: send it to them with the link. Their old password, if any, no longer works.`; raPaint(); }
@@ -537,6 +564,9 @@ S.views.data = async (v) => {
     if(k==="all") cur=new Set(ALL); else { cur.has(k)?cur.delete(k):cur.add(k); if(!cur.size) cur.add(k); }
     cfg({links:ALL.filter(x=>cur.has(x))}); };
   $("#uAllOn").onclick=()=>cfg({all:true}); $("#uAllOff").onclick=()=>cfg({all:false});
+  $("#uStop").onclick=async()=>{ const b=$("#uStop"); b.disabled=true;
+    try{ UPD=await post(UPD&&UPD.stopped?"/api/update/resume":"/api/update/stop", {}); }catch(e){ $("#uUpdMsg").textContent=e.message; }
+    b.disabled=false; paintNet(); paintSources(); };
   $("#uRunAll").onclick=async()=>{ UPD=await post("/api/update/run",{ids:"enabled",force:true}); paintNet(); paintSources(); };
   // Update all: every source now, selected or not; each downloads only what's newer, and a source needing a key you haven't saved is left out
   $("#uUpdAll").onclick=async()=>{ const b=$("#uUpdAll"), m=$("#uUpdMsg"); b.disabled=true;
@@ -571,8 +601,16 @@ function freshness(s, auto){
   const next=(chk+(+s.interval_h)*36e5-Date.now())/36e5;
   return `<b style="color:${due?"var(--warn)":"var(--good)"}">${ago(age)} old</b>${s.enabled&&auto?(next>0?` · next check in ${ago(next)}`:" · check due now"):" · manual"}`;
 }
+// Stop all downloads (Cody 11/4): one button stops every download and keeps them stopped until Resume downloads
+function paintStop(u){ const b=$("#uStop"), m=$("#uStopMsg"); if(!b) return;
+  const run=Object.values(u.sources||{}).filter(s=>s.running).length;
+  b.textContent=u.stopped?"▶ Resume downloads":"■ Stop all downloads"; b.classList.toggle("primary", !!u.stopped);
+  ["#uUpdAll","#uRunAll"].forEach(id=>{ const x=$(id); if(x) x.disabled=!!u.stopped; });
+  m.style.display=u.stopped?"":"none";
+  m.textContent=u.stopped?`Downloads stopped at ${u.stopped}${run?`: ${run} finishing their current megabyte`:""}. Nothing downloads, automatic updates included, until you press Resume downloads. The data you had is kept.`:""; }
 function paintSources(){
   const u=UPD; if(!u||!$("#srcList")) return;
+  paintStop(u);
   const n=u.net, link={wifi:"Wi-Fi",cellular:"Cellular",ethernet:"Ethernet",vpn:"VPN",unknown:"unknown link"}[u.link]||u.link;
   if($("#netCard")) $("#netCard").innerHTML=`<div class="row" style="align-items:center"><span class="led ${n.online?"on":n.online===false?"off":""}" style="width:14px;height:14px"></span><b>${n.online?"Online":n.online===false?"Offline":"Not checked yet"}</b> · ${esc(link)}${n.interface?` (${esc(n.interface)})`:""}${n.latency_ms!=null?` · ${n.latency_ms} ms to FCC`:""}</div><p class="hint">Last checked ${esc(n.checked||"–")} · ${esc(n.os||"")}</p>`;
   const acc=a=>!a||!a.key?"":a.needs_key?`${a.key_saved?'<span style="color:var(--good)">✓ key saved</span>':'<span style="color:var(--bad)">✗ no key saved</span>'} · ${esc(a.key)} · ${esc(a.cost||"")}${a.signup?` · <a href="${esc(a.signup)}" target="_blank" rel="noopener">get a key ↗</a>`:""}`

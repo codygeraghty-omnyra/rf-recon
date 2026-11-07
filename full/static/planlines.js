@@ -151,18 +151,26 @@ function textWords(items, view) {
     const dl = Math.hypot(m[0], m[1]) || 1, ul = Math.hypot(m[2], m[3]) || 1;
     const bx = m[4] + m[0] / dl * wd / 2 + m[2] / ul * h * 0.35, by = m[5] + m[1] / dl * wd / 2 + m[3] / ul * h * 0.35;
     const [x, y] = apply(T, bx, by), sc = Math.sqrt(Math.abs(T[0] * T[3] - T[1] * T[2])) || 1;
-    out.push({s, x, y, h: h * sc, w: wd * sc});
+    // rot: the way the word reads on the shown page, in quarter turns (0 across, 270 up the sheet: the title strip on many drawings)
+    const rot = (Math.round(Math.atan2(T[1] * m[0] + T[3] * m[1], T[0] * m[0] + T[2] * m[1]) * R2D / 90) * 90 + 360) % 360;
+    out.push({s, x, y, h: h * sc, w: wd * sc, rot});
   }
   return out;
 }
+// a scale as written: 1/8" = 1'-0", 1 1/2" = 1'-0", 1/4 in = 1 ft, 1" = 20', 1:96 -> page points per foot, or null
+function scaleOfText(raw) {
+  const s = String(raw || "").replace(/[“”″]/g, '"').replace(/[‘’′]/g, "'");
+  let m = /(?:(?<![\w.-])(\d)[\s-]+)?(\d+)\s*\/\s*(\d+)\s*(?:"|''|in\.?|inch(?:es)?)?\s*=\s*1\s*(?:'|ft|foot)/i.exec(s);
+  if (m) { const inches = (+m[1] || 0) + +m[2] / +m[3]; return inches > 0 && inches <= 3 ? 72 * inches : null; }
+  m = /(\d+(?:\.\d+)?)\s*(?:"|in\.?)\s*=\s*(\d+(?:\.\d+)?)\s*(?:'|ft|feet|foot)/i.exec(s);  // an engineer's scale: 1 in = 20 ft
+  if (m) { const k = +m[1] / +m[2]; return k > 0 && k <= 3 ? 72 * k : null; }
+  m = /(?<![\d:])1\s*:\s*(\d{2,4})(?![\d:])/.exec(s);  // a ratio counts only beside the word, or alone: 1:30 can be a time
+  if (m && (/\bscale\b/i.test(s) || /^\s*1\s*:\s*\d{2,4}\s*$/.test(s))) return 864 / +m[1];
+  return null;
+}
 // the drawing's scale from its words ("SCALE: 1/8" = 1'-0"", "1/4 in = 1 ft"): page points per foot, or null
 function scaleFromWords(words) {
-  for (const w of words || []) {
-    const m = /(\d+)\s*\/\s*(\d+)\s*(?:"|''|in\.?|inch)?\s*=\s*1\s*(?:'|ft|foot)/i.exec(w.s) || /(\d+(?:\.\d+)?)\s*(?:"|in)\s*=\s*1\s*(?:'|ft)/i.exec(w.s);
-    if (!m) continue;
-    const inches = m[2] ? +m[1] / +m[2] : +m[1];
-    if (inches > 0 && inches <= 3) return 72 * inches;
-  }
+  for (const w of words || []) { const k = scaleOfText(w.s); if (k) return k; }
   return null;
 }
 
@@ -822,7 +830,7 @@ function scoreAgainst(det, truth, W, H, o = {}) {
     material: matN ? matOk / matN : null, missed, extra, wrongMat};
 }
 
-const api = {ALGO, MAT, opsToSegments, textWords, scaleFromWords, vectorLines, rasterLines, toGray, deskew, mergeCollinear, pairWalls, absorb,
+const api = {ALGO, MAT, opsToSegments, textWords, scaleOfText, scaleFromWords, vectorLines, rasterLines, toGray, deskew, mergeCollinear, pairWalls, absorb,
   snapPoint, axisLock, lockDrag, clipPoly, inPoly, rectPoly, proposeWalls, chooseMaterial, materialFromText, exteriorOf, bestVariant, scoreAgainst,
   geom: {len, angOf, angDiff, segDist, lineDist, tOn, cross, overlapOn, at, mid}};
 if (typeof window !== "undefined") window.PlanLines = api;

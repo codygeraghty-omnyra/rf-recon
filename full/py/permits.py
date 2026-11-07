@@ -792,6 +792,19 @@ def status(data_dir):
         con.close()
 
 
+def last_pull(data_dir, only):
+    """When any of these datasets was last pulled, or "". One short read: the board asks on every look."""
+    if not only or not os.path.exists(db_path(data_dir)):
+        return ""
+    con = sqlite3.connect(db_path(data_dir), timeout=30)
+    try:
+        return con.execute(f"SELECT MAX(last_run) FROM pull WHERE source IN ({','.join('?' * len(only))})", list(only)).fetchone()[0] or ""
+    except sqlite3.OperationalError:
+        return ""
+    finally:
+        con.close()
+
+
 # --- reading and matching -------------------------------------------------------------------------------------------
 
 def _hav(lat1, lon1, lat2, lon2):
@@ -929,7 +942,7 @@ def trigger_of(p, regs, n=1, n_near=0):
             "date": p.get("co_date") if p["kind"] == "co_issued" or p.get("co_date") else (p.get("issued") or p.get("filed") or "")}
 
 
-def _link_cos(perms):
+def link_cos(perms):
     """A new-building permit takes the CO date of a CO record at the same address or within about 50 m, issued after it."""
     cos = [p for p in perms if p["kind"] == "co_issued"]
     if not cos:
@@ -946,18 +959,19 @@ def _link_cos(perms):
                 break
 
 
-def attach(data_dir, rows, lat, lon, radius_mi, only=None, extra=True, today=None):
+def attach(data_dir, rows, lat, lon, radius_mi, only=None, extra=True, today=None, perms=None):
     """Each prospect row gets 'trigger' (its best permit) and 'permits' (how many) when permits match it: by address
     (house number and street) within 1 mi, else the nearest building within 0.05 mi (0.15 mi for malls, campuses,
     hospitals and other large sites), each permit to one building only. Returns (rows, extra_rows): extra_rows are new
     buildings (a new-building permit or a new-construction CO) that matched no prospect, one per address, as
-    prospect-shaped rows of kind under_construction. Rows placed at their ZIP's centre match by address only."""
+    prospect-shaped rows of kind under_construction. Rows placed at their ZIP's centre match by address only. perms: the
+    permits to match, when the caller has picked them (leads.py), else every one near the spot."""
     today = today or time.strftime("%Y-%m-%d")
-    perms = near(data_dir, lat, lon, float(radius_mi) + 0.2, only)
+    perms = near(data_dir, lat, lon, float(radius_mi) + 0.2, only) if perms is None else perms
     if not perms:
         return rows, []
     regs = sources()
-    _link_cos(perms)
+    link_cos(perms)
     by_addr = {}
     pts = []
     for r in rows:

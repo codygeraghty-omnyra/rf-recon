@@ -15,6 +15,7 @@ mimetypes.add_type("application/vnd.android.package-archive", ".apk")  # RF Reco
 mimetypes.add_type("application/manifest+json", ".webmanifest")  # the app manifest (installable on the server)
 import os
 import re
+import shutil
 import sqlite3
 import sys
 import threading
@@ -66,6 +67,7 @@ import fieldpack  # noqa: E402
 import geo  # noqa: E402
 import course  # noqa: E402
 import network  # noqa: E402
+import serverfiles  # noqa: E402
 import notes  # noqa: E402
 import opensources  # noqa: E402
 import fss  # noqa: E402
@@ -166,7 +168,7 @@ def init():
     if BACKUP_DIR:
         threading.Thread(target=backup_loop, daemon=True).start()
     import snmpwatch  # BDA monitoring: listens only when an admin has switched it on (setting snmp.monitor)
-    snmpwatch.boot(DB_PATH, get_setting, set_setting)
+    snmpwatch.boot(DB_PATH, get_setting, set_setting, uls_import.DATA_DIR)
 
 
 def get_setting(k, default=None):
@@ -852,6 +854,148 @@ US_STATE_ABBR = {n.lower(): a for a, n in (
     ("VI", "United States Virgin Islands"), ("AS", "American Samoa"), ("MP", "Northern Mariana Islands"))}
 
 
+PHOTON_GRACE_S = 0.1  # a Census match is the address itself: Photon gets this much longer, not its full wait
+
+
+def photon_list(q, qs):
+    """Photon's answers for a search (OpenStreetMap, free), US only. Raises when it can't be reached."""
+    p = {"q": q, "limit": 7, "lang": "en"}
+    if fnum(qs, "lat") is not None and fnum(qs, "lon") is not None:
+        p.update(lat=fnum(qs, "lat"), lon=fnum(qs, "lon"))  # bias toward where you're working
+    req = urllib.request.Request("https://photon.komoot.io/api/?" + urlencode(p), headers={"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"})
+    with urllib.request.urlopen(req, timeout=4) as r:
+        feats = json.loads(r.read()).get("features", [])
+    out = []
+    for f in feats:
+        pr, (lon, lat) = f.get("properties", {}), f["geometry"]["coordinates"]
+        if pr.get("countrycode") != "US":
+            continue
+        street = " ".join(x for x in (pr.get("housenumber"), pr.get("street")) if x)
+        head = pr.get("name") or street or pr.get("city") or ""
+        tail = ", ".join(x for x in (street if street != head else None, pr.get("city"), pr.get("state")) if x)
+        # the whole address as it's written on mail: "1200 N Main St, Arlington, VA 22201" (address boxes take this)
+        st = US_STATE_ABBR.get((pr.get("state") or "").lower(), pr.get("state") or "")
+        full = ", ".join(x for x in (street or pr.get("name"), pr.get("city") or pr.get("district") or pr.get("county"),
+                                     " ".join(y for y in (st, pr.get("postcode")) if y)) if x)
+        out.append({"label": head + (f", {tail}" if tail else ""), "sub": (pr.get("osm_value") or pr.get("type") or "").replace("_", " ").title(),
+                    "full": full, "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "photon",
+                    "number": pr.get("housenumber") or ""})
+    return out
+
+
+NEAR_STATES = 6  # a house number and street with no state: these are asked at once, and every state on a pause (wide=1, ahj.census_batch)
+# the middle of each state, for "which are nearest": a fixed list, because a copy's town index only holds the states it has loaded
+STATE_MIDS = {"AL": (32.8, -86.8), "AK": (64.0, -152.0), "AZ": (34.3, -111.7), "AR": (34.8, -92.4), "CA": (37.2, -119.5), "CO": (39.0, -105.5), "CT": (41.6, -72.7), "DE": (39.0, -75.5),
+              "DC": (38.9, -77.0), "FL": (28.6, -82.4), "GA": (32.7, -83.4), "HI": (20.8, -156.3), "ID": (44.4, -114.6), "IL": (40.0, -89.2), "IN": (39.9, -86.3), "IA": (42.0, -93.5),
+              "KS": (38.5, -98.4), "KY": (37.5, -85.3), "LA": (31.0, -92.0), "ME": (45.3, -69.2), "MD": (39.0, -76.8), "MA": (42.3, -71.8), "MI": (44.3, -85.4), "MN": (46.3, -94.3),
+              "MS": (32.7, -89.7), "MO": (38.4, -92.5), "MT": (47.0, -109.6), "NE": (41.5, -99.8), "NV": (39.3, -116.6), "NH": (43.7, -71.6), "NJ": (40.2, -74.7), "NM": (34.4, -106.1),
+              "NY": (42.9, -75.5), "NC": (35.5, -79.4), "ND": (47.4, -100.5), "OH": (40.3, -82.8), "OK": (35.6, -97.5), "OR": (43.9, -120.6), "PA": (40.9, -77.8), "RI": (41.7, -71.6),
+              "SC": (33.9, -80.9), "SD": (44.4, -100.2), "TN": (35.9, -86.4), "TX": (31.5, -99.3), "UT": (39.3, -111.7), "VT": (44.1, -72.7), "VA": (37.5, -78.9), "WA": (47.4, -120.5),
+              "WV": (38.6, -80.6), "WI": (44.6, -90.0), "WY": (43.0, -107.6)}
+
+
+def _here(qs):
+    la, lo = fnum(qs, "lat"), fnum(qs, "lon")
+    return None if la is None or lo is None else (la, lo)
+
+
+def states_near(qs):
+    """The states closest to where this person is working, nearest first."""
+    at = _here(qs)
+    return sorted(STATE_MIDS, key=lambda s: geo.haversine_km(at[0], at[1], *STATE_MIDS[s]))[:NEAR_STATES] if at else []
+
+
+def nearest_first(rows, qs):
+    at = _here(qs)
+    return sorted(rows, key=lambda x: geo.haversine_km(at[0], at[1], x["lat"], x["lon"])) if at else rows
+
+
+def census_near(q, qs):
+    """What the Census makes of a house number and street, with or without the rest. It takes "90 Main, VA", shrugs off a misspelled street, and
+    answers in 0.3 s, so the line as typed goes with one copy for each state nearby. What fits the words as typed comes first. None: not reached."""
+    import ahj
+    from concurrent.futures import ThreadPoolExecutor, wait
+    near = [] if re.search(r"\b\d{5}\b", q) else states_near(qs)  # a ZIP already says where
+    ex = ThreadPoolExecutor(1 + len(near))
+    typed, others = ex.submit(ahj.census_address, q), [ex.submit(ahj.census_address, f"{q}, {s}") for s in near]
+    try:
+        now = lambda: [f.result() if f.done() and not f.exception() else None for f in [typed, *others]]
+        wait([typed, *others], timeout=.6)
+        if not any(now()):  # nothing yet: the slower ones get a little longer. Something in hand shows now
+            wait([typed, *others], timeout=.8)
+        got = now()
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
+    if all(x is None for x in got):
+        return None
+    out, seen = [], set()
+    for x in (got[0] or []) + nearest_first([x for rows in got[1:] for x in rows or []], qs):
+        if x["full"] not in seen:
+            seen.add(x["full"])
+            out.append(x)
+    return out
+
+
+def census_wide(q, qs):
+    """Every state, on one request: the pause after nothing nearby fits. None when it couldn't ask."""
+    import ahj
+    import towers
+    if not re.match(r"(\d+)[a-z]?\s+[a-z0-9]", q, re.I) or re.search(r"\b\d{5}\b", q) or sys.platform == "emscripten":
+        return []
+    rows = ahj.census_batch(q, sorted(towers.STATES))
+    if rows is None:
+        return None
+    seen, out = set(), []
+    for x in nearest_first(rows, qs):
+        if x["full"] not in seen:
+            seen.add(x["full"])
+            out.append(x)
+    return out
+
+
+def address_lookup(q, qs):
+    """Addresses for a search, or None when nothing could be reached. A street address asks the Census Bureau's geocoder (ahj.py) and
+    Photon together: Photon took 1.4 to 3 s from the server and the Census 0.3 s, and asking one after the other left the box blank for
+    3 s while typing stopped (11/6). A Census match comes back at once. The typed house number wins: for "3440 Beltline Blvd" Photon
+    gave bus stops on 36th Street first (11/5)."""
+    m = re.match(r"(\d+)[a-z]?\s+[a-z0-9]", q, re.I)
+    if not m or len(q) < 6 or sys.platform == "emscripten":  # the web version has no threads, and its address search is web/shim.js
+        try:
+            return photon_list(q, qs)
+        except Exception:
+            return None  # offline or the service is down: the local half still answers
+    from concurrent.futures import ThreadPoolExecutor
+    ex = ThreadPoolExecutor(2)
+    ph, ce = ex.submit(photon_list, q, qs), ex.submit(census_near, q, qs)
+    try:
+        census = photon = None
+        try:
+            census = ce.result(timeout=1.5)
+        except Exception:
+            pass
+        try:
+            photon = ph.result(timeout=PHOTON_GRACE_S if census else 4.5)
+        except Exception:
+            pass  # slow, offline or down
+        if census is None and ce.done() and not ce.exception():
+            census = ce.result()
+        if census is None and not photon:  # neither has answered yet: the Census has the rest of its own wait
+            try:
+                census = ce.result(timeout=2.5)
+            except Exception:
+                pass
+        if census is None:
+            remote = photon
+        else:  # both: a house in Irvine that Photon has with the typed number mustn't hide the one the Census found next door (11/6)
+            door = lambda x: any(abs(x["lat"] - c["lat"]) < .002 and abs(x["lon"] - c["lon"]) < .002 for c in census)  # the same house, spelled two ways, is one row
+            remote = census + [x for x in photon or [] if not (x.get("number") and door(x))]
+        if remote:
+            remote = sorted(remote, key=lambda x: x.get("source") != "census" and x.get("number") != m.group(1))
+        return remote
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)  # the slower one's answer isn't waited for
+
+
 def geocode(qs):
     """Address search: towns and counties from the FCC data (works offline), then street addresses and places
     from Photon (OpenStreetMap, free, US only) when online. Coordinates and Maps links are parsed in the page."""
@@ -880,48 +1024,15 @@ def geocode(qs):
         pass  # no town index yet (first start is building it)
     finally:
         con.close()
-    key = (q.lower(), fstr(qs, "lat")[:5], fstr(qs, "lon")[:6])
+    wide = fstr(qs, "wide") == "1"
+    key = (q.lower(), fstr(qs, "lat")[:5], fstr(qs, "lon")[:6], wide)
     remote = GEO_CACHE.get(key)
     if remote is None:
-        try:
-            p = {"q": q, "limit": 7, "lang": "en"}
-            if fnum(qs, "lat") is not None and fnum(qs, "lon") is not None:
-                p.update(lat=fnum(qs, "lat"), lon=fnum(qs, "lon"))  # bias toward where you're working
-            req = urllib.request.Request("https://photon.komoot.io/api/?" + urlencode(p),
-                                         headers={"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"})
-            with urllib.request.urlopen(req, timeout=4) as r:
-                feats = json.loads(r.read()).get("features", [])
-            remote = []
-            for f in feats:
-                pr, (lon, lat) = f.get("properties", {}), f["geometry"]["coordinates"]
-                if pr.get("countrycode") != "US":
-                    continue
-                street = " ".join(x for x in (pr.get("housenumber"), pr.get("street")) if x)
-                head = pr.get("name") or street or pr.get("city") or ""
-                tail = ", ".join(x for x in (street if street != head else None, pr.get("city"), pr.get("state")) if x)
-                # the whole address as it's written on mail: "1200 N Main St, Arlington, VA 22201" (address boxes take this)
-                st = US_STATE_ABBR.get((pr.get("state") or "").lower(), pr.get("state") or "")
-                full = ", ".join(x for x in (street or pr.get("name"), pr.get("city") or pr.get("district") or pr.get("county"),
-                                             " ".join(y for y in (st, pr.get("postcode")) if y)) if x)
-                remote.append({"label": head + (f", {tail}" if tail else ""), "sub": (pr.get("osm_value") or pr.get("type") or "").replace("_", " ").title(),
-                               "full": full, "lat": round(lat, 6), "lon": round(lon, 6), "kind": "address", "source": "photon",
-                               "number": pr.get("housenumber") or ""})
+        remote = census_wide(q, qs) if wide else address_lookup(q, qs)
+        if remote is not None:
             if len(GEO_CACHE) > 500:
                 GEO_CACHE.clear()
             GEO_CACHE[key] = remote
-        except Exception:
-            remote = None  # offline or the service is down: the local half still answers
-        # A street address Photon didn't answer, or answered with something else: for "3440 Beltline Blvd" it gave bus stops on
-        # 36th Street first (the 11/5 walk). The Census Bureau's geocoder (ahj.py) goes in front, and the typed number wins.
-        m = re.match(r"(\d+)[a-z]?\s+[a-z0-9]", q, re.I)
-        if m and len(q) >= 8:
-            if not any(x.get("number") == m.group(1) for x in remote or []):
-                import ahj
-                got = ahj.census_address(q)
-                if got is not None:
-                    remote = got + (remote or [])
-            if remote:
-                remote = GEO_CACHE[key] = sorted(remote, key=lambda x: x.get("source") != "census" and x.get("number") != m.group(1))
     first = (remote or []) if q[:1].isdigit() else []  # a house number means an address: put streets first
     rest = [x for x in (remote or []) if x not in first]
     return {"results": (first + local + rest)[:10], "online": remote is not None}
@@ -1709,18 +1820,22 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True, "account": dasmail.account(uls_import.DATA_DIR, login), "folders": t["folders"]})
         if p == "/api/mail/guess":
             return self.send(200, mailbox.guess(fstr(qs, "address")))
-        if p.startswith("/api/mail/queue") or p in ("/api/mail/template", "/api/mail/templates"):
+        if p.startswith(("/api/mail/queue", "/api/mail/job/")) or p in ("/api/mail/template", "/api/mail/templates"):
             # Ready to send (mailqueue.py): written for you, lined up, sent only on a click; and the job emails' texts
             import mailqueue
             firm = get_setting("das.firm", {}) or {}
             acct = dasmail.account(uls_import.DATA_DIR, login) or {}
+            mj = re.match(r"^/api/mail/job/(\d+)$", p)
+            if mj:  # every email this job needs now, for one list and one press
+                self.job_gate(con, int(mj.group(1)), "edit")
+                return self.send(200, mailqueue.job_items(con, login, int(mj.group(1)), firm, acct.get("name") or "", vis=dashist.visible(con, *self.team())))
             if p == "/api/mail/templates":
                 return self.send(200, {"templates": [{"id": t[0], "label": t[1]} for t in mailqueue.TEMPLATES]})
             if p == "/api/mail/template":
                 return self.send(200, mailqueue.template(con, int(fnum(qs, "job")), fstr(qs, "t") or "blank", firm, acct.get("name") or ""))
             if p == "/api/mail/queue":
-                its = mailqueue.items(con, login, firm, acct.get("name") or "")
                 vis = dashist.visible(con, *self.team())
+                its = mailqueue.items(con, login, firm, acct.get("name") or "", vis=vis)
                 its = [x for x in its if vis is None or not x.get("job_id") or x["job_id"] in vis]
                 return self.send(200, {"items": its, "ready": sum(1 for x in its if not x["blocked"]), "per_hour": mailqueue.SEND_PER_HOUR,
                                        "sent_last_hour": mailqueue.sent_last_hour(con, login)})
@@ -1825,6 +1940,30 @@ class H(BaseHTTPRequestHandler):
     def body_json(self):
         b = self.raw_body()
         return json.loads(b or b"{}")
+
+    def files_route(self, p, qs):
+        """Server files (serverfiles.py). /api/remote is already blocked for everyone but an admin; this is the second
+        lock, and it shuts this PC's own port, which has no sign-in."""
+        login = getattr(remote.ON, "login", None)
+        if not login or remote.role_of(login) != "admin":
+            return self.send(404, {"error": "not found"})
+        root, rel = fstr(qs, "root"), fstr(qs, "path")
+        try:
+            if p == "/api/remote/files":
+                return self.send(200, serverfiles.listing(root, rel) if root else serverfiles.overview())
+            fp, size, name = serverfiles.locate(root, rel)
+        except ValueError as e:
+            return self.send(400, {"error": str(e)})
+        print(f"server file: {login} downloaded {root}/{rel} ({size} bytes)", flush=True)
+        self.send_response(200)
+        for k, v in (("Content-Type", "application/octet-stream"), ("Content-Length", str(size)), ("Content-Disposition", serverfiles.disposition(name)),
+                     ("X-Content-Type-Options", "nosniff"), ("Cache-Control", "no-store")):
+            self.send_header(k, v)
+        self.end_headers()
+        try:
+            serverfiles.copy(fp, self.wfile)
+        except ConnectionError:  # they cancelled it
+            self.close_connection = True
 
     def course_people(self):
         con = db()
@@ -2028,8 +2167,13 @@ class H(BaseHTTPRequestHandler):
                     cc = cdb()
                     try:
                         # the import keeps to the states set in Data & updates: sent here, since /api/settings is the admin's
-                        return self.send(200, dict(cells.sites(con, cc, lat, lon, fnum(qs, "radius", 5), int(mid) if mid is not None else None),
-                                                   states=get_setting("update.states", "") or ""))
+                        import spectrum
+                        res = cells.sites(con, cc, lat, lon, fnum(qs, "radius", 5), int(mid) if mid is not None else None)
+                        try:
+                            spec = spectrum.at(lat, lon, uls_import.DATA_DIR, con)
+                        except Exception as e:  # the record still opens without the carriers' blocks
+                            spec = {"empty": True, "why": f"Carrier spectrum couldn't be read here: {e}"}
+                        return self.send(200, dict(cells.enrich(res, con, spec), states=get_setting("update.states", "") or ""))
                     finally:
                         cc.close()
                 if p == "/api/cells/fetch" and method == "POST":  # the crowd's cells around an address (its own route: /api/crowd/ is the admin's)
@@ -2111,6 +2255,86 @@ class H(BaseHTTPRequestHandler):
         finally:
             con.close()
 
+    def intake_capture(self, con, fname, data):
+        """A capture from Intake's press, into the active mission: what /api/captures/import does with no choices made."""
+        mid = get_setting("active_mission")
+        mm = mission_row(con, int(mid)) if mid is not None else None
+        settings = mm["settings"] if mm else dict(DEFAULT_MISSION_SETTINGS)
+        track = [dict(r) for r in con.execute("SELECT ts, lat, lon, alt FROM track_point WHERE mission_id=?", (mm["id"],))] if mm else []
+        fmt, pts, trk = captures.parse_any(fname, data, settings)
+        lookup, lcon = uls_lookup_factory()
+        try:
+            summary = captures.store(con, int(mid) if mid is not None else None, fname, fmt, pts, trk, settings, lookup, extra_track=track)
+        finally:
+            lcon.close()
+        if mm:
+            con.execute("INSERT INTO mission_log(mission_id,ts,kind,detail) VALUES(?,?,?,?)", (mm["id"], now(), "capture", f"Intake: {fname} ({fmt}), {summary['points']} points"))
+            con.commit()
+        return summary
+
+    def intake_route(self, method, p, qs):
+        """The one drop spot (intake.py): each file streamed to disk, scanned, recognised, matched to a job this login can open,
+        then filed, held for a press, or left on the pile. Who may write is remote.refused's, as for any POST; each job is job_gate's."""
+        import intake
+        con = db()
+        cc = lambda: cdb()  # noqa: E731
+
+        def layer(name, fname, data):
+            c = cc()
+            try:
+                return connectors.import_custom(c, name, fname, data)
+            finally:
+                c.close()
+
+        def unlayer(name):
+            c = cc()
+            try:
+                c.execute("DELETE FROM ext_point WHERE source='custom' AND layer=?", (name,))
+                c.commit()
+            finally:
+                c.close()
+
+        def uncapture(cid):
+            for t, col in (("capture_point", "capture_id"), ("track_point", "capture_id"), ("capture", "id")):
+                con.execute(f"DELETE FROM {t} WHERE {col}=?", (cid,))
+            con.commit()
+        try:
+            who, role = self.team()
+            ctx = intake.Ctx(con, who, role, lambda jid, need="view": self.job_gate(con, jid, need), lambda fname, data: self.intake_capture(con, fname, data), layer, unlayer, uncapture)
+            if p == "/api/intake/file" and method == "POST":
+                if not ctx.writes():
+                    raise dashist.NotAllowed("Your login is view only.")
+                n = int(self.headers.get("Content-Length") or 0)
+                if n:  # streamed here, so do_POST's drain mustn't wait for it again
+                    self.headers.replace_header("Content-Length", "0")
+                try:
+                    made = intake.add_stream(con, int(fnum(qs, "batch") or 0), fstr(qs, "name"), fstr(qs, "path"), self.rfile, n, ctx)
+                except Exception:
+                    self.close_connection = True  # a refused file may be left unread: never reuse this connection
+                    raise
+                return self.send(200, {"made": intake.brief(con, made)})
+            m = re.match(r"^/api/intake/item/(\d+)/bytes$", p)
+            if m and method == "GET":
+                fp, name = intake.held_file(con, int(m.group(1)), ctx)
+                self.send_response(200)  # streamed: a plan set can run to hundreds of MB
+                for k, v in (("Content-Type", "application/octet-stream"), ("Content-Length", str(os.path.getsize(fp))), ("Content-Disposition", disposition("attachment", name)), ("X-Content-Type-Options", "nosniff")):
+                    self.send_header(k, v)
+                self.end_headers()
+                with open(fp, "rb") as fh:
+                    shutil.copyfileobj(fh, self.wfile, 1 << 20)
+                return None
+            return self.send(*intake.route(con, method, p, qs, self.body_json, ctx))
+        except dashist.Refused as e:
+            return self.send(e.status, e.body)
+        except (dashist.NotAllowed, PermissionError) as e:
+            return self.send(403, {"error": str(e)})
+        except LookupError as e:
+            return self.send(404, {"error": str(e)})
+        except ValueError as e:
+            return self.send(400, {"error": str(e)})
+        finally:
+            con.close()
+
     def das_route(self, method, p, qs):
         """DAS / ERCES jobs, contacts, pre-survey, file import and the job folders (das.py). Errors reach the
         caller's handler: LookupError -> 404, anything else -> 500 (ValueError messages are shown as they are)."""
@@ -2126,7 +2350,11 @@ class H(BaseHTTPRequestHandler):
                 import snmpwatch
                 return self.send(*snmpwatch.handle(con, method, p, qs, self.body_json))
             if p.startswith("/api/das/seal"):  # sealed reports and their verify codes (das.py seal_*)
-                return self.send(*das.seal_route(con, method, p, qs, self.body_json, getattr(remote.ON, "login", None) or ""))
+                body = {}
+                if p == "/api/das/seal":  # a job's seals and where their PDFs are: that job's, like its Files
+                    body = self.body_json() if method == "POST" else {}
+                    self.job_gate(con, int(body.get("job_id") or fnum(qs, "job") or 0), "edit" if method == "POST" else "view")
+                return self.send(*das.seal_route(con, method, p, qs, lambda: body or self.body_json(), getattr(remote.ON, "login", None) or ""))
             m = re.match(r"^/api/das/jobs(?:/(\d+))?(?:/(\w+))?(?:/(\w+))?$", p)
             if m:
                 jid, action, sub = (int(m.group(1)) if m.group(1) else None), m.group(2), m.group(3)
@@ -2143,8 +2371,9 @@ class H(BaseHTTPRequestHandler):
                         vis = dashist.visible(con, who, role)
                         if role == "ahj":  # the review list: what was shared with it and where each review stands
                             return self.send(200, {"jobs": self.review_list(con, vis), "stages": das.STAGES})
-                        return self.send(200, {"jobs": [x for x in das.list_jobs(con) if vis is None or x["id"] in vis],
-                                               "stages": das.STAGES, "folder": das.DAS_DIR})
+                        import dasfirm
+                        rows = [x for x in das.list_jobs(con) if vis is None or x["id"] in vis]
+                        return self.send(200, {"jobs": rows, "stages": das.STAGES, "folder": das.DAS_DIR, "firm_needs": dasfirm.board(con, rows)})
                     if action is None:
                         return self.send(200, job)
                     if action == "history":  # every change, who and when, newest first (dashist.history)
@@ -2152,14 +2381,26 @@ class H(BaseHTTPRequestHandler):
                     if action == "access":  # who can open the job, its share links and its review
                         return self.send(200, self.access_info(con, job, lv))
                     if action == "review":  # what a reviewer sees (dashist.review_view)
-                        return self.send(200, dict(dashist.review_view(job, das.list_files(jid, job["name"])["files"]), level=lv,
+                        return self.send(200, dict(dashist.review_view(job, das.list_files(jid, job["name"], con)["files"]), level=lv,
                                                    who=dashist.who_now()))
-                    if action == "file" and role == "ahj" and fstr(qs, "name") not in dashist.review_files(job["data"], das.list_files(jid, job["name"])["files"]):
+                    if action == "file" and role == "ahj" and fstr(qs, "name") not in dashist.review_files(job["data"], das.list_files(jid, job["name"], con)["files"]):
                         raise LookupError("No such file.")
                     if action == "files":
-                        return self.send(200, das.list_files(jid, job["name"]))
+                        import intake
+                        return self.send(200, intake.labelled(das.list_files(jid, job["name"], con)))
+                    if action == "bomreview":  # the Materials tab's list: groups, wrong-part warnings, price moves, what's missing, the outputs
+                        import dasbom
+                        return self.send(200, dasbom.review(con, job))
+                    if action == "bomxlsx":  # the outputs as a workbook; ?sheets=customer,technician,ahj,orders
+                        import dasbom
+                        sheets = tuple(x for x in fstr(qs, "sheets").split(",") if x) or ("customer", "technician", "ahj")
+                        label = "bill of materials" if len(sheets) > 1 else {"customer": "customer BOM", "technician": "pick list", "ahj": "AHJ BOM", "orders": "order by supplier"}.get(sheets[0], "bill of materials")
+                        return self.send(200, dasbom.workbook(job, sheets, jid=jid, con=con), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                         {"Content-Disposition": disposition("attachment", f"{job['name']} - {label}.xlsx")})
                     if action == "packet":  # the AHJ packet's parts: the bill of materials and every gathered spec sheet (Joe 11/3)
-                        return self.send(200, das.packet_zip(jid, das.with_part_codes(con, job)), "application/zip",
+                        import intake
+                        reports = [f["name"] for f in das.sealed_files(con, jid) if f["packet"]]  # only a sealed report that still matches the job
+                        return self.send(200, das.packet_zip(jid, das.with_part_codes(con, job), intake.names_of_kind(con, jid, "spec_sheet"), reports), "application/zip",
                                          {"Content-Disposition": disposition("attachment", f"{job['name']} - bill of materials and spec sheets.zip")})
                     if action == "file":
                         fp = das.file_path(jid, job["name"], fstr(qs, "name"))
@@ -2179,7 +2420,11 @@ class H(BaseHTTPRequestHandler):
                         raise dashist.NotAllowed("This job is shared with you to look at only." if lv == "view" else
                                                  "This job is shared with you for review only.")
                     if action is None:  # a team login must say which revision its copy came from (dashist.check)
-                        return self.send(200, das.save_job(con, self.body_json(), jid, page=True, need_rev=bool(who)))
+                        import codecheck
+                        b = self.body_json()
+                        codecheck.gate_save(con, job, b)  # a stage move forward needs what the stage needs, or a reason
+                        b.pop("gate_reason", None)
+                        return self.send(200, das.save_job(con, b, jid, page=True, need_rev=bool(who)))
                     if action == "restore":  # undo one change, or the job as it was then: a new revision, history kept
                         d = self.body_json()
                         try:
@@ -2197,6 +2442,16 @@ class H(BaseHTTPRequestHandler):
                         import dasexample; return self.send(200, dasexample.seed(con, jid, self.body_json(), getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"))  # noqa: E702
                     if action == "specsheets":  # every BOM part's spec sheet into the job's folder (Joe 11/3: "build spec sheets")
                         return self.send(200, das.build_specsheets(con, jid, job))
+                    if action == "register":  # a row of the firm register, copied onto this job's own fields (dasfirm.py)
+                        import dasfirm
+                        return self.send(200, dasfirm.pick(con, job, self.body_json(), who or dashist.who_now()))
+                    if action == "bomimport":  # an iBwave equipment list read, not saved: the tab shows it first
+                        import dasbom
+                        return self.send(200, dasbom.import_equipment(con, fstr(qs, "name"), self.raw_body()))
+                    if action == "bomissue":  # a dated revision of the list
+                        import dasbom
+                        b = self.body_json()
+                        return self.send(200, dasbom.issue(con, jid, job, b.get("note"), b.get("override"), who or dashist.who_now()))
                     if action == "delete":
                         das.delete_job(con, jid)
                         return self.send(200, {"ok": True})
@@ -2204,7 +2459,9 @@ class H(BaseHTTPRequestHandler):
                         fp = das.file_path(jid, job["name"], fstr(qs, "name"))
                         if os.path.isfile(fp):
                             os.remove(fp)
-                        return self.send(200, das.list_files(jid, job["name"]))
+                        con.execute("DELETE FROM das_file WHERE job_id=? AND name=?", (jid, os.path.basename(fp)))
+                        con.commit()
+                        return self.send(200, das.list_files(jid, job["name"], con))
                     if action == "files":
                         saved = das.save_file(jid, job["name"], fstr(qs, "name"), self.raw_body())
                         con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "file", saved))
@@ -2255,6 +2512,12 @@ class H(BaseHTTPRequestHandler):
                 lat, lon = float(d.get("lat")), float(d.get("lon"))
                 n = prospects.highrises(uls_import.DATA_DIR, lat, lon, float(d.get("radius") or 3))
                 return self.send(200, {"highrises": n})
+            if p.startswith("/api/das/leads"):  # the prospect watch: saved areas and what they turned up (leads.py). Fetches nothing, sends nothing
+                import leads
+                pset = (UPD.config()["permits"].get("datasets"), UPD._states()) if UPD else (None, None)
+                auto = bool(UPD and UPD.get("update.auto", False) and UPD.config()["permits"].get("enabled"))
+                login = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"  # as the mail queue keeps it
+                return self.send(200, leads.route(con, method, p, uls_import.DATA_DIR, login, *pset, self.body_json, auto))
             m = re.match(r"^/api/das/prospects/([\w:.%\-]+)/(status|email|job|find-email)$", p)
             if m:
                 import prospects
@@ -2263,12 +2526,13 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError("Use POST.")
                 if action == "status":
                     return self.send(200, das.set_prospect(con, pid, self.body_json()))
-                row = prospects.get(uls_import.DATA_DIR, pid)
+                import leads
+                row = prospects.get(uls_import.DATA_DIR, pid) or leads.kept(con, pid)  # a lead keeps its facts after its permit has aged out
                 if not row:
                     raise LookupError("That prospect isn't in the lists any more.")
                 kept = con.execute("SELECT email, email_source FROM das_prospect WHERE id=?", (pid,)).fetchone()
                 if kept and kept["email"]:
-                    row["email"] = kept["email"]
+                    row.update(email=kept["email"], email_source=kept["email_source"] or "")
                 if action == "email":
                     return self.send(200, das.prospect_email(row, get_setting("das.firm", {}) or {}))
                 if action == "find-email":  # the building's own website: its published contact address (contactfind.py)
@@ -2281,10 +2545,10 @@ class H(BaseHTTPRequestHandler):
                 if have and have[0] and das.job_row(con, have[0]):
                     self.job_gate(con, have[0], "view")  # one job per prospect: someone else's, not shared, stays theirs
                     return self.send(200, das.job_row(con, have[0]))
-                job = das.save_job(con, {"name": row["name"], "stage": "Lead", "data": {"lat": row["lat"], "lon": row["lon"],
-                      "address": ", ".join(x for x in (row.get("address"), row.get("city"), row.get("state"), row.get("zip")) if x),
-                      "notes": f"From prospects ({row['source']}): {row.get('phone') or ''} {row.get('website') or ''}".strip()}})
+                pset = (UPD.config()["permits"].get("datasets"), UPD._states()) if UPD else (None, None)
+                job = das.save_job(con, {"name": row["name"], "stage": "Lead", "data": leads.job_data(con, uls_import.DATA_DIR, pid, row, *pset, self.body_json())})  # every fact the lead has
                 das.set_prospect(con, pid, {"job_id": job["id"]})
+                leads.made_job(con, pid)
                 return self.send(200, job)
             if p == "/api/das/suppliers/refresh" and method == "POST":  # every supplier's price list link, now
                 return self.send(200, {"refreshed": das.refresh_price_lists(con), "suppliers": das.list_suppliers(con)})
@@ -2297,6 +2561,25 @@ class H(BaseHTTPRequestHandler):
                         raise dashist.NotAllowed("Only the admin turns share links on or off.")
                     set_setting("das.share_links", bool(self.body_json().get("on")))
                 return self.send(200, {"on": self.share_on()})
+            if p == "/api/das/register" or p.startswith("/api/das/register/"):  # instruments and people, kept once (dasfirm.py)
+                import dasfirm
+                m = re.match(r"^/api/das/register/(\d+)/file$", p)
+                if m and method == "GET":  # always a download: only a PDF or a picture gets in, and it isn't opened as the app either way
+                    fp = dasfirm.file_path(int(m.group(1)), fstr(qs, "name"))
+                    if not os.path.isfile(fp):
+                        raise LookupError("No such file.")
+                    with open(fp, "rb") as fh:
+                        return self.send(200, fh.read(), mimetypes.guess_type(fp)[0] or "application/octet-stream", {"Content-Disposition": disposition("attachment", os.path.basename(fp))})
+                return self.send(*dasfirm.route(con, method, p, qs, self.body_json, self.raw_body, dashist.visible(con, *self.team()), dashist.who_now()))
+            if p == "/api/das/book" or p.startswith("/api/das/book/"):  # what jobs learned about each AHJ (ahjbook.py)
+                import ahjbook
+                vis = dashist.visible(con, *self.team())
+                if p == "/api/das/book" and method == "GET":
+                    return self.send(200, {"entries": ahjbook.listing(con, vis)})
+                m = re.match(r"^/api/das/book/(\d+)/delete$", p)
+                if m and method == "POST":
+                    return self.send(200, ahjbook.remove(con, int(m.group(1)), vis))
+                raise LookupError("No such page.")
             if p == "/api/das/firm":  # the firm's own details for the DAS Pitch deck, kept for every login (11/3)
                 if method == "GET":
                     return self.send(200, get_setting("das.firm", {}) or {})
@@ -2349,11 +2632,23 @@ class H(BaseHTTPRequestHandler):
                     con.execute("DELETE FROM das_rfq WHERE id=?", (rid,))
                     con.commit()
                     return self.send(200, {"ok": True})
+            m = re.match(r"^/api/das/kits(?:/(\d+))?(?:/(\w+))?$", p)
+            if m:  # kits: a set of bill-of-materials lines saved once (dasbom.py)
+                import dasbom
+                if method == "GET":
+                    return self.send(200, dasbom.list_kits(con))
+                if m.group(2) == "delete":
+                    return self.send(200, dasbom.delete_kit(con, int(m.group(1))))
+                return self.send(200, dasbom.save_kit(con, self.body_json()))
             # the parts catalogue: a supplier's price list, the standard parts, a spec sheet on each part (Joe 11/3)
             m = re.match(r"^/api/das/parts(?:/(\d+))?(?:/(\w+))?$", p)
             if m:
                 pid, action = (int(m.group(1)) if m.group(1) else None), m.group(2)
                 if method == "GET":
+                    if action == "lookup":  # a part number on a BOM line: the catalogue's parts, with the price on a date if asked
+                        return self.send(200, das.lookup_part(con, fstr(qs, "part"), fstr(qs, "as_of"), fstr(qs, "supplier")))
+                    if action == "prices":  # a part's price now and its dated history
+                        return self.send(200, das.price_history(con, pid))
                     if action == "spec":
                         fp = das.spec_path(con, pid)
                         if not os.path.isfile(fp):
@@ -2366,7 +2661,7 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, das.list_parts(con, fstr(qs, "q"), fstr(qs, "standard") == "1", ids, int(fnum(qs, "limit", 200)),
                                                              grants=fstr(qs, "grants") == "1"))
                 if p == "/api/das/parts/import":
-                    return self.send(200, das.import_parts(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "supplier")))
+                    return self.send(200, das.import_parts(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "supplier"), fstr(qs, "as_of")))
                 if action == "delete":
                     das.delete_part(con, pid)
                     return self.send(200, {"ok": True})
@@ -2492,7 +2787,7 @@ class H(BaseHTTPRequestHandler):
         people = {u["name"].lower(): u for u in remote.users()}
         rows = [dict(a, name="Whole team" if a["who"] == "*" else (people.get(a["who"]) or {}).get("name") or a["who"],
                      role="" if a["who"] == "*" else (people.get(a["who"]) or {}).get("role") or "gone") for a in dashist.access_list(con, jid)]
-        files = das.list_files(jid, job["name"])["files"]
+        files = das.list_files(jid, job["name"], con)["files"]
         rv = job["data"].get("review") if isinstance(job["data"].get("review"), dict) else {}
         return {"list": rows, "level": lv, "can_manage": manage, "admin": self.team()[0] is None,
                 "people": [{"name": u["name"], "role": u["role"]} for u in people.values()] if manage else [],
@@ -2553,7 +2848,7 @@ class H(BaseHTTPRequestHandler):
         con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)",
                     (job["id"], now(), "review", f"{word} by {who}{': ' + rv['thread'][-1]['comment'] if rv['thread'][-1]['comment'] else ''}"[:2000]))
         con.commit()
-        return dict(dashist.review_view(j, das.list_files(job["id"], j["name"])["files"]), level=lv, who=who)
+        return dict(dashist.review_view(j, das.list_files(job["id"], j["name"], con)["files"]), level=lv, who=who)
 
     def share_route(self, p, qs):
         """A read-only share link (dashist.py): the review page, its data and its files, for as long as the link lives and
@@ -2577,7 +2872,7 @@ class H(BaseHTTPRequestHandler):
                     page = fh.read().replace(b"/static/das.js", f"/share/{m.group(1)}/das.js".encode()) \
                         .replace(b"/static/dasreview.js", f"/share/{m.group(1)}/review.js".encode())
                 return self.send(200, page, "text/html; charset=utf-8", dict(hdr, **{"X-Frame-Options": "DENY"}))
-            files = das.list_files(jid, job["name"])["files"]
+            files = das.list_files(jid, job["name"], con)["files"]
             view = dashist.review_view(job, files)
             if what == "data":  # an owner or radio shop sees where the review stands, not the thread
                 view["review"] = {"status": view["review"]["status"], "thread": []}
@@ -2607,6 +2902,8 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, fh.read(), "text/html; charset=utf-8")
             if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("GET", p, qs)
+            if p == "/api/intake" or p.startswith("/api/intake/"):  # the one drop spot (intake.py)
+                return self.intake_route("GET", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
                 return self.notes_route("GET", p, qs)
             if p in EXTRA_ROUTES:
@@ -2671,6 +2968,8 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"people": remote.users(), "link": remote.link() if REMOTE_PORT else {}, "door": REMOTE_PORT})
             if p == "/api/remote/course":  # who has the DAS course and how far each has got (admin only: /api/remote is blocked)
                 return self.course_people()
+            if p in ("/api/remote/files", "/api/remote/files/download"):  # what the server keeps: read only (serverfiles.py)
+                return self.files_route(p, qs)
             if p == "/api/meta":
                 con = db()
                 meta = {r["k"]: r["v"] for r in con.execute("SELECT k, v FROM meta")}
@@ -2855,6 +3154,8 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("POST", p, qs)
+            if p == "/api/intake" or p.startswith("/api/intake/"):  # the one drop spot (intake.py)
+                return self.intake_route("POST", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
                 return self.notes_route("POST", p, qs)
             if p in EXTRA_ROUTES:
@@ -3074,6 +3375,11 @@ class H(BaseHTTPRequestHandler):
                     for sid in updmod.SOURCES:
                         cfg.setdefault(sid, {})["enabled"] = bool(d["all"])
                     set_setting("update.sources", cfg)
+                return self.send(200, UPD.snapshot())
+            if p == "/api/update/stop":  # Stop all downloads (Data & updates)
+                return self.send(200, {"stopping": UPD.stop_all(), **UPD.snapshot()})
+            if p == "/api/update/resume":
+                UPD.resume_all()
                 return self.send(200, UPD.snapshot())
             if p == "/api/update/run":
                 d = self.body_json()

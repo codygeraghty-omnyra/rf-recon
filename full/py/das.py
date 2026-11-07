@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import shutil
 import time
 import urllib.parse
 import urllib.request
@@ -27,6 +28,7 @@ import overture
 import paths
 import sigid
 import uls_import
+import xlsread
 
 now = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -42,6 +44,26 @@ CREATE TABLE IF NOT EXISTS das_part(id INTEGER PRIMARY KEY, supplier TEXT NOT NU
 TABLES = ("das_job", "das_log", "das_contact", "das_part", "das_supplier", "das_rfq", "das_quote", "das_rfq_supplier", "das_prospect",
           "das_mail", "das_mail_state")
 SCHEMA, TABLES = SCHEMA + dashist.SCHEMA, TABLES + dashist.TABLES  # revisions, history, access lists, share links (dashist.py)
+# what a file is, recorded once, so a later check reads this and not the file's name; and the Intake ledger (intake.py)
+SCHEMA += """
+CREATE TABLE IF NOT EXISTS das_file(job_id INTEGER NOT NULL, name TEXT NOT NULL, sha256 TEXT, kind TEXT, source TEXT, intake_id INTEGER,
+    at TEXT, PRIMARY KEY(job_id, name));
+CREATE TABLE IF NOT EXISTS intake_batch(id INTEGER PRIMARY KEY, who TEXT, source TEXT, job_id INTEGER, label TEXT, created_at TEXT, done_at TEXT);
+CREATE TABLE IF NOT EXISTS intake_item(id INTEGER PRIMARY KEY, batch_id INTEGER, parent_id INTEGER, who TEXT, name TEXT, path TEXT, grp TEXT,
+    sha256 TEXT, size INTEGER, type TEXT, kind TEXT, conf REAL, why TEXT, job_id INTEGER, job_why TEXT, status TEXT, dest TEXT, mark TEXT,
+    scan TEXT, checks TEXT, problems TEXT, facts TEXT, undo TEXT, body TEXT, at TEXT, done_at TEXT);
+CREATE INDEX IF NOT EXISTS intake_item_batch ON intake_item(batch_id);
+CREATE INDEX IF NOT EXISTS intake_item_status ON intake_item(status);
+"""
+TABLES += ("das_file", "intake_batch", "intake_item")
+# the firm register and the AHJ book (dasfirm.py, ahjbook.py). AUTOINCREMENT: a row's files sit in a folder named by its id, so an id is never handed out twice
+SCHEMA += """
+CREATE TABLE IF NOT EXISTS das_firm_item(id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, serial TEXT NOT NULL DEFAULT '',
+    data TEXT, by TEXT, created_at TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS das_ahj_book(id INTEGER PRIMARY KEY AUTOINCREMENT, job_id INTEGER NOT NULL UNIQUE, job_name TEXT, state TEXT, place TEXT, county TEXT,
+    ahj TEXT, keys TEXT, answers TEXT, confirmed_by TEXT, confirmed_on TEXT, how TEXT, rule_seen TEXT, by TEXT, updated_at TEXT);
+"""
+TABLES += ("das_firm_item", "das_ahj_book")
 STAGES =["Lead", "Pre-survey", "Design", "Install", "Commission", "Acceptance", "In service", "Closed"]
 
 # Public safety: the FCC's public safety radio services, and licensees the importer classed as public safety
@@ -359,7 +381,15 @@ def job_row(con, jid):
     j["data"] = json.loads(j["data"] or "{}")
     j["log"] = [dict(x) for x in con.execute("SELECT ts, kind, detail FROM das_log WHERE job_id=? ORDER BY id DESC LIMIT 200", (jid,))]
     j["lifecycle"] = lifecycle(j["data"], j["stage"])  # computed each time, never saved (das lifecycle helpers)
+    j["standing"] = _standing(con, j)
     return j
+
+
+def _standing(con, j, brief=False):
+    """What's done and what's next, read from the job's file: computed each time, never saved (nextstep.py)."""
+    import nextstep  # here, not at the top: it imports codecheck, which imports das
+    s = nextstep.safe(con, j)
+    return nextstep.brief(s) if brief else s
 
 
 def list_jobs(con):
@@ -368,10 +398,13 @@ def list_jobs(con):
     out = []
     for r in con.execute("SELECT * FROM das_job ORDER BY updated_at DESC").fetchall():  # read whole: the licence watch writes as it goes
         d = json.loads(r["data"] or "{}")
+        life = lifecycle(d, r["stage"])
         out.append({"id": r["id"], "name": r["name"], "stage": r["stage"], "updated_at": r["updated_at"], "rev": r["rev"] or 0,
                     **{k: d.get(k) for k in ("address", "lat", "lon", "ahj", "due", "next_step", "floors", "accepted_on",
                                              "retest_due", "checks", "value", "client")},
-                    "lifecycle": lifecycle(d, r["stage"]), "scope": job_scope(d), "cell_only": cell_only(d), "watch": dasx.board(con, r["id"], d, r["stage"])})
+                    "code_ok": bool(d.get("example") or (d.get("code_check") or {}).get("confirmed_on")),
+                    "lifecycle": life, "scope": job_scope(d), "cell_only": cell_only(d), "watch": dasx.board(con, r["id"], d, r["stage"]),
+                    "standing": _standing(con, {"id": r["id"], "stage": r["stage"], "data": d, "lifecycle": life}, brief=True)})
     return out
 
 
@@ -488,6 +521,7 @@ def delete_job(con, jid):
         except OSError:
             pass  # a file open elsewhere: the folder keeps its name; ids still aren't reused (next_job_id)
     con.execute("DELETE FROM das_log WHERE job_id=?", (jid,))
+    con.execute("DELETE FROM das_file WHERE job_id=?", (jid,))
     dashist.ensure(con)
     dashist.forget(con, jid)  # its history, access list and share links
     con.execute("DELETE FROM das_job WHERE id=?", (jid,))
@@ -542,6 +576,23 @@ XLSX_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 def _xlsx_table(data):
     """The first worksheet of an .xlsx as rows of strings (standard library only)."""
+    return _xlsx_tables(data)[0][1]
+
+
+def _xlsx_sheet_names(z):
+    """{worksheet's file in the zip: the name on its tab}, from the workbook's own list; {} when a file doesn't have one."""
+    try:
+        rels = {r.get("Id"): r.get("Target") or "" for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))}
+        rid = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+        return {("xl/" + rels.get(s.get(rid), "")).replace("xl//xl/", "xl/"): s.get("name") or ""
+                for s in ET.fromstring(z.read("xl/workbook.xml")).iter(XLSX_NS + "sheet")}
+    except (KeyError, ET.ParseError):
+        return {}
+
+
+def _xlsx_tables(data, gaps=False):
+    """Every worksheet of an .xlsx, in file order: [(name on its tab, rows of strings)]. gaps=True keeps a sheet's blank rows, so a
+    row's place in the list is its row number."""
     z = zipfile.ZipFile(io.BytesIO(data))
     shared = []
     if "xl/sharedStrings.xml" in z.namelist():
@@ -551,8 +602,16 @@ def _xlsx_table(data):
                     key=lambda n: int(re.search(r"(\d+)\.xml$", n).group(1)))
     if not sheets:
         raise ValueError("That workbook has no worksheets.")
+    names = _xlsx_sheet_names(z)
+    return [(names.get(s) or s.rsplit("/", 1)[-1][:-4], _xlsx_rows(z.read(s), shared, gaps)) for s in sheets]
+
+
+def _xlsx_rows(xml, shared, gaps=False):
     out = []
-    for row in ET.fromstring(z.read(sheets[0])).iter(XLSX_NS + "row"):
+    for row in ET.fromstring(xml).iter(XLSX_NS + "row"):
+        at = int(row.get("r") or len(out) + 1)
+        if gaps and len(out) + 1 < at <= len(out) + 1000:  # a row left out of the file is a blank row (a far-off stray cell isn't padded to)
+            out += [[] for _ in range(at - len(out) - 1)]
         vals = {}
         for c in row.iter(XLSX_NS + "c"):
             idx = 0
@@ -679,6 +738,8 @@ def read_table(name, data):
 def _read_table(name, data):
     import captures
     n = (name or "").lower()
+    if data[:8] == xlsread.MAGIC:  # Excel 97-2003: a supplier's old price list. Its fullest sheet, not a cover page
+        return ("xls",) + _records(max((rows for _, rows in xlsread.tables(data)), key=len))
     if n.endswith(".kmz"):
         return ("kmz",) + _points(captures.parse_kmz(data)[0])
     if n.endswith(".xlsx") or (data[:2] == b"PK" and not n.endswith(".zip")):
@@ -978,7 +1039,8 @@ def parse_vcards(text):
     return out
 
 
-def import_contacts(con, name, data):
+def read_contacts(name, data):
+    """The contacts in a file, read and not saved: a vCard, or any table with a name, organisation or email column."""
     text = data.decode("utf-8-sig", "replace")
     if "BEGIN:VCARD" in text.upper():
         found = parse_vcards(text)
@@ -999,6 +1061,11 @@ def import_contacts(con, name, data):
                 if c.get(f):
                     c[f] = str(c[f]).split(":::")[0].strip()
             found.append(c)
+    return found
+
+
+def import_contacts(con, name, data):
+    found = read_contacts(name, data)
     cs = list_contacts(con)
     have = {((c["name"] or "").lower(), (c["org"] or "").lower()) for c in cs}
     emails = {(c["email"] or "").strip().lower() for c in cs if c["email"]}
@@ -1036,7 +1103,8 @@ def job_dir(jid, name, create=True):
     return path
 
 
-def list_files(jid, name):
+def list_files(jid, name, con=None):
+    """A job's files as the disk has them. With con, each one RF Recon has recorded (das_file) also says what it is."""
     d = job_dir(jid, name, create=False)
     files = []
     if os.path.isdir(d):
@@ -1044,6 +1112,16 @@ def list_files(jid, name):
             p = os.path.join(d, f)
             if os.path.isfile(p) and f.lower() != "desktop.ini" and not f.endswith(".part"):
                 files.append({"name": f, "size": os.path.getsize(p), "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(p)))})
+    if con is not None and files:
+        kinds = dict(con.execute("SELECT name, kind FROM das_file WHERE job_id=?", (jid,)).fetchall())
+        for x in files:
+            if kinds.get(x["name"]):
+                x["kind"] = kinds[x["name"]]
+        if "sealed_report" in kinds.values():  # what its seal says now: the email box and the packet go by this, not the name
+            seals = {s["name"]: s for s in sealed_files(con, jid)}
+            for x in files:
+                if x["name"] in seals:
+                    x.update(seal=seals[x["name"]]["code"], seal_current=seals[x["name"]]["current"], packet=seals[x["name"]]["packet"])
     return {"folder": d, "files": files}
 
 
@@ -1055,7 +1133,7 @@ def file_path(jid, name, fname):
     return p
 
 
-def save_file(jid, name, fname, data):
+def _free_path(jid, name, fname):
     job_dir(jid, name)
     p = file_path(jid, name, fname)
     base, ext = os.path.splitext(p)
@@ -1063,8 +1141,21 @@ def save_file(jid, name, fname, data):
     while os.path.exists(p):  # never overwrite: "plan.pdf" becomes "plan (2).pdf"
         p = f"{base} ({i}){ext}"
         i += 1
+    return p
+
+
+def save_file(jid, name, fname, data):
+    p = _free_path(jid, name, fname)
     with open(p + ".part", "wb") as fh:
         fh.write(data)
+    os.replace(p + ".part", p)
+    return os.path.basename(p)
+
+
+def save_path(jid, name, fname, src):
+    """A file already on disk into the job's folder, copied so a plan set of hundreds of MB isn't read into memory."""
+    p = _free_path(jid, name, fname)
+    shutil.copyfile(src, p + ".part")
     os.replace(p + ".part", p)
     return os.path.basename(p)
 
@@ -1084,8 +1175,46 @@ PART_ALIASES = {
     "price": ["price", "unitprice", "yourprice", "netprice", "cost", "unitcost", "sellprice", "listprice", "msrp"],
     "spec_url": ["specsheet", "specsheeturl", "spec", "specurl", "datasheet", "datasheeturl", "pdf", "url", "link"],
     "weight_lb": ["weightlb", "weightlbs", "shipweight", "shippingweight", "shipweightlb", "grossweight", "weight", "lbs"],
+    "as_of": ["effectivedate", "effective", "pricedate", "priceeffective", "asof", "listdate", "dateeffective"],  # the price's own date
+    "freq": ["frequencyrange", "frequency", "freqrange", "freq", "frequencymhz", "bands", "band", "mhz"],  # kept as code fields, for the wrong-part guard
+    "connector": ["connector", "connectortype", "interface", "connectors"],
+    "power": ["powerrating", "maxpower", "averagepower", "avgpower", "ratedpower", "power", "watts"],
 }
 SPEC_MAX = 30 * 1024 * 1024
+
+# Price history: what each supplier charged for a part, dated. It only ever comes from the firm's own dated price files, a
+# price typed by hand, or a quote's price the firm keeps: never from a distributor's online API, whose terms don't allow it
+# (Digi-Key's bar building a database; Nexar's bar historical use). prices.py's answers stay on the request they priced.
+PRICE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS das_part_price(id INTEGER PRIMARY KEY, supplier TEXT NOT NULL DEFAULT '', key TEXT NOT NULL, part TEXT, price REAL,
+    at TEXT, seen_at TEXT, source TEXT);
+CREATE INDEX IF NOT EXISTS das_part_price_key ON das_part_price(supplier, key, at);
+CREATE TABLE IF NOT EXISTS das_bom_kit(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, lines TEXT, updated_at TEXT);
+"""
+SCHEMA += PRICE_SCHEMA
+TABLES = TABLES + ("das_part_price", "das_bom_kit")
+
+
+def _list_date(v):
+    """A date in a price list -> YYYY-MM-DD, or "" when it isn't one: 2026-03-01, 3/1/2026, 3-1-26, or an Excel date number."""
+    t = str(v if v is not None else "").strip()
+    if not t:
+        return ""
+    m = re.match(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", t)
+    y, mo, d = (m.groups() if m else (None, None, None))
+    if not m:
+        m = re.match(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b", t)
+        if m:
+            mo, d, y = m.groups()
+            y = y if len(y) == 4 else "20" + y
+    if m:
+        try:
+            return datetime(int(y), int(mo), int(d)).strftime("%Y-%m-%d")
+        except ValueError:
+            return ""
+    if re.fullmatch(r"\d{5}(\.0+)?", t) and 30000 < float(t) < 70000:  # Excel counts days from 1899-12-30
+        return datetime.fromordinal(693594 + int(float(t))).strftime("%Y-%m-%d")
+    return ""
 
 
 def _price(v):
@@ -1101,15 +1230,41 @@ def _part_key(part, item):
     return re.sub(r"\s+", " ", (part or item or "").strip().lower())
 
 
-def import_parts(con, name, data, supplier=""):
+def _keep_price(con, supplier, key, part, price, at=None, source=""):
+    """One supplier's price for a part into its history, dated. The same price again only moves "last seen". Returns True
+    when a new price was kept."""
+    if price is None:
+        return False
+    at = at or now()
+    rows = con.execute("SELECT id, price, at, seen_at FROM das_part_price WHERE supplier=? AND key=? ORDER BY at, id", (supplier, key)).fetchall()
+    before = [r for r in rows if (r["at"] or "")[:10] <= at[:10]]
+    if before and abs((before[-1]["price"] or 0) - price) < 0.00005:
+        if (before[-1]["seen_at"] or "") < at:
+            con.execute("UPDATE das_part_price SET seen_at=? WHERE id=?", (at, before[-1]["id"]))
+        return False
+    con.execute("INSERT INTO das_part_price(supplier, key, part, price, at, seen_at, source) VALUES(?,?,?,?,?,?,?)",
+                (supplier, key, part, price, at, at, source))
+    return True
+
+
+def _price_rows(con, supplier, key):
+    return con.execute("SELECT * FROM das_part_price WHERE supplier=? AND key=? ORDER BY at DESC, id DESC", (supplier, key)).fetchall()
+
+
+def import_parts(con, name, data, supplier="", as_of="", source="price list"):
     """A supplier's price list (CSV, TSV, Excel or JSON) into the catalogue: columns found by their names. A part
     already kept (same supplier and part number) gets the new description, price and link; its star, default
-    quantity and uploaded spec sheet stay."""
+    quantity and uploaded spec sheet stay. Every price goes into the part's dated history (das_part_price), the old price
+    with it: as_of is the list's date (a column of its own wins, line by line; neither: today). A list older than a part's
+    newest price adds to its history and leaves its current price alone."""
     _, head, rows = read_table(name, data)
     m = guess_mapping(head, PART_ALIASES)
     if "part" not in m and "item" not in m:
         raise ValueError("No part number or description column found. Columns read: " + ", ".join(head[:12]))
-    added = updated = 0
+    list_at = _list_date(as_of)
+    if str(as_of or "").strip() and not list_at:
+        raise ValueError(f"The price list's date doesn't read as a date: {as_of}.")
+    added = updated = changed = older = 0
     for r in rows:
         x = {f: str(r.get(h) if r.get(h) is not None else "").strip() for f, h in m.items()}
         part, item = x.get("part", ""), x.get("item", "")
@@ -1117,7 +1272,13 @@ def import_parts(con, name, data, supplier=""):
             continue
         sup = (supplier or x.get("supplier") or "").strip()
         key = _part_key(part, item)
-        old = con.execute("SELECT id FROM das_part WHERE supplier=? AND key=?", (sup, key)).fetchone()
+        old = con.execute("SELECT id, price, part, updated_at FROM das_part WHERE supplier=? AND key=?", (sup, key)).fetchone()
+        price, at = _price(x.get("price")), _list_date(x.get("as_of")) or list_at
+        had = _price_rows(con, sup, key) if old else []
+        if old and old["price"] is not None and not had:  # a part kept before price history began: its price keeps the date it has
+            _keep_price(con, sup, key, old["part"], old["price"], old["updated_at"] or now(), "before price history")
+            had = _price_rows(con, sup, key)
+        is_older = bool(at and had and at < (had[0]["at"] or "")[:10])
         con.execute("""INSERT INTO das_part(supplier, key, part, item, maker, cat, unit, price, spec_url, weight_lb, updated_at)
                        VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(supplier, key) DO UPDATE SET part=excluded.part,
                        weight_lb=COALESCE(excluded.weight_lb, weight_lb),
@@ -1125,11 +1286,22 @@ def import_parts(con, name, data, supplier=""):
                        cat=COALESCE(NULLIF(excluded.cat,''), cat), unit=COALESCE(NULLIF(excluded.unit,''), unit),
                        price=COALESCE(excluded.price, price), spec_url=COALESCE(NULLIF(excluded.spec_url,''), spec_url),
                        updated_at=excluded.updated_at""",
-                    (sup, key, part, item, x.get("maker", ""), x.get("cat", ""), x.get("unit", ""), _price(x.get("price")),
+                    (sup, key, part, item, x.get("maker", ""), x.get("cat", ""), x.get("unit", ""), None if is_older else price,
                      x.get("spec_url", ""), _price(x.get("weight_lb")), now()))
         added, updated = (added, updated + 1) if old else (added + 1, updated)
+        if price is not None:
+            kept = _keep_price(con, sup, key, part, price, at or now(), source)
+            changed += 1 if kept and old else 0
+            older += 1 if is_older else 0
+        if any(x.get(f) for f in _LIST_CODES):  # the guard's facts, where the list has them: never over a spec sheet's or a person's value
+            row = con.execute("SELECT id, codes FROM das_part WHERE supplier=? AND key=?", (sup, key)).fetchone()
+            codes = _codes(row)
+            for f in _LIST_CODES:
+                if x.get(f) and (f not in codes or codes[f].get("src") == "price list"):
+                    codes[f] = {"v": re.sub(r"\s+", " ", x[f])[:120], "src": "price list"}
+            con.execute("UPDATE das_part SET codes=? WHERE id=?", (json.dumps(codes), row["id"]))
     con.commit()
-    return {"rows": len(rows), "added": added, "updated": updated, "columns": m,
+    return {"rows": len(rows), "added": added, "updated": updated, "columns": m, "prices_changed": changed, "older": older, "as_of": list_at,
             "total": con.execute("SELECT COUNT(*) FROM das_part").fetchone()[0]}
 
 
@@ -1137,7 +1309,10 @@ def import_parts(con, name, data, supplier=""):
 # ("grant": the FCC's equipment authorization, "spec sheet": read off the maker's sheet, "typed": entered by hand)
 CODE_FIELDS = [("ul2524", "UL 2524", "edition and listing, e.g. 3rd ed., E123456"), ("booster_class", "Class", "A or B (47 CFR 90.219)"),
                ("fcc_id", "FCC ID", "from the label"), ("nema", "NEMA", "e.g. 4X"),
-               ("rating_2h", "2-hour rating", "pathway or enclosure, e.g. UL 2196 2 h"), ("pim", "PIM", "e.g. -160 dBc @ 2x43 dBm")]
+               ("rating_2h", "2-hour rating", "pathway or enclosure, e.g. UL 2196 2 h"), ("pim", "PIM", "e.g. -160 dBc @ 2x43 dBm"),
+               ("freq", "Frequency", "what it covers, e.g. 698-2700 MHz"), ("connector", "Connector", "e.g. N female, 4.3-10"),
+               ("power", "Power rating", "average watts, e.g. 300 W")]
+_LIST_CODES = ("freq", "connector", "power")  # a price list's own columns for these land in the code fields, marked "price list"
 CODE_SOURCES = ("grant", "spec sheet", "typed")
 GRANT_SUPPLIER = ""  # boosters from FCC grants have no supplier: a supplier's price list adds its own line for the same unit
 GRANT_CAT = "Signal booster (Part 90)"
@@ -1289,15 +1464,19 @@ def save_part(con, d, pid=None):
         f["weight_lb"] = _price(d["weight_lb"])
     cur, old_codes = None, {}
     if pid is not None:
-        cur = con.execute("SELECT part, item, codes FROM das_part WHERE id=?", (pid,)).fetchone()
+        cur = con.execute("SELECT part, item, codes, supplier, key, price, updated_at FROM das_part WHERE id=?", (pid,)).fetchone()
         if not cur:
             raise LookupError("That part was deleted.")
         old_codes = _codes(cur)
     if "codes" in d:
-        codes = _merge_codes(old_codes, d["codes"])
+        given = d["codes"]
+        if d.get("fill_only") and isinstance(given, dict):  # a press on a proposal (dasread.js): a field with a value keeps it, whoever filled it, however late
+            given = {k: v for k, v in given.items() if not str((old_codes.get(k) or {}).get("v") or "").strip()}
+        codes = _merge_codes(old_codes, given)
         f["codes"] = json.dumps(codes) if codes else None
         f["fcc_id"] = (codes.get("fcc_id") or {}).get("v") or None
     f["updated_at"] = now()
+    was = cur
     if pid is None:
         if not (f.get("part") or f.get("item")):
             raise ValueError("A part needs a part number or a description.")
@@ -1310,8 +1489,69 @@ def save_part(con, d, pid=None):
         if "part" in f or "item" in f:
             f["key"] = _part_key(f.get("part", cur["part"]), f.get("item", cur["item"]))
         con.execute(f"UPDATE das_part SET {','.join(k + '=?' for k in f)} WHERE id=?", list(f.values()) + [pid])
+        if f.get("key", cur["key"]) != cur["key"] or f.get("supplier", cur["supplier"]) != cur["supplier"]:  # its history stays with it
+            con.execute("UPDATE das_part_price SET supplier=?, key=? WHERE supplier=? AND key=?",
+                        (f.get("supplier", cur["supplier"]), f.get("key", cur["key"]), cur["supplier"], cur["key"]))
+    r = con.execute("SELECT * FROM das_part WHERE id=?", (pid,)).fetchone()
+    if "price" in d and r["price"] is not None:
+        if was is not None and was["price"] is not None and not _price_rows(con, r["supplier"], r["key"]):
+            _keep_price(con, r["supplier"], r["key"], r["part"], was["price"], was["updated_at"] or now(), "before price history")
+        _keep_price(con, r["supplier"], r["key"], r["part"], r["price"], now(), "typed")
     con.commit()
-    return _part_row(con.execute("SELECT * FROM das_part WHERE id=?", (pid,)).fetchone())
+    return _part_row(r)
+
+
+def _pn(s):
+    """A part number with its punctuation and case gone: "LDF4 50A", "ldf4-50a" and "LDF4/50A" are one part."""
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def price_on(con, supplier, key, day):
+    """What a supplier's part cost on a day: the newest price dated on or before it, or None when the history starts later."""
+    return next((r for r in _price_rows(con, supplier, key) if (r["at"] or "")[:10] <= day[:10]), None)
+
+
+def _lookup_row(con, r, day=""):
+    d, rows = _part_row(r), _price_rows(con, r["supplier"], r["key"])
+    d["price_at"] = (rows[0]["seen_at"] or rows[0]["at"] or "")[:10] if rows else (r["updated_at"] or "")[:10]
+    if day:
+        then = price_on(con, r["supplier"], r["key"], day)
+        d["price_then"] = {"price": then["price"], "at": (then["at"] or "")[:10], "source": then["source"] or ""} if then else None
+    return d
+
+
+def lookup_part(con, text, as_of="", supplier="", limit=12):
+    """A part number typed on a bill-of-materials line: {query, found, matches: its parts, the line's supplier first, then
+    the cheapest; near: what looks like it when nothing matches}. With as_of, each match says what it cost that day."""
+    t, day = (text or "").strip(), _list_date(as_of)
+    if str(as_of or "").strip() and not day:
+        raise ValueError(f"That doesn't read as a date: {as_of}.")
+    if not t:
+        return {"query": "", "found": False, "matches": [], "near": [], "as_of": day}
+    order = " ORDER BY supplier=? DESC, price IS NULL, price, id LIMIT ?"
+    rows = con.execute("SELECT * FROM das_part WHERE key=?" + order, (_part_key(t, ""), supplier or "", int(limit))).fetchall()
+    if not rows and _pn(t):  # the same part with other punctuation
+        strip = "LOWER(COALESCE(part,''))"
+        for ch in "- /._":
+            strip = f"REPLACE({strip},'{ch}','')"
+        rows = con.execute(f"SELECT * FROM das_part WHERE {strip}=?" + order, (_pn(t), supplier or "", int(limit))).fetchall()
+    near = [] if rows else list_parts(con, t, limit=limit)["parts"]
+    return {"query": t, "found": bool(rows), "matches": [_lookup_row(con, r, day) for r in rows], "near": near, "as_of": day}
+
+
+def price_history(con, pid):
+    """A part's price now and every dated price for the same part number, this supplier's and the others', newest first."""
+    r = con.execute("SELECT * FROM das_part WHERE id=?", (pid,)).fetchone()
+    if not r:
+        raise LookupError("That part was deleted.")
+    rows = con.execute("SELECT * FROM das_part_price WHERE key=? ORDER BY at DESC, id DESC", (r["key"],)).fetchall()
+    out = [dict(x) for x in rows]
+    for i, x in enumerate(out):  # each price against the same supplier's price before it
+        prev = next((y for y in out[i + 1:] if y["supplier"] == x["supplier"]), None)
+        x["was"] = prev["price"] if prev else None
+        x["pct"] = round((x["price"] - prev["price"]) / prev["price"] * 100, 1) if prev and prev["price"] else None
+    return {"id": r["id"], "part": r["part"], "item": r["item"], "maker": r["maker"], "supplier": r["supplier"], "price": r["price"],
+            "unit": r["unit"], "history": out}
 
 
 def _mhz(bands):
@@ -1481,11 +1721,13 @@ def spec_dir(create=True):
 
 
 def delete_part(con, pid):
-    r = con.execute("SELECT spec_file FROM das_part WHERE id=?", (pid,)).fetchone()
+    r = con.execute("SELECT spec_file, supplier, key FROM das_part WHERE id=?", (pid,)).fetchone()
     if r and r["spec_file"]:
         fp = os.path.join(spec_dir(False), r["spec_file"])
         if os.path.isfile(fp):
             os.remove(fp)
+    if r:  # its dated prices go with it: a bill of materials line keeps the price it was quoted at either way
+        con.execute("DELETE FROM das_part_price WHERE supplier=? AND key=?", (r["supplier"], r["key"]))
     con.execute("DELETE FROM das_part WHERE id=?", (pid,))
     con.commit()
 
@@ -1660,7 +1902,8 @@ def with_part_codes(con, job):
     for x in bom:
         r = _match_part(con, x)
         row = _part_row(r) if r else {"codes": {}, "checks": part_checks({"cat": x.get("cat"), "item": x.get("item")}, {})}
-        out.append(dict(x, codes=row["codes"], checks=row["checks"]))
+        out.append(dict(x, codes=row["codes"], checks=row["checks"], maker=x.get("maker") or row.get("maker") or "",
+                        spec_url=row.get("spec_url") or "", catalogue=row if r else None))
     return dict(job, data=dict(job.get("data") or {}, bom=out))
 
 
@@ -1683,37 +1926,53 @@ def bom_rows(bom):
     return rows, round(total, 2)
 
 
-def packet_zip(jid, job):
-    """One download for the AHJ packet's parts: the bill of materials (CSV, with prices and the total), every
-    spec sheet gathered into the job's folder, and each test instrument's calibration certificate (the Overview's
-    certificate register names the file; Charlotte and Durham ask for it in the packet)."""
+def packet_zip(jid, job, spec_names=(), reports=()):
+    """One download for the AHJ packet's parts: the bill of materials (CSV, with prices and the total, unless the job's
+    Materials settings leave them out), the AHJ's own workbook sheet (no prices), every spec sheet gathered into the job's
+    folder, each test instrument's calibration certificate (the Overview's certificate register names the file;
+    Charlotte and Durham ask for it in the packet), and the sealed report's PDF (reports: sealed_files, only one that still
+    matches the job)."""
+    import dasbom
     rows, total = bom_rows((job.get("data") or {}).get("bom") or [])
+    if dasbom.settings(job.get("data") or {}).get("packet_no_prices"):
+        for r in rows:
+            r["price"] = r["line_total"] = ""
+            r["note"] = dasbom.no_money(r["note"])
+        total = None
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=BOM_FIELDS)  # with each part's code fields (with_part_codes, 11/4)
     w.writeheader()
     w.writerows(rows)
-    if rows:
+    if rows and total is not None:
         w.writerow({"item": "Total", "line_total": f"{total:.2f}"})
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("Bill of materials.csv", "﻿" + buf.getvalue())
+        if rows:  # the sheet that goes to the AHJ: no prices, no cost, whatever the CSV carries (dasbom.workbook)
+            z.writestr("Bill of materials - AHJ.xlsx", dasbom.workbook(job, ("ahj",), jid=jid))
         d = job_dir(jid, job["name"], create=False)
         if os.path.isdir(d):
             for f in sorted(os.listdir(d)):
-                if f.startswith("Spec sheet - ") and f.lower().endswith(".pdf"):
+                if (f.startswith("Spec sheet - ") or f in spec_names) and f.lower().endswith(".pdf"):
                     z.write(os.path.join(d, f), "Spec sheets/" + f)
             seen = set()
             for inst in ((job.get("data") or {}).get("testing") or {}).get("instruments") or []:
-                cert = inst.get("cert") if isinstance(inst, dict) else None
-                if not cert or cert in seen:
+                if not isinstance(inst, dict):
                     continue
-                try:
-                    fp = file_path(jid, job["name"], cert)
-                except ValueError:
-                    continue
+                for cert in [inst.get("cert"), *(p.get("cert") for p in inst.get("prior") or [])]:  # the calibration earlier readings were taken under too
+                    if not cert or cert in seen:
+                        continue
+                    try:
+                        fp = file_path(jid, job["name"], cert)
+                    except ValueError:
+                        continue
+                    if os.path.isfile(fp):
+                        seen.add(cert)
+                        z.write(fp, "Calibration certificates/" + os.path.basename(fp))
+            for f in reports:
+                fp = file_path(jid, job["name"], f)
                 if os.path.isfile(fp):
-                    seen.add(cert)
-                    z.write(fp, "Calibration certificates/" + os.path.basename(fp))
+                    z.write(fp, "Sealed reports/" + os.path.basename(fp))
     return out.getvalue()
 
 
@@ -1783,7 +2042,7 @@ def seal_report(con, jid, text, title="", result="", by=""):
     con.execute(f"INSERT INTO das_seal({', '.join(row)}) VALUES({', '.join('?' * len(row))})", tuple(row.values()))
     con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "sealed", f"{row['title']}: verify code {code}, SHA-256 {row['sha256'][:16]}"))
     con.commit()
-    return {k: row[k] for k in ("code", "at", "sha256", "job_sha256")}
+    return {**{k: row[k] for k in ("code", "at", "sha256", "job_sha256")}, "file": seal_file_name(row["at"], row["title"], code)}
 
 
 def _changes(old, new):
@@ -1837,10 +2096,161 @@ def seal_route(con, method, p, qs, body_json, by=""):
         b = body_json()
         return 200, seal_report(con, int(b.get("job_id") or 0), b.get("text"), b.get("title"), b.get("result"), by)
     if p == "/api/das/seal" and method == "GET":
-        return 200, {"seals": seal_list(con, int(q("job") or 0))}
+        jid = int(q("job") or 0)
+        pdfs = {}
+        for f in sealed_files(con, jid):  # newest first: a seal filed twice shows the newest
+            pdfs.setdefault(f["code"], f)
+        return 200, {"seals": [dict(s, file=(pdfs.get(s["code"]) or {}).get("name") or "", packet=bool((pdfs.get(s["code"]) or {}).get("packet"))) for s in seal_list(con, jid)]}
     if p == "/api/das/seal/verify":
         return 200, seal_verify(con, q("code"))
     raise LookupError("No such page.")
+
+
+def seal_file_name(at, title, code):
+    """The name a sealed report's PDF goes by: dated, saying what it is, its verify code keeping two printings apart."""
+    t = re.sub(r"\s+", " ", str(title or "Report").replace(":", " -"))
+    return safe_name(f"{str(at)[:10]} Sealed report - {safe_name(t)[:70].strip(' .-')} - {code}") + ".pdf"
+
+
+# a printed PDF read back. pdf.js breaks words where the print engine kerned them ("v erif y code"), so the two are compared with every space out.
+# A printed report holds what was sealed letter for letter, but not in order: a print sets a floor's grid after its table, reads a two-column row line
+# by line (a short value lands inside its label's words), and adds the code's footer, a table's heading on each new page, and the browser's own headers
+# and footers (the date, the page's title and address, 3/15), which Chrome prints beside the code's when that box is ticked. So it's counted, not walked:
+# every run of SEAL_RUN letters in the seal against the same on the page. What no run accounts for is short pieces where stretches meet, and those
+# have to be the same pieces on both sides. A changed letter leaves one piece on the page and another in the seal.
+SEAL_RUN = 12
+SEAL_TEXT_CAP = 189000  # intake.js sends at most 190,000 characters of a PDF
+SEAL_ON_PAGE = re.compile(r"verifycode\W{0,2}([0-9A-Za-z]{4}-?[0-9A-Za-z]{4})", re.I)
+SEAL_SHA_ON_PAGE = re.compile(r"SHA-256\W{0,2}([0-9a-f]{16})")
+SEAL_PRINT_ADDS = re.compile(r"Page\d+of\d+|Sealed\d{4}-\d\d-\d\d\W{0,3}verifycode\W{0,2}[0-9A-Za-z-]{8,9}\W{0,3}SHA-256\W{0,2}[0-9a-f]{16}\.?"
+                             r"|Sealedcopyofthisreportkeptwiththejob;achangedjobnolongermatchesit\.?")
+SEAL_MARGIN = re.compile(r"https?://[\w.:-]+/?(?:#tab=\w+)?|\d{1,2}/\d{1,2}/\d{2,4},\d{1,2}:\d\d(?::\d\d)?(?:[AP]M)?", re.I)  # read on the letters, off both sides: a report can print an address too
+
+
+def _no_spaces(s):
+    import unicodedata
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", str(s or "")))
+
+
+def _no_title(f, t):
+    """A page's letters without the name it printed under. A browser's header cuts a long name short, so it's found by its start."""
+    head, i = t[:SEAL_RUN], -1
+    while len(head) == SEAL_RUN:
+        i = f.find(head, max(i, 0))
+        if i < 0:
+            break
+        n = SEAL_RUN
+        while n < len(t) and i + n < len(f) and f[i + n] == t[n]:
+            n += 1
+        f = f[:i] + f[i + n:].lstrip(".…")
+    return f
+
+
+def _page_letters(text, title=""):
+    """A PDF's words with no spaces, each page without what printing added to it. title: the name it printed under."""
+    pages, t = str(text or "").split("\n"), _no_spaces(title)
+    out = []
+    for n, pg in enumerate(pages, 1):
+        count = re.compile(rf"^{n}(?:/|of){len(pages)}|{n}(?:/|of){len(pages)}$")  # 3/15 at the page's edge: before the address it runs into, and after what it follows
+        f = count.sub("", _no_title(SEAL_PRINT_ADDS.sub("", _no_spaces(pg)), t))
+        out.append(count.sub("", SEAL_MARGIN.sub("", f)))
+    return "".join(out)
+
+
+def _runs(s):
+    return [s[i:i + SEAL_RUN] for i in range(len(s) - SEAL_RUN + 1)]
+
+
+def _left_over(s, sound):
+    """The pieces of s that no sound run covers."""
+    runs, pieces, cur, last = _runs(s), [], [], -SEAL_RUN
+    for i, ch in enumerate(s):
+        if i < len(runs) and sound(runs[i]):
+            last = i
+        if last > i - SEAL_RUN:
+            if cur:
+                pieces.append("".join(cur))
+                cur = []
+        else:
+            cur.append(ch)
+    return pieces + (["".join(cur)] if cur else [])
+
+
+def seal_text_differs(page, sealed, share=1.0, title=""):
+    """Whether what a PDF prints is what was sealed. None when it is; else why not, in words. share: how much of the report was read (1 is all of it).
+    title: the name the page printed under, which a browser may put in the margin."""
+    from collections import Counter
+    a, b = _page_letters(page, title), SEAL_MARGIN.sub("", _no_spaces(sealed))
+    if len(a) < SEAL_RUN or len(b) < SEAL_RUN:
+        return None if a == b else "Its words don't match what was sealed."
+    on_page = Counter(_runs(a))
+    if share < 1:  # part of it read: what's there has to be the seal's, and enough of it. A seal can be 2 MB, so only its runs the page has are kept
+        hit = [w for w in _runs(b) if w in on_page]
+        have = set(hit)
+        extra = [x for x in _left_over(a, lambda w: w in have) if len(x) >= SEAL_RUN]
+        if extra:
+            return f'Its words don\'t match what was sealed, near "{extra[0][:24]}".'
+        return "It holds only part of what was sealed." if len(hit) < .8 * share * (len(b) - SEAL_RUN + 1) else None
+    in_seal = Counter(_runs(b))
+    page_only = Counter(_left_over(a, lambda w: w in in_seal))  # on the page, and nowhere in the seal
+    seal_only = Counter(_left_over(b, lambda w: in_seal[w] <= on_page[w]))  # sealed, and fewer times on the page. A heading printed twice costs nothing
+    lost, extra = seal_only - page_only, page_only - seal_only
+    if sum(len(x) * n for x, n in lost.items()) > .05 * len(b):
+        return "It holds only part of what was sealed."
+    diff = list(lost + extra)
+    return None if not diff else f'Its words don\'t match what was sealed, near "{max(diff, key=len)[:24]}".'
+
+
+def seal_of_pdf(con, text, pages=0, read=0, vis=None):
+    """What a verify code printed on a PDF is worth. None when the PDF shows no code. Else {ok, code, why}, and for a code this login may know of
+    {job_id, title, at, file}. A code alone proves nothing: anyone can type one, or copy a real one onto another page. It's believed only when
+    the job still stands, the page's words are what was sealed under that code, and the job hasn't changed since. vis: the jobs this login may open."""
+    flat = _no_spaces(text)
+    codes = list(dict.fromkeys(seal_code_norm(m.group(1)) for m in SEAL_ON_PAGE.finditer(flat)))
+    if not codes:
+        return None
+    no = None
+    for code in codes:
+        v = seal_verify(con, code)
+        if not v.get("found") or (vis is not None and v["job_id"] not in vis):
+            no = no or {"ok": False, "code": code, "why": f"This PDF shows verify code {code}, but no report here was sealed under that code. It isn't treated as sealed: check where it came from."}
+            continue
+        out = {"ok": False, "code": code, "job_id": v["job_id"], "job_name": v.get("job_name"), "title": v["title"], "at": v["at"], "file": seal_file_name(v["at"], v["title"], code)}
+        shas = {m.group(1) for m in SEAL_SHA_ON_PAGE.finditer(flat)}
+        share = min(1.0, read / pages) if pages and read else 1.0
+        if len(text) >= SEAL_TEXT_CAP:  # the page's words were cut off
+            share = min(share, .99 * len(flat) / max(1, len(_no_spaces(v["content"]))))
+        diff = seal_text_differs(text, v["content"], share, out["file"][:-4]) if not (shas and v["sha256"][:16] not in shas) else "Its SHA-256 isn't the one that was sealed."
+        if diff:
+            no = no or {**out, "why": f"Verify code {code} is real, but this isn't the report sealed under it. {diff} It may have been edited, so it isn't treated as sealed."}
+        elif v.get("job_deleted"):
+            no = no or {**out, "why": f"Verify code {code} was sealed on {v['at'][:10]} for a job that has been deleted, so it isn't treated as sealed."}
+        elif v.get("job_changed"):
+            what = ", ".join(v.get("changes") or [])[:160]
+            no = no or {**out, "why": f"This is the report sealed on {v['at'][:10]} for {v['job_name']}, but the job has changed since ({what}). It no longer matches, so it isn't treated as sealed. Print as final again and drop the new PDF."}
+        else:
+            return {**out, "ok": True, "why": ""}
+    return no
+
+
+def sealed_files(con, jid):
+    """The sealed PDFs in a job's Files, newest first: {name, code, title, at, current, packet}. Only a file Intake checked against its seal counts: a
+    file someone called a sealed report has no code here. current: the job still matches. packet: the one that goes to the AHJ, the newest of each report."""
+    seals = {s["code"]: s for s in seal_list(con, jid)}
+    out = []
+    for r in con.execute("SELECT f.name, i.facts FROM das_file f JOIN intake_item i ON i.id=f.intake_id WHERE f.job_id=? AND f.kind='sealed_report' ORDER BY f.at DESC", (jid,)).fetchall():
+        try:
+            s = seals.get((json.loads(r[1] or "{}") or {}).get("seal"))
+        except ValueError:
+            s = None
+        if s:
+            out.append({"name": r[0], "code": s["code"], "title": s["title"], "at": s["at"], "current": not s["changed"]})
+    out.sort(key=lambda x: x["at"], reverse=True)
+    seen = set()
+    for x in out:
+        x["packet"] = x["current"] and x["title"] not in seen
+        seen.add(x["title"])
+    return out
 
 
 CELL_TECH = re.compile(r"\b(LTE|NR|5G|4G|3G|UMTS|WCDMA|HSPA|GSM|CDMA|EV-?DO)\b", re.I)
@@ -1954,7 +2364,11 @@ SCHEMA += MAIL_SCHEMA
 SCHEMA += """
 CREATE TABLE IF NOT EXISTS das_prospect(id TEXT PRIMARY KEY, status TEXT, notes TEXT, contacted_at TEXT, job_id INTEGER, updated_at TEXT,
     email TEXT, email_source TEXT);
+CREATE TABLE IF NOT EXISTS das_watch(id INTEGER PRIMARY KEY, login TEXT, label TEXT, lat REAL, lon REAL, radius REAL, at TEXT, checked TEXT,
+    permits INTEGER, held_back INTEGER);
+CREATE TABLE IF NOT EXISTS das_lead(login TEXT, pid TEXT, watch_id INTEGER, state TEXT, at TEXT, done_at TEXT, queued INTEGER, row TEXT, PRIMARY KEY(login, pid));
 """
+TABLES += ("das_watch", "das_lead")  # a saved area and what it turned up (leads.py)
 QUOTE_ALIASES = {
     "part": PART_ALIASES["part"], "item": PART_ALIASES["item"],
     "unit_price": ["unitprice", "yourprice", "price", "quotedprice", "netprice", "cost", "unitcost"],
@@ -2069,8 +2483,9 @@ def save_quote(con, rid, supplier, d):
     return get_rfq(con, rid)
 
 
-def import_quote(con, rid, supplier, name, data):
-    """A supplier's filled-in quote sheet (the request's CSV, or their own sheet with part, price and lead time)."""
+def import_quote(con, rid, supplier, name, data, only_new=False):
+    """A supplier's filled-in quote sheet (the request's CSV, or their own sheet with part, price and lead time).
+    only_new: lines this supplier has already quoted stay as they are (Intake)."""
     q = get_rfq(con, rid)
     _, head, rows = read_table(name, data)
     m = guess_mapping(head, QUOTE_ALIASES)
@@ -2091,8 +2506,13 @@ def import_quote(con, rid, supplier, name, data):
                     "lead_days": float(weeks.group(1)) * 7 if weeks else ("0" if re.search(r"stock", lt, re.I) else lt), "note": r.get(m.get("note"), "")}
     if not lines:
         raise ValueError("None of the sheet's rows match this request's parts.")
-    out = save_quote(con, rid, supplier, {"lines": lines})
-    out["imported"] = {"lines": len(lines), "unmatched": missed, "columns": m}
+    kept = []
+    if only_new:
+        have = {x["key"] for x in q["quotes"] if x["supplier"] == supplier and x["unit_price"] is not None}
+        kept = sorted(k for k in lines if k in have)
+        lines = {k: v for k, v in lines.items() if k not in have}
+    out = save_quote(con, rid, supplier, {"lines": lines}) if lines else q
+    out["imported"] = {"lines": len(lines), "unmatched": missed, "columns": m, "keys": sorted(lines), "kept": kept}
     return out
 
 
@@ -2164,8 +2584,24 @@ def migrate(con):
             if have and c not in have:
                 con.execute(f"ALTER TABLE {table} ADD COLUMN {c} {typ}")
     con.commit()
+    price_history_begins(con)
     rfq_ids_never_reused(con)
     dashist.ensure(con)  # the job's revision column; existing jobs shared with the whole team, as before
+    import ahjbook
+    ahjbook.seed(con)  # what jobs confirmed before the AHJ book began
+
+
+def price_history_begins(con):
+    """Each priced part kept before price history began gets its price as the first row, dated when it was last read, so the
+    next import keeps the old price with a date. Once: a part with any history is left alone."""
+    import sqlite3
+    try:
+        con.execute("""INSERT INTO das_part_price(supplier, key, part, price, at, seen_at, source)
+                       SELECT p.supplier, p.key, p.part, p.price, p.updated_at, p.updated_at, 'before price history' FROM das_part p
+                       WHERE p.price IS NOT NULL AND NOT EXISTS (SELECT 1 FROM das_part_price h WHERE h.supplier=p.supplier AND h.key=p.key)""")
+        con.commit()
+    except sqlite3.OperationalError:  # a copy with neither table yet (a test's bare database)
+        pass
 
 
 def rfq_ids_never_reused(con):
@@ -2290,7 +2726,7 @@ def refresh_price_lists(con, fetch=None):
         try:
             data = fetch(r["price_url"])
             name = urllib.parse.urlparse(r["price_url"]).path.rsplit("/", 1)[-1] or "price list.csv"
-            res = import_parts(con, name, data, r["name"])
+            res = import_parts(con, name, data, r["name"], source="price list link")
             msg = f"{res['added']} new, {res['updated']} updated"
         except Exception as e:
             msg = f"failed: {str(e)[:150]}"
@@ -2319,7 +2755,7 @@ LIFE_SOURCES = {
                   "18.7.3 (the code sets no term)", "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
     "ul2524": ("UL 2524 3rd edition (22 Mar 2024): listings not updated by 22 Mar 2026 are withdrawn (Intertek SUN, 10 Feb 2025)",
                "https://www.intertek.com/siteassets/resources/sun/2025/ul-2524-sun-rev-3-22-2024-ed-3-22-2026.pdf"),
-    "remodel": ("IFC 2024 510.6.1: retest after structural changes (additions, remodels); the code gives no deadline",
+    "remodel": ("IFC 510.6.1 (2018, 2021 and 2024 editions): retest after structural changes (additions, remodels); the code gives no deadline",
                 "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
     # the firm's own dates (lane D 11/4, beat-par lifecycle "firm certificates"): the instruments and the tester
     "cal": ("Instrument calibration: Grid test scores a reading only when its instrument was calibrated within the 12 months "
@@ -2386,11 +2822,13 @@ def job_scope(d):
     (data.cellular: a target, donor readings or carrier approvals). Public safety when it has a public-safety channel plan,
     systems picked, licensee authorizations or consents, or a public-safety reading in the grid or a named critical area;
     and every job with no cellular part (every job before cellular existed). An AHJ profile alone decides nothing: a
-    carrier job can carry one too (lanes A and D, 11/4)."""
+    carrier job can carry one too (lanes A and D, 11/4). Start's scope answer says it outright, before any of that is on file:
+    without it a Cellular job started there met the public safety gate (11/5)."""
     d = d or {}
     C, ps = d.get("cellular") or {}, d.get("presurvey") or {}
-    cell = any(isinstance(C.get(k), dict) and C.get(k) for k in ("profile", "donor", "approvals"))
-    sign = bool(ps.get("plan") or ps.get("include") or (d.get("life") or {}).get("auths") or d.get("consents") or _ps_reading(d))
+    said = ((d.get("guided") or {}).get("answers") or {}).get("scope")
+    cell = said in ("Cellular", "Both") or any(isinstance(C.get(k), dict) and C.get(k) for k in ("profile", "donor", "approvals"))
+    sign = said in ("Public safety radio", "Both") or bool(ps.get("plan") or ps.get("include") or (d.get("life") or {}).get("auths") or d.get("consents") or _ps_reading(d))
     return {"ps": sign or not cell, "cell": bool(cell)}
 
 
@@ -2489,12 +2927,13 @@ def lifecycle(d, stage=None, today=None):
         nm = " ".join(x for x in (ins.get("model"), f"(serial {ins['serial']})" if ins.get("serial") else "") if x) or f"instrument {n + 1}"
         # the certificate's own expiry first (lane A's instrument register), else the calibration date + cal_m months
         item("cal", f"Calibration runs out: {nm}", due=_day(ins.get("expires")) or _add_months(c, cal_m), done=c,
-             note=f"calibrated {c.isoformat()}", iid=f"cal:{n}:{ins.get('serial') or ins.get('model') or ''}", instrument=nm)
+             note=f"calibrated {c.isoformat()}", iid=f"cal:{n}:{ins.get('serial') or ins.get('model') or ''}", instrument=nm,
+             model=ins.get("model") or "", serial=ins.get("serial") or "", cal_months=cal_m)
     for k, lbl in LIFE_CERTS:
         e = _day(t.get(f"{k}_expires"))
         if e:
             item("cert", f"{lbl} expires: {t.get('tester') or 'the tester'}", due=e, src_key=k, iid=f"cert:{k}", cert=lbl,
-                 tester=t.get("tester") or "")
+                 tester=t.get("tester") or "", cert_key=k)
     return out
 
 
@@ -2647,15 +3086,24 @@ def set_prospect(con, pid, d):
 def prospect_email(prospect, firm):
     """A first email to a prospect, written to US CAN-SPAM's rules for commercial email: who it's from, an honest
     subject, the firm's physical mailing address, and a plain way to opt out (honoured: Do not contact). The person
-    sends it from their own mail."""
+    sends it from their own mail. What it says about the law follows the state's reading (codecheck): a building isn't
+    told it's required where nothing statewide says so, and a list row with a bad or blank state makes no claim. The
+    reason is owner_why, written for the owner: why is the team's research, with other cities' rules in it."""
+    import codecheck  # here, not at the top: codecheck imports das
     t = prospect_types().get(KIND_TYPE.get(prospect.get("kind"), ""), {})
     who = prospect.get("contact_name") or "Facilities team"
     name = firm.get("name") or "our firm"
+    level, place, why = codecheck.level(prospect.get("state")), prospect["name"], t.get("owner_why")
+    law = {"required": f"Buildings like {place} are often required to have it." if why else "",
+           "discretion": f"Buildings like {place} can be required to have it, depending on the fire official." if why else "",
+           "no_mandate": "Owners choose it so firefighters' and police radios work inside the building."}.get(
+               level, f"Whether a building like {place} needs it depends on the state and local fire code.")
+    reach = "how well they reach inside" if level == "no_mandate" else "what coverage the fire marshal will expect"
     body = (f"Hello {who},\n\n"
             f"{name} designs, installs and tests in-building emergency responder radio coverage (ERCES / public safety DAS) "
-            f"and cellular coverage. {('Buildings like ' + prospect['name'] + ' are often required to have it: ' + t['why']) if t.get('why') else ''}\n\n"
-            "We can check, before anyone visits, which public safety radio systems serve your building and what coverage the "
-            "fire marshal will expect, and walk you through what a test and a system would involve.\n\n"
+            f"and cellular coverage. {' '.join(x for x in (law, why) if x)}\n\n"
+            f"We can check, before anyone visits, which public safety radio systems serve your building and {reach}, "
+            "and walk you through what a test and a system would involve.\n\n"
             "Would a short call next week be useful?\n\n"
             f"{firm.get('contact') or ''}\n{name}\n{firm.get('phone') or ''}\n{firm.get('website') or ''}\n"
             f"{firm.get('address') or '[your mailing address: required in commercial email]'}\n\n"

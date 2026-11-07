@@ -15,6 +15,7 @@ in its own sqlite file (data/prospects.db, WAL) so a refresh never locks the FCC
 while a refresh runs. Files are streamed row by row, never held as lists: list(csv.DictReader) on a big file took
 the server's 4 GB on 11/3. A new school year means new file names in SOURCES (NCES puts the year in the name).
 """
+import dlstop  # Stop all downloads
 import codecs
 import csv
 import io
@@ -198,6 +199,7 @@ def _download(url, ua=UA, dest=None, timeout=120):
             with _OPENER.open(urllib.request.Request(url, headers={"User-Agent": ua}), timeout=timeout) as r, \
                     open(dest + ".part", "wb") as fh:
                 while True:
+                    dlstop.check()  # Stop all downloads
                     b = r.read(1 << 20)
                     if not b:
                         break

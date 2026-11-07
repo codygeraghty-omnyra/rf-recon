@@ -2,7 +2,8 @@
 The DAS course on the server. The page is one file, course/index.html, built by the das-master-course project. It sits
 here and never in static/: everything in static/ goes to the public web version (phone/publish.py) and into the install
 kit (kit/build_kit.py). It is reached only through the sign-in door (remote.py), by logins the admin ticks in Data &
-updates. An admin always has it; an AHJ login never does. This PC's own port has no logins, so the course isn't there.
+updates. An admin starts ticked and can be unticked; an AHJ login never has it. This PC's own port has no logins, so the
+course isn't there.
 
 Progress is one row per login. The page holds a copy in the browser and sends the whole of it after each change, with the
 revision it last saw. A save on top of a newer revision comes back as a conflict with that newer copy, and the page merges

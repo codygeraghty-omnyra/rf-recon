@@ -175,14 +175,18 @@ window.dasCellPresurvey = async (el, j, save) => {
   el.querySelectorAll("[data-ap]").forEach(i=>i.onchange=async()=>{ const car=i.closest("tr").dataset.car, all={...((j.data.cellular||{}).approvals||{})};
     all[car]={...(all[car]||{}), [i.dataset.ap]:i.value||null}; await keep({approvals:all}); });
   el.querySelectorAll("[data-let]").forEach(b=>b.onclick=()=>dasCellConsent(j, b.dataset.let));
-  el.querySelectorAll("[data-letmail]").forEach(b=>b.onclick=async()=>{ const carrier=b.dataset.letmail, d=j.data||{}, cs=S.das.contacts||[], me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech));
-    const bands=new Set(); for(const r of Object.values((d.grid||{}).results||{})) for(const x of readingsOf(r)) if(isCell(x)&&carrierName(x.carrier)===carrier&&has(x.band)) bands.add(String(x.band));
+  el.querySelectorAll("[data-letmail]").forEach(b=>b.onclick=async()=>{ const carrier=b.dataset.letmail;
     const fl=((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files||[]).map(f=>f.name);
-    rfMail.compose($("#dcLetMail"), {kind:"job", refs:{job_id:j.id, topic:"CONSENT", extra:carrier.replace(/[^A-Za-z0-9]/g,"").slice(0,20)}, title:`Consent request to ${carrier}`,
-      to:/t-?mobile/i.test(carrier)?"rebroadcastagreements@t-mobile.com":"",
-      subject:`Request for express consent (47 CFR 20.21(c)): ${j.name}${d.address?`, ${d.address}`:""}`,
-      body:`Hello,\n\nWe plan to install an industrial signal booster (distributed antenna system) at ${j.name}${d.address?`, ${d.address}`:""} to improve ${carrier} coverage inside the building. Under 47 CFR 20.21(c), an industrial booster may operate only with the carrier's express consent, so we ask for yours${bands.size?` to retransmit: ${[...bands].join(", ")}`:""}.\n\nThe attached letter has the location, bands, booster, gain, power and donor antenna details. Gain, AGC, oscillation shutdown and band settings will be set to the FCC limits and your requirements, and the booster will be shut off at your request (47 CFR 20.21(d)).\n\nA reply naming the bands you consent to, or a signed copy of the letter, is all we need.\n\nThank you,\n${me?[me.name, me.org, me.phone].filter(Boolean).join("\n"):""}`,
-      files:fl.filter(n=>/\.pdf$/i.test(n))}); });
+    rfMail.compose($("#dcLetMail"), {...window.dasCellConsentMail(j, carrier), kind:"job", title:`Consent request to ${carrier}`, files:fl.filter(n=>/\.pdf$/i.test(n))}); });
+};
+
+// a carrier's consent request as an email: the Pre-survey's button and the job's one list send these words
+window.dasCellConsentMail=(j, carrier)=>{ const d=j.data||{}, cs=S.das?.contacts||[], me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech));
+  const bands=new Set(); for(const r of Object.values((d.grid||{}).results||{})) for(const x of readingsOf(r)) if(isCell(x)&&carrierName(x.carrier)===carrier&&has(x.band)) bands.add(String(x.band));
+  return {refs:{job_id:j.id, topic:"CONSENT", extra:carrier.replace(/[^A-Za-z0-9]/g,"").slice(0,20)},
+    to:/t-?mobile/i.test(carrier)?"rebroadcastagreements@t-mobile.com":"",
+    subject:`Request for express consent (47 CFR 20.21(c)): ${j.name}${d.address?`, ${d.address}`:""}`,
+    body:`Hello,\n\nWe plan to install an industrial signal booster (distributed antenna system) at ${j.name}${d.address?`, ${d.address}`:""} to improve ${carrier} coverage inside the building. Under 47 CFR 20.21(c), an industrial booster may operate only with the carrier's express consent, so we ask for yours${bands.size?` to retransmit: ${[...bands].join(", ")}`:""}.\n\nThe attached letter has the location, bands, booster, gain, power and donor antenna details. Gain, AGC, oscillation shutdown and band settings will be set to the FCC limits and your requirements, and the booster will be shut off at your request (47 CFR 20.21(d)).\n\nA reply naming the bands you consent to, or a signed copy of the letter, is all we need.\n\nThank you,\n${me?[me.name, me.org, me.phone].filter(Boolean).join("\n"):""}`};
 };
 
 /* ---------- consent letter: 47 CFR 20.21(c), what carriers ask for (Providence RFP §3.12) ---------- */
@@ -288,7 +292,8 @@ if(typeof document!=="undefined"&&document.addEventListener){
 // [id, label, UL MHz, DL MHz, carriers, default channel MHz, NR at 30 kHz]
 // Holders are the usual ones nationally and move: AT&T closed on EchoStar's 600 MHz and 3.45 GHz 2026-07-28; T-Mobile sold its 800 MHz to
 // Grain 2026-08-10, which agreed 2026-10-08 to sell it to SpaceX (not closed); EchoStar's AWS-4 went into a trust 2026-05-22 (EchoStar and
-// T-Mobile Q3 2026 10-Qs). By county, read the licence holders (Who holds).
+// T-Mobile Q3 2026 10-Qs). By county, read the licence holders (Who holds). C-band here is 3700-3980 MHz, what's held today: 47 CFR 27.5(m)
+// reads 3700-4140 MHz since FCC 26-46 (July 2026), and spectrum.py already has the D and E blocks for when the upper part is licensed.
 const DAS_LTE_BANDS = [
   ["71","B71 / n71 600 MHz",[663,698],[617,652],"T-Mobile, AT&T",15,false], ["12","B12 / n12 Lower 700",[699,716],[729,746],"AT&T, T-Mobile",10,false],
   ["17","B17 Lower 700",[704,716],[734,746],"AT&T",10,false], ["29","B29 / n29 700 (downlink only)",null,[717,728],"AT&T",5,false],

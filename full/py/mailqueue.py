@@ -11,7 +11,7 @@ Lifecycle reminders (lane D 11/4): every dated lifecycle item (das.lifecycle: th
 AHJ's report deadline and 13-month limit, the operational permit, licensee renewals, instrument calibration, the
 tester's certificates) is offered 90 and 30 days before it's due, on the day, and every 30 days while it's overdue, to
 the person it concerns (owner, licensee or our technician). One per window: an email with the same subject sent since
-the window opened clears it. BDA alarms (snmpwatch.py) are offered to the owner while a monitored BDA has an open
+the window opened clears it. Calibration and credentials fold to one per instrument or person, not one per job (dasfirm.fold). BDA alarms (snmpwatch.py) are offered to the owner while a monitored BDA has an open
 alarm or has gone quiet.
 """
 import datetime
@@ -19,6 +19,7 @@ import json
 import re
 
 import das
+import dasfirm
 import dasmail
 
 FOLLOW_DAYS = 5          # no reply this many days after the last email on a tag: a follow-up
@@ -38,6 +39,7 @@ LIFE_TO = {"quant5": (("owner",), "Lifecycle reminders"), "annual_ahj": (("owner
            "carrier_consent": (("tech",), "Lifecycle reminders"), "carrier_retest": (("owner",), "Lifecycle reminders"),
            "maintenance": (("owner",), "Lifecycle reminders")}
 ROLE_WORD = {"owner": "building owner", "agency": "radio system owner (the licensee)", "tech": "technician (Our technician)"}
+JOB_GROUP = "This job needs"
 GROUP_ORDER = ("BDA alarms", "Follow-ups", "Retest reminders", "Reports due to the AHJ", "Lifecycle reminders",
                "Calibration and certificates", "Plans requests", "Prospects")
 
@@ -187,15 +189,18 @@ def _sent_since(rows, start, match):
     return any(r["direction"] == "out" and str(r["ts"])[:10] >= start and match(_strip_tag(r["subject"])) for r in rows or [])
 
 
-def _life_mail(j, x, contacts, firm, acct_name):
-    """The written reminder for one lifecycle item: (to contact, role, subject, body)."""
+def _life_mail(j, x, contacts, firm, acct_name, where=None, to=None):
+    """The written reminder for one lifecycle item: (to contact, role, subject, body). where, to: a folded reminder's jobs, and a
+    person's own address from the register."""
     d = j["data"] or {}
     roles = LIFE_TO[x["key"]][0]
     c, role = _person(d, contacts, roles)
+    if to:
+        c, role = to, roles[0]
     em = re.search(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", x.get("contact") or "") if x["key"] == "carrier_consent" else None
     if em:  # the carrier's own contact, from its approval on the job
         c, role = {"email": em.group(0), "name": ""}, "carrier"
-    where = f"{j['name']}{', ' + d['address'] if d.get('address') else ''}"
+    where = where or f"{j['name']}{', ' + d['address'] if d.get('address') else ''}"
     hello = f"Hello{(' ' + _first(c.get('name'))) if c and _first(c.get('name')) else ''},"
     sig = _sig(d, contacts, firm, acct_name)
     due, late, k, src = x["due"], (x["days"] or 0) < 0, x["key"], x["source"]
@@ -271,11 +276,40 @@ def _live(st, key, now):
     return True
 
 
-def items(con, login, firm=None, acct_name="", now=None):
+def _names_of(jobs):
+    n = [j["name"] for j in jobs]
+    return n[0] if len(n) == 1 else f"{n[0]} and {n[1]}" if len(n) == 2 else f"{n[0]}, {n[1]} and {len(n) - 2} more"
+
+
+def _folded(con, lines, st, sent, contacts, firm, acct_name, now):
+    """Calibration and credential reminders, one per instrument or person (dasfirm.fold). One email clears it from every job that carries the
+    instrument, whichever job it was sent from. A person's Later or a dismissal made before these folded still holds: each job's own key is asked too."""
+    out = []
+    for g in dasfirm.fold(con, lines, now.date()):
+        x, jobs, reg = g["item"], g["jobs"], g["reg"] or {}
+        win = window(x["days"])
+        if not win:
+            continue
+        j = next((y for y in jobs if _person(y["data"], contacts, LIFE_TO[x["key"]][0])[0]), jobs[0])
+        to = {"email": reg["email"], "name": reg["name"]} if reg.get("email") else None
+        c, _, subject, body = _life_mail(j, x, contacts, firm, acct_name, None if len(jobs) == 1 else _names_of(jobs), to)
+        start = (datetime.date.fromisoformat(x["due"]) + datetime.timedelta(days=win[1])).isoformat()
+        key, own = f"firm:{g['ident']}:{x['due']}:{win[0]}", [f"life:{t[0]['id']}:{t[1]['id']}:{t[1]['due']}:{(window(t[1]['days']) or ('',))[0]}" for t in g["lines"]]
+        if any(_sent_since(sent.get(y["id"]), start, lambda s, subject=subject: s == subject) for y in jobs) or not _live(st, key, now) or not any(_live(st, k, now) for k in own):
+            continue
+        role = LIFE_TO[x["key"]][0][0]
+        out.append({"key": key, "group": LIFE_TO[x["key"]][1], "kind": "job", "refs": {"job_id": j["id"], "topic": "MAIL"}, "to": (c or {}).get("email") or "",
+                    "to_name": (c or {}).get("name") or "", "subject": subject, "body": body, "job_id": j["id"], "job_ids": [y["id"] for y in jobs], "life": x["id"],
+                    "why": f"{_names_of(jobs)}: {x['label']}, {_when(x['due'], x['days'])}",
+                    "blocked": "" if c else f"No {ROLE_WORD[role]} with an email on {'this job' if len(jobs) == 1 else 'these jobs'} (Overview › People)."})
+    return out
+
+
+def items(con, login, firm=None, acct_name="", now=None, vis=None):
     """Everything ready to send for this login, newest reason first: [{key, group, why, kind, refs, to, to_name,
-    subject, body, in_reply_to, blocked}]."""
+    subject, body, in_reply_to, blocked}]. vis: the jobs this login can open, or None for all: a folded reminder names only those."""
     firm, now = firm or {}, now or _now()
-    st, out = _state(con, login), []
+    st, out, firm_lines = _state(con, login), [], []
     contacts = {str(c["id"]): c for c in das.list_contacts(con)}
     jobs = {j["id"]: j for j in (das.job_row(con, r["id"]) for r in con.execute("SELECT id FROM das_job"))}
 
@@ -348,6 +382,10 @@ def items(con, login, firm=None, acct_name="", now=None):
         for x in life:
             if x["key"] not in LIFE_TO or not x["due"] or x["state"] == "done":
                 continue
+            if x["key"] in dasfirm.FOLDS:  # after every job has been read: _folded
+                if vis is None or jid in vis:
+                    firm_lines.append((j, x))
+                continue
             win = window(x["days"])
             if not win:
                 continue
@@ -374,6 +412,8 @@ def items(con, login, firm=None, acct_name="", now=None):
                         "why": f"{j['name']} ({j['stage']}) has no floor plans yet",
                         "blocked": "" if t["to"] else "No owner or general contractor with an email on this job (Overview › People)."})
 
+    out += _folded(con, firm_lines, st, sent_topics, contacts, firm, acct_name, now)
+
     # 4. first emails to prospects queued from the Prospects list
     for key, s in st.items():
         if not key.startswith("prospect:") or s["state"] not in ("planned",) and not (s["state"] == "snoozed" and _live(st, key, now)):
@@ -399,6 +439,53 @@ def items(con, login, firm=None, acct_name="", now=None):
     order = {g: i for i, g in enumerate(GROUP_ORDER)}
     out.sort(key=lambda x: (order.get(x["group"], 9), x["why"]))
     return out
+
+
+def job_items(con, login, job_id, firm=None, acct_name="", now=None, vis=None):
+    """Every email one job needs now, for one list and one press (Cody 11/5): what its stage calls for and nobody has sent, then
+    what's ready to send for it. Worked out from the record each time, so a sent email clears itself, whoever sent it. The
+    licensees' and carriers' requests join on the page, from the letters' own text (dasx.js dasJobMailRows): sent, off and sig are
+    for those. want_file: this email says something's attached, so it waits for that file (dasmail.js jobAll)."""
+    import ahj
+    import codecheck
+    firm, now = firm or {}, now or _now()
+    j = das.job_row(con, int(job_id))
+    if not j:
+        raise LookupError("No such job.")
+    jid, d, stage = j["id"], j["data"] or {}, j["stage"]
+    st = _state(con, login)
+    contacts = {str(c["id"]): c for c in das.list_contacts(con)}
+    mine = con.execute("SELECT tag, subject FROM das_mail WHERE job_id=? AND direction='out'", (jid,)).fetchall()
+    said = {_strip_tag(r["subject"]) for r in mine}
+    sig, needs = _sig(d, contacts, firm, acct_name), []
+
+    def need(key, why, to, name, subject, body, topic, blocked="", want_file=""):
+        if subject not in said and _live(st, key, now):
+            needs.append({"key": key, "group": JOB_GROUP, "kind": "job", "refs": {"job_id": jid, "topic": topic}, "to": to, "to_name": name,
+                          "subject": subject, "body": body, "job_id": jid, "why": why, "blocked": "" if to else blocked, "want_file": want_file})
+
+    who = _person(d, contacts, ("ahj",))[0] or {}
+    no_ahj = "No AHJ with an email on this job. Type one here, or add them under People on the Overview tab."
+    if stage in ("Lead", "Pre-survey", "Design") and codecheck.status(d) != "confirmed":
+        e = codecheck.draft(j, ahj.parse_address(d.get("address") or "").get("state") or "")
+        need(f"code:{jid}", "No one at the AHJ has confirmed the code yet", who.get("email") or "", who.get("name") or "",
+             e["subject"], f"{e['body']}\n\n{sig}", "AHJ", no_ahj)
+    if stage in ("Pre-survey", "Design", "Install"):
+        t = template(con, jid, "gc_access", firm, acct_name)
+        if t["to"]:  # only a job with a general contractor
+            need(f"access:{jid}", "The general contractor hasn't been asked for access and dates", t["to"], t["to_name"], t["subject"], t["body"], "MAIL")
+    if stage == "Design":
+        t = template(con, jid, "ahj_design", firm, acct_name)
+        need(f"design:{jid}", "The design goes to the AHJ for review", t["to"], t["to_name"], t["subject"], t["body"], "AHJ", no_ahj, "design")
+    ready = []
+    for x in items(con, login, firm, acct_name, now, vis):
+        if x.get("job_ids") and jid in x["job_ids"]:  # a reminder shared with other jobs: sent from here, it's filed here
+            ready.append({**x, "job_id": jid, "refs": {**x["refs"], "job_id": jid}})
+        elif x.get("job_id") == jid:
+            ready.append(x)
+    return {"items": needs + ready,
+            "sent": sorted({r["tag"] for r in mine}), "off": [k for k in st if not _live(st, k, now)], "sig": sig, "group": JOB_GROUP,
+            "replies": dasmail.board(con, jid, d, stage)}
 
 
 def queue_prospects(con, login, rows):

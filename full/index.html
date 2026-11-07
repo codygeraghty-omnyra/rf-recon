@@ -95,6 +95,12 @@ h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;c
 /* dashboard charts are drawn 560 wide and shrink to fit: on a phone their 10-11 px text came out about 6 px (11/3) */
 @media (max-width:600px){ svg.dchart{font-size:17px!important} }
 /* DAS Prospects (dasprospects.js) */
+.lead-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.lead-t{flex:1 1 320px;min-width:0}.lead-b{display:flex;flex-wrap:wrap;gap:6px}.lead-d{max-width:760px}
+.lead-area{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:4px 0;border-top:1px solid var(--line)}
+#dsLeads h4{margin:12px 0 2px;font-size:14px}
+.ap-next{margin:8px 0;padding:10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.ap-next ol{margin:4px 0;padding-left:20px}.ap-next .hint{margin:4px 0 8px}
 .pr-tab td{vertical-align:top}.pr-tab td .hint{font-size:11.5px}.pr-dnc{opacity:.55}
 .pr-tab tr.pr-hit td{background:color-mix(in srgb,var(--accent,#3b82f6) 22%,transparent);transition:background .3s}
 .status.pr-warn{color:var(--warn);border-color:var(--warn)}
@@ -130,6 +136,11 @@ h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;c
 .bars div.full > span:first-child{white-space:normal!important;overflow:visible!important}  /* tapped: the whole name */
 .bars .bar{height:10px;border-radius:3px;background:var(--accent)}
 .tw{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.sf-wrap{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;align-items:start;margin-top:8px}.sf-roots{display:grid;gap:4px}
+.sf-roots button{text-align:left}.sf-roots button.on{background:var(--accent);color:var(--accent-ink)}
+.sf-go{background:none;background-image:none;border:0;border-radius:0;box-shadow:none;padding:0;min-height:0;min-width:0;color:inherit;font:inherit;font-weight:600;cursor:pointer;text-align:left}
+.sf-crumb{margin:0 0 6px;overflow-wrap:anywhere}.sf-wrap a.hbtn{text-decoration:none;white-space:nowrap}.sf-wrap td{vertical-align:middle}
+@media(max-width:700px){.sf-wrap{grid-template-columns:minmax(0,1fr)}.sf-roots{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-go{min-height:32px}}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
 .tw.wrap td{white-space:normal;min-width:8em}.tw.wrap td:first-child{white-space:nowrap;min-width:0}  /* tables of sentences: wrap, not scroll */
@@ -688,6 +699,7 @@ body.rail-none #filters{display:none}
 <header>
   <h1>RF<span>/</span>RECON <small class="tag" style="font-size:10px;vertical-align:middle">BETA</small></h1>
   <button class="hbtn" id="missionChip" title="Mission">◎ <span id="missionName">No mission</span></button>
+  <button class="hbtn" id="inChip" title="Intake: drop files, folders, zips or old emails anywhere, on any tab" aria-haspopup="dialog" hidden>Intake <b id="inCount" class="in-count" hidden></b></button>
   <button class="hbtn" id="netChip" title="Connection &amp; data updates"><span class="led" id="netLed"></span><span id="netText">checking…</span></button>
   <span class="hint" id="meta" style="margin-left:auto"></span>
   <span id="lookSlot"></span>
@@ -820,16 +832,20 @@ body.rail-none #filters{display:none}
 <script src="static/tak.js"></script>
 <script src="static/mapstyle.js"></script>
 <script src="static/emitter.js"></script>
+<script src="static/sigmeta.js"></script>
 <script src="static/cells.js"></script>
 <script src="static/find.js"></script>
 <script src="static/das.js"></script>
 <script src="static/start.js"></script>
 <script src="static/dasrev.js"></script>
 <script src="static/dasahj.js"></script>
+<script src="static/dasbom.js"></script>
 <script src="static/fieldref.js"></script>
 <script src="static/plans.js"></script>
 <script src="static/dasdesign.js"></script>
 <script src="static/planlines.js"></script>
+<script src="static/readers.js"></script>
+<script src="static/dasread.js"></script>
 <script src="static/dswalls.js"></script>
 <script src="static/dxf.js"></script>
 <script src="static/dascell.js"></script>
@@ -840,6 +856,18 @@ body.rail-none #filters{display:none}
 <script src="static/dasscreen.js"></script>
 <script src="static/dasexample.js"></script>
 <script src="static/dasmonitor.js"></script>
+<script src="static/dascode.js"></script>
+<script src="static/dasfirm.js"></script>
+<script src="static/dasfi_data.js"></script>
+<script src="static/dasfi.js"></script>
+<script src="static/dasguide.js"></script>
+<script src="static/intake.js"></script>
+<script src="static/dasauto.js"></script>
+<script src="static/dasnext.js"></script>
+<link rel="stylesheet" href="static/dasfi.css">
+<link rel="stylesheet" href="static/intake.css">
+<link rel="stylesheet" href="static/readers.css">
+<link rel="stylesheet" href="static/dasfirm.css">
 <script src="static/welcome.js"></script>
 <script src="static/notes.js"></script>
 <script>

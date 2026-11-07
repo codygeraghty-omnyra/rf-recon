@@ -9,6 +9,7 @@ contact address is what's returned; nothing is guessed or made up.
 """
 import html
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 import urllib.robotparser
@@ -104,15 +105,20 @@ def _rank(email, site_host):
     return s
 
 
+REFUSED = (401, 403, 429, 451, 503)  # a site saying no, or asking a person to prove they're one: the answer, never something to get round
+CHALLENGE = re.compile(rb"cf-browser-verification|challenge-platform|captcha|are you a robot|access denied", re.I)
+
+
 def find(website, fetch=None, max_pages=5):
-    """{emails: [{email, page, how, score}], pages: [urls read], skipped: [urls robots.txt keeps out]}."""
+    """{emails: [{email, page, how, score}], pages: [urls read], skipped: [urls robots.txt keeps out], refused: [urls that said no]}. A site that
+    refuses (or answers with a check for people) is asked nothing more: its refusal stands."""
     fetch = fetch or _default_fetch
     if not website:
         raise ValueError("This building has no website in the list. Call the number shown, or add their address by hand.")
     base = website if re.match(r"https?://", website, re.I) else "http://" + website
     host = urllib.parse.urlparse(base).hostname or ""
     rp = _robots(base, fetch)
-    todo, read, skipped, got = [base], [], [], {}
+    todo, read, skipped, got, refused = [base], [], [], {}, []
     while todo and len(read) < max_pages:
         u = todo.pop(0)
         if u in read:
@@ -122,9 +128,19 @@ def find(website, fetch=None, max_pages=5):
             continue
         try:
             page = fetch(u)
+        except urllib.error.HTTPError as e:
+            read.append(u)
+            if e.code in REFUSED:
+                refused.append(u)
+                break
+            continue
         except Exception:
             read.append(u)
             continue
+        if isinstance(page, bytes) and CHALLENGE.search(page[:20000]):
+            read.append(u)
+            refused.append(u)
+            break
         read.append(u)
         for e, v in emails_in(page, u).items():
             got.setdefault(e, v)
@@ -132,4 +148,4 @@ def find(website, fetch=None, max_pages=5):
             todo += [x for x in links_in(page, u) if x not in todo][:max_pages - 1]
     out = sorted(({"email": e, "how": how, "page": page, "score": _rank(e, host)} for e, (how, page) in got.items()),
                  key=lambda x: -x["score"])
-    return {"emails": [x for x in out if x["score"] > -50][:8], "pages": read, "skipped": skipped}
+    return {"emails": [x for x in out if x["score"] > -50][:8], "pages": read, "skipped": skipped, "refused": refused}

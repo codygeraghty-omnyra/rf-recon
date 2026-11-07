@@ -1254,6 +1254,24 @@
    "title": "HUBER+SUHNER SENCITY SC Indoor VPol Indoor 380-405 (Critical Communication antennas, opened in browser)",
    "url": "https://www.hubersuhner.com/en/shop/product/antennas/antennas/critical-communication/84467216/sencity-sc-indoor-vpol-indoor-380-405",
    "kind": "vendor"
+  },
+  {
+   "key": "fcc_da_26_635",
+   "title": "FCC DA 26-635 (26 Jun 2026): prohibiting importation and marketing of previously authorized covered equipment, including Hytera's",
+   "url": "https://docs.fcc.gov/public/attachments/DA-26-635A1.pdf",
+   "kind": "regulation"
+  },
+  {
+   "key": "fcc_da_26_1181",
+   "title": "FCC DA 26-1181 (30 Oct 2026): the Covered List table (Hytera since 12 Mar 2021, for public-safety and security uses)",
+   "url": "https://docs.fcc.gov/public/attachments/DA-26-1181A1.pdf",
+   "kind": "regulation"
+  },
+  {
+   "key": "norsat_about",
+   "title": "Norsat, About us: an independently operated subsidiary of Hytera since July 2017; Sinclair Technologies is its division",
+   "url": "https://www.norsat.com/pages/about-us",
+   "kind": "vendor"
   }
  ],
  "cables": [
@@ -2096,6 +2114,20 @@
    "note": "STOP BANDS 650-750, 1330-1430, 2025-2100 MHz - no 700 MHz row; the 650-750 MHz stop band sits just below the 758-805 MHz public-safety 700 band and covers lower 700 MHz commercial frequencies; check with RFS before carrying 698-756 MHz. Mount at least 80 mm (3.15 in) from walls. Coupling loss tolerance +5 dB, measured free-space per IEC 61196-4; RFS warns in-building/tunnel performance may differ.",
    "sources": [
     "rfs_rlku12_50jfna"
+   ],
+   "stop_bands_mhz": [
+    [
+     650,
+     750
+    ],
+    [
+     1330,
+     1430
+    ],
+    [
+     2025,
+     2100
+    ]
    ]
   },
   {
@@ -2152,6 +2184,20 @@
    "note": "Same stop bands as RLKU12 (650-750, 1330-1430, 2025-2100 MHz). Max 2700 MHz. 80 mm minimum distance to wall.",
    "sources": [
     "rfs_rlku78_50jfna"
+   ],
+   "stop_bands_mhz": [
+    [
+     650,
+     750
+    ],
+    [
+     1330,
+     1430
+    ],
+    [
+     2025,
+     2100
+    ]
    ]
   },
   {
@@ -2208,6 +2254,20 @@
    "note": "Same stop bands as RLKU12. 80 mm minimum distance to wall.",
    "sources": [
     "rfs_rlku114_50jfla"
+   ],
+   "stop_bands_mhz": [
+    [
+     650,
+     750
+    ],
+    [
+     1330,
+     1430
+    ],
+    [
+     2025,
+     2100
+    ]
    ]
   },
   {
@@ -2427,7 +2487,7 @@
      "source": "pas_norsat_ddc240_sheet"
     }
    ],
-   "note": "Sheets state PIM against two +43 dBm tones: RFS -160 dBc (feature list 163 dBc), Microlab CK-7x1 and CK-10 -161 dBc (-118 dBm), the 138-960 MHz DDC240 -153 dBc. Microlab's CK-10 series (617-3800 MHz, 200 W avg, 1.5 kW peak, -161 dBc) covers CBRS/Band 43 but not UHF 450-512 MHz; the CK-7x1 and RFS CDS/TPS start at 350 MHz so they cover UHF but not VHF. The only VHF-capable coupler found with a sheet is the 138-960 MHz DDC240 (50 W avg). Low-PIM parts on these sheets use 4.3-10 or 7-16 DIN as well as N.",
+   "note": "Sheets state PIM against two +43 dBm tones: RFS -160 dBc (feature list 163 dBc), Microlab CK-7x1 and CK-10 -161 dBc (-118 dBm), the 138-960 MHz DDC240 -153 dBc. Microlab's CK-10 series (617-3800 MHz, 200 W avg, 1.5 kW peak, -161 dBc) covers CBRS/Band 43 but not UHF 450-512 MHz; the CK-7x1 and RFS CDS/TPS start at 350 MHz so they cover UHF but not VHF. The only VHF-capable coupler found with a sheet is the 138-960 MHz DDC240 (50 W avg). Low-PIM parts on these sheets use 4.3-10 or 7-16 DIN as well as N. Sinclair and Norsat belong to Hytera, whose public-safety equipment is on the FCC Covered List; DA 26-635 (June 2026) bars importing or marketing previously authorized Hytera gear for those uses. Whether a passive part is caught isn't settled: tell the owner before you specify one.",
    "sources": [
     "pas_rfs_tps43_2700",
     "pas_rfs_cds43_2700",
@@ -2435,7 +2495,10 @@
     "pas_microlab_ck761n_page",
     "pas_microlab_ck10",
     "pas_norsat_ddc240_sheet",
-    "pas_norsat_ddc240_page"
+    "pas_norsat_ddc240_page",
+    "fcc_da_26_635",
+    "fcc_da_26_1181",
+    "norsat_about"
    ]
   },
   {
@@ -2868,12 +2931,15 @@
      "source": "pas_te_cfsa35606p"
     }
    ],
-   "note": "PIM test level differs between sheets: Sinclair's -153 dBc is at 2x3 W (2x34.7 dBm), while Westell and TE rate at 2x20 W (2x43 dBm), so the numbers are not directly comparable. Westell rates PIM only for 698-2700 MHz (N/A in UHF). Only the Sinclair SI240F-O and Westell CS03-050-136 cover VHF; neither reaches above 960 MHz.",
+   "note": "PIM test level differs between sheets: Sinclair's -153 dBc is at 2x3 W (2x34.7 dBm), while Westell and TE rate at 2x20 W (2x43 dBm), so the numbers are not directly comparable. Westell rates PIM only for 698-2700 MHz (N/A in UHF). Only the Sinclair SI240F-O and Westell CS03-050-136 cover VHF; neither reaches above 960 MHz. Sinclair and Norsat belong to Hytera, whose public-safety equipment is on the FCC Covered List; DA 26-635 (June 2026) bars importing or marketing previously authorized Hytera gear for those uses. Whether a passive part is caught isn't settled: tell the owner before you specify one.",
    "sources": [
     "pas_sinclair_si240f",
     "pas_westell_cs03050136",
     "pas_westell_cs03043380",
-    "pas_te_cfsa35606p"
+    "pas_te_cfsa35606p",
+    "fcc_da_26_635",
+    "fcc_da_26_1181",
+    "norsat_about"
    ]
   },
   {
@@ -2974,13 +3040,16 @@
      "source": "pas_westell_cs03777999"
     }
    ],
-   "note": "Of these donor antennas only the Westell CS03-777-999 panel carries a PIM rating (< -156 dBc at 2x43 dBm) and uses a 4.3-10 connector; the Yagis use N female and give none. Front-to-back on the sheets ranges from 15 dB (Sinclair UHF, PCTEL 3-element) to > 20-25 dB (Westell panel, PCTEL 11/18-element).",
+   "note": "Of these donor antennas only the Westell CS03-777-999 panel carries a PIM rating (< -156 dBc at 2x43 dBm) and uses a 4.3-10 connector; the Yagis use N female and give none. Front-to-back on the sheets ranges from 15 dB (Sinclair UHF, PCTEL 3-element) to > 20-25 dB (Westell panel, PCTEL 11/18-element). Sinclair and Norsat belong to Hytera, whose public-safety equipment is on the FCC Covered List; DA 26-635 (June 2026) bars importing or marketing previously authorized Hytera gear for those uses. Whether a passive part is caught isn't settled: tell the owner before you specify one.",
    "sources": [
     "pas_sinclair_sy307r",
     "pas_pctel_bmyd",
     "pas_westell_cs03003430",
     "pas_westell_cs03777999",
-    "pas_westell_antenna_orderguide"
+    "pas_westell_antenna_orderguide",
+    "fcc_da_26_635",
+    "fcc_da_26_1181",
+    "norsat_about"
    ]
   },
   {
@@ -3044,14 +3113,17 @@
      "source": "pas_sinclair_sy307r"
     }
    ],
-   "note": "The CommScope wall-mount sheets give no wind rating (they say to contact CommScope steel products); only the TP-G412-B tripod sheet states one. None of these sheets gives a ballast table.",
+   "note": "The CommScope wall-mount sheets give no wind rating (they say to contact CommScope steel products); only the TP-G412-B tripod sheet states one. None of these sheets gives a ballast table. Sinclair and Norsat belong to Hytera, whose public-safety equipment is on the FCC Covered List; DA 26-635 (June 2026) bars importing or marketing previously authorized Hytera gear for those uses. Whether a passive part is caught isn't settled: tell the owner before you specify one.",
    "sources": [
     "pas_commscope_mt416",
     "pas_commscope_tpg412b",
     "pas_commscope_mt222l",
     "pas_commscope_mt250l",
     "pas_pctel_bmyd",
-    "pas_sinclair_sy307r"
+    "pas_sinclair_sy307r",
+    "fcc_da_26_635",
+    "fcc_da_26_1181",
+    "norsat_about"
    ]
   },
   {

@@ -10,10 +10,18 @@ The DAS job's licence and site checks, served under /api/das/x/ (app.py das_rout
   GET  /api/das/x/audit/<job>               the existing-system audit (dasaudit.py)
   GET  /api/das/x/ahj/<job>                 fire departments covering the address (ahj.py)
   POST /api/das/x/ahj/refresh               download the USFA registry (about 12 MB)
+  GET  /api/das/x/code/<job>                the Code check: state rule, searches, questions, draft email (codecheck.py)
+  POST /api/das/x/code/<job>                what the AHJ confirmed, who and when
+  POST /api/das/x/book/<job>                {id}: a person takes an AHJ book entry's answers. The job stays unconfirmed (ahjbook.py)
+  POST /api/das/x/book/<job>/undo           those answers taken back out
+  POST /api/das/x/reply/<job>               {id}: a reply on Needs you, to read. {id, done}: closed once it's been pressed (dasmail.py)
+  GET  /api/das/x/gate/<job>?to=Stage       what a move to that stage still needs
+  POST /api/das/x/retest/<job>              {take: key, date?} a person sets a proposed retest date; {no: key} turns it down (retest.py)
   GET  /api/das/x/tunnels?lat&lon&radius_m  road and rail tunnels near a point (tunnels.py)
   POST /api/das/x/tunnels/prospects         {lat, lon, radius}: tunnels into the prospect list
 """
 import re
+import sys
 
 import das
 import dasaudit
@@ -42,6 +50,12 @@ def board(con, jid, d, stage):
         out += dasaudit.board(d, stage)
     except Exception as e:
         out.append({"text": f"existing system audit couldn't run: {str(e)[:80]}", "url": "", "source": ""})
+    if sys.platform != "emscripten":  # the web version has no mail: its modules don't load there (app.py mail_route)
+        try:
+            import dasmail
+            out += dasmail.board(con, jid, d, stage)  # consent and AHJ replies waiting on a press
+        except Exception as e:
+            out.append({"text": f"email replies couldn't be read: {str(e)[:80]}", "url": "", "source": ""})
     return out
 
 
@@ -105,6 +119,28 @@ def route(con, method, p, qs, body):
             return 200, ahj.lookup(uls_import.DATA_DIR, float(j["data"]["lat"]), float(j["data"]["lon"]), j["data"].get("address") or "")
         except LookupError as e:
             return 404, {"error": str(e), "status": ahj.status(uls_import.DATA_DIR), "page": ahj.SOURCE["page"], "license": ahj.SOURCE["license"]}
+    if what == "code" and jid:
+        import codecheck
+        j = _job(con, jid)
+        if method == "POST":
+            return 200, codecheck.confirm(con, j, body(), uls_import.DATA_DIR)
+        import ahjbook
+        return 200, {**codecheck.plan(j, uls_import.DATA_DIR), "book": ahjbook.offers(con, j, uls_import.DATA_DIR, vis=ahjbook.team_vis(con))}
+    if what == "book" and jid and method == "POST":
+        import ahjbook
+        j = _job(con, jid)
+        return 200, ahjbook.undo(con, j) if sub == "undo" else ahjbook.use(con, j, body().get("id"), vis=ahjbook.team_vis(con))
+    if what == "gate" and jid:
+        import codecheck
+        return 200, {"needs": codecheck.gate(_job(con, jid), (qs.get("to") or [""])[0])}
+    if what == "retest" and jid and method == "POST":  # app.py das_route gates a POST here on edit
+        import retest
+        return 200, retest.press(con, _job(con, jid), body())
+    if what == "reply" and jid and method == "POST":  # POST to read it too: a look-only or AHJ login gets neither (app.py das_route gates POST on edit)
+        import dasmail
+        _job(con, jid)
+        d = body()
+        return 200, dasmail.reply_done(con, jid, d.get("id"), d["done"]) if d.get("done") else dasmail.reply_text(con, jid, d.get("id"))
     if what == "tunnels" and jid is None and sub is None:
         import tunnels
         lat, lon = _num(qs, "lat"), _num(qs, "lon")

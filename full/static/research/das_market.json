@@ -634,7 +634,7 @@
   },
   {
    "key": "mn_7511",
-   "title": "Minnesota Rules 7511 (State Fire Code; IFC 510 deleted, Appendix P) (search excerpt)",
+   "title": "Minnesota Rules 7511 (State Fire Code; IFC 510 deleted, Appendix P)",
    "url": "https://www.revisor.mn.gov/rules/7511.7900/",
    "kind": "code",
    "checked": "2026-11-04 (search excerpt)"
@@ -715,10 +715,17 @@
    "url": "https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu",
    "kind": "research",
    "checked": "2026-11-04"
+  },
+  {
+   "key": "adrf_psr_neo",
+   "title": "ADRF launches the PSR NEO series public safety digital repeater (10 Mar 2026; 3rd edition stated; search excerpt)",
+   "url": "https://www.adrftech.com/post/adrf-launches-next-generation-psr-neo-series-public-safety-digital-repeater",
+   "kind": "vendor",
+   "checked": "2026-11-06"
   }
  ],
  "code_triggers_common": {
-  "text": "Model IFC: approved coverage in all new buildings (IFC 2018 510.1), with exceptions; IFC 2024 adds Exception 4 for one-story buildings up to 12,000 sq ft with no below-ground area. Existing buildings: when a wired system cannot be repaired or is replaced, or within a time frame the adopting authority sets (1103.2). State carve-outs: Florida exempts 1-2 family, townhouses, buildings under 12,000 sq ft with no below-grade area, apartments/lodging under 3 storeys with exterior egress, and wood-frame apartments of 75 ft or less with under 150 units; and from 12/31/2026 requires no ERCES where exterior DAQ is below 3.4. North Carolina (SL 2025-50, 2 Jul 2025) exempts R-2 Type V apartments and apartments/hotels of 2 storeys or less with exterior egress, and lets existing systems there be disconnected. Minnesota requires coverage only where a city adopts Appendix P (Q in the 2024-based code) (search excerpt). Virginia makes the locality responsible for the acceptance test (search excerpt).",
+  "text": "Model IFC: approved coverage in all new buildings (IFC 2018 510.1), with exceptions; IFC 2024 adds Exception 4 for one-story buildings up to 12,000 sq ft with no below-ground area. Existing buildings: when a wired system cannot be repaired or is replaced, or within a time frame the adopting authority sets (1103.2). State carve-outs: Florida exempts 1-2 family, townhouses, buildings under 12,000 sq ft with no below-grade area, apartments/lodging under 3 storeys with exterior egress, and wood-frame apartments of 75 ft or less with under 150 units; and from 12/31/2026 requires no ERCES where exterior DAQ is below 3.4. North Carolina (SL 2025-50, 2 Jul 2025) exempts R-2 Type V apartments and apartments/hotels of 2 storeys or less with exterior egress, and lets existing systems there be disconnected. Minnesota requires coverage only where a local ordinance adopts Appendix P (Minn. R. 7511.0510, 7511.7900; Appendix Q is proposed for the 2024-based code, not adopted). Virginia makes the locality responsible for the acceptance test (13VAC5-63-240, 918.1.1).",
   "sources": [
    "ifc2018_510",
    "sbc_ifc_codes_2022",
@@ -1231,7 +1238,7 @@
    },
    {
     "objection": "What will it cost?",
-    "answer": "Codes and SBC give none. Integrators publish $0.50-2.50 per sq ft installed (retrofit 2-3x; small buildings cost more per foot because the BDA and donor are fixed), roughly $50k to over $500k a job, and $2,500-15,000 a year for the annual test. All vendor figures, not independent surveys. Early pathways and a sprinklered building (no 2-h backbone, NFPA 1225 18.12.3.3) are the cheapest levers.",
+    "answer": "Codes and SBC give none. Integrators publish their own ranges per sq ft installed: $0.50-2.50 (The Network Installers, 2026), $0.65-2.50 (MetroWireless, 2025), $0.50-2.00 and up (ERCES.co) (retrofit 2-3x; small buildings cost more per foot because the BDA and donor are fixed), roughly $50k to over $500k a job, and $2,500-15,000 a year for the annual test. All vendor figures, not independent surveys. Early pathways and a sprinklered building (no 2-h backbone, NFPA 1225 18.12.3.3) are the cheapest levers.",
     "sources": [
      "saferbuildings_erces",
      "cts_ps_das",
@@ -1436,10 +1443,11 @@
     "url": "https://www.adrftech.com/",
     "offers": "Public safety repeaters (PSR NEO, PSR-U1), SDR repeaters, ADXV DAS, battery backups, passives; events and training schedules.",
     "scale": "Burbank, CA; serves large service providers and enterprises.",
-    "differentiators": "UL 2524 certified repeaters (2nd edition listed).",
+    "differentiators": "UL 2524 certified repeaters: ADRF states 3rd edition for the PSR NEO (launched 10 Mar 2026); older units and the ADXV remote list 2nd edition. Read the certificate.",
     "sources": [
      "adrf_home",
-     "sbc_adrf_profile"
+     "sbc_adrf_profile",
+     "adrf_psr_neo"
     ]
    },
    {
@@ -1632,6 +1640,7 @@
   {
    "type": "K-12 schools",
    "why": "New construction under 510.1. Texas 19 TAC 103.1215 requires school systems to ensure law enforcement and emergency responder two-way radios operate effectively within each instructional facility. Michigan HB 5561 (introduced 2021; status not checked) would require ERRC in school buildings.",
+   "owner_why": "Solid walls, stairwells and basements are where radios lose signal, and in a school that's where responders may need them most.",
    "priority": "high",
    "decision_maker": "District facilities director / director of safety and security (estimate)",
    "sources": [
@@ -1643,6 +1652,7 @@
   {
    "type": "Colleges and universities",
    "why": "Many buildings, often over local size triggers (e.g., Seattle 50,000 sq ft total area, San Diego 20,000 sq ft or 3+ stories); campus-wide cellular and private networks.",
+   "owner_why": "Campus buildings vary in age and construction, and radio signals can fade inside the larger ones.",
    "priority": "high",
    "decision_maker": "Director of facilities / campus IT / campus fire marshal (estimate)",
    "sources": [
@@ -1654,6 +1664,7 @@
   {
    "type": "Hospitals",
    "why": "Large, often below grade; 39% of Spok's healthcare respondents still call cellular coverage a challenge; Fairfax's owner statement commits to maintenance per NFPA and Joint Commission standards.",
+   "owner_why": "Hospitals are large and often have floors below ground, where radio signals fade.",
    "priority": "high",
    "decision_maker": "Director of facilities / plant operations; IT telecom manager (estimate)",
    "sources": [
@@ -1665,6 +1676,7 @@
   {
    "type": "High-rise office and residential",
    "why": "High-rise is a direct trigger in local amendments (Seattle, Nevada: floor more than 55 ft above lowest fire department access; San Diego: all new high-rises must have an ERCES; existing high-rises without phone-jack systems must test and install within 3 years if they fail). Leasing value from cellular coverage.",
+   "owner_why": "Upper floors, stairwells and core areas are where radio signals often fall short in tall buildings.",
    "priority": "high",
    "decision_maker": "Property manager / chief engineer; asset manager for cellular (estimate)",
    "sources": [
@@ -1677,6 +1689,7 @@
   {
    "type": "Warehouses and distribution centers",
    "why": "Large single-story floor plates exceed local area triggers (Seattle 50,000 sq ft; San Diego 20,000 sq ft); IFC 2024 one-story exemption stops at 12,000 sq ft.",
+   "owner_why": "Large floor areas and full racking can block radio signals well inside the building.",
    "priority": "high",
    "decision_maker": "Developer / GC project manager during construction; facilities manager (estimate)",
    "sources": [
@@ -1688,6 +1701,7 @@
   {
    "type": "Parking garages (below grade)",
    "why": "Below-grade triggers: Nevada (any floor below the lowest exit discharge), Seattle (occupied floors 30+ ft below exit discharge, basements 10,000+ sq ft), San Diego (basement over 2,500 sq ft).",
+   "owner_why": "Levels below ground are where radio signals are weakest.",
    "priority": "medium",
    "decision_maker": "Parking operator / property manager (estimate)",
    "sources": [
@@ -1699,6 +1713,7 @@
   {
    "type": "Malls and retail centers",
    "why": "Size triggers plus shopper cellular demand; neutral-host revenue share possible.",
+   "owner_why": "Large floor areas and interior stores can leave radio signals weak deep inside the building.",
    "priority": "medium",
    "decision_maker": "General manager / landlord property management (estimate)",
    "sources": [
@@ -1709,6 +1724,7 @@
   {
    "type": "Stadiums and arenas",
    "why": "Large assembly occupancy; neutral-host DAS for tens of thousands of devices; usually served by national neutral hosts.",
+   "owner_why": "Concrete concourses and service levels are where radio signals often fall short.",
    "priority": "low",
    "decision_maker": "VP of technology / venue operations (estimate)",
    "sources": [
@@ -1718,6 +1734,7 @@
   {
    "type": "Convention centers",
    "why": "Size triggers and peak cellular load; neutral-host market.",
+   "owner_why": "Large halls and service areas can leave radio signals weak well inside the building.",
    "priority": "medium",
    "decision_maker": "Director of operations / IT director (estimate)",
    "sources": [
@@ -1728,6 +1745,7 @@
   {
    "type": "Airports",
    "why": "Large footprint and below-grade areas; vendors pitch one platform for public cellular, private networks, IoT and public safety.",
+   "owner_why": "Long concourses, service levels and areas below ground are where radio signals often fall short.",
    "priority": "low",
    "decision_maker": "Airport IT / telecom manager; airport fire marshal (estimate)",
    "sources": [
@@ -1738,6 +1756,7 @@
   {
    "type": "Hotels",
    "why": "High-rise and size triggers; guest cellular expectations.",
+   "owner_why": "Stairwells, corridors and back-of-house areas are where radio signals often fall short.",
    "priority": "medium",
    "decision_maker": "Chief engineer / director of engineering; GM (estimate)",
    "sources": [
@@ -1748,6 +1767,7 @@
   {
    "type": "Casinos and resorts",
    "why": "Very large floor plates and concrete; Extenet runs neutral-host DAS for Las Vegas resort and convention properties.",
+   "owner_why": "Very large floors and heavy construction can leave radio signals weak well inside the building.",
    "priority": "medium",
    "decision_maker": "Director of facilities / IT (estimate)",
    "sources": [
@@ -1757,6 +1777,7 @@
   {
    "type": "Government buildings",
    "why": "New construction under 510.1; FirstNet in-building focus on police HQs, fire stations and 911 centers.",
+   "owner_why": "Heavy construction and floors below ground can leave radio signals weak inside.",
    "priority": "medium",
    "decision_maker": "Facilities or public works director (estimate)",
    "sources": [
@@ -1767,6 +1788,7 @@
   {
    "type": "Transit stations (below grade)",
    "why": "Below-grade triggers; Boldyn cites a deployment 173 ft under New York City.",
+   "owner_why": "Platforms and tunnels below ground are where radio signals are weakest.",
    "priority": "low",
    "decision_maker": "Transit agency communications / systems engineering (estimate)",
    "sources": [
@@ -1777,6 +1799,7 @@
   {
    "type": "Nursing homes",
    "why": "I-2 healthcare occupancy with life-safety-sensitive owners; CMS lists 14,686 facilities with their own coordinates, certified beds, ownership, chain and whether automatic sprinklers cover all required areas (2026-11-04 data scout).",
+   "owner_why": "Long corridors and solid walls can weaken radio signals, and residents depend on a fast response.",
    "priority": "medium",
    "decision_maker": "Facility administrator or director of maintenance; the chain's facilities lead where one owns it (estimate: not in the research)",
    "sources": [
@@ -1787,6 +1810,7 @@
   {
    "type": "Tunnels",
    "why": "Road tunnels (NFPA 502) and rail and transit tunnels (NFPA 130) call for emergency responder radio inside; the owner is a public agency or a railroad, so one owner can have several. Found from OpenStreetMap per area (ODbL).",
+   "owner_why": "Radio signals don't reach far underground without help.",
    "priority": "medium",
    "decision_maker": "The owner's tunnel or systems engineer: state DOT, toll or transit authority, railroad (estimate: not in the research)",
    "sources": [

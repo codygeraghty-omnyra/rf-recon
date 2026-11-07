@@ -166,12 +166,14 @@ const HELP = [
     <li>For a phone in the DAS walk test, <b>Phone vs instrument</b> corrects the phone's readings against a calibrated instrument (Help › Android app).</li></ul>`],
   ["data", "Data &amp; updates", `
     <ul><li><b>Connection</b>: online / offline and the link type (a phone tether counts as cellular).</li>
-    <li><b>Automatic updates</b>: one switch for all, <i>Only on Wi-Fi / Ethernet</i>, and per source: on / off, how often, Run now, last result.</li>
+    <li><b>Automatic updates</b>: one switch for all, <i>Only on Wi-Fi / Ethernet</i>, and per source: on / off, how often, Run now, last result. <b>■ Stop all downloads</b> stops every download at once (FCC licences, carrier coverage, prospect lists and the rest) and starts nothing again, automatic updates included, until <b>Resume downloads</b>; the data you had is kept.</li>
     <li><b>Ways in</b> (on Cody's PC, and on the server for the admin): every way people get RF Recon or its data (the 24/7 server, Cody's PC,
       RF Recon for Android, the remote link, the web version, RF Recon lite, field packs, the install kit, the Drive folder, exports, Push to ATAK),
       the version each runs, and which work with Cody's PC off. On the server, field packs and Push to ATAK are the admin's.</li>
     <li><b>DAS course: who has it</b> (on the server, for the admin): tick the accounts that have the course, and see each one's lessons, mastery,
       exams passed, current lesson and last use. They open it from the DAS tab; their progress saves to their sign-in.</li>
+    <li><b>Server files</b> (on the server, for the admin): what the server keeps, with sizes and dates, and a copy of any job file, note, field pack
+      or backup to download. Read only. App data lists sizes, and logins, keys and the sign-in secret never show.</li>
     <li><b>Data sources</b> are what RF Recon downloads; <b>Used live as you work</b> lists the maps, terrain, address search,
       building outlines, weather radar and live ships it reads as you go; <b>Other open and crowd sources</b> is the research: what else exists,
       what it costs and allows, and why it is or isn't in RF Recon.</li>

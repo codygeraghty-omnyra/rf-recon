@@ -18,10 +18,14 @@ import io
 import itertools
 import json
 import math
+import os
 import re
 import time
+import urllib.request
 
 import build
+import cellspec
+import dlstop  # Stop all downloads
 import connectors
 import geo
 import sigid
@@ -85,7 +89,7 @@ def gather(con, crowd, lat, lon, radius_mi, mission=None):
             return
         d = decode(radio, *p)
         c = cells.setdefault(d["gci"], dict(d, lat=la, lon=lo, sources=[], samples=0, range_m=None, dbm=None, first=None, last=None,
-                                            channel=None, points=0, _lat=0.0, _lon=0.0))
+                                            channel=None, pci=None, points=0, _lat=0.0, _lon=0.0))
         if src not in c["sources"]:
             c["sources"].append(src)
         c["points"] += 1
@@ -95,7 +99,7 @@ def gather(con, crowd, lat, lon, radius_mi, mission=None):
         for k in ("samples",):
             if extra.get(k):
                 c[k] += int(extra[k])
-        for k in ("range_m", "dbm", "channel"):
+        for k in ("range_m", "dbm", "channel", "pci"):
             if extra.get(k) not in (None, ""):
                 c[k] = extra[k]
         for k, better in (("first", min), ("last", max)):
@@ -114,7 +118,7 @@ def gather(con, crowd, lat, lon, radius_mi, mission=None):
             continue
         ts = lambda v: time.strftime("%Y-%m-%d", time.gmtime(int(v))) if str(v or "").isdigit() else (str(v)[:10] if v else None)
         add("OpenCelliD" if r["source"] == "opencellid" else "WiGLE", radio, r["ext_id"], r["lat"], r["lon"],
-            {"samples": det.get("samples"), "range_m": det.get("range"), "dbm": r["dbm"], "channel": det.get("channel"),
+            {"samples": det.get("samples"), "range_m": det.get("range"), "dbm": r["dbm"], "channel": det.get("channel"), "pci": heard_code(det),
              "first": ts(det.get("created") or det.get("firsttime") or r["first_seen"]), "last": ts(det.get("updated") or det.get("lasttime") or r["last_seen"])})
     q = ("SELECT p.*, c.name AS capture_name FROM capture_point p JOIN capture c ON c.id=p.capture_id WHERE p.lat BETWEEN ? AND ? "
          "AND p.lon BETWEEN ? AND ? AND UPPER(p.kind) IN ('LTE','NR','GSM','UMTS','WCDMA','CDMA')")
@@ -134,6 +138,107 @@ def gather(con, crowd, lat, lon, radius_mi, mission=None):
         if c["dist_mi"] * geo.MI_KM <= lim:
             out.append(c)
     return out
+
+
+def heard_code(det):
+    """The physical cell code the crowd heard: an LTE / NR PCI, a UMTS scrambling code (PSC), as OpenCelliD sends it. -1 or blank: not heard."""
+    for k in ("pci", "psc", "unit"):
+        v = det.get(k)
+        try:
+            v = int(v)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= v <= 1007:
+            return v
+    return None
+
+
+def fcc_cellular(con, lat, lon, reg=None):
+    """The FCC's 800 MHz cellular licence at this site (uls:cell): who holds it, the frequencies each way, the power and the antenna, as filed.
+    On the matched tower, or within 150 m of the site when it has none. [] when nothing's filed there or the source isn't loaded."""
+    try:
+        if reg:
+            rows = con.execute("SELECT * FROM tx WHERE service='CL' AND status='A' AND tower_reg=?", (reg,)).fetchall()
+        else:
+            d = 0.0015  # about 150 m
+            dl = d / max(.2, math.cos(math.radians(lat)))
+            rows = con.execute("SELECT * FROM tx WHERE service='CL' AND status='A' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
+                               (lat - d, lat + d, lon - dl, lon + dl)).fetchall()
+    except Exception:  # no licence table on this copy
+        return []
+    out = {}
+    for r in rows:
+        r = dict(r)
+        x = out.setdefault((r["call_sign"], r["loc_num"]), {"call_sign": r["call_sign"], "licensee": r["licensee"], "location": r["loc_num"],
+                                                             "dl": [], "ul": [], "erp_w": None, "haat_m": None, "height_m": None, "azimuth": [],
+                                                             "address": ", ".join(x for x in (r["address"], r["city"], r["state"]) if x)})
+        lo, hi = r["freq_mhz"], r["freq_upper_mhz"] or r["freq_mhz"]
+        way = x["dl"] if lo >= 869 else x["ul"]  # the tower sends on 869-894 MHz and hears on 824-849
+        if [lo, hi] not in way:
+            way.append([lo, hi])
+        for k, v in (("erp_w", r["erp_w"]), ("haat_m", r["haat_m"]), ("height_m", r["height_tip_m"])):
+            if v is not None and (x[k] is None or v > x[k]):
+                x[k] = v
+        if r["azimuth"] is not None and r["azimuth"] not in x["azimuth"]:
+            x["azimuth"].append(r["azimuth"])
+    for x in out.values():
+        x["dl"].sort()
+        x["ul"].sort()
+        x["block"] = "A" if any(s[0] < 880 for s in x["dl"]) else "B" if x["dl"] else ""
+    return sorted(out.values(), key=lambda x: (x["call_sign"], x["location"]))
+
+
+def _band_order(b):
+    m = re.match(r"([A-Za-z ]*?)\s*(\d+)", str(b))
+    return (m.group(1), int(m.group(2))) if m else (str(b), 0)
+
+
+def bands_of(site):
+    """The 3GPP bands a site's carrier is licensed for here, for the site's kind: B12, B66, n71..."""
+    return sorted({c["band"] for b in site.get("licensed") or [] for c in b["channels"]}, key=_band_order)
+
+
+def by_tower(sites):
+    """Every carrier's sites on each FCC tower, together: a tower carrying three carriers reads as one tower with all its cells and bands."""
+    towers = {}
+    for s in sites:
+        t = s.get("tower") or {}
+        if not t.get("reg"):
+            continue
+        x = towers.setdefault(t["reg"], {"reg": t["reg"], "owner": t.get("owner"), "lat": t.get("lat"), "lon": t.get("lon"), "height_m": t.get("overall_agl_m"),
+                                         "structure": t.get("struct_type"), "address": ", ".join(v for v in (t.get("street"), t.get("city"), t.get("state")) if v),
+                                         "dist_mi": s.get("dist_mi"), "licensees": t.get("licensees") or [], "fcc_cellular": s.get("fcc_cellular") or [], "sites": []})
+        x["sites"].append({"key": s.get("key"), "operator": s.get("operator") or "", "radio": s.get("radio"), "site_kind": s.get("site_kind") or "", "site_id": s.get("site_id"),
+                           "bands": bands_of(s), "samples": s.get("samples"), "last": s.get("last"),
+                           "cells": [{"gci": c.get("gci"), "sector": c.get("sector"), "pci": c.get("pci"), "az_est": c.get("az_est")} for c in s.get("cells") or []]})
+    for x in towers.values():
+        x["sites"].sort(key=lambda v: (v["operator"], v["radio"], str(v["site_id"])))
+        x["carriers"] = sorted({v["operator"].replace(" (ex-Sprint)", "") for v in x["sites"]})
+        x["cells"] = sum(len(v["cells"]) for v in x["sites"])
+        x["bands"] = sorted({b for v in x["sites"] for b in v["bands"]}, key=_band_order)
+    return sorted(towers.values(), key=lambda x: x["dist_mi"] if x["dist_mi"] is not None else 9e9)
+
+
+def enrich(res, con, spec):
+    """Each site's full public record, added to what sites() found. Licensed is never measured: the channel numbers are what the carrier
+    may use in this county, from its blocks; which it has on the air here only a scan says (captures, or a scanner file on a job)."""
+    county = (spec or {}).get("county")
+    for s in res.get("sites") or []:
+        s["licensed"] = cellspec.licensed_for(spec, s["operator"], s["radio"])
+        s["licensed_where"] = county
+        s["fcc_cellular"] = fcc_cellular(con, s["lat"], s["lon"], (s.get("tower") or {}).get("reg"))
+        s["heard"] = sorted({c["pci"] for c in s["cells"] if c.get("pci") is not None})
+        s["bands"] = bands_of(s)
+    res["towers"] = by_tower(res.get("sites") or [])
+    on = {t["reg"]: t for t in res["towers"]}
+    for s in res.get("sites") or []:  # the site's panel shows the rest of its tower
+        t = on.get((s.get("tower") or {}).get("reg"))
+        if t:
+            s["on_tower"] = {"reg": t["reg"], "carriers": t["carriers"], "cells": t["cells"], "bands": t["bands"], "sites": t["sites"]}
+    res["licensed_note"] = ("Licensed, not measured: the channel numbers are each block's, from the FCC's records of what the carrier holds in "
+                            f"{county or 'this county'} and the 3GPP channel plans. Which of them this site has on the air, and its broadcast settings, "
+                            "power and timing as received, come from a scan.") if spec and not spec.get("empty") else (spec or {}).get("why", "")
+    return res
 
 
 def sites(con, crowd, lat, lon, radius_mi, mission=None):
@@ -177,6 +282,58 @@ def sites(con, crowd, lat, lon, radius_mi, mission=None):
                                           ("fcc", "FCC Antenna Structure Registration")) if k == "fcc" or k in crowd_sources()}}
 
 
+US_MCCS = ("310", "311", "312", "313", "314", "315", "316")
+OCID_COUNTRY = "https://opencellid.org/ocid/downloads?token={key}&type=mcc&file={mcc}.csv.gz"
+
+
+def _download(url, path, timeout=600):
+    """A file to disk in 1 MB pieces, so a country file never sits in memory."""
+    req = urllib.request.Request(url, headers={"User-Agent": "RF-Recon/2.0 (site-survey tool)"})
+    with urllib.request.urlopen(req, timeout=timeout) as r, open(path, "wb") as out:
+        while True:
+            dlstop.check()  # Stop all downloads: at the next megabyte
+            chunk = r.read(1 << 20)
+            if not chunk:
+                break
+            out.write(chunk)
+
+
+def load_country(crowd, key, folder, mccs=US_MCCS, log=None, get=None):
+    """Every cell OpenCelliD has for the US, from its country files (MCC 310 to 316), as the crowd layer: so a cell site shows anywhere with
+    no per-area fetch. One file at a time, downloaded beside the data, read as a stream and deleted. A file that doesn't come (none for that
+    MCC, or the day's download limit) is named and the rest still load. The key never appears in what this returns."""
+    if not key:
+        raise ValueError("This copy has no OpenCelliD key (Data & updates).")
+    get = get or _download
+    hide = lambda m: str(m).replace(key, "(key)")
+    out = {"kept": 0, "read": 0, "files": [], "missing": []}
+    for mcc in mccs:
+        dlstop.check()  # Stop all downloads: no next file
+        path = os.path.join(folder, f"opencellid-{mcc}.csv.gz.part")
+        try:
+            if log:
+                log(f"downloading MCC {mcc}…")
+            get(OCID_COUNTRY.format(key=key, mcc=mcc), path)
+            with open(path, "rb") as fh:
+                if fh.read(2) != b"\x1f\x8b":  # an answer that isn't the file: OpenCelliD says why in words
+                    fh.seek(0)
+                    out["missing"].append(f"{mcc}: {hide(fh.read(200).decode('utf-8', 'replace')).strip()[:120]}")
+                    continue
+                fh.seek(0)
+                r = import_ocid(crowd, f"{mcc}.csv.gz", fh, None, (lambda m: log(f"MCC {mcc}: {m}")) if log else None)
+            out["kept"] += r["kept"]
+            out["read"] += r["read"]
+            out["files"].append(mcc)
+        except dlstop.Stopped:
+            raise  # a stop isn't a missing file: the updater marks the source stopped, and the files already read stay
+        except Exception as e:
+            out["missing"].append(f"{mcc}: {hide(e)[:120]}")
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+    return out
+
+
 FETCH_RADIUS_MI, FETCH_REQUESTS = 3.0, 24  # the nearest tiles first; OpenCelliD's free key allows 1,000 requests a day
 FETCH_PER_DAY, FETCH_KEEP_DAYS = 25, 30
 
@@ -200,8 +357,13 @@ def fetch_near(crowd, lat, lon, key):
 def import_ocid(crowd, name, data, boxes=None, log=None):
     """An OpenCelliD download (cell_towers.csv, or a country file like 310.csv.gz) -> the crowd layer.
     boxes: [(s, n, w, e)] to keep (the states in Data & updates); None keeps everything."""
-    raw = io.BytesIO(data)  # read as a stream: a country file is hundreds of MB once unzipped
-    text = io.TextIOWrapper(gzip.GzipFile(fileobj=raw) if data[:2] == b"\x1f\x8b" else raw, encoding="utf-8", errors="replace")
+    if hasattr(data, "read"):  # an open file: a whole country is never held in memory
+        raw, pos = data, data.tell()
+        magic = raw.read(2)
+        raw.seek(pos)
+    else:
+        raw, magic = io.BytesIO(data), data[:2]  # read as a stream: a country file is hundreds of MB once unzipped
+    text = io.TextIOWrapper(gzip.GzipFile(fileobj=raw) if magic == b"\x1f\x8b" else raw, encoding="utf-8", errors="replace")
     first = text.readline()
     head = first.strip().lower().split(",")
     has_head = "mcc" in head
@@ -220,7 +382,8 @@ def import_ocid(crowd, name, data, boxes=None, log=None):
         radio = (r.get("radio") or "").upper()
         ident = f"{r.get('mcc')}-{r.get('net')}-{r.get('area')}-{r.get('cell')}"
         det = {"radio": radio, "mcc": r.get("mcc"), "mnc": r.get("net"), "lac": r.get("area"), "cellid": r.get("cell"),
-               "range": r.get("range"), "samples": r.get("samples"), "created": r.get("created"), "updated": r.get("updated")}
+               "range": r.get("range"), "samples": r.get("samples"), "created": r.get("created"), "updated": r.get("updated"),
+               "unit": r.get("unit")}  # the PCI (LTE, 5G) or PSC (3G) the crowd heard: -1 when it didn't
         sig = sigid.classify("NR" if radio == "NR" else ("WCDMA" if radio == "UMTS" else radio))["sig_type"]
         avg = connectors.fnum(r.get("averagesignal"))
         batch.append(("opencellid", "OpenCelliD cells", ident, la, lo, radio, f"{radio} {ident}", None, None, avg or None, radio, sig,

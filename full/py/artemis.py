@@ -7,6 +7,7 @@ in a pack, never through the remote door (remote.py blocks /api/artemis/).
 A release is a tar of data.sqlite plus media/<doc id>.png|ogg (about 300 MB), kept unpacked in
 DATA_DIR/artemis/v<N>/. Standard library only.
 """
+import dlstop  # Stop all downloads
 import json
 import os
 import re
@@ -126,7 +127,12 @@ def fetch(log=print):
     log(f"Downloading Artemis v{tag} ({asset['size'] / 1e6:.0f} MB)…")
     with urllib.request.urlopen(urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "RF-Recon"}), timeout=120) as r, \
             open(tar_path + ".part", "wb") as fo:
-        shutil.copyfileobj(r, fo, 1 << 20)
+        while True:  # by the megabyte, so Stop all downloads can end it
+            dlstop.check()
+            b = r.read(1 << 20)
+            if not b:
+                break
+            fo.write(b)
     if os.path.getsize(tar_path + ".part") != asset["size"]:
         os.remove(tar_path + ".part")
         raise IOError("The Artemis download stopped early: run it again.")

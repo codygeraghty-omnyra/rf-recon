@@ -14,6 +14,7 @@ Only Python 3.9+ standard library is needed.
 Field positions follow the FCC "Public Access Database Definitions"
 (HD, EN, LO, AN, FR, EM records). Positions below are 0-based.
 """
+import dlstop  # Stop all downloads
 import argparse
 import io
 import math
@@ -123,6 +124,8 @@ def band_for(mhz):
 
 
 def category_for(name, service):
+    if service == "CL":  # 800 MHz cellular: a carrier's site, whatever its licensee is called ("... County Cellular" isn't a government)
+        return "Cellular"
     n = (name or "").upper()
     for cat, rx in _cat_rx:
         if rx.search(n):
@@ -627,6 +630,7 @@ def http_get(url, path, log=print, timeout=1800):
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r, open(tmp, "wb") as out:
                 total, got = int(r.headers.get("Content-Length") or 0), 0
                 while True:
+                    dlstop.check()  # Stop all downloads
                     chunk = r.read(1 << 20)
                     if not chunk:
                         break

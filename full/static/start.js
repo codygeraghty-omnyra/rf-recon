@@ -4,8 +4,10 @@
    Nothing here is a second copy of the tool. A Start job is an ordinary DAS job: the answers go in its record (data.guided), the
    fields the full tool also shows go in that tool's own keys (client, address, lat, lon, area_sqft, construction, presurvey), and
    every number comes from the routes the DAS tab uses, so the two can't disagree. Every tab stays where it is.
-   The checklist is enforced: Next waits until each question is answered and a No has a note. Skip takes a reason, is kept on the
-   job and prints on the deliverable, so a skipped step can't pass for a finished one. */
+   Nothing here stops on a blank (Cody 11/6: "if they dont have all th info for all the boxes it will still work"). Every box can stay
+   empty and Next always goes on. What's blank stays said, on the step, the report and the summary, and a step isn't ticked until it's
+   done, so an unfinished one can't pass for finished. Skip still takes a reason, is kept on the job and prints on the deliverable.
+   The stage gate is the job's, not this page's: it says what the file is missing and takes a reason. */
 (() => {
 const STEPS = [
   {id: "discovery", label: "Discovery", goal: "What does this building need?", out: "Discovery report"},
@@ -16,15 +18,15 @@ const stepOf = id => STEPS.findIndex(s => s.id === id);
 const YES_NO = ["Yes", "No", "Not applicable"];
 // to: the full tool's own field for the same answer
 const BUILDING = [
-  {k: "client", to: "client", q: "What's the building or client called?", type: "text"},
-  {k: "address", to: "address", q: "What's the address?", type: "address", why: "Pick it from the list so the job lands on the right building."},
-  {k: "building_type", q: "What kind of building is it?", opts: ["Office", "Apartments or condos", "School", "College", "Hospital or medical", "Hotel", "Retail or mall", "Warehouse or industrial", "Parking garage", "Government", "Stadium or arena", "Something else"]},
-  {k: "floors_up", q: "How many floors above ground?", opts: ["1", "2", "3", "4 to 6", "7 to 12", "13 to 25", "26 or more"]},
-  {k: "floors_down", q: "How many floors below ground?", opts: ["None", "1", "2", "3 or more"], why: "Basements and garages are where radios fail first."},
-  {k: "area", to: "area_sqft", q: "About how many square feet?", type: "number", why: "A rough number is fine."},
-  {k: "construction", to: "construction", q: "What's it built from?", opts: () => Object.keys(DAS.loss), why: "This sets how much signal the walls take out."},
-  {k: "why", q: "Why is this coming up now?", opts: ["The fire marshal asked for it", "New construction", "A renovation", "It failed a radio test", "The owner wants better coverage", "Not sure yet"]},
-  {k: "scope", q: "What does the job cover?", opts: ["Public safety radio", "Cellular", "Both"]}];
+  {k: "client", to: "client", s: "the name", q: "What's the building or client called?", type: "text"},
+  {k: "address", to: "address", s: "the address", q: "What's the address?", type: "address", why: "A number and street is enough. Pick it from the list so the job lands on the right building."},
+  {k: "building_type", s: "the kind of building", q: "What kind of building is it?", opts: ["Office", "Apartments or condos", "School", "College", "Hospital or medical", "Hotel", "Retail or mall", "Warehouse or industrial", "Parking garage", "Government", "Stadium or arena", "Something else"]},
+  {k: "floors_up", s: "floors above ground", q: "How many floors above ground?", opts: ["1", "2", "3", "4 to 6", "7 to 12", "13 to 25", "26 or more"]},
+  {k: "floors_down", s: "floors below ground", q: "How many floors below ground?", opts: ["None", "1", "2", "3 or more"], why: "Basements and garages are where radios fail first."},
+  {k: "area", to: "area_sqft", s: "the square feet", q: "About how many square feet?", type: "number", why: "A rough number is fine."},
+  {k: "construction", to: "construction", s: "what it's built from", q: "What's it built from?", opts: () => Object.keys(DAS.loss), why: "This sets how much signal the walls take out."},
+  {k: "why", s: "why it's coming up", q: "Why is this coming up now?", opts: ["The fire marshal asked for it", "New construction", "A renovation", "It failed a radio test", "The owner wants better coverage", "Not sure yet"]},
+  {k: "scope", s: "what the job covers", q: "What does the job cover?", opts: ["Public safety radio", "Cellular", "Both"]}];
 const WALK = [
   ["Getting in", [["access_all", "Can someone let you into every floor, the roof and the electrical rooms?"], ["plans", "Do you have the floor plans?"], ["contact", "Do you know who runs the building day to day?"]]],
   ["Head-end room", [["he_room", "Did you find a room for the head-end equipment?"], ["he_power", "Does that room have a dedicated power circuit, or space to add one?"], ["he_ground", "Is there a ground bar in or near that room?"], ["he_panel", "Do you know where the fire alarm panel is?"]]],
@@ -47,7 +49,7 @@ const STILL_TO_CALL = ["Confirm with the AHJ who signs off, and what it wants in
   "Ask the radio shop which system the building has to carry, and which channels.",
   "Whether a building falls under a subsystem of a shared system isn't in any public record: only the radio shop knows.",
   "A level on this page is a model. Only a walk test measures the building."];
-const G = S.start = S.start || {job: null, step: null, draft: {}, disc: {}, took: null};
+const G = S.start = S.start || {job: null, step: null, draft: {}, disc: {}, took: null, needs: {}};
 // the app redraws the open tab whenever a search lands: a mission's own search can finish while someone's typing here, and a
 // redraw would wipe the form. Start draws for its own changes only (G.sig), and when it's come back to from another tab.
 const redraw = () => { G.sig = null; render(); };
@@ -55,6 +57,46 @@ const fmt = n => Number(n || 0).toLocaleString();
 const say = t => { if (window.dasSay) dasSay(t); else alert(t); };
 const gOf = d => (d && d.guided) || {};
 const skipped = (d, id) => (gOf(d).skips || {})[id];
+
+/* ---------- the job's stage follows the walk ---------- */
+// moving forward to a step moves the job, through the gate the DAS tab uses (codecheck.py), so the job list, What needs you and the
+// gates all see it: a Start job used to stay at Lead to the end. Going back moves nothing. The AHJ package is still Design: Install
+// follows the permit, not the delivery
+const STAGES = ["Lead", "Pre-survey", "Design", "Install", "Commission", "Acceptance", "In service", "Closed"];  // das.py STAGES (tests/test_code_check.py)
+const STEP_STAGE = {discovery: "Lead", survey: "Pre-survey", design: "Design", ahj: "Design"};
+const behind = (j, to) => STAGES.indexOf(j.stage) < STAGES.indexOf(to);
+// the gate's list in words for someone new. Confirming the code is a phone call, so nearly every new job meets this at the first Next
+const NEED_HINT = {
+  ahj: "On the report, press \"This one\" beside the department. Or type it on the Overview tab.",
+  code: "A call or an email to the fire marshal's office. The Code check lists what to ask and can draft the email. Their name and the date go in it.",
+  plan: "The channels the building has to carry. Build it on the Pre-survey tab and save it.",
+  profile: "Which AHJ's numbers this job is tested against. Pick them on the Requirements tab.",
+  asked: "Each licensee agrees before its channels are boosted. Ask them from the Pre-survey tab.",
+  donor: "A reading on the roof for each carrier.",
+  approvals: "How each carrier will approve its signal in this building.",
+  design_ok: "The date goes on the Overview tab.",
+  permit: "The date goes on the Overview tab."};
+window.startNeedHint = NEED_HINT;
+function moveStage(j, to, label, then, why) {
+  window.dasMoveStage(j.id, to, moved => { if (moved) then(); }, {title: `Before ${label}`, intro: "This job's file is still missing these. Do them now, or say why you're moving on.",
+    hints: NEED_HINT, whyLabel: "Moving on anyway: why?", placeholder: "Waiting to hear back from the fire marshal", why, stay: "Stay here", go: "Move on", open: sub => openTool(j.id, sub)});
+}
+function goStep(j, id) {
+  const go = () => { G.step = id; redraw(); }, to = STEP_STAGE[id];
+  if (!behind(j, to)) return go();
+  const given = STEPS.slice(0, stepOf(id)).map(s => skipped(j.data, s.id)).filter(Boolean).pop();  // a skip already said why
+  moveStage(j, to, STEPS[stepOf(id)].label, go, given && given.why);
+}
+// what the next stage asks for, shown before Next is pressed: the gate's own list, so a finished step doesn't end in a surprise
+async function gateNote(el, j, to, label) {
+  const box = el.querySelector("#stGate"), key = `${j.id}|${to}`;
+  if (!box || !behind(j, to)) return;
+  const draw = needs => { box.innerHTML = needs.length ? `<div class="panel no-print"><h3>Before ${esc(label)}</h3><p class="hint">The job's file still needs these. You can move on without them, with a reason.</p>
+      <ul class="st-needs">${needs.map(n => `<li>${esc(n.text)} <button class="sm" data-need="${esc(n.sub)}">Open</button>${NEED_HINT[n.key] ? `<div class="hint">${esc(NEED_HINT[n.key])}</div>` : ""}</li>`).join("")}</ul></div>` : "";
+    box.querySelectorAll("[data-need]").forEach(b => b.onclick = () => openTool(j.id, b.dataset.need)); };
+  if ((G.needs || (G.needs = {}))[key]) draw(G.needs[key]);  // a step redraws on every answer: no flicker, and the page doesn't jump
+  try { const {needs} = await api(`/api/das/x/gate/${j.id}?to=${encodeURIComponent(to)}`); G.needs[key] = needs; if (box.isConnected) draw(needs); } catch (e) { /* the gate still asks at Next */ }
+}
 
 /* ---------- where a job stands ---------- */
 function designChecks(d) {
@@ -68,7 +110,6 @@ function designChecks(d) {
   if (sc.ps) out.push(["consent", "Consent is asked for from each licensee", Object.keys(d.consents || {}).length > 0, `${Object.keys(d.consents || {}).length} on file`, "presurvey"]);
   return out;
 }
-const designDone = d => designChecks(d).every(c => c[2]);
 function gridRead(d) {
   const keys = Object.keys((d.grid || {}).results || {});  // one per square: "floor|square"
   return {floors: new Set(keys.map(k => k.split("|")[0])).size, squares: keys.length};
@@ -82,9 +123,16 @@ function walkLeft(d) {
   const a = gOf(d).answers || {};
   return WALK_KEYS.filter(k => !a[k] || (a[k] === "No" && !String(a[`${k}_note`] || "").trim()));
 }
-const stepDone = (d, id) => id === "discovery" ? !!gOf(d).discovery : id === "survey" ? !walkLeft(d).length && gridRead(d).squares > 0 && !gridFails(d).uncounted : id === "design" ? designDone(d) : !!(gOf(d).done || {}).ahj;
-const stepClear = (d, id) => stepDone(d, id) || !!skipped(d, id);
-function currentStep(d) { const s = STEPS.find(x => !stepClear(d, x.id)); return s ? s.id : "ahj"; }
+// which steps are done is the server's answer (nextstep.py start_steps), the one the board and the gates read: on a job begun on the DAS
+// tab, the record answers for the questions nobody asked there
+const stand = j => (j.standing || {}).start || {};
+const stepDone = (j, id) => !!(stand(j).done || {})[id];
+const stepClear = (j, id) => !!(stand(j).clear || {})[id];
+// the same checks for Intake's checklist: nothing here is a second copy of them
+window.startChecks = d => { const g = gridRead(d), left = walkLeft(d).length;
+  return [["discovery", "The Discovery report is done", !!gOf(d).discovery, "", "overview"], ["walk", "The building walk is answered", !left, left ? `${left} of ${WALK_KEYS.length} left` : "", "overview"],
+    ["grid", "The grid test has readings", g.squares > 0, g.squares ? `${g.squares} squares` : "", "grid"], ...designChecks(d)]; };
+window.startParts = {walkLeft, gridRead, gridFails, designChecks, stepDone};  // the sweep holds the server's answer to these
 
 /* ---------- saving ---------- */
 async function saveJob(j, patch) {
@@ -103,66 +151,87 @@ function field(q, val) {
 }
 const buildingAnswers = el => Object.fromEntries([...el.querySelectorAll("[data-q]")].map(x => [x.dataset.q, x.value.trim()]));
 const missingOf = a => BUILDING.filter(q => !a[q.k]);
+const FORM_NOTE = `<p class="hint" id="stHave">Fill in what you have. Anything left blank can be added later, and the report says what's missing.</p>`;
 
 /* ---------- the first page: new job, or carry on with one ---------- */
 async function landing(v) {
   let jobs = [];
   try { jobs = (await api("/api/das/jobs")).jobs || []; } catch (e) { /* no jobs to list: the form still works */ }
-  const rows = await Promise.all(jobs.slice(0, 40).map(x => api(`/api/das/jobs/${x.id}`).catch(() => null)));
-  const mine = rows.filter(j => j && j.data && j.data.guided);
+  const mine = jobs.filter(j => stand(j).guided);
   const landOn = (() => { try { return localStorage.getItem("rfr.landing") === "start"; } catch (e) { return false; } })();
   v.innerHTML = `<div class="st"><div class="st-hero"><h2>Start a job</h2><p>Answer a few questions about the building. RF Recon works out what it needs, then takes you through it one step at a time, to the package the AHJ signs off.</p></div>
-    <div class="panel"><h3>The building</h3><div class="st-form" id="stForm">${BUILDING.map(q => field(q, G.draft[q.k])).join("")}</div>
+    <div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, G.draft[q.k])).join("")}</div>
       <p class="status err" id="stLeft" hidden></p>
       <div class="st-next"><button class="primary" id="stGo">Build the Discovery report</button></div></div>
-    ${mine.length ? `<div class="panel"><h3>Carry on with a job</h3><div class="st-jobs">${mine.map(j => { const c = currentStep(j.data), n = stepOf(c) + 1;
-      return `<button data-open="${j.id}"><b>${esc(j.name)}</b><span class="hint">${esc(j.data.address || "")}</span><span class="st-pill">Step ${n} of 4: ${esc(STEPS[n - 1].label)}</span></button>`; }).join("")}</div></div>` : ""}
+    <p class="hint st-foot">Got files already? <button class="sm" id="stIntake">Drop them here</button> Plans, contacts, letters, old emails: each one is checked and put where it goes.</p>
+    ${mine.length ? `<div class="panel"><h3>Carry on with a job</h3><div class="st-jobs">${mine.map(j => { const n = stepOf(stand(j).step) + 1;
+      return `<button data-open="${j.id}"><b>${esc(j.name)}</b><span class="hint">${esc(j.address || "")}</span><span class="st-pill">Step ${n} of 4: ${esc(STEPS[n - 1].label)}</span></button>`; }).join("")}</div></div>` : ""}
     <p class="hint st-foot">This is the guided way through. Everything RF Recon does is still on the tabs above. <label class="inl"><input type="checkbox" id="stLand" ${landOn ? "checked" : ""}> Open RF Recon here</label></p></div>`;
   wireForm(v, null);
+  document.getElementById("stIntake").onclick = () => window.intakeOpen?.();
   v.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { G.job = +b.dataset.open; G.step = null; redraw(); });
   document.getElementById("stLand").onchange = e => { try { if (e.target.checked) localStorage.setItem("rfr.landing", "start"); else localStorage.removeItem("rfr.landing"); } catch (err) { /* storage blocked: stays as it was */ } };
 }
 function wireForm(v, j) {
   const form = v.querySelector("#stForm"), addr = form.querySelector('[data-q="address"]');
   addr.addEventListener("rf-addr", e => { G.took = e.detail; });
-  addr.addEventListener("input", () => { G.took = null; });
+  addr.addEventListener("input", e => { if (e.isTrusted) G.took = null; });  // the list's own pick fires input too, and mustn't clear itself
   v.querySelector("#stGo").onclick = async () => {
-    const a = buildingAnswers(form), left = missingOf(a), msg = v.querySelector("#stLeft");
-    G.draft = {...G.draft, ...a};
-    form.querySelectorAll(".st-q").forEach(x => x.classList.toggle("left", left.some(q => q.k === x.dataset.for)));
-    if (left.length) { msg.hidden = false; msg.textContent = left.length === 1 ? `One left: ${left[0].q}` : `${left.length} questions left. They're marked.`; return; }
-    msg.hidden = true;
-    const b = v.querySelector("#stGo"); b.disabled = true; b.textContent = "Finding the building…";
+    const a = buildingAnswers(form), msg = v.querySelector("#stLeft");
+    G.draft = {...G.draft, ...a}; msg.hidden = true;
+    const b = v.querySelector("#stGo"); b.disabled = true; b.textContent = a.address ? "Finding the building…" : "Saving the job…";
     try {
-      const place = await locate(a.address, j);
-      if (!place) { msg.hidden = false; msg.textContent = "That address didn't place on the map. Pick it from the list, or type its latitude and longitude."; return; }
-      const data = {client: a.client, address: a.address, lat: place.lat, lon: place.lon, area_sqft: +a.area, construction: a.construction};
-      if (j) data.guided = guidedPatch(j.data, {answers: {...(gOf(j.data).answers || {}), ...a}, discovery: null});
-      else data.guided = {answers: a};
-      const saved = j ? await post(`/api/das/jobs/${j.id}`, {name: a.client, data, rev: j.rev}) : await post("/api/das/jobs", {name: a.client, stage: "Lead", data});
+      const place = a.address ? await locate(a.address, j, {rough: true}) : null, keep = j && !a.address;  // an emptied box leaves a pin set on the Overview alone
+      const data = {client: a.client, address: (place && place.full) || a.address, lat: place ? place.lat : keep ? j.data.lat : null, lon: place ? place.lon : keep ? j.data.lon : null,
+        area_sqft: a.area ? +a.area : null, construction: a.construction};
+      const rough = place && place.rough ? {at: place.rough, lat: place.lat, lon: place.lon} : null;
+      if (j) data.guided = guidedPatch(j.data, {answers: {...(gOf(j.data).answers || {}), ...a}, discovery: null, rough});
+      else { data.guided = {answers: a, rough}; for (const k of Object.keys(data)) if (data[k] == null || data[k] === "") delete data[k]; }
+      const name = a.client || (j ? j.name : data.address || `New job ${today()}`);
+      const saved = j ? await post(`/api/das/jobs/${j.id}`, {name, data, rev: j.rev}) : await post("/api/das/jobs", {name, stage: "Lead", data});
       G.job = saved.id; G.draft = {}; G.took = null; G.step = "discovery"; G.disc[saved.id] = null;
       redraw();
     } catch (e) { msg.hidden = false; msg.textContent = "Not saved: " + e.message; }
     finally { b.disabled = false; b.textContent = "Build the Discovery report"; }
   };
 }
-async function locate(address, j) {
+async function locate(address, j, o = {}) {
   const ll = parseLoc(address); if (ll) return {lat: ll[0], lon: ll[1]};
-  if (G.took && G.took.lat != null) return {lat: G.took.lat, lon: G.took.lon};
+  if (G.took && G.took.lat != null) return {lat: G.took.lat, lon: G.took.lon, full: G.took.full};
   if (j && j.data.address === address && j.data.lat != null) return {lat: j.data.lat, lon: j.data.lon};
   const r = await api(`/api/geocode?q=${encodeURIComponent(address)}`).catch(() => null), hit = (r && (r.results || r.places || r)) || [];
-  const first = Array.isArray(hit) ? hit.find(x => x.lat != null) : null;
-  return first ? {lat: first.lat, lon: first.lon} : null;
+  // nobody picked from the list, so the best match, saved as the proper address: the state and ZIP are read from it. A typed house
+  // number has to match: a different number is a different building, so that one asks
+  const no = (address.match(/^\d+(?=[a-z]?\s)/i) || [""])[0], said = x => String(x.full || x.label || "");
+  const first = Array.isArray(hit) ? hit.find(x => x.lat != null && (!no || said(x).startsWith(`${no} `))) : null;
+  if (first) return {lat: first.lat, lon: first.lon, full: first.full};
+  if (!o.rough) return null;
+  // a new building isn't on any list yet, so what the typed words still name: the street, the ZIP, the town. Near enough for the area's radio
+  // systems and the AHJ, and the report says the pin is rough
+  const street = no ? address.replace(/^\d+[a-z]?\s+/i, "") : "", zip = (address.match(/\b\d{5}\b/g) || []).pop(), town = address.split(",").slice(1).join(",").trim();
+  for (const q of [street, zip, town]) {
+    if (!q) continue;
+    const r2 = await api(`/api/geocode?q=${encodeURIComponent(q)}`).catch(() => null), near = ((r2 && r2.results) || []).find(x => x.lat != null);
+    if (near) return {lat: near.lat, lon: near.lon, rough: said(near)};
+  }
+  return null;
 }
+window.startLocate = locate;
 
 /* ---------- step 1: the Discovery report. The pre-survey's numbers, the same routes as the DAS tab, on one page ---------- */
 const THRESHOLD = -95;
 async function discoveryData(j) {
   const d = j.data, ok = async p => { try { return await p; } catch (e) { return {_error: e.message}; } };
-  let [ps, ahj, bdc, cells, spec, bld] = await Promise.all([
+  if (d.lat == null || d.lon == null)  // every line below is read from a place: the report says so and the job is still saved
+    return {noPin: true, ps: {}, ahj: {suggestions: [], error: "The AHJ comes from the address."}, bdc: {}, cells: {sites: []}, spec: {}, systems: [], top: [], lead: [], contacts: {}, deciding: null};
+  // the outline isn't on this report, and OpenStreetMap's public servers can take 40 s from the server (measured 11/5: 29-43 s, every
+  // other call here 2 s or less). Asked and not waited for, so it's already kept when Plans or the Overview wants it. Not saved on the
+  // job from here: a save behind the person's back moves the job's revision and their next save is refused
+  api(`/api/das/building?lat=${d.lat}&lon=${d.lon}`).catch(() => {});
+  let [ps, ahj, bdc, cells, spec] = await Promise.all([
     ok(api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=15&job=${j.id}&threshold=${THRESHOLD}&env=suburban`)),
     ok(api(`/api/das/x/ahj/${j.id}`)), ok(api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`)), ok(api(`/api/cells?lat=${d.lat}&lon=${d.lon}&radius=5`)),
-    ok(api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`)), ok(api(`/api/das/building?lat=${d.lat}&lon=${d.lon}`))]);
+    ok(api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`))]);
   // a cellular job needs the sites: fetched once for an area and kept, as the Cellular panel's button does
   if (gOf(d).answers?.scope !== "Public safety radio" && !(cells.sites || []).length) {
     const got = await ok(post("/api/cells/fetch", {lat: d.lat, lon: d.lon}));
@@ -172,18 +241,25 @@ async function discoveryData(j) {
   const lead = [...(deciding ? [deciding] : []), ...(top.length ? top : systems).filter(s => s !== deciding)].slice(0, 8);
   let contacts = {};
   if (lead.length) { const r = await ok(api(`/api/das/x/contacts?calls=${encodeURIComponent(lead.map(s => s.call_sign).join(","))}`)); contacts = r.contacts || {}; }
-  return {ps, ahj, bdc, cells, spec, bld, systems, top, lead, contacts, deciding};
+  return {ps, ahj, bdc, cells, spec, systems, top, lead, contacts, deciding};
 }
 // the system that decides, by the rule RF need uses (need.py point_levels): the strongest in the best tier here, preferring one
 // licensed to an agency named like the building's town. Counting every agency within 15 miles overclaims: most don't serve it.
-function decidingSystem(systems, ahj, spec) {
+function localPool(systems, ahj, spec) {
   const have = systems.filter(s => s.real); if (!have.length) return null;
   const tier = Math.min(...have.map(s => s.tier ?? 9)), pool = have.filter(s => (s.tier ?? 9) === tier);
-  const w = ahj.where || {}, names = [w.place, w.county, String((spec && spec.county) || "").split(",")[0]].filter(Boolean).map(x => x.replace(/ (county|city|town)$/i, "").toLowerCase());
-  const local = pool.filter(s => names.some(n => n && (s.licensee || "").toLowerCase().includes(n)));
-  return (local.length ? local : pool).slice().sort((a, b) => b.real.in_dbm - a.real.in_dbm)[0];
+  const w = (ahj && ahj.where) || {}, names = [w.place, w.county, String((spec && spec.county) || "").split(",")[0]].filter(Boolean).map(x => x.replace(/ (county|city|town)$/i, "").toLowerCase());
+  return {pool, local: pool.filter(s => names.some(n => n && (s.licensee || "").toLowerCase().includes(n)))};
 }
+function decidingSystem(systems, ahj, spec) {
+  const r = localPool(systems, ahj, spec); if (!r) return null;
+  return (r.local.length ? r.local : r.pool).slice().sort((a, b) => b.real.in_dbm - a.real.in_dbm)[0];
+}
+// what a machine ticks: the systems named for the building's town or county, else the strongest. The whole top tier near a city is dozens
+// (61 systems and 437 channels at one address, 11/6), and each one becomes a consent email. A person adds the rest on the Pre-survey
+window.startSystems = (systems, ahj, spec) => { const r = localPool(systems, ahj, spec); if (!r) return []; return r.local.length ? r.local : [decidingSystem(systems, ahj, spec)]; };
 function verdictOf(R, cellOnly) {
+  if (R.noPin) return ["Add the address for the rest", "With no address on the map, RF Recon can't look up the radio systems, the carriers or the AHJ. What you filled in is saved on the job."];
   if (cellOnly) return ["Cellular job", "Coverage inside comes from each carrier's approval: start with the carriers below."];
   if (R.ps._error) return ["No estimate", `The estimate didn't run: ${R.ps._error}`];
   if (!R.systems.length) return ["No systems found", "No licensed radio systems came back within 15 miles. Ask the fire marshal what the building has to carry."];
@@ -193,10 +269,24 @@ function verdictOf(R, cellOnly) {
   return s.real.margin_db < 0 ? ["A system is likely needed", `The main radio system here is ${s.licensee}. Even it looks too weak inside this building on the estimate, so an in-building system is likely needed.${caution} A walk test decides.`]
     : ["It may pass without one", `The main radio system here is ${s.licensee}. It looks strong enough inside on the estimate, which runs pessimistic on upper floors.${caution} A walk test decides.`];
 }
+// the verdict is about signal. This is the law as far as it's been read: where a state doesn't require a system, someone new
+// shouldn't tell an owner they need one. The job's Code check reading, so the two can't disagree (codecheck.py)
+function lawLine(R) {
+  const c = R.code || {}; if (!c.says) return "";
+  const who = c.status === "confirmed" ? `Confirmed by ${c.check.confirmed_by}, ${c.check.confirmed_on}.` : "The AHJ hasn't confirmed.";
+  return `<p id="stLaw"${c.rule?.level === "required" ? "" : ' class="st-skip"'}><b>The law here:</b> ${esc(c.says)} ${esc(who)}</p>${c.tribal ? `<p class="st-skip">Tribal land: ${esc(c.tribal)}. ${esc(c.land)}</p>` : ""}${c.status !== "confirmed" && (c.book || []).length ? `<p class="hint no-print" id="stBook">Another job has answers from this AHJ on file. Open the Code check to use them. The AHJ still confirms them for this building.</p>` : ""}`;
+}
 function bandsLine(R) {
   const m = new Map();
   for (const s of (R.top.length ? R.top : R.lead)) for (const c of s.down || []) if (c.band) m.set(c.band, (m.get(c.band) || 0) + 1);
   return [...m].sort((a, b) => b[1] - a[1]).map(x => x[0]);
+}
+// what the report is working without, on the report itself so it prints: a rough pin or an empty box can't pass for a checked one
+function blanksHtml(j) {
+  const d = j.data, a = gOf(d).answers || {}, r = gOf(d).rough, left = BUILDING.filter(q => !a[q.k] && !(q.k === "address" && d.address));
+  const rough = r && r.lat === d.lat && r.lon === d.lon;  // moved since, on the Overview or by a pick: it isn't rough any more
+  return `${rough ? `<p class="st-skip" id="stRough"><b>The pin is near ${esc(r.at)}, not on the building.</b> That address isn't on any list yet. The radio systems and the AHJ are for that area. Move the pin on the job's Overview once you can.</p>` : ""}
+    ${left.length ? `<p class="st-skip" id="stBlank"><b>Left blank:</b> ${esc(left.map(q => q.s).join(", "))}. This report works from what it has. <button class="sm no-print" id="stFill">Fill them in</button></p>` : ""}`;
 }
 const printHead = (j, title) => `<div class="st-print-head"><div><b>${esc(title)}</b><div>${esc(j.name)}${j.data.address ? ` · ${esc(j.data.address)}` : ""}</div></div><div>RF Recon · ${esc(today())}</div></div>`;
 const skipNote = (d, id) => { const s = skipped(d, id); return s ? `<p class="st-skip">Skipped by ${esc(s.by || "the user")} on ${esc(s.at)}: ${esc(s.why)}</p>` : ""; };
@@ -214,17 +304,19 @@ function discoveryHtml(j, R) {
   const rows = [["Building", [a.building_type, a.floors_up && `${a.floors_up} floors up`, a.floors_down && a.floors_down !== "None" && `${a.floors_down} below ground`, a.area && `${fmt(a.area)} sq ft`, a.construction].filter(Boolean).join(" · ")], ["Why now", a.why], ["Covers", sc]];
   return `${printHead(j, "Discovery report")}
     <div class="st-verdict"><h2>${esc(head)}</h2><p>${esc(line)}</p></div>
-    <div class="kvg">${rows.map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v || "")}</div>`).join("")}</div>
+    ${blanksHtml(j)}
+    ${lawLine(R)}
+    ${rows.some(r => r[1]) ? `<div class="kvg">${rows.filter(r => r[1]).map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>` : ""}
     <h4>Who decides</h4><p class="st-auth">The AHJ, usually the fire marshal, has final authority over this building. What's in the code they have to enforce, and they can require more.</p>
-    ${suggest.length ? `<table><thead><tr><th>Most likely AHJ</th><th>Phone</th><th>Why</th></tr></thead><tbody>${suggest.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.phone || "")}</td><td>${esc(x.why || "")}</td></tr>`).join("")}</tbody></table>`
+    ${suggest.length ? `<table><thead><tr><th>Most likely AHJ</th><th>Phone</th><th>Why</th><th class="no-print"></th></tr></thead><tbody>${suggest.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.phone || "")}</td><td>${esc(x.why || "")}</td><td class="no-print"><button class="sm" data-ahj="${esc(x.name)}" ${d.ahj === x.name ? "disabled" : ""}>${d.ahj === x.name ? "Picked" : "This one"}</button></td></tr>`).join("")}</tbody></table>`
       : `<p class="hint">${esc(R.ahj.error || "No department list on this copy. Ask the city or county for the fire marshal's office.")}</p>`}
-    ${ps ? `<h4>Public safety radio</h4>${bands.length ? `<p>In play here: <b>${esc(bands.join(", "))}</b>.</p>` : ""}
+    ${ps && !R.noPin ? `<h4>Public safety radio</h4>${bands.length ? `<p>In play here: <b>${esc(bands.join(", "))}</b>.</p>` : ""}
       ${R.lead.length ? `<table><thead><tr><th>System</th><th>Call sign</th><th>Band</th><th>Technology</th><th>Inside (estimate)</th></tr></thead><tbody>${R.lead.map(s => {
         const b = [...new Set((s.down || []).map(c => c.band).filter(Boolean))].join(", "), shop = contactLine(R.contacts[s.call_sign]);
         return `<tr><td>${esc(s.licensee)}${s === R.deciding ? ' <b class="st-main">main system</b>' : ""}${s.trunked ? ' <span class="hint">trunked</span>' : ""}${shop ? `<div class="hint">Radio shop: ${esc(shop)}</div>` : ""}</td><td class="mono">${esc(s.call_sign)}</td><td>${esc(b)}</td><td>${esc((s.tech || []).join(" / "))}</td>
           <td>${s.real ? `${s.real.margin_db < 0 ? "Too weak" : "Looks OK"}` : '<span class="hint">no power on file</span>'}</td></tr>`; }).join("")}</tbody></table>
         <p class="hint">${fmt(R.systems.length)} systems within 15 miles. The first ones are the agencies a building usually has to carry. The radio shop is the FCC's contact on the licence: it can be a consulting engineer.</p>` : ""}` : ""}
-    ${cell ? `<h4>Cellular</h4>${names.length ? `<table><thead><tr><th>Carrier</th><th>Coverage here (FCC map)</th><th>Closest known site</th><th>Bands it holds here</th></tr></thead><tbody>${names.map(n => {
+    ${cell && !R.noPin ? `<h4>Cellular</h4>${names.length ? `<table><thead><tr><th>Carrier</th><th>Coverage here (FCC map)</th><th>Closest known site</th><th>Bands it holds here</th></tr></thead><tbody>${names.map(n => {
       const s = near[n], c = cov.filter(x => carrierName(x.brand) === n).map(x => x.tech), h = held.filter(x => carrierName(x.brand) === n).flatMap(x => (x.bands || []).map(b => b.band));
       return `<tr><td>${esc(n)}</td><td>${esc([...new Set(c)].join(", ") || "None reported")}</td><td>${s ? `${num(s.dist_mi, 2)} mi${s.compass ? ` ${esc(s.compass)}` : ""}` : '<span class="hint">None known yet</span>'}</td><td>${esc([...new Set(h)].join(", "))}</td></tr>`; }).join("")}</tbody></table>
       <p class="hint">Sites are crowd-mapped, and a licence doesn't prove a block is on the air. Each carrier has to approve its own signal in the building.</p>` : '<p class="hint">No carrier data here yet.</p>'}` : ""}
@@ -234,24 +326,36 @@ function discoveryHtml(j, R) {
 async function stepDiscovery(el, j) {
   const d = j.data;
   el.innerHTML = `<div class="panel" id="stDisc"><p class="status">Working out what this building needs. This reads FCC licences, towers, carriers and fire departments, and can take a few seconds.</p></div>`;
+  if (G.disc[j.id]?.noPin && d.lat != null) G.disc[j.id] = null;  // the pin went on since, on the Overview
   const R = G.disc[j.id] || (G.disc[j.id] = await discoveryData(j));
+  R.code = await api(`/api/das/x/code/${j.id}`).catch(() => ({}));  // not kept with the rest: it says who at the AHJ confirmed it
   if (!el.isConnected) return;
   const [head] = verdictOf(R, gOf(d).answers?.scope === "Cellular");
-  if (!gOf(d).discovery) {
-    const inc = (d.presurvey || {}).include || [], tick = inc.length ? inc : R.top.map(s => s.call_sign);
-    const patch = {guided: guidedPatch(d, {discovery: {at: today(), verdict: head, systems: R.systems.length, top: R.top.length}})};
-    if (tick.length && !inc.length) patch.presurvey = {...(d.presurvey || {}), include: tick};  // the agencies it found are ticked on the job's Pre-survey
+  if (!gOf(d).discovery && !R.noPin) {  // no pin, nothing found: the step stays not done, and a later visit reads the place
+    const inc = (d.presurvey || {}).include || [], pick = window.startSystems(R.systems, R.ahj, R.spec), tick = inc.length ? inc : (pick.length ? pick : R.lead).map(s => s.call_sign);
+    const patch = {guided: guidedPatch(d, {discovery: {at: today(), verdict: head, systems: R.systems.length, top: R.top.length, main: R.deciding ? {call: R.deciding.call_sign, licensee: R.deciding.licensee} : null}})};
+    // the agencies it found are ticked on the job's Pre-survey. Not on a cellular job: a ticked agency makes it public safety too
+    if (tick.length && !inc.length && gOf(d).answers?.scope !== "Cellular") patch.presurvey = {...(d.presurvey || {}), include: tick};
     const got = await saveJob(j, patch); if (got) j = got;
   }
   el.innerHTML = `<div class="panel st-report" id="stReport">${discoveryHtml(j, R)}</div>
-    <div class="st-next"><button id="stEdit">Change the answers</button><button id="stPrint">⎙ Print or save the report</button><button class="primary" id="stNext">Next: Survey</button></div>`;
+    <div id="stGate"></div>
+    <div class="st-next"><button id="stEdit">Change the answers</button><button id="stCode" title="The state's rule, where to read the local code, what to ask the AHJ">Open the Code check</button><button id="stPrint">⎙ Print or save the report</button><button class="primary" id="stNext">Next: Survey</button></div>`;
+  el.querySelector("#stCode").onclick = () => openTool(j.id, "overview");
   el.querySelector("#stPrint").onclick = () => dasPrintCopy(el.querySelector("#stReport"));
   el.querySelector("#stEdit").onclick = () => editBuilding(el, j);
-  el.querySelector("#stNext").onclick = () => { G.step = "survey"; redraw(); };
+  const fill = el.querySelector("#stFill"); if (fill) fill.onclick = () => editBuilding(el, j);
+  el.querySelector("#stNext").onclick = () => goStep(j, "survey");
+  // a person picks the AHJ: a guess filled in by itself would clear the gate without anyone deciding
+  el.querySelectorAll("[data-ahj]").forEach(b => b.onclick = async () => { const x = (R.ahj.suggestions || []).find(s => s.name === b.dataset.ahj) || {name: b.dataset.ahj};
+    let c = null; try { c = await window.dasAhjContact?.(x); } catch (e) { /* the name still saves: the contact can go on the Overview */ }
+    const got = await saveJob(j, {ahj: x.name, ...(c ? {contacts: {...(j.data.contacts || {}), ahj: c.id}} : {})}); if (got) redraw(); });
+  gateNote(el, j, "Pre-survey", "Survey");
+  window.rfMail?.jobAll(document.getElementById("stMail"), j);  // here, not with the other steps: the save above names the main system
 }
 function editBuilding(el, j) {
   const a = {...(gOf(j.data).answers || {}), address: j.data.address || ""};
-  el.innerHTML = `<div class="panel"><h3>The building</h3><div class="st-form" id="stForm">${BUILDING.map(q => field(q, a[q.k])).join("")}</div>
+  el.innerHTML = `<div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, a[q.k])).join("")}</div>
     <p class="status err" id="stLeft" hidden></p><div class="st-next"><button class="primary" id="stGo">Build the Discovery report</button></div></div>`;
   wireForm(el, j);
 }
@@ -269,17 +373,19 @@ function stepSurvey(el, j) {
       <details class="st-how"><summary>How to run the test</summary><ol>${GRID_HOW.map(x => `<li>${esc(x)}</li>`).join("")}</ol><p class="hint">The AHJ's own rules set the pass mark and the number of squares. They're on the job's Requirements tab.</p></details>
       <p>${grid.squares ? `<b>${fmt(grid.squares)} squares</b> measured on ${grid.floors} floor${grid.floors === 1 ? "" : "s"}.` : "No squares measured yet."}</p>
       ${uncounted ? `<p class="st-skip">${fmt(uncounted)} reading${uncounted === 1 ? " doesn't" : "s don't"} count yet: a grid test needs a calibrated instrument on the job. Add it on the Overview tab, with its calibration date. <button data-tab="overview">Open the Overview</button></p>` : ""}
-      ${fails.length ? `<div class="st-failed"><b>Failed: ${esc(fails.join(", "))}.</b><p>Work through these before you retest.</p><ol>${FAILED_CHECK.map(x => `<li>${esc(x)}</li>`).join("")}</ol></div>` : ""}
+      ${fails.length ? `<div class="st-failed"><b>Failed: ${esc(fails.join(", "))}.</b><p>Work through these before you retest.</p><ol>${FAILED_CHECK.map(x => `<li>${esc(x)}</li>`).join("")}</ol><button data-tab="fault" data-fault="${a.scope === "Cellular" ? "F6" : "F8"}">Walk it in the fault chart</button></div>` : ""}
       <div class="st-next" style="justify-content:flex-start"><button data-tab="grid">Open the Grid test</button><button data-tab="files">Open the job's Files</button></div></div>
-    ${skipBox("survey", d)}
-    <div class="st-next"><button id="stBack">Back</button><button id="stPrint">⎙ Print or save the summary</button><button class="primary" id="stNext" ${stepClear(d, "survey") ? "" : "disabled"}>Next: Design</button></div>
-    <p class="hint st-why" id="stWhy">${stepClear(d, "survey") ? "" : left.length ? `${left.length} question${left.length === 1 ? "" : "s"} left. A No needs a note.` : uncounted ? "The grid test's readings don't count yet." : "The grid test isn't in yet."}</p>
+    ${skipBox("survey", j)}
+    <div id="stGate"></div>
+    <div class="st-next"><button id="stBack">Back</button><button id="stPrint">⎙ Print or save the summary</button><button class="primary" id="stNext">Next: Design</button></div>
+    <p class="hint st-why" id="stWhy">${stepClear(j, "survey") ? "" : `${left.length ? `${left.length} question${left.length === 1 ? "" : "s"} still open. A No takes a note.` : uncounted ? "The grid test's readings don't count yet." : "The grid test isn't in yet."} You can carry on and come back: this step stays unticked until it's done.`}</p>
     <div id="stPrintBox" hidden>${surveySummary(j)}</div>`;
   let cur = j;
   const keep = async patchA => { const got = await saveJob(cur, {guided: guidedPatch(cur.data, {answers: {...(gOf(cur.data).answers || {}), ...patchA}})}); if (got) { cur = got; stepSurvey(el, cur); } };
   el.querySelectorAll("[data-walk]").forEach(s => s.onchange = () => keep({[s.dataset.walk]: s.value}));
   el.querySelectorAll("[data-note]").forEach(s => s.onchange = () => keep({[`${s.dataset.note}_note`]: s.value.trim()}));
   wireCommon(el, cur, "survey");
+  gateNote(el, cur, "Design", "Design");
 }
 function surveySummary(j) {
   const d = j.data, a = gOf(d).answers || {}, grid = gridRead(d);
@@ -296,9 +402,9 @@ function stepDesign(el, j) {
       <div class="st-checks">${cs.map(([k, t, ok, note, tab]) => `<div class="st-check ${ok ? "ok" : ""}"><span class="st-mark" aria-hidden="true">${ok ? "✓" : ""}</span><span><b>${esc(t)}</b>${note ? ` <span class="hint">${esc(note)}</span>` : ""}</span><button data-tab="${tab}">${ok ? "Open" : "Do this"}</button></div>`).join("")}</div></div>
     <div class="panel"><h3>The design package</h3><p>The parts list and each part's spec sheet, in one file for the integrator and the AHJ.</p>
       <div class="st-next" style="justify-content:flex-start"><a class="btn" href="/api/das/jobs/${j.id}/packet" download>⇩ Parts list and spec sheets</a><button data-tab="materials">Open Materials</button></div></div>
-    ${skipBox("design", d)}
-    <div class="st-next"><button id="stBack">Back</button><button class="primary" id="stNext" ${stepClear(d, "design") ? "" : "disabled"}>Next: AHJ package</button></div>
-    <p class="hint st-why" id="stWhy">${stepClear(d, "design") ? "" : `${cs.filter(c => !c[2]).length} left.`}</p>`;
+    ${skipBox("design", j)}
+    <div class="st-next"><button id="stBack">Back</button><button class="primary" id="stNext">Next: AHJ package</button></div>
+    <p class="hint st-why" id="stWhy">${stepClear(j, "design") ? "" : `${cs.filter(c => !c[2]).length} left. You can carry on and come back: this step stays unticked until it's done.`}</p>`;
   wireCommon(el, j, "design");
 }
 
@@ -312,29 +418,33 @@ async function stepAhj(el, j) {
   try { R = ahjPacketRows(d, await ahjPackets(), files); } catch (e) { /* no list: the buttons below still work */ }
   if (!el.isConnected) return;
   const rows = R ? R.rows.filter(x => x.state !== "outside") : [], missing = rows.filter(x => x.state === "missing");
-  const blocked = Object.keys(gOf(d).skips || {});
+  const blocked = Object.keys(gOf(d).skips || {}), movedOn = (j.log || []).filter(x => x.kind === "gate").reverse(), delivered = !!gOf(d).done?.ahj;
   el.innerHTML = `<div class="panel"><h3>${R ? esc(R.pk.doc || "What the AHJ asks for") : "What the AHJ asks for"} <span class="hint">· ${rows.length - missing.length} of ${rows.length} in the job</span></h3>
       <p class="st-auth">The AHJ has final authority. This list is what the published code asks for, and what the AHJ tells you in writing wins.</p>
       ${missing.length ? `<ul>${missing.slice(0, 14).map(x => `<li>${esc(x.t)}${x.app ? ` <span class="hint">· ${esc(x.app)}</span>` : ""}</li>`).join("")}</ul>${missing.length > 14 ? `<p class="hint">${missing.length - 14} more on the job's Report tab.</p>` : ""}` : rows.length ? "<p>Everything on the list is in the job.</p>" : ""}
-      ${blocked.length ? `<p class="st-skip">Skipped steps print on the package: ${esc(blocked.map(b => STEPS[stepOf(b)].label).join(", "))}.</p>` : ""}
+      ${blocked.length ? `<p class="st-skip">Skipped steps print on the report and the design submittal: ${esc(blocked.map(b => STEPS[stepOf(b)].label).join(", "))}.</p>` : ""}
+      ${movedOn.length ? `<div class="no-print"><p class="hint">In the job's log, not printed:</p><ul>${movedOn.map(x => `<li class="hint">${esc(x.detail)}</li>`).join("")}</ul></div>` : ""}
       <div class="st-next" style="justify-content:flex-start"><button class="primary" data-tab="report">Open the report to print or seal</button><a class="btn" href="/api/das/jobs/${j.id}/packet" download>⇩ Parts list and spec sheets</a></div></div>
-    <div class="st-next"><button id="stBack">Back</button><button class="primary" id="stFinish">${gOf(d).done?.ahj ? "Delivered" : "Mark as delivered to the AHJ"}</button></div>`;
+    <div id="stGate"></div>
+    <div class="st-next"><button id="stBack">Back</button>${delivered && behind(j, "Install") ? `<button id="stInstall" title="Once the AHJ has approved the design and issued the permit">The AHJ approved it: move to Install</button>` : ""}<button class="primary" id="stFinish">${delivered ? "Delivered" : "Mark as delivered to the AHJ"}</button></div>`;
   wireCommon(el, j, "ahj");
   el.querySelector("#stFinish").onclick = async () => { const got = await saveJob(j, {guided: guidedPatch(d, {done: {...(gOf(d).done || {}), ahj: today()}})}); if (got) { G.step = "ahj"; redraw(); } };
+  const inst = el.querySelector("#stInstall"); if (inst) inst.onclick = () => moveStage(j, "Install", "Install", redraw);
+  if (delivered) gateNote(el, j, "Install", "Install");
 }
 
 /* ---------- what every step shares ---------- */
-function skipBox(id, d) {
-  const s = skipped(d, id);
+function skipBox(id, j) {
+  const s = skipped(j.data, id);
   return s ? `<div class="panel st-skip-panel"><p class="st-skip">Skipped on ${esc(s.at)}: ${esc(s.why)}</p><button id="stUnskip">Take the skip back</button></div>`
-    : stepDone(d, id) ? "" : `<details class="st-skipper"><summary>Skip this step</summary><p class="hint">Skipping takes a reason. It stays on the job and prints on the deliverable.</p>
+    : stepDone(j, id) ? "" : `<details class="st-skipper"><summary>Skip this step</summary><p class="hint">Skipping takes a reason. It stays on the job and prints on the deliverable.</p>
       <div class="st-next" style="justify-content:flex-start"><input id="stSkipWhy" placeholder="Why it's being skipped" style="flex:1;min-width:200px"><button id="stSkip">Skip</button></div></details>`;
 }
 function wireCommon(el, j, id) {
   const d = j.data;
-  el.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => openTool(j.id, b.dataset.tab));
+  el.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { if (b.dataset.fault) window.dasFaultOpen?.(b.dataset.fault, j.id); openTool(j.id, b.dataset.tab); });
   const back = el.querySelector("#stBack"); if (back) back.onclick = () => { G.step = STEPS[Math.max(0, stepOf(id) - 1)].id; redraw(); };
-  const next = el.querySelector("#stNext"); if (next && id !== "discovery") next.onclick = () => { G.step = STEPS[stepOf(id) + 1].id; redraw(); };
+  const next = el.querySelector("#stNext"); if (next && id !== "discovery") next.onclick = () => goStep(j, STEPS[stepOf(id) + 1].id);
   const print = el.querySelector("#stPrint"); if (print && id === "survey") print.onclick = () => { const box = el.querySelector("#stPrintBox"); box.hidden = false; dasPrintCopy(box); box.hidden = true; };
   const sk = el.querySelector("#stSkip");
   if (sk) sk.onclick = async () => { const why = el.querySelector("#stSkipWhy").value.trim(); if (!why) { el.querySelector("#stSkipWhy").focus(); return; }
@@ -352,7 +462,7 @@ window.startBackBar = (el, j) => {
   if (!el) return;
   if (!S.das || S.das.fromStart !== j.id) { el.innerHTML = ""; return; }
   el.innerHTML = `<div class="st-back no-print"><button id="stBackBar">← Back to Start</button><span class="hint">Everything you do here is saved on the job.</span></div>`;
-  document.getElementById("stBackBar").onclick = () => { S.das.fromStart = null; G.job = j.id; G.step = null; S.das.job = null; setTab("start"); };
+  document.getElementById("stBackBar").onclick = () => { S.das.fromStart = null; if (G.job !== j.id) G.step = null; G.job = j.id; S.das.job = null; setTab("start"); };  // back to the step it left
 };
 
 /* ---------- the page ---------- */
@@ -360,17 +470,20 @@ S.views.start = async v => {
   if (G.sig && G.sig === `${G.job}|${G.step}` && v.querySelector(".st")) return;
   if (!G.job) { G.sig = `${G.job}|${G.step}`; return landing(v); }
   let j; try { j = await api(`/api/das/jobs/${G.job}`); } catch (e) { G.job = null; return landing(v); }
-  const d = j.data || {}, step = G.step || currentStep(d), n = stepOf(step);
+  const d = j.data || {}, step = G.step || stand(j).step || "discovery", n = stepOf(step);
   G.step = step; G.sig = `${G.job}|${G.step}`;
-  v.innerHTML = `<div class="st"><div class="st-top"><button id="stAll">← All jobs</button><div><h2>${esc(j.name)}</h2><p class="hint">${esc(d.address || "")}</p></div>
-      <button id="stFull" title="This job on the DAS tab, with every tool">Open in the full tool</button></div>
-    <ol class="st-steps">${STEPS.map((s, i) => { const done = stepDone(d, s.id), skip = !!skipped(d, s.id), can = i === 0 || STEPS.slice(0, i).every(x => stepClear(d, x.id));
-      return `<li><button data-step="${s.id}" class="${s.id === step ? "on" : ""} ${done ? "done" : ""}" ${can ? "" : "disabled"} aria-current="${s.id === step ? "step" : "false"}"><span class="st-n">${done ? "✓" : i + 1}</span><span>${esc(s.label)}${skip ? " (skipped)" : ""}</span></button></li>`; }).join("")}</ol>
-    <p class="st-goal">${esc(STEPS[n].goal)}</p><div id="stBody"></div></div>`;
+  v.innerHTML = `<div class="st"><div class="st-top"><button id="stAll">← All jobs</button><div><h2>${esc(j.name)}</h2><p class="hint">${esc([d.address, `Stage: ${j.stage}`].filter(Boolean).join(" · "))}</p></div>
+      <button id="stWalk" title="Checks what's on file, picks up where the job stands, and moves you to each place">Walk me through</button><button id="stGot" title="Plans, contacts, letters, old emails: each one is checked and put where it goes">Got files already?</button><button id="stFull" title="This job on the DAS tab, with every tool">Open in the full tool</button></div>
+    <ol class="st-steps">${STEPS.map((s, i) => { const done = stepDone(j, s.id), skip = !!skipped(d, s.id);
+      return `<li><button data-step="${s.id}" class="${s.id === step ? "on" : ""} ${done ? "done" : ""}" aria-current="${s.id === step ? "step" : "false"}"><span class="st-n">${done ? "✓" : i + 1}</span><span>${esc(s.label)}${skip ? " (skipped)" : ""}</span></button></li>`; }).join("")}</ol>
+    <p class="st-goal">${esc(STEPS[n].goal)}</p><div id="stBody"></div><div id="stMail" class="no-print" style="margin-top:12px"></div></div>`;
   v.querySelector("#stAll").onclick = () => { G.job = null; G.step = null; redraw(); };
   v.querySelector("#stFull").onclick = () => openTool(j.id, "overview");
-  v.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { G.step = b.dataset.step; redraw(); });
+  v.querySelector("#stWalk").onclick = () => window.dasWalkOpen?.(j.id);
+  v.querySelector("#stGot").onclick = () => window.intakeOpen?.(j.id);
+  v.querySelectorAll("[data-step]").forEach(b => b.onclick = () => goStep(j, b.dataset.step));  // the strip can't walk around the gate
   const body = v.querySelector("#stBody");
   ({discovery: stepDiscovery, survey: stepSurvey, design: stepDesign, ahj: stepAhj}[step])(body, j);
+  if (step !== "discovery") window.rfMail?.jobAll(v.querySelector("#stMail"), j);
 };
 })();

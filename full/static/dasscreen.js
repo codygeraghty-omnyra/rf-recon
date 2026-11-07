@@ -10,7 +10,7 @@
 // measure SINR or its maker doesn't publish an accuracy for it; BER and DAQ are then judged as measured.
 const SCREEN_RX = [
   {id:"ibflex", re:/ibflex|seehawk|seegull/i, name:"PCTEL IBflex + SeeHawk", lvl:1, sinr:1,
-   src:"PCTEL: RSSI ±1 dB (−118 to −10 dBm); P25 SINR ±1 dB (8 to 25 dB)."},
+   src:"PCTEL: RSSI ±1 dB (−118 to −10 dBm); P25 SINR ±1 dB (8 to 25 dB). Another revision of the data sheet gives RSSI to −105 dBm and SINR over +10 to +25 dB: read the sheet for your unit."},
   {id:"s412e", re:/s412e|lmr master/i, name:"Anritsu S412E LMR Master", lvl:1.25, sinr:null,
    src:"Anritsu data sheet: P25 received power ±1.25 dB (±0.5 dB typical), 15 to 35 °C. Measures BER, not SINR."},
   {id:"prism", re:/prism|ibwave/i, name:"Epiq PRiSM + iBwave Mobile Survey", lvl:2, sinr:null,

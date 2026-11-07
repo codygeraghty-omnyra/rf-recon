@@ -1,10 +1,11 @@
 "use strict";
 /* RF Recon — guided BDA commissioning (job › Commissioning). Step by step, with any analyzer and any maker's BDA (values
    typed, or a trace / log imported as CSV), graded with the AHJ's own numbers where we have them:
-     1 donor-site noise test (NFPA 1225 A.18.9.3: booster off, then on; 10 kHz RBW, 5-minute average; a rise of 1 dB or more
+     1 isolation, donor to server antennas (NFPA 1225 18.10: at least 20 dB over the system gain; some AHJs differ), with the booster off
+     (the order the fault chart runs: isolation before the first switch-on. Readings are kept by id, so this moved no one's data)
+     2 gain, AGC and filter settings per band (NFPA 1225 20.3.10.1.3(11); IFC 2021 510.5.4(6): every amplifier's gain)
+     3 donor-site noise test (NFPA 1225 A.18.9.3: booster off, then on; 10 kHz RBW, 5-minute average; a rise of 1 dB or more
        means cut the gain until it's gone, then 3 dB more)
-     2 isolation, donor to server antennas (NFPA 1225 18.10: at least 20 dB over the system gain; some AHJs differ)
-     3 gain, AGC and filter settings per band (NFPA 1225 20.3.10.1.3(11); IFC 2021 510.5.4(6): every amplifier's gain)
      4 oscillation check with a spectrum analyzer (IFC 2021 510.5.4(7))
      5 donor (signal source) level and source type (NFPA 1225 20.3.10.1.3(9), (10))
      6 talk-back and near-far log with the radio shop (IFC 2021 510.5.4(8): the two-radio test)
@@ -20,26 +21,26 @@ const CM_IFC = "https://www.oswegofire.com/wp-content/uploads/2025/11/2021_ifc_5
 const CM_AHJ = {
   nfpa: {name: "NFPA 1225 (2022) and IFC 2021", rise_db: 1, extra_cut_db: 3, rbw_khz: 10, avg_min: 5, iso_margin_db: 20,
     src: CM_NFPA, checked: "read", says: "A.18.9.3 noise test, 18.10 isolation, 20.3.10.1.3 records; IFC 2021 510.5.4(6)-(8)."},
-  san_diego: {name: "San Diego Fire-Rescue (C-1)", noise_max_dbm: -150, match: /san\s*diego/i,
-    src: "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf", checked: "excerpt",
-    says: "Uplink noise at the donor site −150 dBm or lower."},
-  ocsd: {name: "Orange County Sheriff (OCSD ERRCS)", noise_max_dbm: -150, match: /\bocsd\b|orange\s*county\s*sheriff/i,
-    src: "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf", checked: "excerpt",
-    says: "Uplink noise at the donor site −150 dBm or lower."},
-  sf: {name: "San Francisco (CCSF ERRCS v1.4)", donor_min_dbm: -95, donor_max_dbm: -70, noise_max_dbm: -130, iso_margin_db: 20, match: /san\s*francisco|\bccsf\b|\bsffd\b/i,
-    src: "https://www.in-buildingwireless.com/wp-content/uploads/2021/03/ERRCS-CCSF-Requirements-v1.4.pdf", checked: "excerpt",
-    says: "Donor receive level −95 to −70 dBm; noise under −130 dBm; gain 20 dB below the isolation."},
+  san_diego: {name: "San Diego Fire-Rescue (C-1)", noise_calc_dbm: -150, match: /san\s*diego/i,
+    src: "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf", checked: "read",
+    says: "Uplink noise at the donor site −150 dBm or lower: a calculated figure, on the link budget. The measured test is the 1 dB rise."},
+  ocsd: {name: "Orange County Sheriff (OCSD ERRCS)", noise_calc_dbm: -150, match: /\bocsd\b|orange\s*county\s*sheriff/i,
+    src: "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf", checked: "read",
+    says: "Calculated noise at the donor site no greater than −150 dBm (Appendix A item 24): on the link budget. The measured test is the 1 dB rise."},
+  sf: {name: "San Francisco (CCSF ERRCS v1.4)", ul_site_min_dbm: -95, ul_site_max_dbm: -70, ul_site_lt: true, noise_calc_dbm: -130, iso_margin_db: 20, match: /san\s*francisco|\bccsf\b|\bsffd\b/i,
+    src: "https://www.in-buildingwireless.com/wp-content/uploads/2021/03/ERRCS-CCSF-Requirements-v1.4.pdf", checked: "read",
+    says: "Uplink received at the donor site −95 dBm or stronger and under −70 dBm; noise contribution under −130 dBm (estimated); gain 20 dB below the isolation."},
   sno911: {name: "SNO911 (Snohomish County, v2.1)", ul_over_noise_db: 30, rise_db: 1, match: /sno\s*911|snohomish/i,
-    src: "https://sno911.org/wp-content/uploads/2026/07/SNO911-In-Building-ERCES-Technical-Criteria-v2.1.pdf", checked: "excerpt",
+    src: "https://sno911.org/wp-content/uploads/2026/07/SNO911-In-Building-ERCES-Technical-Criteria-v2.1.pdf", checked: "read",
     says: "Uplink at the site no more than 30 dB over the site's noise floor; under 1 dB noise contribution."},
-  greensboro: {name: "Guilford Metro 9-1-1 (Greensboro)", donor_min_dbm: -95, donor_max_dbm: -65, near_far: true, match: /greensboro|guilford/i,
-    src: "https://www.greensboro-nc.gov/departments/guilford-metro-9-1-1/bda-erces-frequency-retransmission-requirements", checked: "excerpt",
-    says: "Inbound level at the donor −95 to −65 dBm; a near-far test."},
+  greensboro: {name: "Guilford Metro 9-1-1 (Greensboro)", ul_site_min_dbm: -95, ul_site_max_dbm: -65, near_far: true, match: /greensboro|guilford/i,
+    src: "https://www.greensboro-nc.gov/departments/guilford-metro-9-1-1/bda-erces-frequency-retransmission-requirements", checked: "read",
+    says: "BDA inbound signal at the donor tower site −95 to −65 dBm; a near-far test at final inspection; no rise in the noise floor at the tower or on site; isolation 20 dB over the BDA's maximum gain. On the roof: no BDA if the donor is under −95 dBm, BER over 2.6% and SINR under 16.5 dB."},
   mckinney: {name: "McKinney TX", iso_margin_db: 15, match: /mckinney/i,
-    src: "https://www.mckinneytexas.org/DocumentCenter/View/17102/Radio-BDA-Coverage-Systems", checked: "excerpt",
+    src: "https://www.mckinneytexas.org/DocumentCenter/View/17102/Radio-BDA-Coverage-Systems", checked: "read",
     says: "Isolation 15 dB over the gain."},
 };
-const CM_IDS = [["noise_floor", "Donor-site noise test"], ["isolation", "Isolation"], ["gain", "Gain, AGC and filter settings"],
+const CM_IDS = [["isolation", "Isolation"], ["gain", "Gain, AGC and filter settings"], ["noise_floor", "Donor-site noise test"],
   ["oscillation", "Oscillation check"], ["donor_level", "Donor level and source"], ["two_radio", "Talk-back and near-far"]];
 const CM_SOURCES = ["Off-air donor antenna", "Fibre or base station fed", "Other"];
 const CM = {busy: 0};  // saves and imports on their way
@@ -66,14 +67,15 @@ function cmNoise(C, N){ const T=C.noise||{}, rows=(T.rows||[]).filter(r=>cmN(r.o
   if(!rows.length) return null;
   const out=rows.map(r=>{ const off=cmN(r.off), on=cmN(r.on), after=cmN(r.after), cut=cmN(r.cut);
     if(off==null||on==null) return {r, done:false, why:"needs both readings, booster off and on"};
-    const rise=on-off, cleared=after!=null?after-off:null, fin=rise>=N.rise_db?cleared:rise, lvl=rise>=N.rise_db?after:on;
+    const rise=on-off, cleared=after!=null?after-off:null, fin=rise>=N.rise_db?cleared:rise;
     let ok=fin!=null&&fin<N.rise_db, why;
     if(rise<N.rise_db) why=`rise ${cmR1(rise)} dB, under ${N.rise_db} dB`;
     else if(cleared==null||cut==null) { ok=false; why=`rise ${cmR1(rise)} dB: cut the uplink gain until it's gone, then ${N.extra_cut_db} dB more, and enter the cut and the new reading`; }
     else if(cleared>=N.rise_db) why=`still ${cmR1(cleared)} dB over the booster-off floor after a ${cut} dB cut`;
     else why=`rise ${cmR1(rise)} dB cleared by a ${cut} dB cut; set ${cut+N.extra_cut_db} dB below the setting that rose (${N.extra_cut_db} dB more, A.18.9.3)`;
-    if(ok&&N.noise_max_dbm!=null&&lvl>N.noise_max_dbm){ ok=false; why+=`; ${cmR1(lvl)} dBm is over ${N.name}'s ${N.noise_max_dbm} dBm`; }
-    const ul=cmN(r.ul); if(ok&&N.ul_over_noise_db!=null&&ul!=null&&ul-off>N.ul_over_noise_db){ ok=false; why+=`; the uplink is ${cmR1(ul-off)} dB over the floor, more than ${N.name}'s ${N.ul_over_noise_db} dB`; }
+    const ul=cmN(r.ul);
+    if(ok&&N.ul_site_min_dbm!=null&&ul!=null&&(ul<N.ul_site_min_dbm||ul>N.ul_site_max_dbm||(N.ul_site_lt&&ul===N.ul_site_max_dbm))){ ok=false; why+=`; the uplink at the site is ${cmR1(ul)} dBm, outside ${N.name}'s ${N.ul_site_min_dbm} to ${N.ul_site_max_dbm} dBm`; }
+    if(ok&&N.ul_over_noise_db!=null&&ul!=null&&ul-off>N.ul_over_noise_db){ ok=false; why+=`; the uplink is ${cmR1(ul-off)} dB over the floor, more than ${N.name}'s ${N.ul_over_noise_db} dB`; }
     return {r, done:true, ok, rise, fin, why}; });
   const done=out.filter(x=>x.done), bad=done.filter(x=>!x.ok), rbw=cmN(T.rbw_khz), avg=cmN(T.avg_min);
   const method=[rbw!=null&&rbw!==N.rbw_khz?`RBW ${rbw} kHz (A.18.9.3 asks ${N.rbw_khz} kHz)`:"", avg!=null&&avg<N.avg_min?`a ${avg}-minute average (A.18.9.3 asks ${N.avg_min})`:""].filter(Boolean);
@@ -84,12 +86,12 @@ function cmNoise(C, N){ const T=C.noise||{}, rows=(T.rows||[]).filter(r=>cmN(r.o
   return {status:bad.length?"fail":done.length<out.length?"not done":"pass", value:cmR1(worst), unit:"dB rise",
     note:`${done.length-bad.length} of ${out.length} channel${out.length===1?"":"s"} under ${N.rise_db} dB${[...bad, ...done.filter(x=>x.ok&&x.rise>=N.rise_db)].map(x=>`; ${x.r.ch||"a channel"}: ${x.why}`).join("")}${where?` · ${where}`:""}`, rows:out}; }
 
-// a band's gain: typed on the isolation row, else the higher of its UL and DL gain from step 3
+// a band's gain: typed on the isolation row, else the higher of its UL and DL gain from step 2
 function cmGainOf(C, band){ const g=((C.gain||{}).rows||[]).find(x=>String(x.band||"").trim()===String(band||"").trim());
   const v=g?[cmN(g.ul),cmN(g.dl)].filter(x=>x!=null):[]; return v.length?Math.max(...v):null; }
 function cmIso(C, N){ const rows=((C.iso||{}).rows||[]).filter(r=>cmN(r.iso)!=null); if(!rows.length) return null;
   const out=rows.map(r=>{ const g=cmN(r.gain)??cmGainOf(C, r.band), iso=cmN(r.iso);
-    if(g==null) return {r, done:false, why:"needs the band's gain (here or in step 3)"};
+    if(g==null) return {r, done:false, why:"needs the band's gain (here or in step 2)"};
     const need=g+N.iso_margin_db; return {r, done:true, ok:iso>=need, over:iso-g, need, why:`${iso} dB vs ${need} dB needed (gain ${g} + ${N.iso_margin_db})`}; });
   const done=out.filter(x=>x.done), bad=done.filter(x=>!x.ok);
   return {status:!done.length?"not done":bad.length?"fail":done.length<out.length?"not done":"pass", value:done.length?cmR1(Math.min(...done.map(x=>x.over))):null, unit:"dB over gain",
@@ -176,9 +178,17 @@ window.dasCommission = (el, j0, save) => {
       <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><label>AHJ numbers <select id="cmAhj">${Object.entries(CM_AHJ).map(([k,a])=>`<option value="${k}" ${k===ahj?"selected":""}>${esc(a.name)}</option>`).join("")}</select></label>
         <button id="cmPrint">⎙ Print the commissioning record</button></div>
       <p class="hint" style="margin:6px 0 0">${esc(N.name)}: ${esc(CM_AHJ[ahj].says)} ${cmSrc(CM_AHJ[ahj].src, "Source")}${CM_AHJ[ahj].checked==="excerpt"?" (read from an excerpt of the document)":""}.${ahj!=="nfpa"?` Everything else: ${cmSrc(CM_NFPA, "NFPA 1225 (2022)")} and ${cmSrc(CM_IFC, "IFC 2021 510")}.`:""}
-        ${(cur.ahj?"":"Picked from the job's AHJ. ")}Noise rise under ${N.rise_db} dB, then ${N.extra_cut_db} dB more · RBW ${N.rbw_khz} kHz · ${N.avg_min}-minute average · isolation ${N.iso_margin_db} dB over gain (${esc(N.iso_from)})${N.noise_max_dbm!=null?` · noise at the site ≤ ${N.noise_max_dbm} dBm`:""}${N.donor_min_dbm!=null?` · donor ${N.donor_min_dbm} to ${N.donor_max_dbm} dBm`:""}${N.ul_over_noise_db!=null?` · uplink ≤ ${N.ul_over_noise_db} dB over the site floor`:""}${N.near_far?" · near-far test":""}.</p>
+        ${(cur.ahj?"":"Picked from the job's AHJ. ")}Noise rise under ${N.rise_db} dB, then ${N.extra_cut_db} dB more · RBW ${N.rbw_khz} kHz · ${N.avg_min}-minute average · isolation ${N.iso_margin_db} dB over gain (${esc(N.iso_from)})${N.noise_calc_dbm!=null?` · calculated noise at the site ≤ ${N.noise_calc_dbm} dBm, on the link budget`:""}${N.ul_site_min_dbm!=null?` · uplink at the site ${N.ul_site_min_dbm} to ${N.ul_site_max_dbm} dBm`:""}${N.donor_min_dbm!=null?` · donor ${N.donor_min_dbm} to ${N.donor_max_dbm} dBm`:""}${N.ul_over_noise_db!=null?` · uplink ≤ ${N.ul_over_noise_db} dB over the site floor`:""}${N.near_far?" · near-far test":""}.</p>
       <div class="cm-sum" id="cmSum"></div><div id="cmKept"></div></div>
-    ${one(1, "noise_floor", "Donor-site noise test", `<div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:6px;align-items:flex-end">
+    ${one(1, "isolation", "Isolation, donor to server antennas", table("iso", CM_ROWS.iso),
+      `Do this first: the booster stays off until it passes. Per band, at least the system gain + ${N.iso_margin_db} dB (${cmSrc(CM_NFPA, "NFPA 1225 18.10")}${N.iso_from!==N.base.name?`; ${esc(N.iso_from)}`:""}). Leave the gain empty to use step 2's higher of UL and DL.${(()=>{ const b=((d().design||{}).bands)||{}, est=Object.entries(b).filter(([,v])=>v&&v.isolation_db!=null); return est.length?` Design estimate: ${est.map(([k,v])=>`${esc(k)} ${v.isolation_db} dB`).join(", ")}.`:""; })()}`)}
+    ${one(2, "gain", "Gain, AGC and filter settings", `<div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:6px;align-items:flex-end">
+        ${[["maker","Maker",120],["model","Model",130],["serial","Serial",110],["fcc_id","FCC ID",120],["fw","Firmware",90]].map(([k,l,w])=>`<label>${l}<input data-k="gain.${k}" value="${esc(T.gain?.[k]||"")}" style="width:${w}px"></label>`).join("")}
+        <label class="cm-up">⇪ Screenshot or photo of the settings<input type="file" id="cmShot" accept="image/*,.pdf" hidden></label></div>
+      ${(T.gain?.shots||[]).length?`<p class="hint" style="margin:0 0 6px">In Files: ${T.gain.shots.map(esc).join(", ")}</p>`:""}
+      ${table("gain", CM_ROWS.gain)}<label class="cm-up" style="margin-top:6px">⇪ Import a settings table (CSV)<input type="file" id="cmGainCsv" accept=".csv,.txt,.tsv,.xlsx" hidden></label>`,
+      `Every band or channel as set on the BDA: uplink and downlink gain, AGC / ALC, filter or passband, output (${cmSrc(CM_NFPA, "NFPA 1225 20.3.10.1.3(11)")}; ${cmSrc(CM_IFC, "IFC 2021 510.5.4(6)")}: the gain of every amplifier). A table exported from the BDA's own software imports by its column names.`)}
+    ${one(3, "noise_floor", "Donor-site noise test", `<div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:6px;align-items:flex-end">
         <label>Site<input data-k="noise.site" value="${esc(T.noise?.site||"")}" placeholder="the agency's nearest site" style="width:170px"></label>
         <label>Radio shop contact<input data-k="noise.contact" value="${esc(T.noise?.contact||"")}" style="width:160px"></label>
         <label>Analyzer<input data-k="noise.analyzer" value="${esc(T.noise?.analyzer||"")}" placeholder="make, model, serial" style="width:170px"></label>
@@ -186,14 +196,6 @@ window.dasCommission = (el, j0, save) => {
         <label>Average, minutes<input data-k="noise.avg_min" type="number" step="any" value="${esc(T.noise?.avg_min??"")}" placeholder="${N.avg_min}" style="width:70px"></label></div>
       ${table("noise", CM_ROWS.noise)}`,
       `At the agency's site nearest the building, on its receiver multicoupler (the licensee's radio shop allows and usually runs this): RBW ${N.rbw_khz} kHz, idle uplink channel, ${N.avg_min}-minute average. Read with the booster off, then on. A rise of ${N.rise_db} dB or more: cut the uplink gain until the rise is gone, then ${N.extra_cut_db} dB more, and record the gain (${cmSrc(CM_NFPA, "NFPA 1225 A.18.9.3")}). A trace or log imported per reading is averaged as power and kept in Files.`)}
-    ${one(2, "isolation", "Isolation, donor to server antennas", table("iso", CM_ROWS.iso),
-      `Per band, at least the system gain + ${N.iso_margin_db} dB (${cmSrc(CM_NFPA, "NFPA 1225 18.10")}${N.iso_from!==N.base.name?`; ${esc(N.iso_from)}`:""}). Leave the gain empty to use step 3's higher of UL and DL.${(()=>{ const b=((d().design||{}).bands)||{}, est=Object.entries(b).filter(([,v])=>v&&v.isolation_db!=null); return est.length?` Design estimate: ${est.map(([k,v])=>`${esc(k)} ${v.isolation_db} dB`).join(", ")}.`:""; })()}`)}
-    ${one(3, "gain", "Gain, AGC and filter settings", `<div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:6px;align-items:flex-end">
-        ${[["maker","Maker",120],["model","Model",130],["serial","Serial",110],["fcc_id","FCC ID",120],["fw","Firmware",90]].map(([k,l,w])=>`<label>${l}<input data-k="gain.${k}" value="${esc(T.gain?.[k]||"")}" style="width:${w}px"></label>`).join("")}
-        <label class="cm-up">⇪ Screenshot or photo of the settings<input type="file" id="cmShot" accept="image/*,.pdf" hidden></label></div>
-      ${(T.gain?.shots||[]).length?`<p class="hint" style="margin:0 0 6px">In Files: ${T.gain.shots.map(esc).join(", ")}</p>`:""}
-      ${table("gain", CM_ROWS.gain)}<label class="cm-up" style="margin-top:6px">⇪ Import a settings table (CSV)<input type="file" id="cmGainCsv" accept=".csv,.txt,.tsv,.xlsx" hidden></label>`,
-      `Every band or channel as set on the BDA: uplink and downlink gain, AGC / ALC, filter or passband, output (${cmSrc(CM_NFPA, "NFPA 1225 20.3.10.1.3(11)")}; ${cmSrc(CM_IFC, "IFC 2021 510.5.4(6)")}: the gain of every amplifier). A table exported from the BDA's own software imports by its column names.`)}
     ${one(4, "oscillation", "Oscillation check", `<div class="row" style="flex-wrap:wrap;gap:10px;align-items:flex-end">
         ${[["dl","Downlink passband"],["ul","Uplink passband"]].map(([k,l])=>`<label>${l}<select data-k="osc.${k}"><option value="">—</option><option value="none" ${T.osc?.[k]==="none"?"selected":""}>No oscillation</option><option value="seen" ${T.osc?.[k]==="seen"?"selected":""}>Oscillation seen</option></select></label>`).join("")}
         <label>Alarm and shutdown<select data-k="osc.alarm"><option value="">not tested</option><option value="yes" ${T.osc?.alarm==="yes"?"selected":""}>Worked</option><option value="no" ${T.osc?.alarm==="no"?"selected":""}>Did not work</option></select></label>
@@ -267,9 +269,9 @@ function cmRecord(d, name){ const C=d.commission||{}, N=cmNumbers(d), T=cmTests(
   return `<h2 style="margin:0 0 4px">BDA commissioning record: ${esc(name)}</h2><p style="margin:0 0 8px">${esc(d.address||"")} · ${esc(d.ahj||"AHJ not set")} · prepared ${esc(typeof today==="function"?today():"")}</p>
     <p class="hint">Numbers: ${esc(N.name)} (${esc(A.src)}${A.checked==="excerpt"?", read from an excerpt":""}); NFPA 1225 (2022) A.18.9.3, 18.10, 20.3.10.1.3 (${CM_NFPA}); IFC 2021 510.5.4(6)-(8) (${CM_IFC}).</p>
     <table><thead><tr><th>Test</th><th>Result</th><th>Value</th><th>Detail</th></tr></thead><tbody>${CM_IDS.map(([id,l])=>{ const t=T[id]; return `<tr><td>${esc(l)}</td><td>${esc(t?t.status:"not done")}</td><td>${esc(t&&t.value!=null?`${t.value} ${t.unit||""}`:"")}</td><td>${esc(t?t.note:"")}</td></tr>`; }).join("")}</tbody></table>
-    <h3>1 Donor-site noise test</h3><p>${esc([C.noise?.site&&`Site: ${C.noise.site}`, C.noise?.contact&&`Radio shop: ${C.noise.contact}`, C.noise?.analyzer&&`Analyzer: ${C.noise.analyzer}`, C.noise?.rbw_khz!=null&&`RBW ${C.noise.rbw_khz} kHz`, C.noise?.avg_min!=null&&`${C.noise.avg_min}-minute average`].filter(Boolean).join(" · "))}</p>${tbl("noise", CM_ROWS.noise)}
-    <h3>2 Isolation</h3>${tbl("iso", CM_ROWS.iso)}
-    <h3>3 Gain, AGC and filter settings</h3><p>${esc([C.gain?.maker, C.gain?.model, C.gain?.serial&&`serial ${C.gain.serial}`, C.gain?.fcc_id&&`FCC ID ${C.gain.fcc_id}`, C.gain?.fw&&`firmware ${C.gain.fw}`].filter(Boolean).join(" · "))}</p>${tbl("gain", CM_ROWS.gain)}
+    <h3>1 Isolation</h3>${tbl("iso", CM_ROWS.iso)}
+    <h3>2 Gain, AGC and filter settings</h3><p>${esc([C.gain?.maker, C.gain?.model, C.gain?.serial&&`serial ${C.gain.serial}`, C.gain?.fcc_id&&`FCC ID ${C.gain.fcc_id}`, C.gain?.fw&&`firmware ${C.gain.fw}`].filter(Boolean).join(" · "))}</p>${tbl("gain", CM_ROWS.gain)}
+    <h3>3 Donor-site noise test</h3><p>${esc([C.noise?.site&&`Site: ${C.noise.site}`, C.noise?.contact&&`Radio shop: ${C.noise.contact}`, C.noise?.analyzer&&`Analyzer: ${C.noise.analyzer}`, C.noise?.rbw_khz!=null&&`RBW ${C.noise.rbw_khz} kHz`, C.noise?.avg_min!=null&&`${C.noise.avg_min}-minute average`].filter(Boolean).join(" · "))}</p>${tbl("noise", CM_ROWS.noise)}
     <h3>4 Oscillation check</h3><p>${esc(T.oscillation?`${T.oscillation.value} · ${T.oscillation.note}`:"not done")}</p>
     <h3>5 Donor level and source</h3><p>${esc(C.donor?.source||"")}</p>${tbl("donor", CM_ROWS.donor)}
     <h3>6 Talk-back and near-far</h3>${tbl("talk", CM_ROWS.talk)}`; }

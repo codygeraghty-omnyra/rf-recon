@@ -32,6 +32,7 @@ SOURCES = {
     "uls:paging": ("FCC ULS: Paging", "fcc", 168, "Paging and radiotelephone"),
     "uls:coast": ("FCC ULS: Marine & aviation ground", "fcc", 168, "Coast and ground stations"),
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
+    "uls:cell": ("FCC ULS: Cellular 800 MHz sites", "fcc", 168, "Each carrier's licensed 800 MHz sites: where, which tower, frequencies each way, power (about 24 MB)"),
     "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
     "spectrum": ("FCC carrier spectrum (market licences)", "fcc", 168, "Who holds which block in each market: cellular, PCS, AWS, 600, 700, 3.45 GHz, C-band, CBRS (about 115 MB)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
@@ -40,6 +41,7 @@ SOURCES = {
     "faa": ("FAA aviation frequencies (NASR)", "reference", 168, "Towers, ATIS, approach, CTAF, navaids, ILS; new cycle every 28 days"),
     "wigle": ("WiGLE (Wi-Fi/BT/cell)", "crowd", 168, "Needs your WiGLE API name + token"),
     "opencellid": ("OpenCelliD (cell towers)", "crowd", 336, "Needs your OpenCelliD key"),
+    "opencellid_us": ("OpenCelliD: every US cell", "crowd", 720, "Every cell OpenCelliD has in the US (its country files, MCC 310 to 316), so cell sites show anywhere. Needs your OpenCelliD key; a large download, monthly"),
     "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs a RepeaterBook token, which Your API keys doesn't take (RepeaterBook's policy discourages tools that mix sources)"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
@@ -60,7 +62,7 @@ SOURCES = {
     "usfa_fd": ("USFA fire department registry (DAS AHJ guess)", "reference", 720, "27,117 fire departments and 8,092 stations with addresses, phones and websites, for a DAS job's AHJ guess (US government; about 12 MB; frozen since June 2026)"),
     "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
 }
-DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
+DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:cell", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
                    "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic"}
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
@@ -172,6 +174,9 @@ def remote_modified(url):
 
 # ---------------------------------------------------------------- updater
 
+import dlstop  # noqa: E402  Stop all downloads (one switch for the app)
+
+
 class Updater:
     def __init__(self, db_path, crowd_path, get_setting, set_setting, active_area):
         self.db, self.crowd = db_path, crowd_path
@@ -185,6 +190,8 @@ class Updater:
         self.running = set()
         self._net_checking = False
         self._load()
+        if self.get("update.stopped", ""):  # stopped before a restart stays stopped
+            dlstop.stop()
 
     # persisted status
     def _load(self):
@@ -316,7 +323,8 @@ class Updater:
             src[sid] = s
         return {"auto": auto, "links": self.links(), "wifi_only": "cellular" not in self.links(),
                 "net": self.net, "client_hint": self.client_hint, "link": link, "sources": src,
-                "catalog": [c for c in cat if not c.get("updater")], "archive": bool(self.get("update.archive", False))}
+                "catalog": [c for c in cat if not c.get("updater")], "archive": bool(self.get("update.archive", False)),
+                "stopped": self.get("update.stopped", "") or None}
 
     def archive(self, path):
         """Each week's FCC files kept in fcc-archive/ when update.archive is on (the server, Cody 11/2)."""
@@ -359,8 +367,25 @@ class Updater:
         hours = min(float(c["interval_h"]), self.RETRY_H) if self.status[sid].get("failed") else float(c["interval_h"])
         return time.time() - t >= hours * 3600
 
+    # Stop all downloads / Resume downloads (Data & updates): the downloads running stop at their next megabyte,
+    # the batch starts nothing new, and nothing starts again (automatic updates included) until resumed
+    def stop_all(self):
+        dlstop.stop()
+        self.set("update.stopped", time.strftime("%Y-%m-%d %H:%M"))
+        with self.lock:
+            running = sorted(self.running)
+        for sid in running:
+            self.status[sid]["message"] = "stopping…"
+        return running
+
+    def resume_all(self):
+        dlstop.resume()
+        self.set("update.stopped", "")
+
     def run_sources(self, ids, force=False):
         """Run several sources in parallel (background). Returns ids started."""
+        if dlstop.stopped():
+            return []
         ids = [i for i in ids if i in SOURCES and i not in self.running and build.allowed(i)]
         if not ids:
             return []
@@ -396,6 +421,9 @@ class Updater:
 
     def _run_job(self, job, ids, force):
         now = lambda: time.strftime("%Y-%m-%d %H:%M")
+        if dlstop.stopped():  # stopped while this one waited its turn in the batch
+            self._mark(ids, state="skipped", message="not run: downloads are stopped")
+            return
         self._mark(ids, state="running", message="starting…")
         try:
             if job == "uls":
@@ -418,8 +446,12 @@ class Updater:
                 if not stale and all(self.status[i].get("last_updated") or self.data_dates().get(i) for i in ids):
                     self._mark(ids, state="ok", message="already current", last_checked=now())
                     return
+                # a source switched off keeps what it loaded: the table is rebuilt whole, so leaving its saved copy out dropped its data
+                # (add only, Cody 11/5). Off means it isn't checked or downloaded, not that it's thrown away
+                kept = sorted(svc for svc in (i.split(":", 1)[1] for i in SOURCES if i.startswith("uls:")) if svc not in services
+                              and os.path.exists(os.path.join(uls_import.DATA_DIR, f"l_{svc}.zip")))
                 paths = []
-                for svc in services:  # download only what changed; reuse the saved copy of the rest
+                for svc in services + kept:  # download only what changed; reuse the saved copy of the rest
                     self._mark(["uls:" + svc] if "uls:" + svc in self.status else [], message="downloading…" if svc in stale else "using saved copy…")
                     p = uls_import.download(svc, svc in stale, lambda m, end="\n": None)
                     if p:
@@ -563,9 +595,15 @@ class Updater:
                 r = permits.refresh(uls_import.DATA_DIR, todo, log=lambda m: self._mark(ids, message=str(m)[:200]))
                 bad = r.pop("errors", None) or {}
                 n = sum(v for v in r.values() if isinstance(v, int))
+                try:  # the areas people watch: new permits there land as leads on Needs you (leads.py). It sends nothing, and a failure here isn't the pull's
+                    import leads
+                    got = leads.after_refresh(self.db, uls_import.DATA_DIR, self.config()["permits"].get("datasets"), self._states())
+                    said = f"; {got['new']} new lead{'' if got['new'] == 1 else 's'} on Needs you" if got["new"] else ""
+                except Exception as e:  # noqa: BLE001
+                    said = f"; the prospect watch didn't run: {str(e)[:120]}"
                 self._mark(ids, state="error" if bad and not n else "ok", last_checked=now(), last_updated=now(), rows=n,
                            message=f"{n:,} permits from {len(todo) - len(bad)} of {len(todo)} datasets"
-                                   + (f"; failed: {', '.join(sorted(bad))}" if bad else ""))
+                                   + (f"; failed: {', '.join(sorted(bad))}" if bad else "") + said)
             elif job == "usfa_fd":  # fire departments for a DAS job's AHJ guess (ahj.py)
                 import ahj
                 r = ahj.refresh(uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m)[:200]))
@@ -607,6 +645,21 @@ class Updater:
                 finally:
                     con.close()
                 self._mark(ids, state="ok", message=f"{n:,} signals", last_checked=now(), last_updated=now(), rows=n)
+            elif job == "opencellid_us":  # the whole country, not an area (cells.load_country)
+                import cells
+                import connectors
+                key = (self.get("creds", {}) or {}).get("opencellid_key")
+                if not key:
+                    raise RuntimeError("add your OpenCelliD key in Settings")
+                con = connectors.open_db(self.crowd)
+                try:
+                    r = cells.load_country(con, key, uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=m[:160]))
+                finally:
+                    con.close()
+                if not r["files"]:
+                    raise RuntimeError("no country file came: " + "; ".join(r["missing"])[:260])
+                self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=r["kept"],
+                           message=f"{r['kept']:,} cells from MCC {', '.join(r['files'])}" + (f"; not got: {'; '.join(r['missing'])}"[:200] if r["missing"] else ""))
             else:
                 import connectors
                 creds = self.get("creds", {}) or {}
@@ -636,6 +689,8 @@ class Updater:
                 con.close()
                 self._mark(ids, state="ok", message=f"{total:,} points for {len(areas)} area(s)", last_checked=now(),
                            last_updated=now(), rows=total)
+        except dlstop.Stopped:  # Stop all downloads: not a failure, so no quicker retry (state skipped)
+            self._mark(ids, state="skipped", message=f"stopped by you {now()}: the data you had is kept", last_checked=now())
         except Exception as e:
             self._mark(ids, state="error", message=str(e)[:300], last_checked=now())
         finally:
@@ -645,7 +700,7 @@ class Updater:
     def tick(self):
         """Called periodically: run every enabled, due source if allowed."""
         self.refresh_net()
-        if not self.get("update.auto", False) or not self.net.get("online"):
+        if not self.get("update.auto", False) or not self.net.get("online") or dlstop.stopped():
             return
         if not self.link_allowed():
             for sid, c in self.config().items():

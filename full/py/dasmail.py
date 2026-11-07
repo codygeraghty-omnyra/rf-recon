@@ -4,20 +4,27 @@ RF Recon mail threads (Cody 11/4): every email RF Recon sends carries a tag in i
   [RFR Q12.2]               request for quote 12, supplier 2      → the quote is read in (sheet or typed prices)
   [RFR P-1a2b3c4d]          a DAS prospect                         → replied / do not contact (CAN-SPAM)
   [RFR J7 PLANS]            job 7, building plans request          → PDFs into the job's files
-  [RFR J7 CONSENT WQIF866]  job 7, licensee consent letter         → signed copy into the job's files, noted
-  [RFR J7 AHJ]              job 7, AHJ submittal / report          → into the job's files and log
+  [RFR J7 CONSENT WQIF866]  job 7, licensee consent letter         → signed copy into the job's files, noted, offered on Needs you
+  [RFR J7 AHJ]              job 7, AHJ question, submittal, report → into the job's files and log, offered on Needs you
   [RFR J7 MAIL]             job 7, anything else                   → into the job's files and log
 
 A reply is acted on only when it comes from the address the message went to (or the same domain); anything else is
 held for the person to look at. Nothing is ever sent from here without the person pressing Send. Standard library only.
+
+A consent or AHJ reply never changes the job's consent or Code check by itself. Reading yes or no from free text can be wrong, so
+it makes an offer: the form filled in, a line on the board's Needs you, one press by a person ("a reply's offer", below).
 """
+import email.utils
 import hashlib
 import json
 import os
 import re
 import time
 
+import codecheck
 import das
+import intake
+import dashist
 import keystore
 import mailbox
 
@@ -256,8 +263,10 @@ def _save_atts(con, jid, msg, only=None):
     for a in msg["attachments"]:
         if only and not re.search(only, a["name"], re.I):
             continue
-        a["saved"] = das.save_file(jid, j["name"], a["name"], a["data"])
-        out.append(a["saved"])
+        a["saved"] = (intake.from_mail(con, jid, a["name"], a["data"], msg.get("from") or "") if intake.MAIL_SCAN
+                      else das.save_file(jid, j["name"], a["name"], a["data"]))
+        if a["saved"]:  # refused: it's on the Intake list with why, and not in Files
+            out.append(a["saved"])
     return out
 
 
@@ -324,7 +333,7 @@ def _route_rfq(con, login, msg, tag, p):
 
 def apply_proposal(con, mail_id):
     r = con.execute("SELECT * FROM das_mail WHERE id=?", (mail_id,)).fetchone()
-    if not r or not r["proposal"]:
+    if not r or not r["proposal"] or r["kind"] != "rfq":  # a job reply's offer goes through Needs you: it has no prices
         raise LookupError("No prices to apply on that email.")
     prop = json.loads(r["proposal"])
     das.save_quote(con, r["rfq_id"], r["supplier"], {"lines": prop.get("lines") or {}, "terms": prop.get("terms") or {}})
@@ -373,8 +382,193 @@ def _route_job(con, login, msg, tag, p):
         cr = data.get("consent_replies") or {}
         cr[p["extra"] or msg["from"]] = {"from": msg["from"], "at": now()[:10], "files": saved}
         das.save_job(con, {"data": {"consent_replies": cr}}, jid)
-    _store_in(con, login, msg, tag, "job", "applied" if trusted else "held", res, refs)
-    return {"status": "applied" if trusted else "held", "result": res}
+    offer = _offer(con, jid, tag, p, msg, trusted)
+    status = "held" if not trusted else "offer" if offer else "applied"
+    _store_in(con, login, msg, tag, "job", status, res, refs, offer)
+    return {"status": status, "result": res}
+
+
+# ---------------------------------------------------------------- a reply's offer
+# Each consent or AHJ reply fills the form and shows on Needs you, the way typed prices wait for Apply. It never decides: a person
+# reads it and presses. The press saves through the page's own routes (dasx.js: /api/das/x/consent, /api/das/x/code), so the stage
+# gate, the job's one list of emails and Walk me through see it with nothing further. What's kept here is what the reply offered
+# (the proposal column) and whether it's been dealt with. A line also goes when the job's own record gets there first.
+
+_AUTO = re.compile(r"\s*(automatic reply|auto[- ]?reply|auto[- ]?response|out of (the )?office|undeliverable|undelivered|delivery (status|failure|has failed)|mail delivery|returned mail)\b", re.I)
+_NEG = (r"(?:can ?not|can'?t|could ?not|couldn'?t|won'?t|will not|would not|wouldn'?t|do not|don'?t|does not|doesn'?t|did not|didn'?t|"
+        r"are not|aren'?t|is not|isn'?t|am not|must not|may not|unable to|not able to|not willing to|not prepared to|not in a position to)")
+# "no objection" and its like say no but mean yes: taken out before the words below are looked for
+_NOT_A_NO = re.compile(r"\bno\s+(?:\w+\s+)?(?:objections?|issues?|problems?|concerns?|worries)\b|(?:\bnot|n'?t|\bnever)\s+(?:\w+\s+)?(?:object|oppose|opposed|mind)\b|"
+                       r"\bno reason to (?:refuse|deny|object)\b", re.I)
+_REFUSED = re.compile(rf"\b{_NEG}\s+(?:\w+\s+){{0,3}}?(?:consent|agree|allow|approve|authori[sz]e|grant|permit|give|provide|sign|support|accept)\w*|"
+                      r"\b(?:declin|refus|reject|withh[eo]ld|withdr[ae]w)\w*|\bden(?:y|ied|ies|ial)\b|\bobject(?:s|ed|ions?)?\b|\boppose[sd]?\b|\bno consent\b|"
+                      r"\bnot\s+(?:be\s+)?(?:approved|granted|authori[sz]ed|permitted|allowed|acceptable|agreed)\b|\bnot (?:at this time|yet)\b|\bhold off\b|"
+                      r"^\s*(?:no|nope)(?:[.,!;:]|\s*$)", re.I | re.M)
+# a yes in so many words. Beside a no ("we consent, but we can't sign until Monday") it reads both ways: the line then offers only Read it
+_SAID_YES = re.compile(r"\b(?:we|i)\s+(?:hereby\s+|do\s+)?(?:consent|approve|agree|authori[sz]e|grant)\b|\bconsent\s+(?:is\s+|was\s+|has been\s+|hereby\s+)?(?:granted|given|approved)\b|"
+                       r"(?<!not )\bapproved\b|\bgo ahead\b", re.I)
+# an AHJ's answers are full of "we do not allow": only saying it won't answer, or that it isn't theirs to answer, is a refusal
+_AHJ_REFUSED = re.compile(rf"\b{_NEG}\s+(?:\w+\s+){{0,2}}?(?:confirm|answer|advise|comment|respond|say|tell)\w*|"
+                          r"\b(?:not|outside|out)\s+(?:of\s+|in\s+|within\s+|under\s+)?(?:our|my|this office'?s?)\s+(?:jurisdiction|authority|area)\b", re.I)
+WORDS_DONE = {"given": "marked given", "refused": "marked refused", "confirmed": "Code check marked confirmed", "cleared": "nothing to mark"}
+
+
+def reads_as_refusal(text):
+    return bool(_REFUSED.search(_NOT_A_NO.sub(" ", text or "")))
+
+
+def reads_both_ways(text):
+    return reads_as_refusal(text) and bool(_SAID_YES.search(text or ""))
+
+
+def reads_as_ahj_refusal(text):
+    return bool(_AHJ_REFUSED.search(text or ""))
+
+
+def _written_on(msg):
+    """The day the reply was written, from its Date line, or today when that can't be read: a mailbox read late doesn't move the date."""
+    try:
+        return email.utils.parsedate_to_datetime(msg.get("date") or "").strftime("%Y-%m-%d")
+    except (TypeError, ValueError):
+        return now()[:10]
+
+
+def _licensee(d, call):
+    """Whose licence a consent tag's call sign is: the row the send left, else the channel plan. {} when neither says; the press
+    then looks in the job's passband list (dasx.js)."""
+    import daswatch
+    for key, c in (d.get("consents") or {}).items():
+        if call and call in (c.get("calls") or []):
+            return {"key": key, "licensee": c.get("licensee") or key, "calls": c.get("calls")}
+    for s in (d.get("presurvey") or {}).get("plan") or []:
+        if call and (s.get("call_sign") or "").upper() == call:
+            return {"key": daswatch.licensee_key(s.get("system")) or call, "licensee": s.get("system") or call, "calls": [call]}
+    return {}
+
+
+def _name_of(con, msg):
+    """Who at the AHJ: the name they're saved under, else the name on the email, else the address."""
+    c = next((c for c in das.list_contacts(con) if (c.get("email") or "").lower() == msg["from"]), {})
+    return c.get("name") or (msg.get("from_name") or "")[:120] or msg["from"]
+
+
+def _ahj_about(con, tag, msg):
+    """One tag carries every email to the AHJ: the Code check's question, the design for review, the test report. A reply answers the
+    one it replies to, so only the question's reply fills the Code check. "" for the question."""
+    was = con.execute("SELECT subject FROM das_mail WHERE tag=? AND direction='out' AND message_id=?", (tag, msg.get("in_reply_to") or "")).fetchone()
+    s = was["subject"] if was else msg["subject"]
+    return "the design" if re.search(r"ERCES design\b", s, re.I) else "the test report" if re.search(r"ERCES (?:acceptance|annual|five-year) test report", s, re.I) else ""
+
+
+def _offer(con, jid, tag, p, msg, trusted):
+    """What a reply offers: the form filled in, or None for a topic with no form. line: the presses on the Needs you line. reader: the
+    presses once it's been read, for when the reading was wrong. An untrusted sender gets neither."""
+    if p["topic"] not in ("CONSENT", "AHJ"):
+        return None
+    d, text = das.job_row(con, jid)["data"], msg.get("new_text") or msg.get("text") or ""
+    auto = bool(_AUTO.match(msg["subject"]))
+    o = {"trusted": trusted, "from": msg["from"], "who": msg.get("from_name") or msg["from"], "date": _written_on(msg), "auto": auto, "refusal": False}
+    if p["topic"] == "CONSENT":
+        o["both"] = not auto and reads_both_ways(text)
+        o["refusal"] = not auto and not o["both"] and reads_as_refusal(text)
+        extra = p["extra"]
+        if extra and not re.search(r"\d", extra):  # a call sign always has a digit; a carrier's tag is its name (dascell.js dasCellConsentMail)
+            o.update(kind="carrier", carrier=das.carrier_name(extra), line=[] if o["refusal"] else ["given"], reader=["given"])  # its table has a consent date, no refused
+        else:
+            o.update(kind="consent", call=extra, line=[] if o["refusal"] else ["given"], reader=["given", "refused"], **_licensee(d, extra))  # a refusal is word matching: it can be wrong, so that press comes after reading it
+        if o["both"]:
+            o["line"] = []
+    else:
+        about = _ahj_about(con, tag, msg)
+        if about or codecheck.status(d) == "confirmed":
+            o.update(kind="read", about=about, line=[], reader=[])
+        else:
+            o["refusal"] = not auto and reads_as_ahj_refusal(text)
+            o.update(kind="code", confirmed_by=_name_of(con, msg), confirmed_on=o["date"], how="email", line=[] if o["refusal"] else ["confirmed"], reader=["confirmed"])
+    if auto:
+        o["line"] = []
+    if not trusted:
+        o["line"], o["reader"] = [], []
+    return o
+
+
+def _settled(o, d):
+    """The job's own record has got there: someone set it in the Pre-survey or typed the Code check. A reply that disagrees with the
+    record stays up, because that's news, and so does one that came after a refusal was marked."""
+    if o["kind"] == "consent":
+        c = (d.get("consents") or {}).get(o.get("key")) or {}
+        st = c.get("status")
+        return not o["refusal"] if st == "given" else (o["refusal"] or o["date"] <= (c.get("date") or "")) if st == "refused" else st == "not needed"
+    if o["kind"] == "carrier":
+        return not o["refusal"] and bool((((d.get("cellular") or {}).get("approvals") or {}).get(o["carrier"]) or {}).get("consent"))
+    return o["kind"] == "code" and codecheck.status(d) == "confirmed"
+
+
+def _line(o, d):
+    name = o.get("licensee") or o.get("carrier") or o["who"]
+    no = ": reads as a refusal"
+    if not o["trusted"]:
+        on = "the AHJ email" if o["kind"] in ("code", "read") else f"the consent email for {o.get('carrier') or o.get('call') or 'this job'}"
+        return f"Reply from {o['from']} on {on}: we didn't write to them" + (". It reads as a refusal" if o["refusal"] else "")
+    if o["auto"]:
+        return f"{name} sent an automatic reply, not an answer"
+    if o["kind"] == "read":
+        return f"{o['who']} replied{' about ' + o['about'] if o.get('about') else ''}: read it"
+    if o["kind"] == "code":
+        return "AHJ replied" + (no if o["refusal"] else f": confirmed by {o['confirmed_by']}, {o['confirmed_on']}, by {o['how']}?")
+    if o.get("both"):
+        return f"{name} replied: reads both ways"
+    if not o["refusal"]:
+        return f"{name} replied: consent?"
+    given = o["kind"] == "consent" and ((d.get("consents") or {}).get(o.get("key")) or {}).get("status") == "given"
+    return f"{name} replied{no}" + (", and the job has it as given" if given else "")
+
+
+def board(con, jid, d, stage):
+    """The job's replies nobody has dealt with, as Needs you lines (dasx.py board). Every reply on the job, whoever's mailbox it came to:
+    the board already shows only the jobs a login can open. Mail older than this has no offer, so it makes no line."""
+    if stage == "Closed":
+        return []
+    out, shown = [], set()
+    for r in con.execute("""SELECT id, message_id, proposal FROM das_mail WHERE job_id=? AND direction='in' AND kind='job'
+                            AND status IN ('offer','held') AND proposal IS NOT NULL ORDER BY id DESC""", (jid,)).fetchall():
+        o = json.loads(r["proposal"])
+        if r["message_id"] in shown or o.get("closed") or _settled(o, d):
+            continue
+        shown.add(r["message_id"])  # one reply copied to two people's mailboxes is one line
+        out.append({"text": _line(o, d), "url": "", "source": "", "reply": {**o, "id": r["id"]}})
+    return out
+
+
+def _reply(con, jid, mail_id):
+    r = con.execute("SELECT * FROM das_mail WHERE id=? AND job_id=? AND direction='in' AND proposal IS NOT NULL", (mail_id, jid)).fetchone()
+    if not r:
+        raise LookupError("That reply isn't on this job.")
+    return r
+
+
+def reply_text(con, jid, mail_id):
+    """Read it: the words as they came, and what was filed from them."""
+    r = _reply(con, jid, mail_id)
+    return {"id": r["id"], "from": r["counterpart"], "name": r["counterpart_name"] or "", "subject": r["subject"], "ts": r["ts"], "body": r["body"] or "",
+            "files": [a["saved"] for a in json.loads(r["attachments"] or "[]") if a.get("saved")]}
+
+
+def reply_done(con, jid, mail_id, how):
+    """Closes a reply once the press has saved through the page's own route, or when there was nothing to mark. It can only say what the
+    reply offered. Pressed twice, or from two tabs: the second does nothing."""
+    r = _reply(con, jid, mail_id)
+    o = json.loads(r["proposal"])
+    if how not in WORDS_DONE or how != "cleared" and how not in o.get("reader", []):
+        raise ValueError("That reply can't be marked that way.")
+    if o.get("closed"):
+        return {"ok": True}
+    o["closed"] = {"how": how, "at": now(), "by": dashist.who_now()}
+    con.execute("UPDATE das_mail SET status=?, result=?, proposal=? WHERE id=?", ("held" if r["status"] == "held" else "applied",
+                f"{r['result'] or ''} · {WORDS_DONE[how]}", json.dumps(o), r["id"]))
+    con.commit()
+    das.note(con, jid, f"Reply from {r['counterpart']} of {o['date']}: {WORDS_DONE[how]}")
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- checking a mailbox

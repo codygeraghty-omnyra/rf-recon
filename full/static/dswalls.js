@@ -57,7 +57,7 @@ function lineSet(j, f, widthFt) {
 async function fromPdf(j, src, widthFt) {
   if (typeof pdfjs !== "function") return null;
   const r = await fetch(`/api/das/jobs/${j.id}/file?name=${encodeURIComponent(src.pdf)}`); if (!r.ok) return null;
-  const lib = await pdfjs(), doc = await lib.getDocument({data: await r.arrayBuffer()}).promise;
+  const lib = await pdfjs(), doc = await lib.getDocument({data: await r.arrayBuffer(), isEvalSupported: false}).promise;
   if (src.page > doc.numPages) return null;
   const page = await doc.getPage(src.page), view = page.getViewport({scale: 1});
   const [ops, text] = await Promise.all([page.getOperatorList(), page.getTextContent()]);

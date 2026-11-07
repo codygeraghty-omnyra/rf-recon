@@ -59,7 +59,7 @@ const DAS_STEP = {
      cellular: "B2 (AT&T) and B13 (Verizon) pass. B71 (T-Mobile) fails on purpose: its rooftop donor is below the minimum, and booster gain can't fix a weak, noisy donor. Twelve panels predict about 91% of the floor at −95 dBm RSRP on B2.",
      erces_done: "Both bands pass every check of the link budget, and every antenna passes its own budget: a seventh antenna in each elevator lobby covers the core's shadow, and the uplink gain is set 3 dB (800 MHz) and 6 dB (VHF) under the mid-way design so no radio near an antenna reaches the agency over −75 dBm. The core's concrete walls are drawn; every grid square is predicted to pass. Battery by NFPA 1225 18.13.2: 12 hours plus 20%, two strings of 12 V 100 Ah. The submittal's cover sheet has the project, occupancy, construction type, designer and installer.",
      cellular_done: "B2 (AT&T), B13 (Verizon) and B71 (T-Mobile) all pass: the second T-Mobile donor fixed B71. Thirteen 9 dBi panels: twelve down the aisles and one in the office block behind the CMU wall. Every panel passes its own budget; a 10 W booster on B2 carries the higher gain."}],
-  commission: ["Commissioning the booster step by step: the donor-site noise test, isolation, gain and filter settings, oscillation, the donor level, and the talk-back test. Each step's result goes into the acceptance tests on the Report.",
+  commission: ["Commissioning the booster step by step: isolation, gain and filter settings, the donor-site noise test, oscillation, the donor level, and the talk-back test. Each step's result goes into the acceptance tests on the Report.",
     "Type what the analyzer and the BDA show, or import a trace; pick the AHJ's numbers. Each step grades itself.",
     {erces: "Not done in the mid-way example.", cellular: "Not done in the mid-way example.",
      erces_done: "All six steps pass by NFPA 1225 (2022): the noise at the KNIQ704 site rose under 1 dB with the booster on, isolation is 44 dB over the gain, the gains and filters are recorded, no oscillation and the shutdown worked, the donor reads −47 dBm, and every talk-back call was clear, one within 10 ft of an antenna and one at the farthest point.",
@@ -141,7 +141,7 @@ async function dasAddExamples(msg){
 
 // the board, list and Data & links: how a job moves, and the button that adds the examples
 window.dasBoardGuide = (el, D) => {
-  if(!el || ["contacts","prospects","pitch"].includes(D.view)) return;  // the board's guide, not the outreach views
+  if(!el || ["contacts","register","prospects","pitch","fault"].includes(D.view)) return;  // the board's guide, not the outreach views or the lists
   const open = dasExPref("rfr.dasFlow", "1") === "1", hasEx = (D.jobs || []).some(j => DAS_EX_NAME.test(j.name));
   const four = "two mid-way, to learn each step (a public safety ERCES office at Acceptance, a carrier cellular warehouse at Design), and two finished, to see the end result (the same office and warehouse, In service)";
   const who = dasExWho(), own = who ? `Add example jobs makes your own copy of all four, named “${who}'s copy”. Only you and the admin can open them, so change anything you like; the team's stay as they are. Delete yours when you're done; add them again any time.` : "";

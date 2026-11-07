@@ -259,9 +259,9 @@ function emCellBody(el){
         <div>Site</div><div>${esc(s.located)} · ${num(s.dist_mi,2)} mi from the pin</div>
         <div>Seen</div><div>${s.samples?`${s.samples.toLocaleString()} samples · `:""}last ${esc(s.last||"?")} · ${esc(s.sources.join(", "))}</div></div>
       <h4 style="margin:10px 0 4px">Sectors (${s.cells.length})</h4>
-      <div class="tw"><table><thead><tr><th>Sector</th><th>Cell ID</th><th>Points toward (est.)</th><th class="n">Range</th><th class="n">Samples</th><th>Last seen</th><th></th></tr></thead><tbody>
-        ${s.cells.map((c,i)=>`<tr ${me&&c.gci===me.gci?'style="font-weight:700"':""}><td>${c.sector??""}</td><td class="mono">${esc(c.gci)}</td><td>${c.az_est!=null?`${c.az_est}° ${COMPASS16[Math.round(c.az_est/22.5)%16]}`:"–"}</td>
-          <td class="n">${c.range_m?num(c.range_m/1609.344,1)+" mi":""}</td><td class="n">${c.samples||""}</td><td>${esc(c.last||"")}</td><td><button data-sec="${i}">Coverage</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="tw"><table><thead><tr><th>Sector</th><th>Cell ID</th><th>${s.radio==="UMTS"?"PSC":"PCI"}</th><th>Points toward (est.)</th><th class="n">Range</th><th class="n">Samples</th><th>Last seen</th><th></th></tr></thead><tbody>
+        ${s.cells.map((c,i)=>`<tr ${me&&c.gci===me.gci?'style="font-weight:700"':""}><td>${c.sector??""}</td><td class="mono">${esc(c.gci)}</td><td class="mono">${c.pci??'<span class="hint">not heard</span>'}</td><td>${c.az_est!=null?`${c.az_est}° ${COMPASS16[Math.round(c.az_est/22.5)%16]}`:"–"}</td>
+          <td class="n">${c.range_m?num(c.range_m/1609.344,1)+" mi":""}</td><td class="n">${c.samples||""}</td><td>${esc(c.last||"")}${emStale(c.last)}</td><td><button data-sec="${i}">Coverage</button></td></tr>`).join("")}</tbody></table></div>
       <p class="hint">Direction is estimated from where the crowd saw each sector relative to the tower; ranges are how far its samples spread (OpenCelliD).</p></div>
     <div>${t?`<h4 style="margin:0 0 4px">FCC tower ${esc(t.reg)} <span class="hint">· ${t.match_m} m from the cells' average position</span></h4>
         <div class="kvg"><div>Owner</div><div>${esc(t.owner||"not on file")}</div><div>Structure</div><div>${esc(t.struct_type||"")} ${t.overall_agl_m??"?"} m (${t.overall_agl_m?Math.round(t.overall_agl_m*3.281)+" ft":"?"}) above ground</div>
@@ -269,8 +269,42 @@ function emCellBody(el){
         <h4 style="margin:10px 0 4px">FCC licensees on this tower (${t.licensees.length})</h4>
         ${t.licensees.length?`<div class="tw" style="max-height:220px"><table><thead><tr><th>Licensee</th><th>Call sign</th><th>Service</th><th class="n">Freqs</th></tr></thead><tbody>${t.licensees.map(x=>`<tr><td>${esc(x.licensee)}</td><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.service_name||"")}</td><td class="n">${x.freqs}</td></tr>`).join("")}</tbody></table></div>`:'<p class="hint">No land mobile licences link to it (carriers\' own licences are by market, not by site).</p>'}`
       :'<p class="hint">No FCC-registered tower within 1 km of these cells (structures under 200 ft near no airport needn\'t register): the site is placed at the cells\' average position.</p>'}
-      <p class="hint" style="margin-top:8px">Look it up: <a href="https://www.cellmapper.net/map?latitude=${s.lat}&longitude=${s.lon}&zoom=15" target="_blank" rel="noopener">CellMapper ↗</a> · <a href="https://opencellid.org/#zoom=16&lat=${s.lat}&lon=${s.lon}" target="_blank" rel="noopener">OpenCelliD ↗</a> · <a href="https://wigle.net/map?maplat=${s.lat}&maplon=${s.lon}&mapzoom=15" target="_blank" rel="noopener">WiGLE ↗</a></p></div></div>`;
+      <p class="hint" style="margin-top:8px">Look it up: <a href="https://www.cellmapper.net/map?latitude=${s.lat}&longitude=${s.lon}&zoom=15" target="_blank" rel="noopener">CellMapper ↗</a> · <a href="https://opencellid.org/#zoom=16&lat=${s.lat}&lon=${s.lon}" target="_blank" rel="noopener">OpenCelliD ↗</a> · <a href="https://wigle.net/map?maplat=${s.lat}&maplon=${s.lon}&mapzoom=15" target="_blank" rel="noopener">WiGLE ↗</a></p></div></div>
+    <div id="emCellRecord">${emCellLicensed(s)}</div>`;  // full width: the channel table needs its columns
   el.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{ const c=s.cells[+b.dataset.sec]; const row=emCellRow(s, c); emitOpen(row, "coverage"); });
+}
+
+// the site's public record beyond what the crowd heard: the FCC 800 MHz licence filed for this spot, every block the carrier holds in the
+// county with the channel numbers a site of this kind could use each way, and what only a scan brings (Cody 11/6). Licensed is never
+// shown as measured
+// a cell the crowd last saw over two years ago may be a network its carrier has since shut down (3G, CDMA): said, not hidden
+// a cell with no date came only from an older per-area pull: OpenCelliD's US file, whose cells were all last seen in 2025 or later (read 11/6),
+// doesn't have it. Most 3G and every CDMA cell reads this way
+const emStale = d => { if(!d) return ` <span class="tag" title="Only in an older per-area pull. OpenCelliD's current US file, whose cells were all last seen in 2025 or later, doesn't have it: AT&T, T-Mobile and Verizon shut their 3G and CDMA networks down in 2022">not in the current US file</span>`; const cut=(t=>`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`)(new Date(Date.now()-730*864e5)); return d<cut?` <span class="tag" title="The crowd hasn't reported it since. AT&T, T-Mobile and Verizon shut their 3G and CDMA networks down in 2022">not seen since ${esc(d.slice(0,4))}</span>`:""; };
+function emCellLicensed(s){
+  const rng=a=>a?(a[0]===a[1]?`${a[0]}`:`${a[0]}–${a[1]}`):"";
+  const mhz=a=>a?`${num(a[0],1)}–${num(a[1],1)}`:"";
+  const lic=s.licensed||[], f=s.fcc_cellular||[];
+  const fcc=f.length?`<h4 style="margin:12px 0 4px">FCC cellular licence at this site <span class="hint">· 800 MHz, as filed</span></h4>
+    <div class="tw"><table id="emCellFcc"><thead><tr><th>Call sign</th><th>Licensee on the licence</th><th>Block</th><th>Downlink MHz</th><th>Uplink MHz</th><th class="n">ERP</th><th class="n">Height</th></tr></thead><tbody>
+      ${f.map(x=>`<tr><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.licensee||"")}</td><td>${esc(x.block||"")}</td><td class="mono">${x.dl.map(mhz).join(", ")}</td><td class="mono">${x.ul.map(mhz).join(", ")}</td>
+        <td class="n">${x.erp_w!=null?`${num(x.erp_w,1)} W`:""}</td><td class="n">${x.haat_m!=null?`${num(x.haat_m,0)} m above average terrain`:x.height_m!=null?`${num(x.height_m,0)} m`:""}</td></tr>`).join("")}</tbody></table></div>
+    <p class="hint">The licensee is the name on the licence, which can be a company the carrier has since bought.</p>`:"";
+  const blocks=lic.length?`<h4 style="margin:12px 0 4px">Bands and channels the carrier is licensed for here <span class="hint">· ${esc(s.licensed_where||"")}, FCC</span></h4>
+    <div class="tw"><table id="emCellBands"><thead><tr><th>Band</th><th>Block</th><th>Downlink MHz</th><th>Uplink MHz</th><th>3GPP band</th><th>Channel numbers down</th><th>Channel numbers up</th><th>Call sign</th></tr></thead><tbody>
+      ${lic.flatMap(b=>b.channels.map((c,i)=>`<tr>${i?`<td></td><td></td><td></td><td></td>`:`<td>${esc(b.band)}</td><td>${esc(b.block||"")}</td><td class="mono">${mhz(b.dl_mhz)}</td><td class="mono">${b.tdd?"same (TDD)":b.ul_mhz?mhz(b.ul_mhz):"none (downlink only)"}</td>`}
+        <td>${esc(c.band)}</td><td class="mono">${esc(c.kind)} ${rng(c.dl)}</td><td class="mono">${c.tdd?"same (TDD)":c.same?"same numbers":c.ul?`${esc(c.kind)} ${rng(c.ul)}`:"none"}</td><td class="mono">${esc((b.calls||[]).join(", "))}</td></tr>`)).join("")}</tbody></table></div>`
+    :`<p class="hint" style="margin-top:12px">${esc(s.licensed_where?`No ${s.radio} blocks on file for ${s.operator} in ${s.licensed_where}.`:"Carrier spectrum isn't loaded on this copy.")}</p>`;
+  const ot=s.on_tower, tower=ot&&ot.sites.length?`<h4 style="margin:12px 0 4px">Everything on this tower <span class="hint">· FCC ${esc(ot.reg)} · ${ot.sites.length} site${ot.sites.length===1?"":"s"}, ${ot.cells} cell${ot.cells===1?"":"s"}, ${esc(ot.carriers.join(", "))}</span></h4>
+    <div class="tw"><table id="emCellTower"><thead><tr><th>Carrier</th><th>Technology</th><th>Site</th><th>Cells (sector · cell ID · PCI/PSC)</th><th>Bands licensed here</th><th>Last seen</th></tr></thead><tbody>
+      ${ot.sites.map(x=>`<tr ${x.key===s.key?'style="font-weight:700"':""}><td>${esc(x.operator)}</td><td>${esc(x.radio)}</td><td class="mono">${esc(String(x.site_kind).split(" ")[0])} ${esc(String(x.site_id))}</td>
+        <td class="mono" style="font-size:11px">${x.cells.map(c=>`${c.sector??"?"} · ${esc(c.gci)}${c.pci!=null?` · ${c.pci}`:""}`).join("<br>")}</td><td>${esc(x.bands.join(", ")||"none on file")}</td><td>${esc(x.last||"")}${emStale(x.last)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="hint">Every carrier's cells the crowd placed on this tower. Which band each cell is on only a scan says: the bands here are what each carrier holds in the county.</p>`:"";
+  return `${tower}${fcc}${blocks}
+    <p class="hint">Licensed, not measured: what ${esc(s.operator)} may use here, worked out to channel numbers (3GPP TS 36.101, 38.104, 25.101, 45.005). Which of these this site has on the air only a scan says.</p>
+    <details class="hint" style="margin-top:6px"><summary>What a scan adds</summary>
+      <p style="margin:6px 0">The channel each sector is on, its bandwidth, broadcast settings (tracking area, neighbours, paging and access settings), signal received (RSRP, RSRQ, SINR) and timing. Import a scanner or phone capture in a mission and these cells pick up its channel and level.</p>
+      <p style="margin:0">Not collected: anything that identifies a person, such as subscriber IDs (TMSI, IMSI) or the contents of calls and pages.</p></details>`;
 }
 
 // a cell (from a site) as a row the panel can open

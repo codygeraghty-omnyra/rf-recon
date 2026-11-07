@@ -318,6 +318,12 @@
    "title": "FCC Public Notice DA 09-1783 (800 MHz reconfiguration; NPSPAC band now 806-809/851-854 MHz)",
    "url": "https://docs.fcc.gov/public/attachments/DA-09-1783A1.pdf",
    "kind": "code"
+  },
+  {
+   "key": "andrew_7617394",
+   "title": "ANDREW, Installation of HELIAX Jumper Products, Bulletin 7617394 Rev H (2025), torque table (read as a rendered page; text extraction scrambles the table)",
+   "url": "https://www.andrew.com/globalassets/digizuite/987596-7617394.pdf",
+   "kind": "vendor"
   }
  ],
  "requirements": [
@@ -2091,12 +2097,13 @@
  "torque": [
   {
    "connector": "4.3-10, screw (hex) coupling",
-   "torque": "5 N-m (Rosenberger recommended); wrench set 5 +/- 0.3 N-m",
+   "torque": "5 N-m (Rosenberger recommended); wrench set 5 +/- 0.3 N-m; ANDREW jumper bulletin 7617394 Rev H (2025): 5 to 8 N-m (44 to 70 in-lb)",
    "tool": "22 mm torque wrench (Rosenberger 64W022-001; Anritsu 01-528-R)",
    "note": "PIM is designed to be independent of torque; Rosenberger's comparison table writes '> 5 Nm'.",
    "sources": [
     "rosenberger_43_10",
-    "anritsu_mw82119b_ds"
+    "anritsu_mw82119b_ds",
+    "andrew_7617394"
    ]
   },
   {
@@ -2119,7 +2126,7 @@
   },
   {
    "connector": "7-16 (7/16 DIN)",
-   "torque": "Sources differ: > 25 N-m (Rosenberger); 25-30 N-m / 221-265 in-lb (Microwaves101 table); 20 ft-lb (~27 N-m) 'accepted' (Anritsu)",
+   "torque": "Sources differ: > 25 N-m (Rosenberger); 25-30 N-m / 221-265 in-lb (Microwaves101 table); 20 ft-lb (~27 N-m) 'accepted' (Anritsu); ANDREW jumper bulletin 7617394 Rev H (2025): 25 to 30 N-m (18 to 22 ft-lb)",
    "tool": "1-1/4 in torque wrench listed in Anritsu's PIM kit (01-513-R); that it is the 7/16 wrench is inferred",
    "note": "Anritsu: use the manufacturer's value where it differs. During troubleshooting Anritsu suggests removing seals and testing hand-tight, then refitting seals and torquing for certification. One owner spec (CU Denver) applies 16-18 ft-lb blanket - correct only for 7/16 DIN.",
    "sources": [
@@ -2127,29 +2134,32 @@
     "microwaves101_torque",
     "anritsu_understanding",
     "anritsu_troubleshooting",
-    "cudenver_div27"
+    "cudenver_div27",
+    "andrew_7617394"
    ]
   },
   {
    "connector": "N type",
-   "torque": "Sources differ: 0.7-1.1 N-m (Rosenberger); 12 in-lb (~1.4 N-m) 'common' (Anritsu); stainless 12-15 in-lb (1.4-1.7 N-m) / brass 6.2-9.7 in-lb (0.7-1.1 N-m) (Microwaves101)",
+   "torque": "Sources differ: 0.7-1.1 N-m (Rosenberger); 12 in-lb (~1.4 N-m) 'common' (Anritsu); stainless 12-15 in-lb (1.4-1.7 N-m) / brass 6.2-9.7 in-lb (0.7-1.1 N-m) (Microwaves101); ANDREW jumper bulletin 7617394 Rev H (2025): 1.7 to 2.3 N-m (15 to 20 in-lb)",
    "tool": "N torque wrench at the manufacturer's value",
    "note": "Small male outer-contact area is easily damaged by over-torque; Anritsu advises avoiding N in PIM-critical paths where possible.",
    "sources": [
     "rosenberger_43_10",
     "anritsu_understanding",
     "microwaves101_torque",
-    "anritsu_troubleshooting"
+    "anritsu_troubleshooting",
+    "andrew_7617394"
    ]
   },
   {
    "connector": "NEX10, screw coupling",
-   "torque": "1.5 N-m (CommScope TW-N10: 1.505 N-m / 13.32 in-lb; SPINNER 1.5 N-m)",
+   "torque": "1.5 N-m (CommScope TW-N10: 1.505 N-m / 13.32 in-lb; SPINNER 1.5 N-m); ANDREW jumper bulletin 7617394 Rev H (2025): 4 to 5 N-m (35 to 44 in-lb). Makers disagree: use the value from the maker of the connector on your cable, and write it in the job book (a preset wrench holds one value)",
    "tool": "11 mm torque wrench",
    "note": "CommScope lists a 6-month calibration interval for its wrench. NEX10 also comes in a push-pull version.",
    "sources": [
     "commscope_tw_n10",
-    "spinner_nex10"
+    "spinner_nex10",
+    "andrew_7617394"
    ]
   },
   {

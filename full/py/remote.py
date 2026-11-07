@@ -109,11 +109,11 @@ def role_of(name):
 
 def _has_course(u):
     role = u.get("role") or "view"
-    return role == "admin" or bool(u.get("course")) and role != "ahj"
+    return role != "ahj" and bool(u.get("course", role == "admin"))  # an admin starts ticked until someone unticks them
 
 
 def has_course(name):
-    """Whether this login has the DAS course: an admin always, an AHJ login never, anyone else when ticked."""
+    """Whether this login has the DAS course: as ticked in Data & updates. An AHJ login never does."""
     u = _load().get((name or "").strip().lower())
     return bool(u) and _has_course(u)
 
@@ -124,8 +124,6 @@ def set_course(name, on):
         u = us.get((name or "").strip().lower())
         if u is None:
             raise LookupError("No one by that name.")
-        if (u.get("role") or "view") == "admin":
-            raise ValueError("An admin always has the DAS course.")
         if u.get("role") == "ahj":
             raise ValueError("An AHJ login sees only the reports shared with it.")
         u["course"] = bool(on)
@@ -146,7 +144,7 @@ def add(name, role=None):
         us = _load()
         old = us.get(name.lower(), {})
         us[name.lower()] = {"name": name, "salt": salt, "hash": _hash(pw, salt), "added": old.get("added") or time.strftime("%Y-%m-%d %H:%M"),
-                            "last": old.get("last"), "role": role or old.get("role") or "view", "course": bool(old.get("course"))}
+                            "last": old.get("last"), "role": role or old.get("role") or "view", **({"course": old["course"]} if "course" in old else {})}
         _save(us)
     return pw
 

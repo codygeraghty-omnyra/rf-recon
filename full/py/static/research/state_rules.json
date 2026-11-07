@@ -1,0 +1,1441 @@
+{
+ "about": "Fire code and ERCES rule by state. A lead, not an answer: the AHJ confirms it. status says how far each was read. Built by tools/build_state_rules.py.",
+ "checked": "2026-11-05",
+ "labels": {
+  "no_mandate": "No mandate: state law bars requiring one",
+  "local": "Local only: nothing statewide",
+  "discretion": "Exceptions, or the official decides",
+  "required": "Required by the state's code",
+  "unknown": "Not found"
+ },
+ "states": {
+  "AK": {
+   "name": "Alaska",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2021",
+    "effective": "Search summary: new Title 13 AAC 50-55 codes took effect 2022-10-28 (not seen in the rule text)",
+    "statewide": "yes (State Fire Marshal / Division of Fire and Life Safety); local enforcement not verified",
+    "state_amendments": "13 AAC 50.025 (IFC 2021 Ch.1-12, 20-40, 50-67, 80 and Appendices B-1, K, L, N adopted; Ch.13-19, 41-49, 68-79 reserved) - Chapter 5 incl. Sec. 510 is inside the adopted chapters",
+    "source": "https://www.law.cornell.edu/regulations/alaska/13-AAC-50.025",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2021 Sec. 510 via 13 AAC 50.025",
+    "summary": "No Alaska amendment to Section 510 seen. One amendment lets the fire department require emergency responder radio coverage alongside access roads, hydrants and key boxes, and requires documentation that the fire chief was consulted.",
+    "thresholds": "Model-code triggers - not read",
+    "source": "https://www.law.cornell.edu/regulations/alaska/13-AAC-50.025",
+    "status": "read"
+   },
+   "local_amendments": "Not verified.",
+   "ahj": "State Fire Marshal (Dept. of Public Safety, Division of Fire and Life Safety) for plan review; local fire chiefs where they exist.",
+   "fire_marshal": "https://dps.alaska.gov/Fire",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "AL": {
+   "name": "Alabama",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2021",
+    "effective": "Rule revised effective 2023-01-01; a later amendment (hearing 2024-12-10, effective 2025-01-01) is reported by a search summary only",
+    "statewide": "yes (State Fire Marshal rule); many cities also adopt locally - not verified",
+    "state_amendments": "Ala. Admin. Code 482-2-101-.02 (IFC 2021 with Appendices B,C,D,E,M adopted; Part 2 of Ch.1 and Appendices A,F-L not adopted; D107 and 1103.5.4/App. M recommended only)",
+    "source": "https://www.law.cornell.edu/regulations/alabama/Ala-Admin-Code-r-482-2-101-.02",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2021 Sec. 510 (via Ala. Admin. Code 482-2-101-.02)",
+    "summary": "The state rule adopts the IFC 2021 and its exclusion list does not touch Chapter 5 or Section 510, so the model-code ERCES requirement stands as written. We did not open the model Section 510 text this session.",
+    "thresholds": "Model-code triggers (new buildings; existing per Ch.11) - not read",
+    "source": "https://www.law.cornell.edu/regulations/alabama/Ala-Admin-Code-r-482-2-101-.02",
+    "status": "read"
+   },
+   "local_amendments": "Not verified. The state rule is used for projects under State Fire Marshal review; Rule 482-2-101-.05 lets the State Fire Marshal allow later editions per project.",
+   "ahj": "State Fire Marshal (Alabama Department of Insurance) for state-reviewed projects; local fire officials elsewhere - split not verified.",
+   "fire_marshal": "https://firemarshal.alabama.gov/",
+   "pending": "None found (no 2025-2026 Alabama ERCES bill turned up in searches).",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "AR": {
+   "name": "Arkansas",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (as Arkansas Fire Prevention Code)",
+    "edition": "2021",
+    "effective": "2023-01-01 (adopted Ark. Register Vol. 47 No. 07, effective 7/1/2022 per LII notes)",
+    "statewide": "yes",
+    "state_amendments": "2021 Arkansas Fire Prevention Code, 015.01.22 Ark. Code R. 005 (Arkansas State Police rules; Vol. I Fire)",
+    "source": "https://www.law.cornell.edu/regulations/arkansas/015-01-22-Ark-Code-R-005",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2021 Sec. 510, 1103.2, 105.6.4 (Arkansas Fire Prevention Code Vol. I)",
+    "summary": "The Arkansas amendments text we read has no change to Section 510, so the IFC 2021 requirement stands: approved in-building coverage in new buildings unless the fire code official finds it not needed; existing buildings via Chapter 11. Model text came from the ICC index and a search summary.",
+    "thresholds": "Model-code triggers - not read",
+    "source": "https://www.law.cornell.edu/regulations/arkansas/015-01-22-Ark-Code-R-005",
+    "status": "read"
+   },
+   "local_amendments": "Not verified.",
+   "ahj": "Arkansas State Fire Marshal (Director of the Arkansas State Police by law); local fire officials enforce locally - split not verified.",
+   "fire_marshal": "https://www.dps.arkansas.gov/law-enforcement/state-police/",
+   "pending": "None found. No 2024 Arkansas edition found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "AZ": {
+   "name": "Arizona",
+   "level": "local",
+   "rule": "local option",
+   "fire_code": {
+    "base": "IFC (state fire code); local codes govern most buildings",
+    "edition": "State: IFC 2024 per a search summary of the OSFM page (April 2026); locals vary (Phoenix 2024 IFC; one fire authority on 2018 IFC with 2020 amendments)",
+    "effective": "not confirmed",
+    "statewide": "partial: state fire code applies to state and county buildings, schools, and areas with no local fire code; cities and fire districts adopt their own",
+    "state_amendments": "Arizona Administrative Code Title 4, Ch. 36 (State Fire Code, incorporates IFC by reference with Article 3 changes) - text not opened",
+    "source": "https://dffm.az.gov/fire-marshal/arizona-state-statute-and-fire-code",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "local option",
+    "citation": "none statewide found; local IFC Sec. 510 amendments",
+    "summary": "No Arizona statute or state rule found requiring or banning ERCES. Whether Section 510 applies depends on the local fire code a city or fire district adopted. The AZ Secretary of State rules site returned a bot-check page, so Title 4 Ch. 36 was not read and we did not work around it.",
+    "thresholds": "Local",
+    "source": "https://dffm.az.gov/fire-marshal/arizona-state-statute-and-fire-code",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes: cities, counties and fire districts adopt and amend their own fire codes (search summary). Cited statutes A.R.S. 9-808 and 11-861 were not opened.",
+   "ahj": "Local fire code official; Office of the State Fire Marshal for state/county buildings, schools, and unincorporated areas without a local code.",
+   "fire_marshal": "https://dffm.az.gov/fire-marshal",
+   "pending": "HB 2324 (2026, signed 2026-04-13, 'Fire Marshal Bill Burns Act') concerns municipal fire inspection reports and county building inventory - not ERCES. No ERCES bill found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "CA": {
+   "name": "California",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (as California Fire Code, Title 24 Part 9)",
+    "edition": "2025 CFC (based on IFC 2024)",
+    "effective": "2026-01-01",
+    "statewide": "yes",
+    "state_amendments": "California Code of Regulations Title 24 Part 9, adopted via Title 19 Div 1; state amendments by State Fire Marshal / Building Standards Commission",
+    "source": "https://codes.iccsafe.org/content/CAFC2025P1/chapter-5-fire-service-features",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "2025 CFC Sec. 510 (Emergency Responder Communications Enhancement Systems), 510.5.5",
+    "summary": "Section 510 is in the statewide code. California adds language letting the fire code official accept an automatically activated coverage system where a required system could disturb normal facility operations. Local jurisdictions amend 510 freely (Corona requires ERCES in all new buildings based on exterior public safety coverage; San Francisco amends it too).",
+    "thresholds": "Model-code triggers plus local amendments; test 95% per floor",
+    "source": "https://codes.iccsafe.org/content/CAFC2025P1/chapter-5-fire-service-features",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes: cities and counties adopt local amendments (Corona 15.12.250 amends 510.1; SF Fire Code 2025). The state statute that governs this (H&S Code 17958.7 findings) was not opened.",
+   "ahj": "Local fire code official; State Fire Marshal for state-owned buildings, schools, and certain institutional occupancies.",
+   "fire_marshal": "https://osfm.fire.ca.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "CO": {
+   "name": "Colorado",
+   "level": "local",
+   "rule": "local option",
+   "fire_code": {
+    "base": "none statewide for general buildings; IFC by local adoption",
+    "edition": "State DFPC: IFC editions for schools, junior colleges and licensed health care (editions disagree between sources: 2012, 2021, 2024); Denver 2025 Denver Fire Code amends IFC 2024",
+    "effective": "Denver: 2025 amendments (June 2025, 2nd printing Nov 2025)",
+    "statewide": "no, local adoption (home rule)",
+    "state_amendments": "Division of Fire Prevention and Control rules for state-scope buildings; Denver Fire Code 2025 for Denver",
+    "source": "https://dfpc.colorado.gov/",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "local option",
+    "citation": "Denver Fire Code 2025 Sec. 510 (local); no state ERCES statute found",
+    "summary": "Colorado leaves ERCES to local fire codes. Read for Denver: 2025 Denver Fire Code replaces 510.1 so coverage is required for high-rise, underground and airport buildings, plus new buildings that must be tested at completion; failing buildings get an ERCES; retest every 5 years under DFD Policy 510-1.",
+    "thresholds": "Denver 510.1.1 test triggers: Type I/II over 50,000 gross sq ft; Group E and I over 12,000 sq ft on any story; Type III/IV/V over 100,000 sq ft with masonry shafts/walls/floors; occupiable below-grade area over 10,000 sq ft",
+    "source": "https://denvergov.org/files/assets/public/v/3/community-planning-and-development/documents/ds/building-codes/2025_denver_fire_code.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Yes, home rule: cities and counties adopt and amend (Denver, Aurora, Colorado Springs, Fort Collins, Boulder named in summaries). State statute not opened.",
+   "ahj": "Local fire marshal / fire code official; DFPC where no local program exists and for schools and licensed health care.",
+   "fire_marshal": "https://dfpc.colorado.gov/",
+   "pending": "None found. Colorado bills seen (SB25-031, HB26-1238, HB26-1252) are not about in-building coverage. Note: the 'read' status on erces covers Denver only; the state-level finding is an excerpt.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "CT": {
+   "name": "Connecticut",
+   "level": "required",
+   "rule": "statewide mandate",
+   "fire_code": {
+    "base": "two codes: NFPA 1 (State Fire Prevention Code) and IFC (State Fire Safety Code Part III)",
+    "edition": "NFPA 1 2021 and IFC 2021 (2022 Connecticut State Fire Prevention Code and 2022 State Fire Safety Code); errata #1 dated 2023-04-12",
+    "effective": "2022-10-01",
+    "statewide": "yes",
+    "state_amendments": "2022 Connecticut State Fire Prevention Code (NFPA 1 amendments) and 2022 Connecticut State Fire Safety Code (IFC amendments)",
+    "source": "https://portal.ct.gov/-/media/das/office-of-state-fire-marshal/2022-csfpc-integrated-errata-1-41223.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "statewide mandate",
+    "citation": "CSFSC 2022 IFC Sec. 510.1 (model), amended 510.2 and added 102.1.1.1; CSFPC NFPA 1 Sec. 11.10",
+    "summary": "IFC 510.1 for new buildings is kept; Connecticut amends 510.2 so existing buildings other than R-3 that are undergoing an addition, alteration, renovation or change of use and lack approved coverage must get it, on a time frame set by the adopting authority. Exception where the fire code official finds a system is not needed. In the NFPA 1 code, 11.10 is replaced: installed systems only need to be maintained per NFPA 1221.",
+    "thresholds": "Existing non-R-3 buildings on addition/alteration/change of use; new buildings per IFC 510.1",
+    "source": "https://portal.ct.gov/das/-/media/das/office-of-state-building-inspector/2022-state-codes/2022-csfsc-final-lrrc-220420.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Not verified. Source says the State Fire Marshal is the AHJ for administration, interpretation and modification; local fire marshal makes the initial compliance determination.",
+   "ahj": "State Fire Marshal administers the codes; local fire marshals do the initial determination and inspections.",
+   "fire_marshal": "https://portal.ct.gov/das/office-of-state-fire-marshal",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "DC": {
+   "name": "District of Columbia",
+   "level": "required",
+   "rule": "statewide mandate",
+   "fire_code": {
+    "base": "IFC (DC Fire Code, 12-H DCMR)",
+    "edition": "IFC 2021 base with DC amendments (2023 DC Construction Codes) - edition not confirmed from DC's own page",
+    "effective": "not confirmed",
+    "statewide": "yes (single jurisdiction)",
+    "state_amendments": "12 DCMR Subtitle H (Fire Code Supplement); Chapter 12-H5 includes 12-H510 'Emergency Responder Radio Coverage'",
+    "source": "https://dob.dc.gov/page/dc-construction-codes",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "statewide mandate",
+    "citation": "12 DCMR 12-H510 and 12-H1103 (older 2013 supplement text only)",
+    "summary": "DC amends IFC for existing buildings: those lacking approved coverage, based on District public safety system levels at the exterior, must be equipped within a time frame set by the Office of Unified Communications and the fire code official, unless they decide it is not needed. This is from the 2013 supplement as quoted by a code site; the current 2023 text was not found.",
+    "thresholds": "Not read",
+    "source": "http://dcrules.elaws.us/dcmr/12-h1103",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not applicable (single government); DC amends the IFC itself.",
+   "ahj": "DC Fire and EMS Department (Fire Marshal) enforces the Fire Code; DC DOB issues permits.",
+   "fire_marshal": "https://fems.dc.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "DE": {
+   "name": "Delaware",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 (with NFPA 101); Delaware has no statewide IFC",
+    "edition": "NFPA 1 2024, NFPA 101 2024 (Delaware State Fire Prevention Regulations, Reg. 701)",
+    "effective": "2026-01-01 (projects submitted on or after 2025-12-31 use the 2026 edition)",
+    "statewide": "yes (State Fire Prevention Commission regulations); building-code enforcement is local",
+    "state_amendments": "Delaware State Fire Prevention Regulations (1 DE Admin Code 701; NFPA codes adopted in entirety except listed changes)",
+    "source": "https://statefiremarshal.delaware.gov/wp-content/uploads/sites/110/2025/12/2026-DSFPR-update.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 2024 Sec. 11.10 (not opened); 1 DE Admin Code 702 (high-rise)",
+    "summary": "No Delaware amendment to ERCES found. For high-rise buildings, Regulation 702 requires a two-way fire department communication system under NFPA 72, and allows an approved fire department radio enhancement system as the alternative. Regulation 701's change list was not read for amendments to NFPA 1 Sec. 11.10, so treat this as not confirmed.",
+    "thresholds": "High-rise (Reg. 702); other triggers per NFPA 1",
+    "source": "https://regulations.delaware.gov/AdminCode/title1/702",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not verified.",
+   "ahj": "Delaware State Fire Marshal's Office (plan review of fire protection) with local fire marshals - split not verified.",
+   "fire_marshal": "https://statefiremarshal.delaware.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "FL": {
+   "name": "Florida",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101 (Florida Fire Prevention Code)",
+    "edition": "FFPC 8th edition (NFPA 1 2021 / NFPA 101 2021 based) per search summaries; statute requires current editions and a new FFPC every 3 years",
+    "effective": "8th edition: 2023-12-31 per summaries (not opened); next triennial due 2026",
+    "statewide": "yes (statute: FFPC adopted statewide without local adoption)",
+    "state_amendments": "Florida Fire Prevention Code (State Fire Marshal rule 69A-60 F.A.C.); Fla. Stat. 633.202(2),(4)",
+    "source": "https://www.flsenate.gov/laws/statutes/2025/633.202",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "Fla. Stat. 633.202(18)",
+    "summary": "The AHJ sets minimum radio signal strength in new and existing buildings and may require a two-way radio enhancement system if the building interior fails. Local rules cannot be stricter. Exempt: one- and two-family dwellings and townhouses; buildings under 12,000 gross sq ft with no underground areas; apartments and transient lodging under 3 stories with direct exterior egress; wood-frame apartments 75 ft or less, under 150 units, with exit discharge to exterior or corridor; no system or assessment required if public safety signal is inadequate at the building exterior. Existing high-rises had to comply by 2025-01-01. Assessments no more often than every 3 years for existing high-rise and over 12,000 sq ft, 5 years otherwise. Retrofit notice: 180 days for AHJ system changes, 1 year after a code violation notice. Licensee consent required for any system.",
+    "thresholds": "Under 12,000 gross sq ft with no underground area exempt; wood-frame apartments 75 ft or less and under 150 units exempt; high-rise defined by Florida Building Code",
+    "source": "https://www.flsenate.gov/laws/statutes/2025/633.202",
+    "status": "read"
+   },
+   "local_amendments": "Limited. 633.202(18)(i) says local authority to adopt stricter standards (633.208 and 633.202) does not apply to ERCES; the AHJ may not enforce stricter requirements for the requirement for, design of or installation of a system. Other local fire amendments need a stated basis (fire service plan, fee rebates, or growth plan).",
+   "ahj": "Local fire official (AHJ) enforces; State Fire Marshal (Division of State Fire Marshal) adopts the code and handles state-owned buildings.",
+   "fire_marshal": "https://www.myfloridacfo.com/division/sfm",
+   "pending": "None found for 2026. HB 1575 (2023) already enacted the current exemptions; SBC bulletin updated 2025-06-09 not opened.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "GA": {
+   "name": "Georgia",
+   "level": "required",
+   "rule": "statewide mandate",
+   "fire_code": {
+    "base": "IFC, with NFPA 101 (state minimum fire safety standards)",
+    "edition": "IFC 2018 with Georgia modifications (rule revised, effective 2025-07-15); NFPA 101 2024 in the OCI copy (item 72)",
+    "effective": "2025-07-15 (rule revision)",
+    "statewide": "yes (state minimum standards; local governments may enforce)",
+    "state_amendments": "Rules of Safety Fire Commissioner 120-3-3-.04, State Minimum Fire Safety Standards with Modifications (IFC Sec. 510 deleted and replaced; NFPA 1225 2022 adopted as item (176) in the OCI copy)",
+    "source": "https://oci.georgia.gov/document/document/120-3-3pdf/download",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "statewide mandate",
+    "citation": "Ga. Comp. R. & Regs. 120-3-3-.04, IFC mod 6 (Sec. 510.1-510.2) and NFPA 1225 item (176)",
+    "summary": "Georgia deleted IFC 510 and wrote its own: in all new and existing buildings the local Fire Chief or Fire Code Official sets the minimum radio signal strength, and any in-building system must meet NFPA 1225 Chapter 18 (2022), with 99% coverage in critical areas and a state-owned-building clause. NOTE: the brief's 'NFPA 1225 under (174)' is item (176) in the OCI copy and (174) in the Marietta copy; and the '50,000 sq ft or over 3 stories' threshold is NOT in the rule text we read. Georgia's rule leaves the trigger to the local official.",
+    "thresholds": "None in the rule text (50,000 sq ft / 3 stories not found)",
+    "source": "https://oci.georgia.gov/document/document/120-3-3pdf/download",
+    "status": "read"
+   },
+   "local_amendments": "Not verified. Rule 120-3-3-.04 sets state minimum standards and says NFPA 1225 is enforced by the AHJ designated by the local governing authority (1.6 modification).",
+   "ahj": "Local Fire Chief or Fire Code Official for enforcement; Georgia Safety Fire Commissioner (Office of Commissioner of Insurance and Safety Fire) has jurisdiction over state-owned and state-occupied buildings and certain occupancies.",
+   "fire_marshal": "https://oci.georgia.gov/safety-fire",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "HI": {
+   "name": "Hawaii",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 (State Fire Code), adopted by each county",
+    "edition": "NFPA 1 2021 with state amendments (a 2024 NFPA 1 amendment set is posted in draft)",
+    "effective": "2023-01-20 (state fire code); 2024 version: effective date blank in draft",
+    "statewide": "partial: state adopts, each county must adopt its own county fire code within 2 years and may amend",
+    "state_amendments": "Hawaii State Fire Code amendments to NFPA 1 (State Fire Council, HRS 132-3); 2021-edition amendments PDF read, 2024 draft read",
+    "source": "https://law.hawaii.gov/wp-content/uploads/2025/07/NFPA-1-2021-Ed-Amendments-w-just-Jan-2023.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 Sec. 11.10 (not opened); no Hawaii amendment found",
+    "summary": "We searched the 2021 and 2024-draft Hawaii amendment PDFs for 11.10, responder and radio coverage and found no state change to the model ERCES section. The model text itself was not opened. Counties may amend.",
+    "thresholds": "Per NFPA 1 - not read",
+    "source": "https://law.hawaii.gov/wp-content/uploads/2025/08/NFPA-1-2024-Hawaii-State-Fire-Code-amendments-draft.pdf",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes: counties adopt and may amend their county fire code (Honolulu's code is based on NFPA 1 2021 as amended by the state).",
+   "ahj": "County fire departments (Honolulu, Hawaii, Maui, Kauai) are the AHJs; State Fire Council sets the state code; State Fire Marshal's role for state buildings not verified.",
+   "fire_marshal": "https://law.hawaii.gov/about-us/state-fire-council/",
+   "pending": "2024 NFPA 1 Hawaii State Fire Code amendments: draft posted 2025-08, adoption not confirmed. No ERCES bill found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "IA": {
+   "name": "Iowa",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2024 (adopted with amendments by Iowa DIAL; NFPA 101 2012 still referenced for some health care)",
+    "effective": "not confirmed",
+    "statewide": "partial: state rules in IAC 661 Ch. 201; local adoption not verified",
+    "state_amendments": "IAC 661 Chapter 201 (ARC 9472C adopted and filed; ARC 9047C notice); authority Iowa Code 10A.511",
+    "source": "https://rules.iowa.gov/Notice/Details/9472C",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2024 Sec. 510 via IAC 661-201; no Iowa amendment found",
+    "summary": "The regulatory analysis says no substantive changes other than adopting the 2024 IFC. We found no Iowa amendment to Section 510, but we read only summaries, not the rule text.",
+    "thresholds": "Model-code triggers - not read",
+    "source": "https://rules.iowa.gov/Notice/Details/9472C",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not verified.",
+   "ahj": "State Fire Marshal (Iowa Dept. of Inspections, Appeals and Licensing, Division of Fire Marshal) with local fire officials - split not verified.",
+   "fire_marshal": "https://dps.iowa.gov/divisions/state-fire-marshal",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "ID": {
+   "name": "Idaho",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2018",
+    "effective": "2021-01-01 (SFM Bulletin 20-14, 2020-11-04); no newer statewide edition found",
+    "statewide": "yes (State Fire Marshal rule); locals also adopt",
+    "state_amendments": "IDAPA 18.08.01 (rule dated 7-1-24): amendments on sky lanterns, driveways, extinguishing systems, explosives; Appendices B, C, D, E, F adopted",
+    "source": "https://adminrules.idaho.gov/rules/current/18/180801.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2018 Sec. 510 via IDAPA 18.08.01",
+    "summary": "IDAPA 18.08.01 contains no amendment to Section 510 (searched the rule text), so the IFC 2018 requirement stands as published. The IFC 2018 has no appendix for ERCES. A city (Moscow) has adopted extra radio-coverage text locally.",
+    "thresholds": "Model-code triggers - not read",
+    "source": "https://adminrules.idaho.gov/rules/current/18/180801.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Yes: cities adopt local ordinances (Moscow's 2018 ordinance); statute Idaho Code 41-253/41-254 not opened.",
+   "ahj": "Local fire chief / fire code official; Idaho State Fire Marshal (Department of Insurance) for state buildings and plan review.",
+   "fire_marshal": "https://doi.idaho.gov/state-fire-marshal/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "IL": {
+   "name": "Illinois",
+   "level": "local",
+   "rule": "local option",
+   "fire_code": {
+    "base": "state life safety code NFPA 101; IFC by local adoption",
+    "edition": "NFPA 101 2015 (41 Ill. Adm. Code 100); local IFC editions 2012/2015/2018 accepted as equal or higher",
+    "effective": "NFPA 101 2015: 2020-01-01 per summary",
+    "statewide": "partial: state NFPA 101 applies except home rule units and localities with equal or higher codes",
+    "state_amendments": "41 Ill. Adm. Code 100 (Part 100.3(g), 100.7, 100.9)",
+    "source": "https://www.ilga.gov/Commission/jcar/admincode/JCARTitlePart.asp?Title=041&Part=0100",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "local option",
+    "citation": "none statewide found",
+    "summary": "No ERCES requirement found in State Fire Marshal rules or in the Illinois statutes we searched. Coverage requirements come from the local IFC or local code (Chicago has its own - not read).",
+    "thresholds": "Local",
+    "source": "https://www.ilga.gov/Commission/jcar/admincode/JCARTitlePart.asp?Title=041&Part=0100",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes: 100.3(g) lets a locality enforce its own code if equal or higher; home rule units are largely outside the state code.",
+   "ahj": "Local fire code official; Office of the State Fire Marshal for state buildings, state-licensed facilities and non-home-rule gaps.",
+   "fire_marshal": "https://sfm.illinois.gov/",
+   "pending": "None found. SB1360 (2025-26) concerns State Police radio interoperability, not in-building coverage.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "IN": {
+   "name": "Indiana",
+   "level": "no_mandate",
+   "rule": "banned",
+   "fire_code": {
+    "base": "IFC (as Indiana Fire Code)",
+    "edition": "2014 Indiana Fire Code, based on IFC 2012 first printing (675 IAC 22-2.5); no newer edition confirmed",
+    "effective": "2014-12-01",
+    "statewide": "yes (state rule)",
+    "state_amendments": "675 IAC 22-2.5 (Indiana amendments); Sec. 510 deleted and replaced with 'when required by local ordinance' (675 IAC 22-2.5-6(jj), per a secondary summary)",
+    "source": "https://iar.iga.in.gov/latestArticle/675/22",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "banned",
+    "citation": "IC 22-13-2-3.7 (HEA 1001-2026, SECTION 9, effective 2026-07-01)",
+    "summary": "A state agency or political subdivision may not require an ERCES or similar system in a new Class 1 structure, or in an existing Class 1 structure that is reconstructed, remodeled or renovated, after June 30, 2026. Local ordinances adopted before 2026-07-01 are void to the extent they conflict. Read from the enrolled act text.",
+    "thresholds": "Class 1 structures. The act's SECTION 14 points to IC 22-12-1-4 for the term, which hasn't been read; a secondary summary describes them as buildings used by the public, three or more tenants, or an employee",
+    "source": "https://iga.in.gov/pdf-documents/124/2026/house/bills/HB1001/HB1001.06.ENRS.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Local ERCES requirements are void for Class 1 structures per IC 22-13-2-3.7(b). Local fire code amendments otherwise per Indiana law - not verified.",
+   "ahj": "Indiana Department of Homeland Security (Division of Fire and Building Safety / State Fire Marshal) with local fire officials; state design release for Class 1 structures (secondary).",
+   "fire_marshal": "https://www.in.gov/dhs/fire-and-building-safety/",
+   "pending": "HEA 1003 (2026): signed into law (press release 2026-03-17); repeals the Fire Prevention and Building Safety Commission, moves its duties and rules to IDHS, and codifies the building/fire code rules into statute; conference digest dates: upon passage, 2026-07-01, 2027-07-01; rules adopted before 2027-07-01 validated. Advocacy sources say it freezes nationally recognized standards at current editions; We could not open the bill text (iga.in.gov returned only a page shell) so this is an excerpt. Existing rules stay in force until codified.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "KS": {
+   "name": "Kansas",
+   "level": "local",
+   "rule": "local option",
+   "fire_code": {
+    "base": "IFC, with NFPA 101 (Kansas Fire Prevention Code)",
+    "edition": "IFC 2006 and NFPA 101 2006 per K.A.R. 22-1-3 (amended 2011); the SFM plan review page lists NFPA 101 2012 for hospitals and nursing homes",
+    "effective": "K.A.R. 22-1-3 amended 2011-02-04; later changes not seen",
+    "statewide": "yes (state minimum); many cities adopt newer IFC editions locally",
+    "state_amendments": "K.A.R. 22-1-3 (excludes IFC chapters 22, 30, 33-36, 38 and certain NFPA references)",
+    "source": "https://www.law.cornell.edu/regulations/kansas/K-A-R-22-1-3",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "local option",
+    "citation": "none at state level found",
+    "summary": "The state-adopted IFC 2006 predates Section 510 (added in the 2009 IFC, from our background knowledge - not checked this session). Any ERCES requirement would come from a city's newer locally adopted IFC. Not confirmed.",
+    "thresholds": "Local",
+    "source": "https://www.law.cornell.edu/regulations/kansas/K-A-R-22-1-3",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes in practice: Wichita, Overland Park and Kansas City adopt newer editions with amendments (search summary).",
+   "ahj": "Local fire code official; Kansas State Fire Marshal for state buildings and state-regulated occupancies.",
+   "fire_marshal": "https://firemarshal.ks.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "KY": {
+   "name": "Kentucky",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101 (not the IFC); Kentucky Building Code covers new construction separately",
+    "edition": "NFPA 1 2018 and NFPA 101 2018",
+    "effective": "Latest amendment eff. 2023-09-26 (50 Ky.R. 673)",
+    "statewide": "yes (State Fire Marshal primary jurisdiction unless a local government runs its own inspection program by ordinance adopting the regulation)",
+    "state_amendments": "815 KAR 10:060 Standards of Safety. Excludes NFPA 1 refs 1.7.2, 10.2.7, 13.3.2.26 (high rise), 13.3.2.8 and 13.6 and some referenced standards; no change to NFPA 1 Chapter 11 or radio sections seen.",
+    "source": "https://www.law.cornell.edu/regulations/kentucky/815-KAR-10-060",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 (2018) as adopted by 815 KAR 10:060 - section number of the radio enhancement requirement (believed 11.10) not read; Kentucky Building Code ERCES provisions not checked",
+    "summary": "815 KAR 10:060 contains no ERCES amendment and does not exclude NFPA 1 Chapter 11, so the model NFPA 1 text applies as adopted. We did not open the NFPA 1 2018 radio-coverage section itself, so whether and when it is triggered is not confirmed.",
+    "thresholds": "not read",
+    "source": "https://www.law.cornell.edu/regulations/kentucky/815-KAR-10-060",
+    "status": "excerpt"
+   },
+   "local_amendments": "815 KAR 10:060 s.2(2)(a)1 (read): State Fire Marshal has primary jurisdiction unless a local government has established a fire inspection program by ordinance adopting the regulation. The text does not say whether local governments may adopt stricter ERCES rules. Not found.",
+   "ahj": "Split. Office of the State Fire Marshal (Dept. of Housing, Buildings and Construction) has primary jurisdiction; local governments with an ordinance-adopted inspection program enforce locally.",
+   "fire_marshal": "https://dhbc.ky.gov/Pages/state-fire-marshal.aspx",
+   "pending": "No 2025-2026 Kentucky ERCES bill found (not exhaustively searched). Secondary sources claiming Kentucky uses the IFC conflict with the regulation text.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "LA": {
+   "name": "Louisiana",
+   "level": "unknown",
+   "rule": "none found",
+   "fire_code": {
+    "base": "Dual: State Uniform Fire Prevention Code (NFPA codes; NFPA 101 2015 enforced by State Fire Marshal) plus Louisiana State Uniform Construction Code (IBC 2021) for new construction",
+    "edition": "IBC 2021 (construction code, with LA amendments); NFPA 101 2015 for institutional, detention, higher-ed, state-owned/leased and certain school buildings; Act 534 (2024) adds the IFC to the State Uniform Fire Prevention Code",
+    "effective": "IBC 2021 eff. 2023-01-01. Act 534 (SB 489, 2024): IEBC 2021 for structures permitted on or after 2026-01-01.",
+    "statewide": "yes",
+    "state_amendments": "LAC 17:I (LSUCCC amendments to IBC 2021, rev. 1 eff. 2023-01-01, read); LAC 55:V:103 (State Fire Marshal NFPA adoption, text not opened); Act 534 of 2024 (digest read)",
+    "source": "https://legis.la.gov/Legis/ViewDocument.aspx?d=1385014",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "none found",
+    "citation": "No Louisiana amendment to IBC/IFC ERCES sections found; Act 534 (2024) adds the IFC to the State Uniform Fire Prevention Code",
+    "summary": "We searched the LSUCCC amendment document (IBC 2021) for 'radio' and 'responder' and found nothing, and the Act 534 digest says nothing on ERCES. Whether the model IBC/IFC ERCES provisions apply to Louisiana projects is not confirmed; the State Fire Marshal enforcement basis is NFPA 101 2015, which we did not check for radio provisions.",
+    "thresholds": "not found",
+    "source": "https://lsuccc.la/wp-content/uploads/2025/10/uniform_construction_codes_and_amendments_r1_effective_01-01-23.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Not found. Act 534 digest (read) says the State Fire Marshal enforces the fire protection, egress and accessibility provisions of the Uniform Construction Code; local authority to amend not read.",
+   "ahj": "State Fire Marshal (Dept. of Public Safety and Corrections) has enforcement jurisdiction for fire protection, egress and accessibility provisions; parishes and municipalities enforce building code locally; state-owned and state-leased buildings go to the State Fire Marshal under NFPA 101.",
+   "fire_marshal": "https://www.lasfm.louisiana.gov/",
+   "pending": "No 2025-2026 Louisiana ERCES bill found. Act 534 provisions phase in from 2026.",
+   "blocked": "www.lasfm.louisiana.gov did not resolve (DNS); State Fire Marshal pages not read",
+   "checked": "2026-11-05"
+  },
+  "MA": {
+   "name": "Massachusetts",
+   "level": "required",
+   "rule": "statewide mandate",
+   "fire_code": {
+    "base": "Two layers: 527 CMR 1.00 (Massachusetts Comprehensive Fire Safety Code, NFPA 1 based) and 780 CMR (Massachusetts State Building Code, IBC 2021 based)",
+    "edition": "780 CMR 10th edition (IBC 2021 based); 527 CMR 1.00 is NFPA 1 2021 based per a search excerpt",
+    "effective": "780 CMR 10th edition eff. 2024-10-11 (Mass Register 1532, shown on Cornell page); sole code for permits applied for on or after 2025-07-01 (excerpt)",
+    "statewide": "yes",
+    "state_amendments": "780 CMR ch. 9 (read via Cornell LII); 527 CMR 1.00 amendments not opened (mass.gov returned 403)",
+    "source": "https://www.law.cornell.edu/regulations/massachusetts/780-CMR-CHAPTER-9",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "statewide mandate",
+    "citation": "780 CMR 918.2 (10th ed.); 527 CMR 1.00 s.11.10 (permit/maintenance, via local excerpts)",
+    "summary": "780 CMR 918.2 requires approved in-building two-way emergency responder communication coverage in all buildings, measured against the jurisdiction's existing public safety coverage at the exterior. Exceptions: wired system in lieu (907.2.13.2), fire code official finds it not needed, and an automatically activated system where radio equipment could seriously disrupt operations. Local fire departments set the numbers (Danvers, Salem, Andover, Chelmsford specs excerpted: -95 dBm).",
+    "thresholds": "No size trigger in 918.2 ('all buildings') - the fire code official's 'not needed' exception does the screening. 95% of floor area and 99% of critical areas; inbound -95 dBm plus DAQ 3.0; refers to NFPA 72 and NFPA 1221. Cornell page contains typos (e.g. '9168.2', '905 percent'), so exact figures should be checked on mass.gov.",
+    "source": "https://www.law.cornell.edu/regulations/massachusetts/780-CMR-CHAPTER-9",
+    "status": "read"
+   },
+   "local_amendments": "Local fire chiefs publish their own ERCES specs and apply the state requirement (excerpts from Danvers, Salem, Andover, Chelmsford). Express authority for local amendment not read.",
+   "ahj": "Split. Local building commissioner/inspector and local fire chief (527 CMR) enforce; Department of Fire Services / State Fire Marshal and Board of Building Regulations and Standards write the codes. State buildings: not verified.",
+   "fire_marshal": "https://www.mass.gov/orgs/department-of-fire-services",
+   "pending": "No 2025-2026 Massachusetts bill limiting ERCES found. Local specs cite older section numbers (915 in 8th edition) so are partly stale.",
+   "blocked": "https://www.mass.gov/lists/527-cmr-100-massachusetts-comprehensive-fire-safety-code (403); https://www.mass.gov/doc/10th-edition-chapter-9-fire-protection-and-life-safety-systems/download (403)",
+   "checked": "2026-11-05"
+  },
+  "MD": {
+   "name": "Maryland",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101 (Maryland State Fire Prevention Code); NFPA 1225 referenced by NFPA 101 s.9.15",
+    "edition": "NFPA 1 2024 and NFPA 101 2024",
+    "effective": "COMAR 29.06.01.07 and .08 shown as effective 2025-06-23 (Cornell LII)",
+    "statewide": "yes (not Baltimore City, which is outside the chapter except under Public Safety Art. Title 6 Subtitle 4)",
+    "state_amendments": "COMAR 29.06.01.07 (NFPA 101), .08 and .09 (NFPA 1)",
+    "source": "https://regs.maryland.gov/us/md/exec/comar/29.06/index.full.html",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "COMAR 29.06.01.08 (NFPA 1 2024, no amendment to Sec. 11.10 or radio); COMAR 29.06.01.07 item BB (NFPA 101 ss.9.15.1-9.15.2: inserts 'and the AHJ' after NFPA 1225)",
+    "summary": "Maryland lists every amendment and none removes or relaxes ERCES. The only radio-related change adds 'and the AHJ' to NFPA 101 9.15 references to NFPA 1225, so the AHJ gets say over the standard. Model NFPA 1 / NFPA 101 text applies. We did not read the unamended NFPA text.",
+    "thresholds": "model-code triggers not read; Anne Arundel County requires minimum signal strength in new and existing buildings (excerpt only)",
+    "source": "https://www.law.cornell.edu/regulations/maryland/Md-Code-Regs-29.06.01.08",
+    "status": "read"
+   },
+   "local_amendments": "Yes in practice: counties and municipalities adopt and enforce locally; the chapter sets a statewide minimum. COMAR 29.06.01.04A(2) assigns enforcement to a legally designated local fire official. Express text allowing stricter local ERCES rules not found.",
+   "ahj": "Split. State Fire Marshal is the AHJ by default and for state buildings; a county or municipal fire official acts as legally appointed designee where authorized under the Public Safety Article.",
+   "fire_marshal": "https://mdsp.maryland.gov/firemarshal/",
+   "pending": "No 2025-2026 Maryland ERCES bill found (not exhaustively searched).",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "ME": {
+   "name": "Maine",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101 (statewide, State Fire Marshal) plus MUBEC (IBC/IRC/IEBC/IECC 2021) for construction",
+    "edition": "NFPA 1 2018 and NFPA 101 2018, both with Maine amendments (excerpt); MUBEC IBC 2021",
+    "effective": "16-219 CMR Ch. 3 (NFPA 1) amended 2019-11-27 per a state rules-page excerpt; MUBEC 2021 codes eff. 2025-04-07 per excerpt",
+    "statewide": "yes (MUBEC enforced by municipalities of 4,000+ population; fire code by State Fire Marshal)",
+    "state_amendments": "16-219 CMR Ch. 3 (Fire Prevention Code), Ch. 20 (Life Safety Code) - Maine's text not opened",
+    "source": "https://www.maine.gov/dps/fmo/laws-rules-policy/nfpa-standards",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 (2018) as adopted in 16-219 CMR Ch. 3; Maine amendments to the radio section not seen",
+    "summary": "Maine adopts NFPA 1 and NFPA 101 2018, so ERCES would come from the NFPA 1 radio-coverage section as adopted. We could not open Maine's rule or its amendments (maine.gov refused), so any Maine change to that section is unknown.",
+    "thresholds": "not found",
+    "source": "https://www.maine.gov/dps/fmo/laws-rules-policy/rules",
+    "status": "not found"
+   },
+   "local_amendments": "Not found (rule page blocked). A search excerpt says a legislative working group on local code enforcement existed in 2025 (report due 2025-12-03).",
+   "ahj": "State Fire Marshal's Office (Dept. of Public Safety) administers the fire codes; municipal code enforcement officers handle MUBEC. Split not verified.",
+   "fire_marshal": "https://www.maine.gov/dps/fmo/",
+   "pending": "No 2025-2026 Maine bill on in-building responder radio found (only emergency-broadcast bills LD 692 and LD 2003). No proposed rule for 2024 NFPA 1/101 found.",
+   "blocked": "https://www.maine.gov/dps/fmo/sites/maine.gov.dps.fmo/files/inline-files/642C004.pdf (403); https://www.maine.gov/dps/fmo/laws-rules-policy/rules (403)",
+   "checked": "2026-11-05"
+  },
+  "MI": {
+   "name": "Michigan",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "No statewide IFC. Michigan Building Code 2021 (IBC 2021 based, Bureau of Construction Codes) for new construction; Michigan Fire Prevention Code (1941 PA 207) with NFPA 1 2006 rules for existing conditions; local jurisdictions may adopt a national fire code",
+    "edition": "MBC 2021; NFPA 1 2006 (chapters 1-6, 10-14, 20-34, 40-41, 43-45, 50-52, 60, 63, 65, 70) under R 29.1652",
+    "effective": "R 29.1652 history: 2011 AACS (not updated since, in the copy opened)",
+    "statewide": "partial (state fire rules apply only where a local jurisdiction has not adopted its own nationally recognized fire prevention code)",
+    "state_amendments": "R 29.1651-29.1654 (Fire Prevention Code rules, read); MBC 2021 amendments (not opened)",
+    "source": "https://ars.apps.lara.state.mi.us/AdminCode/DownloadAdminCodeFile?FileName=27_10026_AdminCode.pdf&ReturnHTML=True",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "MBC 2021 s.918.1 (cross-refers to IFC 510; search excerpt of an UpCodes copy) - not opened in the official source",
+    "summary": "New buildings: the Michigan Building Code section 918 is reported to require in-building two-way coverage in all new buildings per IFC 510, with the model exceptions. The Fire Prevention Code rules adopt NFPA 1 2006 for existing conditions and the copy we read has no radio or enhancement provision. Because there is no statewide IFC, enforcement of IFC 510 depends on how each city or county adopts it.",
+    "thresholds": "not read",
+    "source": "https://up.codes/viewer/michigan/mi-building-code-2021/chapter/9/fire-protection-and-life-safety-systems",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes. R 29.1651(2) and R 29.1653 (read): the state rules do not apply in a local jurisdiction with a legally adopted nationally recognized fire prevention code, and nothing prohibits local adoption.",
+   "ahj": "Split. Local fire marshal where the local jurisdiction has adopted a fire code; Bureau of Fire Services (LARA) State Fire Marshal for places of public assemblage, state-owned and licensed facilities and areas without a local code.",
+   "fire_marshal": "https://www.michigan.gov/bfs",
+   "pending": "No 2025-2026 Michigan bill limiting ERCES found (not exhaustively searched).",
+   "blocked": "UpCodes pages were not re-fetched after the harness flagged a request as bot-check circumvention; used as excerpt only",
+   "checked": "2026-11-05"
+  },
+  "MN": {
+   "name": "Minnesota",
+   "level": "local",
+   "rule": "appendix opt-in",
+   "fire_code": {
+    "base": "IFC (Minnesota State Fire Code, adopted by reference in Minn. R. ch. 7511)",
+    "edition": "2018 IFC (the '2020 Minnesota State Fire Code'). 2024 IFC adoption is in rulemaking, not effective.",
+    "effective": "2020 code published 2020-04-16 (part 7511.0090 history 44 SR 610). 2024-IFC rule: Request for Comments 2026-02-02 per a search excerpt; effective date 'to be determined' on the DLI docket (docket page not opened).",
+    "statewide": "yes (state code applies statewide; the ERCES appendix does not - see erces)",
+    "state_amendments": "Minn. R. ch. 7511 (DLI / State Fire Marshal), parts 7511.0090, 7511.0510, 7511.7900",
+    "source": "https://www.revisor.mn.gov/rules/7511.0090/",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "appendix opt-in",
+    "citation": "Minn. R. 7511.0510 (IFC 510 deleted entirely, history 40 SR 1437); Minn. R. 7511.7900 (adds Appendix P, Emergency Responder Radio Coverage, history 32 SR 10; 40 SR 1437; 44 SR 610)",
+    "summary": "The state deletes IFC Section 510, so nothing is required statewide. The state publishes its own Appendix P (letter is P in the 2018-based code, not Q); it applies only where a city or county adopts it by ordinance. Where adopted, P102 requires all new buildings to have approved radio coverage, with exceptions for a wired system in lieu, where the fire code official finds it not needed, and where unreasonably burdensome. Existing buildings (P101) only where a wired system can't be repaired, or within a time frame set by the adopting authority.",
+    "thresholds": "None by size or height. P102 says 'all new buildings' once adopted. Test: -95 dBm in/out, 95% of each floor (20-area grid); 12 h standby; annual test.",
+    "source": "https://www.revisor.mn.gov/rules/7511.7900/",
+    "status": "read"
+   },
+   "local_amendments": "Yes. Rule 7511.0101 (IFC 101.6.1, read): any jurisdiction that adopts the code may adopt rules 'more restrictive than this code when the rules are necessary to protect life or property'; governing body adopts by ordinance. 101.6 lets local government amend Chapter 1 administration. The 2020 ICC copy of Chapter 5 says appendices are enforceable only if adopted locally (excerpt, ICC page not opened).",
+   "ahj": "Split. Local fire code official (city/county fire chief or fire marshal) enforces where the jurisdiction has adopted the code; State Fire Marshal Division handles state-owned/state-licensed buildings and jurisdictions without local enforcement (not verified in text). Per-city check required: Shakopee City Code 130.07, read 2026-11-05, adopts Appendices B to G and doesn't list Appendix P.",
+   "fire_marshal": "https://dps.mn.gov/divisions/sfm",
+   "pending": "2024 IFC rulemaking under Minn. R. ch. 7511: DLI docket says effective date TBD; the Fire Code TAG report (nov 2025, a later version dated July 2026 per search excerpt) recommends adopting the 2024 IFC with changes. Whether the new Minnesota ERCES appendix keeps opt-in status is not known. No MN bill limiting ERCES found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "MO": {
+   "name": "Missouri",
+   "level": "local",
+   "rule": "local option",
+   "fire_code": {
+    "base": "none statewide",
+    "edition": "none - set by each city, county or fire district (examples from excerpts: Kansas City and St. Louis use IFC 2018 with local amendments)",
+    "effective": "n/a",
+    "statewide": "no, local adoption",
+    "state_amendments": "none; the state has narrow rules for licensed facilities (11 CSR 40) and no general fire or building code",
+    "source": "https://dfs.dps.mo.gov/about/faqs.php",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "local option",
+    "citation": "Division of Fire Safety FAQ; RSMo 67.280 (procedure for local adoption of technical codes, excerpt)",
+    "summary": "Missouri has no statewide fire code, so ERCES is required only where the city, county or fire district has adopted IFC 510 or an equivalent. The Division of Fire Safety says: 'Missouri does not have a statewide fire code' and tells users to contact the local jurisdiction. Each address needs its own jurisdiction lookup.",
+    "thresholds": "set locally",
+    "source": "https://dfs.dps.mo.gov/about/faqs.php",
+    "status": "read"
+   },
+   "local_amendments": "Local adoption is the only route (home rule). RSMo 67.280 is the filing procedure (excerpt, statute not opened). HB 2870 (2024), a statewide building codes act, did not pass (excerpt).",
+   "ahj": "Local fire code official / fire marshal where a code is adopted; Division of Fire Safety (Dept. of Public Safety) inspects state-licensed facilities and state buildings. Some rural areas have no code and no official.",
+   "fire_marshal": "https://dfs.dps.mo.gov/",
+   "pending": "No 2025-2026 Missouri ERCES bill found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "MS": {
+   "name": "Mississippi",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (Mississippi Fire Prevention Code), limited scope; NFPA 101 2018 reported (secondary)",
+    "edition": "Rule 7.02.1 (read, proposed-rule copy) says 'the most current edition' of the IFC as revised or amended, a floating reference; UpCodes shows 2018 IFC unamended through 2024-12-31 and a 2025 version; one tracker says 2024 IFC (not confirmed)",
+    "effective": "Rule text read is a Title 19 Part 7 Chapter 7 proposed-rule file (sos.ms.gov ACProposed) citing Miss. Code 45-11-101 (Rev. 2023); adoption date not seen",
+    "statewide": "partial - state code applies to state buildings, places of public assembly and high-rise buildings over 75 ft; counties and municipalities may adopt their own code",
+    "state_amendments": "19 Miss. Admin. Code Part 7 Rule 7.01-7.14; no Section 510 amendment seen",
+    "source": "https://sos.ms.gov/adminsearch/ACProposed/00027579b.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "Rule 7.02.1 (IFC as base); no 510 amendment found in the rule text",
+    "summary": "Where the State Fire Marshal's code applies (public assembly, state buildings, high-rises over 75 ft), it is the current IFC without a Section 510 change that we could find, so model 510 applies as published for that edition. Elsewhere it depends on whether the city or county adopted a code. The edition is a floating reference, so which 510 text applies is unsettled.",
+    "thresholds": "not read",
+    "source": "https://sos.ms.gov/adminsearch/ACProposed/00027579b.pdf",
+    "status": "excerpt"
+   },
+   "local_amendments": "Yes: Rule 7.02.1(D) (read) - any county or municipality may adopt a fire prevention code not less stringent than the Mississippi Fire Prevention Code; the local code then applies instead and the local government enforces.",
+   "ahj": "Split. State Fire Marshal (Mississippi Insurance Department) for state-owned buildings, public assembly and high-rises in places without a qualifying local code; local fire official where the county or city has adopted a code at least as strict.",
+   "fire_marshal": "https://www.mid.ms.gov/state-fire-marshal/",
+   "pending": "None found.",
+   "blocked": "www.mid.ms.gov/state-fire-marshal/codes-and-standards/ returned 404",
+   "checked": "2026-11-05"
+  },
+  "MT": {
+   "name": "Montana",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2024 IFC (from 2026-09-26); 2021 IFC before that",
+    "effective": "2024 edition: Notice of Adoption, Montana Administrative Register issue 18 (2026-09-25), final action effective 2026-09-26 (read). 2021 edition: ARM 23.12.601, eff. 2023-03-11 (read).",
+    "statewide": "yes (State Fire Marshal, FPIS; Department of Justice). Local governments also adopt and enforce.",
+    "state_amendments": "ARM 23.12.601 'Adoption of the International Fire Code' (State Fire Marshal / FPIS, DOJ). Removes permit, construction-document, fee and appeal sections, plus items like 1103.5 sprinklers and 903.6 in existing buildings. Chapter 5 permit sections not adopted. Section 510 is not listed among the amendments in either edition.",
+    "source": "https://www.law.cornell.edu/regulations/montana/Mont-Admin-r-23.12.601",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2024 s.510 / 2021 s.510 as adopted by ARM 23.12.601; Montana Building Code (IBC) s.918",
+    "summary": "Montana's amendment list does not touch Section 510 in the 2021 or the 2024 rule, so the model ERCES section applies. Caveat: the state removes the IFC permit sections of Chapter 5, so the ERCES installation permit (510.3 / 105.7) is not adopted by reference; and 1103.5 and 903.6 retrofit sections are not adopted. Existing-building ERCES under the IFC Chapter 11 depends on whether the Montana Building Code conflicts (ARM says Chapter 11 is adopted unless it conflicts).",
+    "thresholds": "model-code triggers (not read this session)",
+    "source": "https://dojmt.gov/wp-content/uploads/2026/09/2026-128.2-Official-version.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Local governments with fire departments adopt the IFC locally (Great Falls adopted the 2021 IFC 2023-05-25, excerpt). ARM 23.12.601 says Montana Code Annotated controls conflicts. Express text on stricter local rules not read.",
+   "ahj": "State Fire Marshal (FPIS, Montana DOJ) for state-regulated buildings; local fire departments/building officials elsewhere. Building Codes Bureau (Dept. of Labor & Industry) handles the building code, 2024 ICC editions effective 2026-09-26 (excerpt).",
+   "fire_marshal": "https://dojmt.gov/safety/fire-prevention-and-investigation/",
+   "pending": "None found. The 2024 IFC adoption itself (eff. 2026-09-26) is the pending/recent change; no ERCES bill found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "NC": {
+   "name": "North Carolina",
+   "level": "discretion",
+   "rule": "statewide mandate (with carve-outs)",
+   "fire_code": {
+    "base": "IFC (North Carolina State Fire Code, part of the NC State Building Code)",
+    "edition": "2018 NC Fire Code (IFC 2018 based) in force; 2024 NC Fire Code (IFC 2021 based) adopted but effective date not set",
+    "effective": "2024 Code originally 2025-01-01, delayed to 2025-07-01 (S.L. 2024-57), then by S.L. 2025-2 s.5.12(b) to 12 months after the State Fire Marshal certifies publication/Residential Code Council steps. OSFM letter of 2025-03-31 says the 2018 Code stays in force until then. We did not find a later certification.",
+    "statewide": "yes (Building Code Council, statewide)",
+    "state_amendments": "NC State Fire Code amendments to 2018 IFC (adopted Dec 2017-Dec 2024), OSFM document dated 2026-01-07",
+    "source": "https://www.ncosfm.gov/letter-re-2024-state-building-code-effective-date/open",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "statewide mandate (with carve-outs)",
+    "citation": "2018 NC Fire Code Sec. 510 (item 201208 B-5); S.L. 2025-50 (H768) s.1",
+    "summary": "2018 NC Fire Code 510.1 requires approved two-way responder radio coverage in all new buildings; 510.2 (existing buildings) is deleted. Exceptions: wired system in lieu, fire code official finds not needed, automatic-activation acceptance, and new buildings 7,500 sq ft or less and 1 story (not for windowless, underground or basement buildings). S.L. 2025-50 (H768, signed 2025-07-02, effective on becoming law) exempts R-2 Type V apartment buildings meeting the Code's egress requirements, and apartment buildings and transient lodging (hotels/motels) of no more than 2 stories above grade with direct exterior egress from each unit or room - existing, new or altered. Existing systems there may be disconnected (notwithstanding Sec. 901.6), with signage. Council must amend Sec. 510 to match; until then jurisdictions may not enforce 510 on those buildings; the section sunsets when the permanent rules take effect. Verified as stated in the brief.",
+    "thresholds": "Exempt: new buildings <=7,500 sq ft and 1 story (unless windowless/underground/basement); R-2 Type V apartments; apartments/hotels/motels <=2 stories with direct exterior egress. Signal: -95 dBm, 95% of area (critical areas 99% per later text, not fully read). Refers to NFPA 1221 (read in 510.4.2).",
+    "source": "https://www.ncleg.gov/EnactedLegislation/SessionLaws/HTML/2025-2026/SL2025-50.html",
+    "status": "read"
+   },
+   "local_amendments": "Not verified. NC state code is uniform statewide and local governments generally cannot adopt differing building/fire code requirements (G.S. 143-138); We did not read the statute. S.L. 2025-50 s.1(e) instructs local governments not to enforce 510 on exempt buildings.",
+   "ahj": "Split. Local code enforcement officials/fire marshals enforce at the local level; Office of State Fire Marshal (NC Dept of Insurance) administers state code and state-owned buildings. Detail not verified.",
+   "fire_marshal": "https://www.ncdoi.gov/about-doi/osfm",
+   "pending": "S.L. 2025-50 s.1(d): Building Code Council must adopt permanent Sec. 510 rules identical to the exemptions (rule not yet seen). 2024 NC Fire Code has a Building Code Council proposed Sec. 510.1 amendment (item D-7, Dec 2024 OSFM newsletter, excerpt only; outcome unknown). 2024 Code effective date still TBD.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "ND": {
+   "name": "North Dakota",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2021",
+    "effective": "2024-01-01 (NDAC 45-18-01 history); State Building Code provisions effective 2023-01-01",
+    "statewide": "yes",
+    "state_amendments": "NDAC 45-18-01-04 'Fire prevention rules' (IFC 2021 with exceptions and modifications)",
+    "source": "https://ndlegis.gov/information/acdata/pdf/45-18-01.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "NDAC 45-18-01-04(2)(d), IFC 510.1 modified",
+    "summary": "State changes the first sentence of IFC 510.1 from 'New' to 'Where required by the fire code official, new'. ERCES is therefore discretionary per building, decided by the fire code official; the rest of Section 510 is unchanged.",
+    "thresholds": "None set by the state; fire code official decides case by case.",
+    "source": "https://ndlegis.gov/information/acdata/pdf/45-18-01.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Rule defines 'local jurisdiction' and says the state fire code applies to all persons; whether cities may adopt stricter fire codes was not found in the rule text.",
+   "ahj": "State Fire Marshal's division is named as the agency (IFC 103.1 replaced with 'North Dakota fire marshals division'); local fire departments inspect in practice (not verified).",
+   "fire_marshal": "https://www.firemarshal.nd.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "NE": {
+   "name": "Nebraska",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101 (not the IFC)",
+    "edition": "NFPA 1 2012 and NFPA 101 2012, with Nebraska amendments dated 11-25-19",
+    "effective": "153 NAC 1 amended effective 2021-02-28 (Cornell LII); an excerpt says new NFPA codes were adopted 2021-03-03",
+    "statewide": "yes (State Fire Marshal, Title 153); cities also adopt IFC locally",
+    "state_amendments": "Title 153 NAC Chapter 1 'State Fire Code Regulations', Nebraska Amendments 11-25-19 (text of the amendments not read - the SFM chapter PDF is an image scan with no text)",
+    "source": "https://www.law.cornell.edu/regulations/nebraska/153-Neb-Admin-Code-ch-1-SS-001",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 (2012) via 153 NAC 1; local ERCES policies exist (e.g. Papillion, excerpt)",
+    "summary": "The state adopts NFPA 1 and 101 2012 and we found no statewide ERCES amendment, but we could not read the Nebraska amendments or the NFPA 1 2012 radio section, so whether the state code reaches ERCES is not confirmed. Local fire departments publish radio coverage policies.",
+    "thresholds": "not found",
+    "source": "https://www.law.cornell.edu/regulations/nebraska/153-Neb-Admin-Code-ch-1-SS-001",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not found in the text opened. Cities such as Papillion list a local 'Emergency Responder Radio Coverage Policy' among local amendments (excerpt only).",
+   "ahj": "State Fire Marshal's Office (Nebraska State Patrol) for state-regulated occupancies and plan review (153 NAC 21); local fire chiefs/fire marshals in cities that adopt a code.",
+   "fire_marshal": "https://sfm.nebraska.gov/",
+   "pending": "No 2025-2026 Nebraska ERCES bill found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "NH": {
+   "name": "New Hampshire",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101 (State Fire Code under RSA 153:1), amended by Saf-FMO 300",
+    "edition": "2021 NFPA 1 and NFPA 101 as amended by Saf-FMO 300 (state list dated Aug 2024, excerpt). RSA 153:1 VI-a is reported to define the state fire code as the 2024 editions (excerpt); Board of Fire Control hearing 2025-11-10 on a draft Saf-FMO 300 for the 2024 editions.",
+    "effective": "Saf-FMO 300 revised 2024-06-25 (file named effective 081324); 2024-edition update pending",
+    "statewide": "yes (State Fire Marshal and Board of Fire Control; amendments need legislative ratification within a year per RSA 153:5, excerpt)",
+    "state_amendments": "N.H. Admin. Code Saf-FMO 300 'Amendments to the State Fire Code'",
+    "source": "https://www.firemarshal.dos.nh.gov/fire-codes-adopted-nh",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 / NFPA 101 as adopted; no Saf-FMO 300 radio amendment seen",
+    "summary": "Search summaries of several Saf-FMO 300 versions showed no amendment to the radio or responder-communication sections, so the model NFPA text probably applies, but the rule PDFs refused our fetch and we never saw the full text. Not confirmed.",
+    "thresholds": "not found",
+    "source": "https://mm.nh.gov/files/uploads/fmo/remote-docs/saf-fmo-300-rules-final-effective-081324.pdf",
+    "status": "not found"
+   },
+   "local_amendments": "Not found. The state fire code is a statewide minimum; RSA 153 text could not be opened (gc.nh.gov paths 404).",
+   "ahj": "State Fire Marshal (Dept. of Safety, Division of Fire Safety) for the code; local fire chiefs and building inspectors enforce. Split not verified.",
+   "fire_marshal": "https://www.firemarshal.dos.nh.gov/",
+   "pending": "Draft 2024-edition Saf-FMO 300 (public hearing 2025-11-10); content on radio coverage not seen. No NH ERCES bill found.",
+   "blocked": "https://mm.nh.gov/files/uploads/fmo/remote-docs/saf-fmo-300-rules-final-effective-081324.pdf (curl: Access Denied; WebFetch 403); other mm.nh.gov FMO PDFs likewise Access Denied; https://gc.nh.gov/rsa/html/XIX/153/153-1.htm (404)",
+   "checked": "2026-11-05"
+  },
+  "NJ": {
+   "name": "New Jersey",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "IFC as the State Fire Prevention Code (N.J.A.C. 5:70) for existing buildings and operations; new construction is under the Uniform Construction Code (UCC) with a Fire Protection Subcode keyed to the IFC 2021",
+    "edition": "Sources conflict: UCC Fire Subcode uses IFC 2021 (excerpt); N.J.A.C. 5:70-3.1 text we read in the 2023 proposal (PRN 2023-051, 55 N.J.R. 1060) amends '2015' to '2018 International Fire Code'; trackers say 2018 IFC effective 2024-04-15 / 2024-10-15 (excerpt)",
+    "effective": "Not confirmed from an adoption notice",
+    "statewide": "yes",
+    "state_amendments": "N.J.A.C. 5:70-3.2 (IFC modifications) and N.J.A.C. 5:23 (UCC), Division of Fire Safety, Dept. of Community Affairs",
+    "source": "https://www.nj.gov/dca/divisions/dfs/codes/regulations/regs-5.70_71_72_74_75-ifc-updates-njr-6-5-23_prn-2023-051.pdf",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "N.J.A.C. 5:70-3.2(a)5xviii: IFC Section 510.2 (existing buildings) deleted; 5:70-3.2(a)5xix: 510.3 permit points to the UCC; N.J.A.C. 5:70-3.1(d) (excerpt of a 2010 DCA bulletin)",
+    "summary": "In the proposal text we read, New Jersey deletes IFC 510.2 so the fire official cannot retrofit radio coverage into existing buildings through the fire code, and sends the permit to the UCC. New buildings follow IFC 510.1 through the UCC Fire Subcode: coverage in all new buildings, with the model exceptions (wired system, not needed, auto-activation). A 2010 DCA bulletin says the Uniform Fire Code cannot require new or upgraded systems that the UCC at the time of construction did not require.",
+    "thresholds": "No size trigger in the 510.1 text (excerpt); 95% floor area test (excerpt)",
+    "source": "https://www.nj.gov/dca/divisions/dfs/codes/regulations/regs-5.70_71_72_74_75-ifc-updates-njr-6-5-23_prn-2023-051.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Not verified. N.J.A.C. 5:70-3.1(d) (excerpt) bars the fire official from using the fire code to require systems the UCC did not require at construction.",
+   "ahj": "Split. Local fire official (municipal fire marshal or fire prevention bureau) enforces the Uniform Fire Code for existing buildings; local construction official enforces the UCC; Division of Fire Safety (DCA) oversees and handles state-owned buildings.",
+   "fire_marshal": "https://www.nj.gov/dca/divisions/dfs/",
+   "pending": "None found. The 2023 rulemaking (PRN 2023-051) is the recent change; ERCES bill search turned up nothing for NJ.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "NM": {
+   "name": "New Mexico",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2021 IFC with New Mexico amendments",
+    "effective": "10.25.5 NMAC effective 2022-11-01 (read)",
+    "statewide": "yes (State Fire Marshal minimum code)",
+    "state_amendments": "10.25.5 NMAC, Fire Prevention and Public Occupancy (read). Adopts IFC Appendices D and we only; all other appendices apply only where adopted by the local AHJ. Chapter 6 amended; no amendment to Chapter 5 or Section 510.",
+    "source": "https://www.srca.nm.gov/parts/title10/10.025.0005.html",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2021 s.510 via 10.25.5.8 NMAC (no amendment); 10.25.5.9(A)(3)",
+    "summary": "New Mexico adopts the 2021 IFC with no change to Chapter 5, so the model Section 510 applies. Section 510 is in the body of the code, not an appendix, so the appendix restriction does not remove it. Local jurisdictions can add stricter rules.",
+    "thresholds": "model-code triggers (not read this session)",
+    "source": "https://www.srca.nm.gov/parts/title10/10.025.0005.html",
+    "status": "read"
+   },
+   "local_amendments": "Yes. 10.25.5.9(D) (read): the state minimum fire code lets local jurisdictions enact stricter ordinances; 10.25.5.2(D): local AHJs may adopt more stringent requirements that do not conflict.",
+   "ahj": "State Fire Marshal (Dept. of Homeland Security and Emergency Management) for state-owned buildings and areas without local enforcement; local fire marshals/AHJs elsewhere. Construction Industries Division handles the building code.",
+   "fire_marshal": "https://www.dhsem.nm.gov/state-fire-marshal/",
+   "pending": "None found. An UpCodes timeline entry 'Effective Oct 16, 2026' for NM could not be explained (secondary, excerpt).",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "NV": {
+   "name": "Nevada",
+   "level": "required",
+   "rule": "statewide mandate",
+   "fire_code": {
+    "base": "IFC (State Fire Marshal), adopted by reference with Nevada additions and deletions",
+    "edition": "2024 IFC (including appendices B, C, D, F and H); previously 2018",
+    "effective": "Adopted Regulation R205-24 (LCB file, 2024 Register) amends NAC 477.281 and 477.283 to the 2024 edition; the effective date is not stated in the text we read",
+    "statewide": "yes for State Fire Marshal jurisdiction; local governments (Clark County, Las Vegas, Reno, etc.) adopt their own editions with local amendments",
+    "state_amendments": "NAC 477.281 and 477.283, as amended by R205-24 (read in full)",
+    "source": "https://www.leg.state.nv.us/Register/2024Register/R205-24A.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "statewide mandate",
+    "citation": "NAC 477.283(1)(p) and (q) (R205-24): Section 510.1 and 510.2 deleted and replaced",
+    "summary": "Nevada rewrites IFC 510 instead of using the model text. Coverage is required throughout (1) high-rise buildings, floor more than 55 ft above the lowest level of fire department access, and (2) underground and below-grade buildings. For other buildings, the fire code official may require a technical opinion and report on whether a system is needed. Section 510.2 applies to existing buildings other than Group R-3 that lack approved coverage: at the Fire Chief's determination under 510.4.1, where a wired system can't be repaired or is replaced, or within a time frame set by the adopting authority; exception where the fire code official finds it not needed.",
+    "thresholds": "High-rise: occupied floor >55 ft above fire department vehicle access. Below-grade: floor below the exit-discharge level. Others: case by case technical report. R-3 exempt from the existing-building section.",
+    "source": "https://www.leg.state.nv.us/Register/2024Register/R205-24A.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Yes in practice: a search excerpt says Clark County requires systems under IFC 510 as amended by the Clark County Fire Code, designed to NFPA 72 and NFPA 1225. NAC 477.283 (read) also contains an item allowing something 'in jurisdictions where specifically approved by local ordinance'. Statutory text on local authority not read.",
+   "ahj": "Split. State Fire Marshal Division (Dept. of Public Safety) for state buildings, areas without a local fire department and certain licensed facilities; local fire code officials elsewhere.",
+   "fire_marshal": "https://fire.nv.gov/",
+   "pending": "None found for ERCES. The Fire Marshal held a hearing 2025-05-08 on further code updates (excerpt, notice not read).",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "NY": {
+   "name": "New York",
+   "level": "required",
+   "rule": "statewide mandate",
+   "fire_code": {
+    "base": "IFC (Fire Code of New York State, adopted in the Uniform Code, 19 NYCRR Part 1225)",
+    "edition": "2025 Fire Code of New York State, based on IFC 2024",
+    "effective": "2025-12-31 (Uniform Code rule adopted 2025-07-25; amended notice 2025-12-05) - from search excerpt of DOS pages; code text itself read",
+    "statewide": "yes, all of New York except New York City (own code)",
+    "state_amendments": "2025 FCNYS (NY-marked sections), DOS PDF; 19 NYCRR Part 1225",
+    "source": "https://dos.ny.gov/system/files/documents/2025/07/2025fcnys_noa_2025-07-24.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "statewide mandate",
+    "citation": "2025 FCNYS Sec. 510.1, 510.2, 1103.2 [NY]",
+    "summary": "New buildings: approved in-building ERCES in all new buildings, with model exceptions plus a New York exception for one-story buildings of 12,000 sq ft or less with no below-ground area. Existing buildings other than R-3 (1103.2 [NY]): required when a wired system can't be repaired/is replaced, on a Level 3 alteration or relocation, or on a Level 2 alteration where responders have filed documented inadequate communications. Design to NFPA 1225.",
+    "thresholds": "Exempt: one-story, <=12,000 sq ft, no below-ground area (new buildings). Existing: R-3 excluded; triggers are alteration level or system replacement. 99% critical areas and 95% general (as the model).",
+    "source": "https://dos.ny.gov/system/files/documents/2025/07/2025fcnys_noa_2025-07-24.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Yes, but constrained: [NY] 105.5 and 105.7 defer to the stricter of the local code enforcement program or Part 1203 (read); local governments may adopt more restrictive standards by filing with the state under Executive Law 383 (statute not read).",
+   "ahj": "Split. Local code enforcement officials (city, town, village, county) enforce the Uniform Code; the NYS Department of State Division of Building Standards and Codes administers it; Office of Fire Prevention and Control oversees fire safety in state buildings (not verified).",
+   "fire_marshal": "https://www.dhses.ny.gov/office-of-fire-prevention-and-control",
+   "pending": "None found. NY S8840 (2025) is an unrelated liability bill.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "OH": {
+   "name": "Ohio",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "IFC (Ohio Fire Code)",
+    "edition": "2021 first printing (Chapter 12 from 2024 IFC)",
+    "effective": "2025-11-20",
+    "statewide": "yes",
+    "state_amendments": "2025 Ohio Fire Code, OAC 1301:7-7-01 to 1301:7-7-80 (IFC incorporated by reference, amended by the State Fire Marshal)",
+    "source": "https://codes.iccsafe.org/content/OHFC2025V1.0/preface",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "OAC 1301:7-7-05 (Section 510), 1301:7-7-11 (existing buildings)",
+    "summary": "Ohio keeps IFC 510 for new buildings. The State Fire Marshal's significant-changes document (read) lists a Fire Marshal/Commerce exception added to 510.1 for smaller buildings, 99 percent critical-area testing criteria and an NFPA 1221 reference. Existing buildings are handled through 1301:7-7-11.",
+    "thresholds": "510.1 exception for smaller buildings: exact size threshold not read.",
+    "source": "https://dam.assets.ohio.gov/image/upload/com.ohio.gov/SFM/Code/2025_OFC_-_Significant_Changes_-_JCARR_-_F.pdf",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not read. Ohio fire code is enforced by the State Fire Marshal and certified local inspectors; local amendment authority not confirmed.",
+   "ahj": "State Fire Marshal, assistant SFMs, and certified fire safety inspectors of municipal or township fire departments (excerpt).",
+   "fire_marshal": "https://com.ohio.gov/divisions-and-programs/state-fire-marshal",
+   "pending": "None found. The 2024 SFM Report on Petitions had proposals to define 'emergency responder' in 510.1 (a law enforcement coverage interpretation).",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "OK": {
+   "name": "Oklahoma",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2018 (second printing, April 2018)",
+    "effective": "Permanent rule dated 2021-09-14 (OAC 748:20-4)",
+    "statewide": "yes, as statewide minimum code",
+    "state_amendments": "OAC 748:20-4 (OUBCC). Chapter 5 is modified only at 508.1.3; Section 1203.2.3 modified for 12-hour standby power for ERCES",
+    "source": "https://oklahoma.gov/content/dam/ok/en/oubcc/documents/rules/2021%2009%2014%20Permanent%20Rule%20IFC%202018.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "OAC 748:20-4 (IFC 2018 Section 510 unmodified); 1203.2.3 as modified",
+    "summary": "Oklahoma adopts IFC 2018 Section 510 without change (only 508.1.3 is amended in Chapter 5), so new-building ERCES follows the model code. Standby power for ERCES must run 100 percent for at least 12 hours.",
+    "thresholds": "IFC 2018 510.1 as written (all new buildings); 12 hour standby power.",
+    "source": "https://oklahoma.gov/content/dam/ok/en/oubcc/documents/rules/2021%2009%2014%20Permanent%20Rule%20IFC%202018.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Rule calls the IFC the 'statewide minimum code'. Cities such as Oklahoma City adopt and amend it locally (city resolution, excerpt). State statute on stricter local codes not read.",
+   "ahj": "Local fire marshals/code officials enforce; the OUBCC adopts the code (not the State Fire Marshal).",
+   "fire_marshal": "https://oklahoma.gov/fireprevention.html",
+   "pending": "OUBCC adopted 2024 IBC, IRC and others effective 2026-09-14; the IFC was not on that list. A 2024 IFC rule was proposed but not confirmed adopted.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "OR": {
+   "name": "Oregon",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (Oregon Fire Code)",
+    "edition": "2022 OFC (2021 IFC based); a 2025 OFC also exists on the ICC site",
+    "effective": "2025 OFC effective date not confirmed",
+    "statewide": "yes (OSFM), administered by local fire code officials",
+    "state_amendments": "Oregon Fire Code with Building Codes Division amendments to 510 (510.3.1 requires OSSC Form 918 checklist)",
+    "source": "https://up.codes/viewer/oregon/or-fire-code-2022/chapter/5/fire-service-features",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "OFC 510; OSSC 918; OSSC Form 918",
+    "summary": "Oregon keeps IFC 510: approved in-building ERCES in all new buildings, with the Form 918 checklist submitted with the permit application and dedicated standby power per OSSC 918. The 2025 OFC retitles it ERCES and marks 510.1 as BCD-amended. Fire code official may accept an automatically activated system where equipment would harm operations.",
+    "thresholds": "All new buildings per 510.1.1 (full text not read).",
+    "source": "https://up.codes/viewer/oregon/or-fire-code-2022/chapter/5/fire-service-features",
+    "status": "excerpt"
+   },
+   "local_amendments": "Fire code official has approval and waiver power (OFC 104.9/104.10; OSFM Joint Policy Bulletin JPB-0002, written under the 2014 OFC). Statewide amendment rules not read.",
+   "ahj": "Split: Oregon State Fire Marshal adopts the OFC; local fire code official administers; Building Codes Division amends 510 and handles OSSC 918.",
+   "fire_marshal": "https://www.oregon.gov/osfm",
+   "pending": "None found. codes.iccsafe.org returned 403 to a plain fetch; not retried.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "PA": {
+   "name": "Pennsylvania",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IBC-led UCC; IFC only as referenced",
+    "edition": "2021 I-Codes",
+    "effective": "2026-01-01 (2018 codes usable to 2026-07-01 if contract signed before 2026-01-01)",
+    "statewide": "partial (UCC statewide; no full statewide IFC)",
+    "state_amendments": "UCC Review and Advisory Council amendments (RAC final report 2024-09-14), Regulation #12-125",
+    "source": "https://www.pa.gov/content/dam/copapwp-pagov/en/dli/documents/ucc/documents/2021%20icc%20code%20adoption%20final%20report.pdf",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "UCC 34 Pa. Code ch. 403 via IBC 916/918 and IFC 510",
+    "summary": "The UCC adopts the 2021 IBC and the IFC only to the extent other UCC codes reference it, so IBC emergency responder radio coverage and IFC 510 apply to new construction by reference. Whether the RAC amended 916/918/510 was not found. Local ordinances can add requirements.",
+    "thresholds": "Not found.",
+    "source": "https://www.jensenhughes.com/code-alerts/pennsylvania-adopts-2021-i-codes-into-the-ucc",
+    "status": "excerpt"
+   },
+   "local_amendments": "Municipalities can adopt more restrictive UCC amendments but they can be appealed to the Secretary of L&I, who rarely allows them. Municipal fire codes (own IFC ordinances) operate separately from the UCC (excerpt).",
+   "ahj": "Local building code official under the UCC; municipal fire marshals under local fire codes; Philadelphia has its own adoption.",
+   "fire_marshal": "https://www.pa.gov/agencies/dli/programs-services/labor-management-relations/bureau-of-occupational-and-industrial-safety/uniform-construction-code-home",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "RI": {
+   "name": "Rhode Island",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 (RIFC) plus NFPA 101 (RILSC)",
+    "edition": "NFPA 1 2021; NFPA 101 2021",
+    "effective": "2026-03-01",
+    "statewide": "yes",
+    "state_amendments": "450-RICR-00-00-7 (Fire Code) and 450-RICR-00-00-8 (Life Safety Code), R.I. Gen. Laws 23-28.1-2",
+    "source": "https://rules.sos.ri.gov/regulations/part/450-00-00-7",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "NFPA 1 2021 in-building radio provisions, 450-RICR-00-00-7",
+    "summary": "Rhode Island uses NFPA 1, not the IFC, so there is no IFC Section 510. The 450-RICR-00-00-7 page we read has no radio coverage amendment. A state regulatory analysis (excerpt) says the 2021 text requires new systems to meet NFPA 1221 and mentions a RI-specific NFPA 101 amendment at 13.3.2.6.1; its content was not read.",
+    "thresholds": "Not found.",
+    "source": "https://risos-apa-production-public.s3.amazonaws.com/FSCBAR/13423/ADDDOC_13423_20251202102103000.pdf",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not read. Rules are statewide through the Fire Safety Code Board of Appeal and Review.",
+   "ahj": "State Fire Marshal and local fire marshals; Fire Safety Code Board of Appeal and Review hears appeals.",
+   "fire_marshal": "https://health.ri.gov/state-fire-marshal",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "SC": {
+   "name": "South Carolina",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (South Carolina Fire Code)",
+    "edition": "2021 in force; 2024 adopted",
+    "effective": "2021 SCFC: 2023-01-01 to 2026-12-31; 2024 SCFC: 2027-01-01 (excerpt)",
+    "statewide": "yes (mandatory codes enforced by all municipalities and counties)",
+    "state_amendments": "SC modifications to IFC (Building Codes Council, S.C. Code 6-9-50); 2024 edition adopted 2025-08-26 with modifications",
+    "source": "https://llr.sc.gov/bcc/PDFfiles/2024%20Code%20Adoption%20Notice.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "SCFC Section 510 (2021)",
+    "summary": "SC keeps IFC 510 for new and existing buildings. Charleston's bulletin cites 2021 SCFC 510 and NFPA 1221 (2019), with annual inspection by an FCC-licensed party; structures under the SC Residential Code are exempt.",
+    "thresholds": "IFC 510 as adopted; exact SC modifications to 510 not read.",
+    "source": "https://www.charleston-sc.gov/DocumentCenter/View/25202/Emergency-Responder-Radio-Coverage",
+    "status": "excerpt"
+   },
+   "local_amendments": "The adopted notice (read) says the mandatory codes are enforced by all municipalities and counties. The Council's local modification process was not read.",
+   "ahj": "Local building and fire officials; State Fire Marshal for state buildings (not verified).",
+   "fire_marshal": "https://llr.sc.gov/osfm/",
+   "pending": "The 2024 IFC takes effect 2027-01-01 per secondary summaries; its 510 modifications were not read.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "SD": {
+   "name": "South Dakota",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (plus NFPA 101 for State Fire Marshal plan review)",
+    "edition": "2015 (ARSD 61:15); a 2021 claim by one blog is unconfirmed",
+    "effective": "2016-10-17 (secondary)",
+    "statewide": "partial (State Fire Marshal enforces for certain occupancies; others by local adoption)",
+    "state_amendments": "ARSD 61:15:01 with state modifications, amendments and deletions",
+    "source": "https://sdlegislature.gov/rules/administrative/61%3A15",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "ARSD 61:15 and IFC 2015 Section 510",
+    "summary": "State rule adopts the IFC 2015; whether SD amended or deleted Section 510 was not read. Cities with their own newer IFC adoptions may require ERCES.",
+    "thresholds": "Not found.",
+    "source": "https://sdlegislature.gov/rules/administrative/61%3A15",
+    "status": "excerpt"
+   },
+   "local_amendments": "Cities and counties adopt codes locally; ICC says jurisdictions may amend the state codes (excerpt).",
+   "ahj": "Split: State Fire Marshal for schools, daycares, state-licensed healthcare and similar; local fire departments elsewhere.",
+   "fire_marshal": "https://dps.sd.gov/state-fire-marshal",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "TN": {
+   "name": "Tennessee",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "IFC (with NFPA 101 for some occupancies)",
+    "edition": "IFC 2021; NFPA 101 2021",
+    "effective": "Rule 0780-02-02 revised 2025-04-17",
+    "statewide": "yes (State Fire Marshal minimum code)",
+    "state_amendments": "Tenn. Comp. R. & Regs. 0780-02-02-.01 adoption by reference with changes",
+    "source": "https://publications.tnsosfiles.com/rules/0780/0780-02/0780-02-02.20250417.pdf",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "Tenn. Comp. R. & Regs. 0780-02-02-.01(f)(1)",
+    "summary": "Tennessee replaces IFC 510.1 Exception 2: no ERCES where the local fire chief, in coordination with local law enforcement and EMS, determines a system is not needed. Group R story count for 510 is measured from grade plane.",
+    "thresholds": "Local chief's determination; story count from grade plane for Group R.",
+    "source": "https://www.tn.gov/commerce/fire/codes-enforcement/fire-plans-review/general.html",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not read. The primary rule PDF returned 403 to a plain fetch and was not retried.",
+   "ahj": "State Fire Marshal's Office plan review for covered buildings; the local fire chief decides the 510.1 exception.",
+   "fire_marshal": "https://www.tn.gov/commerce/fire.html",
+   "pending": "No Tennessee bill on ERCES found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "TX": {
+   "name": "Texas",
+   "level": "local",
+   "rule": "local option",
+   "fire_code": {
+    "base": "none statewide",
+    "edition": "varies by city (examples: Austin 2024 IFC reported from 2025-07-10; Houston 2021 IFC; San Antonio 2021 IFC)",
+    "effective": "varies",
+    "statewide": "no, local adoption",
+    "state_amendments": "State Fire Marshal enforcement uses NFPA 1 under 28 TAC ch. 34; Local Govt Code 233.061 requires the latest IFC in unincorporated areas of counties over 250,000 (all excerpt)",
+    "source": "https://www.tdi.texas.gov/rules/2023/documents/20237848.pdf",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "local option",
+    "citation": "Home-rule city ordinances; Tex. Gov't Code 417.008(e)",
+    "summary": "No state law was found that mandates, bans or limits ERCES. Cities adopt IFC editions with amendments: Austin amends 510.1 (all new buildings), San Antonio requires it in new and some existing buildings (99 percent critical areas, 90 percent general), Houston has its own ERCC section tied to its simulcast radio system. Dallas amendment not found.",
+    "thresholds": "Local; San Antonio 99 percent critical areas, 90 percent general area.",
+    "source": "https://www.houstonpermittingcenter.org/media/9051/download",
+    "status": "excerpt"
+   },
+   "local_amendments": "Cities amend freely (home rule). Most of Texas's 254 counties cannot adopt a fire code. Houston, San Antonio, Dallas and Austin each adopt their own editions and amendments; a count of all adopting cities was not found.",
+   "ahj": "Local fire marshal (city). Unincorporated areas: county fire marshal using nationally recognized codes. State Fire Marshal (TDI) for state-regulated occupancies.",
+   "fire_marshal": "https://www.tdi.texas.gov/fire/",
+   "pending": "No 2025 or 2026 Texas bill on ERCES found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "UT": {
+   "name": "Utah",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2021",
+    "effective": "Utah Code 15A-5-203 version effective 2025-05-07 (superseded 2026-01-01; newer text not read)",
+    "statewide": "yes",
+    "state_amendments": "Utah Code 15A-5-203(1)(f) amends IFC 510.1",
+    "source": "https://le.utah.gov/xcode/Title15A/Chapter5/C15A-5-S203_2025050720250507.pdf",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "Utah Code 15A-5-203(1)(f)",
+    "summary": "IFC 510.1 starts with 'When required by the fire code official'; for new public and private schools the fire code official may require it only after construction if found necessary. Schools need an initial coverage test by a qualified professional, then routine fire-official testing. ERCES is discretionary per building.",
+    "thresholds": "None set by the state; fire code official decides.",
+    "source": "https://le.utah.gov/xcode/Title15A/Chapter5/C15A-5-S203_2025050720250507.pdf",
+    "status": "read"
+   },
+   "local_amendments": "Utah Code 15A-5 sets statewide amendments; local stricter-code authority not read.",
+   "ahj": "Local fire code official; Utah State Fire Marshal handles state-owned buildings and schools (excerpt).",
+   "fire_marshal": "https://firemarshal.utah.gov/",
+   "pending": "The version we read was superseded 2026-01-01; current text not checked.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "VA": {
+   "name": "Virginia",
+   "level": "discretion",
+   "rule": "carve-outs",
+   "fire_code": {
+    "base": "IFC (Virginia Statewide Fire Prevention Code)",
+    "edition": "2021",
+    "effective": "2024-01-18",
+    "statewide": "yes",
+    "state_amendments": "13VAC5-52 (SFPC) amends 510; 13VAC5-63-240 (USBC) controls installation",
+    "source": "https://law.lis.virginia.gov/admincodefull/title13/agency5/chapter52/",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "carve-outs",
+    "citation": "13VAC5-52 Section 510; 13VAC5-63-240 IBC 918",
+    "summary": "SFPC changes 510.1 to 510.3 (maintenance, locality-requested additional amplification, field tests) and deletes 510.4 to 510.6. USBC IBC 918 requires dedicated infrastructure in new buildings for localities using public safety wireless; installation per IFC 510.4/510.5, but the locality, not the owner, is responsible for the 510.5.4 acceptance test (confirmed in rule text). Owner installs radiating cable; locality operates and maintains the equipment.",
+    "thresholds": "Exceptions: A-5, I-4 and dwelling units in R-2 to R-5, U; Types IV and V without basements; single-story above-grade under 20,000 sq ft; secured government spaces with approved alternative; owner documentation from a qualified person that the structure does not impede signals; localities that do not provide the additional equipment.",
+    "source": "https://law.lis.virginia.gov/admincode/title13/agency5/chapter63/section240/",
+    "status": "read"
+   },
+   "local_amendments": "Statewide code; localities enforce. Localities decide whether to provide additional communication equipment (an exception applies if they do not).",
+   "ahj": "Local fire official enforces SFPC; local building official enforces USBC; the locality runs the acceptance test.",
+   "fire_marshal": "https://www.vdfp.virginia.gov/",
+   "pending": "A 2025 emergency amendment to 13VAC5-63 (excerpt) is reflected in the exceptions above; the 2024 USBC cycle is under way, no specific bill found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "VT": {
+   "name": "Vermont",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101",
+    "edition": "NFPA 1 2021; NFPA 101 2021; IBC 2021",
+    "effective": "2025 code replaced the 2015 code about 2025-11-05 (excerpt)",
+    "statewide": "yes",
+    "state_amendments": "2025 Vermont Fire & Building Safety Code (Division of Fire Safety rules)",
+    "source": "https://firesafety.vermont.gov/buildingcode/codes",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "2025 VFBSC replacing IBC 918",
+    "summary": "The 2025 code replaces IBC 918 so emergency responder radio coverage follows the Fire Code (NFPA 1 2021) as adopted. No IFC 510.",
+    "thresholds": "Per NFPA 1 2021; not read.",
+    "source": "https://firesafety.vermont.gov/sites/firesafety/files/Rules/2025%20Vermont%20Fire%20&%20Building%20Safety%20Code.pdf",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not found; the Division of Fire Safety rules are statewide.",
+   "ahj": "State Division of Fire Safety (Department of Public Safety) for most nonresidential buildings.",
+   "fire_marshal": "https://firesafety.vermont.gov/",
+   "pending": "None found. The rule PDF returned 403 to a plain fetch.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "WA": {
+   "name": "Washington",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC (Washington State Fire Code)",
+    "edition": "2021",
+    "effective": "2024-03-16 per WAC 51-54A-0510 history note (filing says 3/15/24)",
+    "statewide": "yes",
+    "state_amendments": "WAC 51-54A-0510 (State Building Code Council amendments)",
+    "source": "https://app.leg.wa.gov/wac/default.aspx?cite=51-54A-0510",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "WAC 51-54A-0510",
+    "summary": "510.1 requires an approved in-building ERCES in new buildings, based on existing public safety coverage levels, and says it does not require improving public safety systems; 510.2 covers existing buildings; 510.3 permit. Fire code official can accept an automatically activated system where equipment would harm operations (excerpt).",
+    "thresholds": "All new buildings (510.1 text partly read).",
+    "source": "https://app.leg.wa.gov/wac/default.aspx?cite=51-54A-0510",
+    "status": "read"
+   },
+   "local_amendments": "Local stricter-amendment authority under RCW 19.27 not read.",
+   "ahj": "Local fire code official; Washington State Patrol Fire Protection Bureau for state buildings (excerpt).",
+   "fire_marshal": "https://wsp.wa.gov/fire-marshal/",
+   "pending": "WSR 26-10-069 (CR-102) would adopt the 2024 IFC, changing Section 510 amendments and NFPA 1221 to 1225 references; proposed effective 2027-05-03, other drafts showed 2026-11-01 (excerpt).",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "WI": {
+   "name": "Wisconsin",
+   "level": "unknown",
+   "rule": "none found",
+   "fire_code": {
+    "base": "NFPA 1 (SPS 314) for fire prevention; IBC-based commercial code SPS 361 to 366",
+    "edition": "SPS 314 reported as NFPA 1 2012; 2021 IBC for building; UpCodes claims a 2021 IFC effective 2025-09-01 (unconfirmed, likely wrong for SPS 314)",
+    "effective": "unconfirmed",
+    "statewide": "yes (uniform commercial code)",
+    "state_amendments": "SPS 314 with modifications; a DSPS scope statement targets NFPA 1 2024",
+    "source": "https://docs.legis.wisconsin.gov/code/admin_code/sps/safety_and_buildings_and_environment/301_319/314",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "none found",
+    "citation": "Not located",
+    "summary": "No Wisconsin statewide ERCES requirement was found. Local ordinances exist (Milwaukee County municipalities described as a patchwork; South Milwaukee requires repeaters where a building defeats radio). 2013 Wisconsin Act 270 lets municipalities keep some existing fire ordinances.",
+    "thresholds": "Not found.",
+    "source": "https://bestdefense.com/local-code-ordinance/south-milwaukee/",
+    "status": "excerpt"
+   },
+   "local_amendments": "2013 Act 270 grandfathers some local fire ordinances for public buildings and places of employment (excerpt). SPS 314.001(2) lets municipalities adopt an equivalent alternate model fire code (excerpt).",
+   "ahj": "Local fire department inspects under SPS 314; DSPS Safety and Buildings Division sets the code and does plan review for many buildings.",
+   "fire_marshal": "https://dsps.wi.gov/Pages/Programs/FirePrevention/Default.aspx",
+   "pending": "DSPS scope statement (2025) for rulemaking to update SPS 314 to NFPA 1 2024; no ERCES bill found. The Legislature site returned 429 so rule text was not read.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "WV": {
+   "name": "West Virginia",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "NFPA 1 and NFPA 101",
+    "edition": "NFPA 1 2021; NFPA 101 2021 adopted in full",
+    "effective": "2026-07-01 (87CSR1 effective date line)",
+    "statewide": "yes",
+    "state_amendments": "87CSR1 State Fire Code (Fire Commission legislative rule)",
+    "source": "https://firemarshal.wv.gov/media/39301/download?inline=",
+    "status": "read"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "87CSR1 adopting NFPA 1 (2021)",
+    "summary": "The rule text we read has no ERCES or radio amendment, so the NFPA 1 2021 in-building responder radio provisions (not IFC 510) apply as written. NFPA 101 takes precedence over NFPA 1 (excerpt).",
+    "thresholds": "Per NFPA 1 2021 model text (not read).",
+    "source": "https://firemarshal.wv.gov/media/39301/download?inline=",
+    "status": "excerpt"
+   },
+   "local_amendments": "Not found in the rule; municipalities may adopt local fire codes (e.g. Parsons city code, excerpt).",
+   "ahj": "State Fire Marshal; local fire departments.",
+   "fire_marshal": "https://firemarshal.wv.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  },
+  "WY": {
+   "name": "Wyoming",
+   "level": "required",
+   "rule": "follows model code",
+   "fire_code": {
+    "base": "IFC",
+    "edition": "2021 (newer Chapter 1 effective 2024-06-26 per UpCodes)",
+    "effective": "2021-09-22 (UpCodes, secondary)",
+    "statewide": "yes",
+    "state_amendments": "State Fire Marshal rules ('Chapter 2 Fire Prevention'); W.S. 35-9-106 caps standards at the I-Codes",
+    "source": "https://wyoleg.gov/AgencyRules/ARR21-047P.pdf",
+    "status": "excerpt"
+   },
+   "erces": {
+    "rule": "follows model code",
+    "citation": "IFC 2021 Section 510 (UpCodes lists it without amendment)",
+    "summary": "Wyoming adopts the IFC; secondary sources show Section 510 unamended. Primary rule text was not read.",
+    "thresholds": "IFC 510.1 as written.",
+    "source": "https://up.codes/viewer/wyoming/ifc-2021",
+    "status": "excerpt"
+   },
+   "local_amendments": "W.S. 35-9-106: State Fire Marshal minimum standards may not exceed the I-Codes (excerpt); local power not found.",
+   "ahj": "Wyoming State Fire Marshal (Division of Fire Prevention and Electrical Safety) acts as building official, fire chief and enforcing authority for 'public buildings'; locals elsewhere.",
+   "fire_marshal": "https://wsfm.wyo.gov/",
+   "pending": "None found.",
+   "blocked": [],
+   "checked": "2026-11-05"
+  }
+ }
+}

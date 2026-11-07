@@ -12,6 +12,7 @@ window.dasPitch = async el => {
   if (!el.isConnected) return;
   const P = S.dasPitch = S.dasPitch || { job: "" };
   const job = P.job ? await api(`/api/das/jobs/${P.job}`).catch(() => null) : null;
+  const code = job ? await api(`/api/das/x/code/${job.id}`).catch(() => null) : null;  // the state's rule: a deck never says the code requires what a state doesn't
   if (!el.isConnected) return;
   const src = Object.fromEntries((M.sources || []).map(s => [s.key, s]));
   const cite = keys => (keys || []).length ? `<sup class="hint">${(keys || []).map(k => src[k] ? `<a href="${esc(src[k].url)}" target="_blank" rel="noopener" title="${esc(src[k].title)}">[${esc(k)}]</a>` : "").join("")}</sup>` : "";
@@ -42,7 +43,9 @@ window.dasPitch = async el => {
     `<section class="pitch-slide pitch-cover"><div><p class="hint">${esc(F.area || "")}</p><h1>${esc(F.name)}</h1><p class="lead">${esc(F.tagline)}</p>
       ${job ? `<p>Prepared for <b>${esc(job.name)}</b>${d.address ? `, ${esc(d.address)}` : ""}</p>` : ""}
       <p class="hint">${[F.phone, F.email, F.website].filter(Boolean).map(esc).join(" · ")}${F.license ? `<br>${esc(F.license)}` : ""}${F.certs ? `<br>${esc(F.certs)}` : ""}</p></div></section>`,
-    slide("Why the building needs it", `<p class="lead">${esc(M.code_triggers_common?.text || "")}${cite(M.code_triggers_common?.sources)}</p>`),
+    code?.rule && code.rule.level === "no_mandate"
+      ? slide("Why choose it here", `<p class="lead">${esc(code.reading)}</p><p class="lead">An owner can still choose a system: for the people in the building, and for the crews who go in. The next slide is the case for it.</p>`)
+      : slide("Why the building needs it", `${code?.rule && code.rule.level !== "required" ? `<p class="lead"><b>Here:</b> ${esc(code.reading)} The AHJ decides.</p>` : ""}<p class="lead">${esc(M.code_triggers_common?.text || "")}${cite(M.code_triggers_common?.sources)}</p>`),
     slide("More than passing the fire marshal", `<div class="pitch-cards">${(M.value_beyond_code || []).map(v => `<div><b>${esc(v.item)}</b><p>${esc(v.claim)}${cite(v.sources)}</p><span class="hint">${(v.who_cares || []).map(esc).join(" · ")}</span></div>`).join("")}</div>`),
     slide("How a job runs", `<ol class="pitch-steps">${(M.process || []).map(s => `<li><b>${esc(s.phase)}</b> <span class="hint">${esc(s.duration || "")}</span><br>${esc(s.what)}${cite(s.sources)}</li>`).join("")}</ol>`),
     slide("What we need from you", `<div class="pitch-grid"><div><h3>To get started</h3><ul>${((M.customer_needs || {}).supply_or_decide || []).map(x => `<li>${esc(x.item || x.need || x)}${x.detail ? `: <span class="hint">${esc(x.detail)}</span>` : ""}${cite(x.sources)}</li>`).join("")}</ul></div>

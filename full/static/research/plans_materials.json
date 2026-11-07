@@ -3365,9 +3365,9 @@
    ]
   },
   {
-   "name": "ITU-R P.1238 indoor site-general loss with floors",
+   "name": "ITU-R P.1238 indoor site-specific loss with floors",
    "formula": "L_total = L(d0) + N*log10(d/d0) + Lf(n) ; L(d0) = 20*log10(f_MHz) - 28 at d0 = 1 m",
-   "explain": "Eq (2) of P.1238-13; Lf from Table 5 (e.g. office at 0.9 GHz: 9/19/24 dB for 1/2/3 floors), Lf = 0 when n = 0.",
+   "explain": "Eq (2) of P.1238-13; Lf from Table 5 (e.g. office at 0.9 GHz: 9/19/24 dB for 1/2/3 floors), Lf = 0 when n = 0. P.1238-13 calls this N form site-specific; its site-general model is eq. (1), with alpha, beta and gamma.",
    "sources": [
     "itu_p1238_13"
    ]

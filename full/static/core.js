@@ -558,6 +558,7 @@ function openDetail(fid){
       ["GPS accuracy",r.acc!=null?`${r.acc} m`:""],["Capture",esc(r.capture_name||"")],["Fetched",esc(r.fetched_at||"")]])}</div>
       ${Object.keys(extra).length?`<div class="sec"><h3>All fields</h3>${kvg(Object.entries(extra).map(([k,v])=>[esc(k),`<span class="mono">${esc(typeof v==="object"?JSON.stringify(v):v)}</span>`]))}</div>`:""}`;
   }
+  html += window.sigMeta ? window.sigMeta(r) : "";  // band, channel, pairing, what a scan adds, every field on file (sigmeta.js)
   $("#dlgBody").innerHTML=html;
   radioIdLookup(r);
   if(r.also_in?.length){  // the same emitter from several sources: who reported it, and where they disagree
