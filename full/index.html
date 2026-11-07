@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Recon (beta)</title>
+<link rel="icon" type="image/png" href="static/app/icons/icon-192.png">
+<script>
+// Opened straight from the folder (file://) there is no server behind the page: go to the running app, or say how to start it
+if (location.protocol === "file:") {
+  var rfApp = "http://localhost:8765/", rfHelp = function () {
+    var show = function () { document.body.style.cssText = "margin:0;min-height:100vh;padding:1px 16px;background:#12110f";
+      document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:28px;border-radius:22px;background:#1f1b17;color:#f4efe8;font:16px/1.5 Segoe UI,system-ui,sans-serif">'
+      + '<h1 style="margin:0 0 10px;font-size:26px">RF Recon (beta)</h1><p>This page runs from RF Recon\'s own small server on this PC, so it can\'t work opened from the folder.</p>'
+      + '<p><a href="' + rfApp + '" style="color:#f0a07a;font-weight:700;font-size:19px">Open RF Recon (beta)</a> (when it\'s running)</p>'
+      + '<p style="color:#c4bbaf">To start it, double-click <b>RF Recon (beta)</b> on the Desktop or in the Start menu (from an install kit: <b>Start RF Recon</b> in its folder). From Google Drive in the browser, open <b>START HERE - RF Recon (beta)</b> in the RF Recon folder.</p></div>'; };
+    if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
+  };
+  fetch(rfApp + "api/meta", {mode: "no-cors"}).then(function () { location.replace(rfApp); }, rfHelp);
+}
+</script>
+<link rel="stylesheet" href="static/vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="static/theme/glass.css">
+<script src="static/theme/skins.js"></script>
+<script src="static/theme/look.js"></script>
+<script>
+// The ◐ button's light / dark maps onto skins: light is Daylight, dark is the last dark skin (Smoke by default).
+try { var t = localStorage.getItem("theme");
+  if (t === "light") DashSkin.set("day"); else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark());
+  document.documentElement.dataset.theme = t || (DashSkin.get() === "day" ? "light" : "dark"); } catch (e) {}
+</script>
+<style>
+/* colours come from the glass theme (static/theme/glass.css); these map RF Recon's names onto it */
+:root, :root[data-skin]{
+  --panel: var(--g-strong); --chip: var(--wash); --sel: var(--accent-wash); --muted: var(--ink-2);
+  --accent-ink: var(--on-accent); --warn: var(--serious); --bad: var(--bad-ink);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--accent)}
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:1001;flex-wrap:wrap}
+header h1{font-size:15px;margin:0;letter-spacing:.05em;font-family:var(--mono)}
+header h1 span{color:var(--accent)}
+.hbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:4px 10px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.led{width:9px;height:9px;border-radius:50%;background:#8c959f;display:inline-block}
+.led.on{background:#2da44e}.led.off{background:#cf222e}.led.busy{background:#bf8700}
+main{max-width:1600px;margin:0 auto;padding:10px 14px 60px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+label.inl{flex-direction:row;align-items:center;gap:6px;color:var(--ink);font-size:13px}
+input,select,button,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+input[type=checkbox],input[type=radio]{padding:0;width:16px;height:16px;accent-color:var(--accent)}
+input[type=range]{padding:0;accent-color:var(--accent)}
+button{cursor:pointer;background:var(--chip)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 11px}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.grow{flex:1 1 200px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:2px 9px;font-size:12px;cursor:pointer;user-select:none;display:inline-flex;gap:6px;align-items:center}
+.chip b{font-weight:600;color:var(--muted)}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.on b{color:inherit}
+.chip.off{opacity:.45;text-decoration:line-through}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px;overflow-x:auto;position:sticky;top:46px;background:var(--bg);z-index:1000}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 13px;white-space:nowrap;color:var(--muted)}
+.tabs button.on{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
+.status{color:var(--muted);font-size:13px;margin:6px 0}
+.status.err{color:var(--bad)}
+.hint{color:var(--muted);font-size:12px}
+.mono{font-family:var(--mono)}
+h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.card .v{font-size:21px;font-weight:650;font-family:var(--mono)}
+.card .k{font-size:12px;color:var(--muted)}
+/* panels keep their own height: stretched to a long neighbour they left up to 2,900 px of empty glass (11/3); a grid
+   whose panel should fill (the pre-survey map) sets align-items:stretch itself */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px;align-items:start}
+.bars div{display:grid;grid-template-columns:150px 1fr 52px;gap:8px;align-items:center;font-size:12px;margin:3px 0}
+.bars div[data-click]{cursor:pointer}
+/* a wide table scrolls inside its panel, never the page (11/3: DAS report and design tables made phones 1,690 px wide) */
+.grid2>*{min-width:0}
+@media screen{ #dasPrint{overflow-x:auto} }
+/* the topology legend sits under the graph (on top it hid 23-33 of 262 nodes on a phone, 11/3); full screen floats it */
+#cyWrap:fullscreen .cyLegend{position:absolute;left:8px;bottom:8px;margin:0;opacity:.92}
+/* dashboard charts are drawn 560 wide and shrink to fit: on a phone their 10-11 px text came out about 6 px (11/3) */
+@media (max-width:600px){ svg.dchart{font-size:17px!important} }
+/* DAS Prospects (dasprospects.js) */
+.lead-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.lead-t{flex:1 1 320px;min-width:0}.lead-b{display:flex;flex-wrap:wrap;gap:6px}.lead-d{max-width:760px}
+.lead-area{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:4px 0;border-top:1px solid var(--line)}
+#dsLeads h4{margin:12px 0 2px;font-size:14px}
+.ap-next{margin:8px 0;padding:10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
+.ap-next ol{margin:4px 0;padding-left:20px}.ap-next .hint{margin:4px 0 8px}
+.pr-tab td{vertical-align:top}.pr-tab td .hint{font-size:11.5px}.pr-dnc{opacity:.55}
+.pr-tab tr.pr-hit td{background:color-mix(in srgb,var(--accent,#3b82f6) 22%,transparent);transition:background .3s}
+.status.pr-warn{color:var(--warn);border-color:var(--warn)}
+/* DAS Pitch (daspitch.js): slides on screen, one landscape page each in print */
+.pitch-deck{display:flex;flex-direction:column;gap:14px}
+.pitch-slide{position:relative;aspect-ratio:16/9;min-height:420px;padding:28px 34px 40px;border-radius:14px;overflow:auto;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong,var(--panel));border:1px solid var(--line);box-shadow:var(--g-shadow)}
+.pitch-slide h1{font-size:40px;margin:0 0 10px}.pitch-slide h2{font-size:24px;margin:0 0 12px}.pitch-slide h3{font-size:15px;margin:6px 0}
+.pitch-slide .lead{font-size:17px;line-height:1.5;max-width:70em}
+.pitch-slide footer{position:absolute;left:34px;right:34px;bottom:12px;font-size:11px;color:var(--muted)}
+.pitch-cover{display:flex;align-items:center}
+.pitch-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.pitch-cards>div{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:12.5px}.pitch-cards p{margin:4px 0}
+.pitch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;font-size:13px}
+.pitch-steps{columns:2;column-gap:28px;font-size:12.5px;margin:0;padding-left:18px}.pitch-steps li{break-inside:avoid;margin-bottom:6px}
+.pitch-sources ol{font-size:10.5px;columns:2;column-gap:24px}.pitch-slide sup a{text-decoration:none;margin-left:1px}
+.pitch-slide dt{font-weight:600;margin-top:6px}.pitch-slide dd{margin:2px 0 0 0}
+@media print{ body.print-das #dasPrint.pitch-deck .pitch-slide{aspect-ratio:auto;min-height:0;height:auto;overflow:visible;break-after:page;border:0;box-shadow:none;background:#fff;color:#000}
+  body.print-das #dasPrint.pitch-deck .pitch-slide footer{position:static;margin-top:14px} }
+@page{size:auto}
+/* low items from the 11/3 sweep */
+.res-pass{color:var(--good-ink,#1a7f37)} .res-fail{color:var(--bad-ink,#cf222e)}  /* the skin's own ink on screen (the print colours were 3.6:1 on dark) */
+@media print{ .res-pass{color:#1a7f37!important} .res-fail{color:#cf222e!important} }
+.bars div > span.mono{white-space:nowrap}  /* "110 38%" stayed on two lines on a phone */
+@media (max-width:900px){ .bars div{grid-template-columns:100px 1fr 62px} }
+#view{padding-bottom:72px}  /* the floating Note button never covers the last of a page */
+@media (pointer:coarse){
+  .bars div[data-click]{min-height:32px}
+  details > summary{padding-top:7px;padding-bottom:7px}
+  /* citation and outside links in running text: a finger-sized tap area, the line spacing kept */
+  a.hint, td a, .hint a{display:inline-block;padding:9px 2px;margin:-9px 0}
+}
+.bars div.full > span:first-child{white-space:normal!important;overflow:visible!important}  /* tapped: the whole name */
+.bars .bar{height:10px;border-radius:3px;background:var(--accent)}
+.tw{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.sf-wrap{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;align-items:start;margin-top:8px}.sf-roots{display:grid;gap:4px}
+.sf-roots button{text-align:left}.sf-roots button.on{background:var(--accent);color:var(--accent-ink)}
+.sf-go{background:none;background-image:none;border:0;border-radius:0;box-shadow:none;padding:0;min-height:0;min-width:0;color:inherit;font:inherit;font-weight:600;cursor:pointer;text-align:left}
+.sf-crumb{margin:0 0 6px;overflow-wrap:anywhere}.sf-wrap a.hbtn{text-decoration:none;white-space:nowrap}.sf-wrap td{vertical-align:middle}
+@media(max-width:700px){.sf-wrap{grid-template-columns:minmax(0,1fr)}.sf-roots{grid-template-columns:repeat(2,minmax(0,1fr))}.sf-go{min-height:32px}}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
+.tw.wrap td{white-space:normal;min-width:8em}.tw.wrap td:first-child{white-space:nowrap;min-width:0}  /* tables of sentences: wrap, not scroll */
+th{position:sticky;top:0;background:var(--panel);font-weight:600;color:var(--muted);font-size:11.5px;z-index:1}
+/* a pointer only where a click does something: sortable headers and rows that open or select (11/3: every table
+   in the app showed a pointer and most did nothing) */
+th[data-sort],tbody tr:is([data-fid],[data-i],[data-ll],[data-g]){cursor:pointer}
+tbody tr:hover{background:var(--chip)}
+tbody tr.sel{background:var(--sel)}
+td.f{font-family:var(--mono);font-weight:600}
+td.n{font-family:var(--mono);text-align:right}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:var(--chip);border:1px solid var(--line)}
+.tag.v{background:var(--good);color:var(--accent-ink);border-color:var(--good)}
+.tag.w{background:var(--warn);color:#fff;border-color:var(--warn)}
+.mapwrap{display:block}
+#mapTop:empty{display:none}
+#mapTop{margin-bottom:10px}
+#map{height:calc(100vh - 230px);min-height:420px;border-radius:10px;border:1px solid var(--line)}
+.side{max-height:calc(100vh - 160px);overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.ring{position:sticky;top:0;background:var(--chip);padding:4px 10px;font-size:11.5px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);z-index:1}
+.item{padding:6px 10px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;grid-template-columns:62px 1fr;gap:2px 8px;font-size:12.5px}
+.item:hover,.item.sel{background:var(--sel)}
+.item .d{font-family:var(--mono);color:var(--muted);font-size:11.5px}
+.item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{grid-column:2;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.maptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.legend{background:var(--panel);color:var(--ink);padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-size:11.5px;max-width:240px}
+.legend .bar{height:8px;border-radius:3px;background:linear-gradient(90deg,#30123b,#466be3,#29bbec,#31f198,#a3fd3d,#edd03a,#fb8022,#b40426)}
+.pinicon{background:var(--accent);border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.filterbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.filterbar input{flex:1 1 260px;font-family:var(--mono);font-size:13px}
+.filterbar input.ok{border-color:var(--good)}
+.filterbar input.bad{border-color:var(--bad)}
+.pkts{height:42vh;overflow:auto}
+.pane2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.tree{font-family:var(--mono);font-size:12px;height:30vh;overflow:auto;padding:6px 8px}
+.tree details{margin-left:12px}
+.tree summary{cursor:pointer;margin-left:-12px;font-weight:600}
+.tree .kv{display:block;white-space:pre-wrap;word-break:break-all;padding-left:4px}
+.tree .k{color:var(--muted)}
+pre.raw{margin:0;height:30vh;overflow:auto;font-size:11.5px;padding:6px 8px}
+.dash{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+.dash .panel{margin:0}
+.w12{grid-column:span 12}.w8{grid-column:span 8}.w6{grid-column:span 6}.w4{grid-column:span 4}
+#dashmap{height:360px;border-radius:8px}
+svg text{fill:var(--muted);font-size:10px;font-family:system-ui,sans-serif}
+#cy{height:calc(100vh - 260px);min-height:480px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);max-width:820px;width:calc(100% - 20px);padding:0}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.dlg-b{padding:11px 15px;max-height:78vh;overflow:auto}
+.kvg{display:grid;grid-template-columns:170px 1fr;gap:3px 12px;font-size:13px}
+.kvg div:nth-child(odd){color:var(--muted)}
+.sec{margin-top:12px}
+.srcrow{display:grid;grid-template-columns:44px minmax(160px,1.4fr) 120px 1.3fr 80px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.switch{position:relative;width:38px;height:22px;display:inline-block;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.15s;cursor:pointer}
+.switch span:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span:before{transform:translateX(16px)}
+.log{max-height:300px;overflow:auto;font-size:12.5px}
+.log div{padding:4px 0;border-bottom:1px solid var(--line)}
+.print-only{display:none}
+@media (max-width:900px){
+  .mapwrap{grid-template-columns:1fr}
+  #map{height:58vh}.side{height:auto;max-height:60vh}
+  .w8,.w6,.w4{grid-column:span 12}
+  .pane2{grid-template-columns:1fr}
+  .srcrow{grid-template-columns:44px 1fr 80px}
+  .srcrow .hide-m{display:none}
+  .kvg{grid-template-columns:120px 1fr}
+  .bars div{grid-template-columns:110px 1fr 44px}
+}
+/* Phones in the field (and gloves): every control at least 44px to tap. Look score had 0-1 of 38-54 at 390px. */
+@media (pointer:coarse), (max-width:600px){
+  button,select,input:not([type=checkbox]):not([type=radio]):not([type=range]),.chip,.tabs button,.seg button{min-height:44px}
+  button{min-width:44px}
+  .chip{padding:4px 12px}
+  input[type=checkbox],input[type=radio]{width:22px;height:22px}
+  input[type=range]{min-height:32px}
+  .leaflet-bar a,.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px}
+  .leaflet-control-layers-toggle,.leaflet-touch .leaflet-control-layers-toggle{width:44px;height:44px}
+  .leaflet-control-layers label{min-height:36px;display:flex;align-items:center}
+}
+@media print{
+  header,.tabs,.no-print,#searchPanel,#filters{display:none!important}
+  body{background:#fff;color:#000}
+  th{position:static}
+  /* ⎙ Prep sheet (body.print-prep) prints its checklist alone; any other print (⎙ Print report) prints the page */
+  body.print-prep .print-only{display:block}
+  body.print-prep #view > *:not(#printSheet){display:none!important}
+  #work{display:block!important}
+}
+</style>
+<style id="glass">
+/* glass look (Cody's dashboard default): same layout, new surfaces */
+html{background:var(--bg)}
+body{background:transparent;font-family:var(--font)}
+header{margin:12px 14px 0;top:12px;padding:9px 12px 9px 12px;gap:10px;border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+header h1{display:flex;align-items:center;gap:11px;font-family:var(--font);font-size:17px;font-weight:700;letter-spacing:.01em;margin-right:6px}
+header h1::before{content:"";width:36px;height:36px;border-radius:12px;flex:none;background:var(--accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314100c' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='1.7' fill='%2314100c'/><path d='M8.6 8.6a4.8 4.8 0 0 0 0 6.8M15.4 8.6a4.8 4.8 0 0 1 0 6.8M5.7 5.7a8.9 8.9 0 0 0 0 12.6M18.3 5.7a8.9 8.9 0 0 1 0 12.6'/></svg>") center/20px no-repeat;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 18px -10px var(--accent)}
+.hbtn{height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--pill);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);font-size:13px;font-weight:550;transition:background .15s}
+.hbtn:hover{background:var(--wash-2)}
+#themeBtn{width:36px;padding:0;justify-content:center;font-size:15px}
+main{padding:14px 14px 60px}
+.panel{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);padding:16px 18px;margin-bottom:14px}
+label{color:var(--ink-2);font-weight:550}
+input,select,textarea{background:var(--wash);border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:12px;padding:8px 12px}
+input:focus,select:focus,textarea:focus{outline:none;box-shadow:inset 0 0 0 1.5px var(--accent)}
+select option{background:var(--surface);color:var(--ink)}
+::placeholder{color:var(--ink-2);opacity:.7}
+input[type=checkbox],input[type=radio],input[type=range]{box-shadow:none;background:none}
+button{border:0;border-radius:999px;background:var(--pill);box-shadow:inset 0 0 0 1px var(--line);padding:7px 15px;font-weight:600;font-size:13px;transition:background .15s,filter .15s}
+button:hover{background:var(--wash-2)}
+button.primary{background:var(--accent);color:var(--on-accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 10px 22px -12px var(--accent)}
+button.primary:hover{background:var(--accent);filter:brightness(1.07)}
+.seg{border:0;border-radius:999px;background:var(--pill);padding:3px;gap:2px;box-shadow:inset 0 1px 0 var(--g-hi),inset 0 0 0 1px var(--line);overflow:visible}
+.seg button{border-radius:999px;box-shadow:none;background:transparent;padding:6px 14px;color:var(--ink-2)}
+.seg button.on{background:var(--inv);color:var(--inv-ink)}
+.chip{border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--pill);padding:4px 11px;font-size:12.5px}
+.chip.on{background:var(--accent);color:var(--on-accent);box-shadow:none}
+/* the tabs ride in a full-width band that hides what scrolls under it (a bare floating pill let toolbars show through
+   and covered their buttons); scrolling into view lands below the bars */
+html{scroll-padding-top:150px}
+mark{background:color-mix(in srgb,var(--accent) 38%,transparent);color:inherit;border-radius:3px;padding:0 1px}
+.tabbar{position:sticky;top:72px;z-index:1000;margin:0 -14px 8px;padding:6px 14px 8px;
+  background:linear-gradient(color-mix(in srgb,var(--bg) 78%,transparent),color-mix(in srgb,var(--bg) 78%,transparent));-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.tabbar .tabs{position:static;margin:0 auto}
+.tabs{top:80px;gap:2px;padding:4px;margin:6px auto 14px;width:max-content;max-width:100%;border:1px solid var(--g-border);border-radius:999px;background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+.tabs button{border:0;border-radius:999px;box-shadow:none;padding:8px 16px;color:var(--ink-2);font-weight:500;flex:none}  /* a bar too narrow for every tab scrolls; labels never squeeze into each other */
+.tabs button.on{border:0;background:var(--wash-2);color:var(--ink);box-shadow:inset 0 1px 0 var(--g-hi);font-weight:600}
+/* every page in sight above phone width (11/3: the 15 tabs need 1,268 px, so from 1280 down the last pages sat out of
+   sight with no cue): tighter tabs first, then a second row. Phones keep the swipeable bar. */
+@media (min-width:601px) and (max-width:1320px){ .tabs button{padding:7px 10px} }
+@media (min-width:601px) and (max-width:1120px){ .tabs{flex-wrap:wrap;justify-content:center;border-radius:18px;overflow-x:visible} }
+/* depth (Cody, 10/28: "add some depth and make the edges look nicer"): panels get the kit's beveled edge, buttons sit
+   slightly proud and press in, fields and segment tracks sit recessed. Tokens from theme/glass.css. */
+header,.panel,.tabs,.tw,.side,#cy,dialog{border-color:var(--g-edges)}
+button,.hbtn{background-image:var(--c-fill);box-shadow:var(--c-depth),inset 0 0 0 1px var(--line);transition:background .15s,filter .15s,box-shadow .15s,transform .15s}
+button:hover,.hbtn:hover{background-image:var(--c-fill)}
+button:active,.hbtn:active{box-shadow:var(--c-press),inset 0 0 0 1px var(--line);transform:translateY(1px)}
+button.primary,button.primary:hover{background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 65%)}
+.seg button,.seg button:hover,.tabs button,.tabs button:hover{background-image:none}
+.seg button:not(.on),.tabs button:not(.on){box-shadow:none}
+.seg button:active,.tabs button:active{transform:none}
+.seg{box-shadow:inset 0 1px 3px rgba(0,0,0,.3),inset 0 0 0 1px var(--line)}
+input,select,textarea{box-shadow:inset 0 1px 3px rgba(0,0,0,.22),inset 0 0 0 1px var(--line)}
+.status{padding:0 4px}
+h3{font-size:14.5px;text-transform:none;letter-spacing:-.005em;color:var(--ink);font-weight:600;margin-bottom:12px}
+.card{background:var(--wash);border:0;box-shadow:inset 0 0 0 1px var(--line);border-radius:16px;padding:12px 14px}
+.card .v{font-family:var(--font);font-size:24px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .k{color:var(--ink-2)}
+.bars .bar{border-radius:0 999px 999px 0;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 38%,transparent),var(--accent));box-shadow:0 0 14px -3px var(--glow)}
+.tw,.side{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+th{background:var(--g-strong);color:var(--ink-2);border-bottom-color:var(--grid)}
+td{border-bottom-color:var(--grid)}
+tbody tr:hover{background:var(--wash)}
+.tag{border:0;box-shadow:inset 0 0 0 1px var(--line);background:var(--wash);border-radius:999px;padding:1px 8px}
+.tag.v{background:var(--good);color:#0b1a10;box-shadow:none}
+.tag.w{background:var(--serious);color:#1c0d05;box-shadow:none}
+.tag.das{background:var(--accent-wash);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600}
+.dasnote{margin-top:3px}
+/* DAS Screening (dasscreen.js): striped calls, so a screening call never reads as a Grid test result */
+.scr-sq{border:1px solid rgba(20,20,20,.35);border-radius:0;margin:0;padding:2px;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:#111;background:color-mix(in srgb,#fff 25%,transparent);transition:background-color var(--t-move) var(--ease),box-shadow var(--t-border) ease}
+.scr-sq .hint{color:#333}.scr-sq>b,.scr-sq>.mono{background:rgba(255,255,255,.8);border-radius:4px;padding:0 4px;line-height:1.35}.scr-sq:hover{box-shadow:inset 0 0 0 3px var(--accent)}.scr-sq.sel{box-shadow:inset 0 0 0 3px #1d4ed8}
+.scr-sq.pass{background:repeating-linear-gradient(135deg,color-mix(in srgb,#3ccf7a 55%,transparent) 0 7px,color-mix(in srgb,#3ccf7a 30%,transparent) 7px 14px)}
+.scr-sq.close{background:repeating-linear-gradient(135deg,color-mix(in srgb,#fab219 65%,transparent) 0 7px,color-mix(in srgb,#fab219 35%,transparent) 7px 14px)}
+.scr-sq.fail{background:repeating-linear-gradient(135deg,color-mix(in srgb,#e5534b 60%,transparent) 0 7px,color-mix(in srgb,#e5534b 32%,transparent) 7px 14px)}
+.scr-sq.skip{background:repeating-linear-gradient(45deg,color-mix(in srgb,#8c959f 35%,transparent) 0 6px,transparent 6px 12px);cursor:default}
+.scr-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:8px;color:var(--muted)}
+.scr-legend i{display:inline-block;width:16px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px;border:1px solid var(--line);background:#fff}
+.scr-legend i.pass{background:repeating-linear-gradient(135deg,#3ccf7a 0 4px,transparent 4px 8px)}
+.scr-legend i.close{background:repeating-linear-gradient(135deg,#fab219 0 4px,transparent 4px 8px)}
+.scr-legend i.fail{background:repeating-linear-gradient(135deg,#e5534b 0 4px,transparent 4px 8px)}
+.scr-word{font-size:17px}.scr-word.pass{color:var(--good-ink)}.scr-word.close{color:var(--warning)}.scr-word.fail{color:var(--bad-ink)}
+.scr-tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;border:1px solid var(--line)}
+.scr-tag.pass{background:color-mix(in srgb,#3ccf7a 25%,transparent);border-color:#3ccf7a}
+.scr-tag.close{background:color-mix(in srgb,#fab219 25%,transparent);border-color:#fab219}
+.scr-tag.fail{background:color-mix(in srgb,#e5534b 25%,transparent);border-color:#e5534b}
+#map,#dashmap{border:1px solid var(--g-border);border-radius:var(--radius);box-shadow:var(--g-shadow)}
+#cy{border:1px solid var(--g-border);border-radius:var(--radius);background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+.ring{background:var(--g-strong);color:var(--ink-2);border-bottom-color:var(--grid)}
+.item{border-bottom-color:var(--grid)}
+.legend{background:var(--g-strong);border:0;box-shadow:var(--g-shadow);border-radius:14px;-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+dialog{border:1px solid var(--g-border);border-radius:var(--radius);background:var(--g-strong);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+dialog::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.dlg-h{background:var(--g-strong);border-bottom-color:var(--grid)}
+svg text{fill:var(--ink-2);font-family:var(--font)}
+.switch span{background:var(--wash-2)}
+.switch input:checked+span:before{background:var(--on-accent)}
+.leaflet-container{background:var(--surface);font-family:var(--font)}
+.leaflet-bar{border:0!important;border-radius:14px!important;overflow:hidden;box-shadow:var(--g-shadow)!important}
+.leaflet-bar a{background:var(--g-strong)!important;color:var(--ink)!important;border-bottom-color:var(--line)!important}
+.leaflet-control-layers{background:var(--g-strong)!important;color:var(--ink)!important;border:0!important;border-radius:14px!important;box-shadow:var(--g-shadow)!important}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--g-strong);color:var(--ink);box-shadow:var(--g-shadow)}
+.leaflet-control-attribution{background:rgba(0,0,0,.35)!important;color:var(--ink-2)!important}
+.leaflet-control-attribution a{color:var(--ink)!important}
+/* street map tiles (/tiles/osm/… and the plain /tiles/{z}/… layer) go dark on the dark skins;
+   satellite, topo, county lines and radar keep their colours */
+:root:not([data-skin="day"]) :is(.leaflet-tile[src*="/tiles/osm/"], .leaflet-tile[src^="/tiles/0"], .leaflet-tile[src^="/tiles/1"], .leaflet-tile[src^="/tiles/2"], .leaflet-tile[src^="/tiles/3"], .leaflet-tile[src^="/tiles/4"], .leaflet-tile[src^="/tiles/5"], .leaflet-tile[src^="/tiles/6"], .leaflet-tile[src^="/tiles/7"], .leaflet-tile[src^="/tiles/8"], .leaflet-tile[src^="/tiles/9"]){filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.86) saturate(.55)}
+/* phones (Cody, 10/31: "make the web version work/scale to mobile"): one column; the header scrolls away so the tab
+   bar can stick to the top; tabs and segment rows scroll sideways instead of squeezing; menus and fields stay on the
+   screen. The phone app (RF Recon lite) is a separate page and isn't touched by this. */
+select{max-width:100%}  /* a menu with a long option (Parts' cables) never runs off the screen, */
+.row>label{min-width:0}  /* nor the label around it */
+/* a phone upright, or on its side (short): the header scrolls away and the tab bar sticks to the top */
+@media (max-width:600px), (max-height:500px){
+  html{scroll-padding-top:76px}
+  header{position:static}
+  .tabbar{top:0}
+  .tabs{scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+}
+/* touch screens: a link out (sources, "Get a key ↗") gets a finger-sized target without changing the line it sits on (11/4) */
+@media (pointer:coarse){ #view a[target="_blank"]{display:inline-block;padding:8px 0;margin:-8px 0} }
+@media (max-width:600px){
+  /* a long folder path or address wraps instead of pushing the page sideways (DAS, Data & updates, 11/4) */
+  #view .mono, #view .hint, #view .status{overflow-wrap:anywhere}
+  header{margin:8px 8px 0;padding:8px 10px;gap:8px}
+  header h1{font-size:16px;margin-right:0}
+  header h1::before{width:32px;height:32px;border-radius:10px;background-size:18px}
+  #meta{order:9;flex:1 1 100%;margin-left:0!important;font-size:11.5px}
+  #lookSlot{margin-left:auto}
+  main{padding:10px 8px 60px}
+  .panel{padding:12px;margin-bottom:10px}
+  .tabbar{margin:0 -8px 8px;padding:6px 8px}
+  .tabs{width:100%;margin:0;justify-content:flex-start;overflow-x:auto}
+  .seg::-webkit-scrollbar{display:none}
+  .tabs button{padding:8px 13px}
+  .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap!important}  /* Search's scopes wrap inline */
+  .seg button{flex:none;white-space:nowrap}
+  label{min-width:0;max-width:100%}
+  select{max-width:100%;min-width:0}
+  .grid2{grid-template-columns:minmax(0,1fr)!important}  /* mission, mission tools and DAS set two columns inline */
+  .maptools label.inl{flex-wrap:wrap}
+  #map{height:60vh;min-height:300px}
+  .side{max-height:55vh}
+  .kvg{grid-template-columns:minmax(0,110px) minmax(0,1fr)}
+  dialog{width:calc(100% - 12px)}
+  .dlg-b{max-height:82vh;padding:10px 12px}
+}
+/* a phone on its side is wider than 600 px but short: segment bars (a DAS job's sub-tabs) scroll there too, instead of
+   spilling off the page (11/3: 31 px over on every sub-tab at 844x390) */
+@media (max-height:500px){
+  .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap!important}
+  .seg::-webkit-scrollbar{display:none}
+  .seg button{flex:none;white-space:nowrap}
+}
+@media print{#backdrop{display:none}html{background:#fff}}
+/* signed in through the remote link: view and search only, so the parts that change things or stay on the PC go */
+body.remote :is(nav [data-t="data"], #takPush){display:none!important}
+/* Daylight (and its tints): warning and pass text dark enough to read on light glass. The kit leaves --serious at the
+   dark skins' orange (2.2-2.5:1 here) and --good at 2.8-3.1:1; these are 5.3-5.9:1 on both light surfaces (11/3). */
+:root[data-skin="day"]{--warn:#9a4a00;--good:#087008}
+/* a channel's ⚠ (das.js dasFlagPop): text-sized in the table, a wider tap area for fingers; the pop-up floats on the
+   strong surface (clear glass fails contrast over the map and tables) */
+.das-flag{all:unset;position:relative;color:var(--warn);cursor:pointer;padding:0 2px;border-radius:4px}
+.das-flag::after{content:"";position:absolute;inset:-8px -6px}
+.das-flag:hover,.das-flag[aria-expanded="true"]{filter:brightness(1.3);background:var(--wash-2,rgba(127,127,127,.15))}
+.das-flag:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.das-flagpop{position:fixed;z-index:3000;width:max-content;max-width:min(380px,calc(100vw - 16px));padding:10px 14px 8px;border-radius:12px;color:var(--ink);font-size:13px;line-height:1.45;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong,var(--panel));border:1px solid var(--line);box-shadow:var(--g-shadow-up,0 12px 32px -12px rgba(0,0,0,.45));
+  opacity:0;transform:translateY(-4px);transition:opacity .16s ease,transform .3s var(--ease,ease)}
+.das-flagpop.on{opacity:1;transform:none}
+.das-flagpop>.hint:first-of-type{padding-right:30px}
+.das-flagpop h4{margin:8px 0 4px;color:var(--warn);font-size:13.5px}
+.das-flagpop p{margin:0 0 6px}
+.das-flagpop .x{position:absolute;top:6px;right:6px;min-height:0;min-width:0;padding:2px 9px;font-size:16px;line-height:1.2}
+</style>
+<style id="rail">
+/* the filter rail (rail.js). Cody 11/4, "best one wins": a layer rail docked beside the view it filters, as SDR++, SDR#,
+   QGIS and Google Earth do; a bar and a bottom sheet on a phone, as ATAK does upright. RF Recon's own glass and skins. */
+:root{--rail-w:288px;--rail-top:136px;--rail-max:calc(100vh - var(--rail-top) - 14px)}
+@supports (height:1dvh){ :root{--rail-max:calc(100dvh - var(--rail-top) - 14px)} }
+#work{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);gap:14px;align-items:start;transition:grid-template-columns var(--t-panel) var(--ease)}
+#content{min-width:0}
+#filters{position:sticky;top:var(--rail-top);z-index:1002;min-width:0}
+.rail-panel{display:flex;flex-direction:column;max-height:var(--rail-max);min-height:0;border:1px solid var(--g-edges);border-radius:var(--radius);
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+.rail-bar,.rail-strip,.rail-grab,.rail-show{display:none}
+.rail-head{padding:12px 12px 9px;border-bottom:1px solid var(--grid)}
+.rail-count{display:flex;align-items:flex-start;gap:8px}
+.rail-count strong{flex:1;min-width:0;padding-top:4px;font-size:13.5px;font-weight:650;line-height:1.35;font-variant-numeric:tabular-nums}
+#railFold{flex:none;width:30px;height:30px;padding:0;font-size:17px;line-height:1}
+.rail-actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.rail-side{display:flex;margin-top:9px}
+.rail-side button{flex:1 1 auto;padding:5px 6px;font-size:12px;white-space:nowrap}
+.rail-actions button,.rail-menu button{padding:5px 10px;font-size:12px}
+#clearChips{margin-left:auto}
+#railExportBtn[aria-expanded="true"]{background-color:var(--wash-2)}
+.rail-menu{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.rail-menu[hidden]{display:none!important}
+.rail-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.rail-pills:empty{display:none}
+/* Where and Frequency on one line over the map (Cody 11/5). Every control stays; on a wide screen the labels become
+   placeholders, and on a phone the panel keeps its labels, under the map, as before */
+#content{display:flex;flex-direction:column}
+#content>*{min-width:0}
+#searchPanel{position:relative;z-index:5}
+#map{isolation:isolate}
+.bar-slide{min-width:140px}
+/* Start: one job, step by step (start.js). It has no search bar: the questions are the page */
+body.tab-start #searchPanel,body.tab-start #status,body.tab-start .filter-line{display:none}
+.st{max-width:980px;margin:0 auto}
+.st-hero h2,.st-top h2{margin:0;font-size:24px;font-weight:700}
+.st-hero{margin:10px 2px 14px}.st-hero p{margin:6px 0 0;max-width:640px;color:var(--ink-2)}
+.st-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 10px}
+.st-top>div{flex:1 1 200px;min-width:0}.st-top p{margin:2px 0 0}
+.st-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px 16px}
+.st-q{display:flex;flex-direction:column;gap:4px;min-width:0}
+.st-q label{font-size:13.5px;font-weight:600;color:var(--ink)}
+.st-q input,.st-q select{width:100%;min-width:0;max-width:100%}
+.st-q.left label{color:var(--bad)}
+.st-q.left input,.st-q.left select{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+.st-next{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
+.st-next .btn{display:inline-block;white-space:nowrap}
+.st-steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0 0 10px;padding:0}
+.st-steps li{flex:1 1 140px;min-width:0}
+.st-steps button{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;text-align:left}
+.st-steps button.on{background:var(--inv);color:var(--inv-ink)}
+.st-steps button[disabled]{opacity:.55;cursor:not-allowed}
+.st-n{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:700;background:var(--wash-2)}
+.st-steps .done .st-n{background:var(--good);color:#fff}
+.st-goal{margin:0 2px 10px;font-size:15px;color:var(--ink-2)}
+.st-jobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+.st-jobs button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;text-align:left}
+.st-pill{margin-top:4px;font-size:12px;font-weight:600;color:var(--accent)}
+.st-foot{margin:12px 2px}
+.st-foot label{display:inline-flex;margin-left:8px}
+.st-report h2{margin:0;font-size:20px}
+.st-report h4,.st h4{margin:14px 0 6px;font-size:13.5px}
+.st-report table{width:100%;border-collapse:collapse;font-size:13px}
+.st-report td,.st-report th{padding:4px 8px 4px 0;text-align:left;vertical-align:top;border-top:1px solid var(--line);white-space:normal;overflow-wrap:anywhere}
+.st-report td.mono{white-space:nowrap}
+.st-main{font-size:11px;color:var(--accent)}
+.st-report ul{margin:4px 0;padding-left:18px}
+.st-verdict{margin:6px 0 12px;padding:10px 14px;border-left:4px solid var(--accent);background:var(--wash)}
+.st-verdict p{margin:4px 0 0}
+.st-auth{font-weight:600}
+.st-print-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:12px;color:var(--ink-2)}
+.st-print-head b{font-size:15px;color:var(--ink)}
+.st-checks{display:flex;flex-direction:column}
+.st-check{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.st-check>span:nth-child(2){flex:1 1 auto;min-width:0}
+.st-mark{flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;box-shadow:inset 0 0 0 1px var(--line);font-size:13px}
+.st-check.ok .st-mark{background:var(--good);color:#fff;box-shadow:none}
+.st-skip{margin:6px 0;padding:6px 10px;border-left:3px solid var(--warn);font-weight:600}
+.st-skipper{margin:8px 2px}
+.st-why{text-align:right;margin:4px 2px}
+.st-back{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+.st-how{margin:6px 0}.st-how ol,.st-failed ol{margin:6px 0;padding-left:20px}
+.st-failed{margin:8px 0;padding:8px 12px;border-left:3px solid var(--bad)}
+.st-failed p{margin:4px 0}
+.filter-line{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px;margin:0 2px 6px;font-size:12.5px;color:var(--ink-2);min-height:26px}
+.filter-line:has(#flCount:empty){display:none}
+body.rail-none .filter-line{display:none}
+.fl-count{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.fl-pills{display:flex;flex-wrap:wrap;gap:5px}
+.fl-pills .fl-note{padding:2px 0}
+.filter-line button{padding:3px 9px;font-size:12px}
+.fl-views{position:relative;margin-left:auto}
+.views-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:2000;width:min(320px,calc(100vw - 24px));margin:0;padding:8px;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up)}
+.views-menu[hidden]{display:none!important}
+.views-menu .vrow{display:flex;gap:4px;align-items:stretch;margin-bottom:3px}
+.views-menu .vrow button:first-child{flex:1 1 auto;text-align:left;display:flex;flex-direction:column;gap:1px}
+.views-menu .vrow .hint{font-size:11px}
+.views-menu form{display:flex;gap:4px;margin-top:6px}
+.views-menu form input{flex:1 1 auto;min-width:0}
+.rfbox{position:relative;display:flex;align-items:center}
+.rfbox label{flex:1 1 auto}
+#rf{padding-right:26px!important}
+#rf.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+#rfPick{position:absolute;right:3px;bottom:3px;padding:3px 6px;border:0;background:none;box-shadow:none;color:var(--ink-2);font-size:12px}
+.rf-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:2000;width:min(470px,calc(100vw - 24px));margin:0;padding:10px;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up)}
+.rf-menu[hidden]{display:none!important}
+.rf-menu h4{margin:9px 0 4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.rf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:4px}
+.rf-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:5px 8px;font-size:12px;text-align:left;line-height:1.25}
+.rf-grid .hint{font-size:10.5px}
+#rfFields{display:contents}
+.bar-mi{display:none}
+#go.stale{background:var(--accent);color:var(--on-accent,var(--inv-ink))}
+@media (min-width:700px){
+  #searchPanel{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 10px;margin-bottom:6px}
+  #searchPanel>.row{display:contents}
+  #searchPanel .lb{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  #searchPanel label{flex-direction:row;align-items:center;gap:5px}
+  #searchPanel .grow{flex:1 1 130px;min-width:120px}
+  #searchPanel .grow input{width:100%;min-width:0}
+  /* a picked place reads in the box, one line; a click shows the coordinates to edit */
+  #locWrap{position:relative}
+  #locLabel{position:absolute!important;left:10px;right:8px;top:50%;transform:translateY(-50%);margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;color:var(--ink);pointer-events:none}
+  #locWrap:focus-within #locLabel{visibility:hidden}
+  #locWrap:has(#locLabel:not(:empty)) #loc:not(:focus){color:transparent}
+  #searchPanel .seg button{padding:5px 9px;font-size:12px}
+  #searchPanel input:not([type=checkbox]):not([type=range]){padding:6px 8px;font-size:12.5px}
+  #searchPanel label.inl{font-size:12.5px;white-space:nowrap}
+  #radius{width:52px!important}
+  #rf{width:150px}
+  .bar-slide{min-width:84px}
+  #radiusSlider{width:84px}
+  #heatKind{max-width:210px}
+  .bar-mi{display:inline;font-size:12px;color:var(--muted)}
+  #advSearch{margin-top:0!important}
+  #advSearch[open]{flex:1 1 100%}
+}
+/* the FCC data line gives way before the header wraps: a signed-in header has one more chip, and a second row costs the map 46 px */
+@media (min-width:901px){ #meta{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right} }
+@media (max-width:699px){
+  #mapTop{order:-1;display:flex;flex-direction:column}
+  #mapTop .maptools{order:2;margin-top:8px}
+  #mapTop #mapHint{order:1}
+  #mapTop #emitPanel{order:3}
+}
+.rail-all{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
+.rail-why{margin-top:9px;font-size:12px;line-height:1.4;color:var(--muted)}
+.rail-why[hidden]{display:none!important}
+.rail-why button{padding:2px 8px;font-size:12px;margin-left:2px}
+.rpill{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;font-size:12px;font-weight:600;text-align:left;background-color:var(--accent-wash);box-shadow:inset 0 0 0 1px var(--accent)}
+.rpill>span{font-size:11px;opacity:.8}
+#railQ{width:100%;margin-top:9px;padding:6px 12px;font-size:13px}
+.rail-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 6px 8px}
+.rsec{padding:3px 0}
+.rsec+.rsec{border-top:1px solid var(--grid)}
+.rsec-h,.rsub-h{display:flex;align-items:center;gap:7px;padding:0 6px;min-height:32px}
+.rchev{all:unset;box-sizing:border-box;flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;color:var(--ink-2);
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:color var(--t-hover) ease}
+.rchev::before{content:"";flex:none;width:6px;height:6px;margin:0 2px 2px 1px;border:solid currentColor;border-width:0 1.6px 1.6px 0;transform:rotate(-45deg);transition:transform var(--t-move) var(--ease)}
+.rchev[aria-expanded="true"]::before{transform:rotate(45deg)}
+.rchev:hover{color:var(--ink)}
+.rsub{margin-left:8px}
+.rsub-h .rchev{text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;color:var(--ink)}
+.rsum{flex:none;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rsum.on{color:var(--ink);font-weight:700}
+[data-body][hidden]{display:none!important}
+.rrow{display:grid;grid-template-columns:16px minmax(0,1fr) auto 40px;align-items:center;gap:8px;min-height:30px;padding:4px 6px;border-radius:9px;cursor:pointer;
+  font-size:13px;line-height:1.25;user-select:none;transition:background-color var(--t-hover) ease}
+.rrow:hover{background:var(--wash)}
+.rlab{overflow-wrap:anywhere}
+.rnum{font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+.rrow.off .rlab{opacity:.55}
+.rrow.off .rnum{color:var(--ink-2)}
+.rbox{box-sizing:border-box;width:16px;height:16px;flex:none;display:inline-grid;place-items:center;border-radius:4px;cursor:pointer;
+  box-shadow:inset 0 0 0 1.5px var(--ink-2);transition:background-color var(--t-hover) ease}
+.rbox[aria-checked="true"]{background:var(--c,var(--accent));box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+.rbox[aria-checked="true"]::after{content:"";width:4px;height:8px;margin-top:-2px;border:solid var(--tk,var(--on-accent,var(--inv-ink)));border-width:0 2px 2px 0;transform:rotate(45deg)}
+.rbox[aria-checked="mixed"]{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.rbox[aria-checked="mixed"]::after{content:"";width:8px;height:2px;border-radius:1px;background:var(--ink)}
+.rbox:focus-visible,.rzero:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* "only": the button is the tap area, the pill inside it is what shows */
+.ronly{all:unset;box-sizing:border-box;justify-self:end;display:inline-flex;align-items:center;cursor:pointer;opacity:0;transition:opacity var(--t-hover) ease}
+.ronly>span{padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);transition:background-color var(--t-hover) ease}
+.rrow:hover .ronly,.rrow:focus-within .ronly,.rrow.solo .ronly{opacity:1}
+.ronly:hover>span{color:var(--ink);background:var(--wash-2)}
+.rrow.solo .ronly>span{background:var(--accent);color:var(--on-accent,var(--inv-ink));box-shadow:none}
+.rzero{all:unset;box-sizing:border-box;display:block;width:100%;padding:5px 6px 5px 30px;border-radius:9px;cursor:pointer;font-size:12px;color:var(--ink-2)}
+.rzero:hover{color:var(--ink);background:var(--wash)}
+.rnone{padding:4px 6px 6px 30px;font-size:12px;color:var(--ink-2)}
+.rail-foot{padding:0 12px;border-top:1px solid var(--grid)}
+.rail-foot .rfk-legend{margin:7px 0;font-size:11px;gap:2px 10px}
+/* folded (‹ or L, remembered) on a wide screen, and always from 700 to 1,099 px: a 44 px strip that opens the rail */
+.rail-strip{flex-direction:column;align-items:center;gap:10px;width:44px;padding:7px 0 14px;cursor:pointer;border:1px solid var(--g-edges);border-radius:22px;
+  background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-bg);box-shadow:var(--g-shadow);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur)}
+#railOpen{width:30px;height:30px;padding:0;font-size:17px;line-height:1}
+.rail-badge{padding:1px 6px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap;background:var(--accent);color:var(--on-accent,var(--inv-ink))}
+.rail-badge:empty{display:none}
+.rail-vlabel{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+@keyframes railIn{from{opacity:0;transform:translateX(-10px)}}
+@media (min-width:1100px){
+  body.rail-folded #work{grid-template-columns:44px minmax(0,1fr)}
+  body.rail-folded .rail-panel{display:none}
+  body.rail-folded .rail-strip{display:flex}
+}
+/* 700-1,099 px: the strip; the rail opens over the content on a click (never on hover) and closes on Esc or a press outside */
+@media (min-width:700px) and (max-width:1099px){
+  #work{grid-template-columns:44px minmax(0,1fr)}
+  .rail-strip{display:flex}
+  .rail-panel{display:none}
+  #filters.open .rail-panel{display:flex;position:absolute;left:0;top:0;width:var(--rail-w);animation:railIn var(--t-move) var(--ease);
+    background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up)}
+}
+/* phones: a bar under the tab bar; the sheet opens at 60% height so the map and list stay live above it, drags to 92% */
+@media (max-width:699px){
+  #work{display:block}
+  #filters{margin:0 0 8px}
+  .rail-bar{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:6px 14px;border-radius:14px;font-size:13px;font-weight:500;
+    background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong)}
+  .rail-bar>span:first-child{flex:1;text-align:left}
+  .rail-bar b{font-weight:700}
+  #railBarCount{color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .rail-caret{display:inline-block;transition:transform var(--t-move) var(--ease)}
+  #filters.sheet .rail-caret{transform:rotate(180deg)}
+  .rail-panel{position:fixed;left:0;right:0;bottom:0;z-index:1;height:60vh;height:60dvh;max-height:92vh;max-height:92dvh;border-bottom:0;border-radius:22px 22px 0 0;
+    background:linear-gradient(var(--g-tint),var(--g-tint)),var(--g-strong);box-shadow:var(--g-shadow-up);transform:translateY(102%);visibility:hidden;
+    transition:transform var(--t-panel) var(--ease),visibility 0s linear var(--t-panel)}
+  #filters.sheet .rail-panel{transform:none;visibility:visible;transition:transform var(--t-panel) var(--ease)}
+  .rail-panel.dragging{transition:none!important}
+  .rail-grab{display:flex;justify-content:center;align-items:center;min-height:24px;padding-top:6px;cursor:grab;touch-action:none}
+  .rail-grab span{width:44px;height:5px;border-radius:3px;background:var(--ink-2);opacity:.55}
+  .rail-head{padding-top:4px}
+  #railQ{font-size:16px}
+  .rail-show{display:block;flex:none;min-height:44px;margin:8px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+}
+/* fingers and gloves: rows, section heads and buttons 44 px, and "only" always in sight */
+@media (pointer:coarse), (max-width:699px){
+  .rrow{min-height:44px;padding-top:0;padding-bottom:0;grid-template-columns:18px minmax(0,1fr) auto auto}
+  .rbox{width:18px;height:18px}
+  .ronly{opacity:1;min-height:44px;padding:0 2px 0 10px}
+  .ronly>span{padding:5px 11px;font-size:12px}
+  .rchev,.rzero,.rail-bar{min-height:44px}
+}
+/* a tab the filters don't change: no rail, the content takes the full width */
+body.rail-none #work{display:block}
+body.rail-none #filters{display:none}
+</style>
+<link rel="stylesheet" href="web.css">
+<link rel="icon" href="../icons/icon-192.png">
+</head>
+<body>
+<div id="backdrop" aria-hidden="true">
+  <div class="scene s-room">
+    <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="bd-sw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14110e"/><stop offset=".62" stop-color="#2b231b"/><stop offset=".64" stop-color="#3a2f24"/><stop offset="1" stop-color="#16120e"/></linearGradient>
+        <linearGradient id="bd-win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6dccb"/><stop offset="1" stop-color="#b9a68a"/></linearGradient>
+        <radialGradient id="bd-lamp"><stop offset="0" stop-color="#ffd9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffb066" stop-opacity="0"/></radialGradient>
+        <radialGradient id="bd-spill" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#8a6c4e" stop-opacity=".7"/><stop offset="1" stop-color="#8a6c4e" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="1600" height="1000" fill="url(#bd-sw)"/>
+      <g fill="url(#bd-win)" opacity=".62">
+        <rect x="170" y="70" width="150" height="540" rx="4"/><rect x="334" y="70" width="150" height="540" rx="4"/><rect x="498" y="70" width="150" height="540" rx="4"/><rect x="662" y="70" width="150" height="540" rx="4"/>
+      </g>
+      <g fill="#14110e" opacity=".55"><rect x="170" y="300" width="642" height="10"/><rect x="170" y="430" width="642" height="8"/></g>
+      <g fill="url(#bd-win)" opacity=".34"><rect x="1120" y="120" width="96" height="430" rx="4"/><rect x="1228" y="120" width="96" height="430" rx="4"/></g>
+      <ellipse cx="560" cy="820" rx="560" ry="150" fill="url(#bd-spill)"/>
+      <rect x="360" y="612" width="560" height="150" rx="48" fill="#0f0c0a" opacity=".86"/>
+      <rect x="400" y="560" width="480" height="90" rx="40" fill="#1a1511" opacity=".9"/>
+      <rect x="1010" y="680" width="380" height="30" rx="8" fill="#0d0b09" opacity=".9"/>
+      <rect x="1040" y="708" width="16" height="140" fill="#0d0b09"/><rect x="1344" y="708" width="16" height="140" fill="#0d0b09"/>
+      <circle cx="1440" cy="330" r="200" fill="url(#bd-lamp)" opacity=".55"/>
+      <circle cx="1440" cy="330" r="46" fill="#ffe2b4" opacity=".75"/>
+      <ellipse cx="1000" cy="560" rx="70" ry="130" fill="#141a12" opacity=".8"/>
+    </svg>
+    <div class="wisps"></div>
+  </div>
+  <div class="scene s-dusk">
+    <svg viewBox="0 0 1600 440" preserveAspectRatio="none"><path d="M0 230 C 180 170 300 200 420 160 S 700 120 860 180 S 1160 110 1320 170 S 1520 150 1600 180 V440 H0Z" fill="#1d1916" opacity=".9"/><path d="M0 320 C 240 270 420 300 640 260 S 1040 300 1260 250 S 1500 280 1600 270 V440 H0Z" fill="#110f0d"/></svg>
+  </div>
+  <div class="scene s-liquid"><div class="blobs"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="scene s-day"><div class="blobs"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="photo"></div><div class="shade"></div>
+</div>
+<header>
+  <h1>RF<span>/</span>RECON <small class="tag" style="font-size:10px;vertical-align:middle">BETA</small></h1>
+  <button class="hbtn" id="missionChip" title="Mission">◎ <span id="missionName">No mission</span></button>
+  <button class="hbtn" id="inChip" title="Intake: drop files, folders, zips or old emails anywhere, on any tab" aria-haspopup="dialog" hidden>Intake <b id="inCount" class="in-count" hidden></b></button>
+  <button class="hbtn" id="netChip" title="Connection &amp; data updates"><span class="led" id="netLed"></span><span id="netText">checking…</span></button>
+  <span class="hint" id="meta" style="margin-left:auto"></span>
+  <span id="lookSlot"></span>
+  <button class="hbtn" id="themeBtn" title="Light / dark">◐</button>
+</header>
+<main>
+  <section class="panel no-print" id="welcome" hidden></section>
+  <div class="tabbar no-print">
+  <nav class="tabs no-print" id="tabs">
+    <button data-t="start" title="One job, step by step: no RF background needed">Start</button>
+    <button data-t="map" class="on">Map</button>
+    <button data-t="find" title="Search everything RF Recon holds (Ctrl+K)">Search</button>
+    <button data-t="report">Area report</button>
+    <button data-t="analyzer">Analyzer</button>
+    <button data-t="dashboard">Dashboard</button>
+    <button data-t="topology">Topology</button>
+    <button data-t="profile">Site profile</button>
+    <button data-t="agencies">Agencies</button>
+    <button data-t="spectrum">Spectrum</button>
+    <button data-t="cells" title="Cell sites around the pin: global cell IDs, sectors, towers (crowd, survey and FCC data)">Cell sites</button>
+    <button data-t="mission">Mission</button>
+    <button data-t="das" title="In-building public safety radio (ERCES / DAS) jobs">DAS</button>
+    <button data-t="pim" title="Passive intermodulation: limits, checklists, procedures, torque, a PIM calculator">PIM</button>
+    <button data-t="parts" title="RF cables, connectors, components and suppliers, with a cable loss calculator">Parts</button>
+    <button data-t="data">Data &amp; updates</button>
+  </nav>
+  </div>
+  <!-- the filter rail beside the tab's content (rail.js): docked on a wide screen, a strip that opens over the content
+       from 700 to 1,099 px, a bar and a bottom sheet on a phone; gone on the tabs the filters don't change -->
+  <div id="work">
+  <aside class="no-print" id="filters" aria-label="Filters">
+    <button id="railBar" class="rail-bar" aria-expanded="false" aria-controls="railPanel"><span><b>Filters</b><span id="railBarOn"></span></span><span id="railBarCount"></span><span class="rail-caret" aria-hidden="true">▴</span></button>
+    <div class="rail-strip" id="railStrip">
+      <button id="railOpen" aria-expanded="false" aria-controls="railPanel" aria-label="Show the filters (L)" title="Show the filters (L)">›</button>
+      <span class="rail-badge" id="railBadge"></span>
+      <span class="rail-vlabel" aria-hidden="true">Filters</span>
+    </div>
+    <div class="rail-panel" id="railPanel" role="region" aria-label="Filters">
+      <div class="rail-grab" id="railGrab" aria-hidden="true"><span></span></div>
+      <div class="rail-head">
+        <div class="rail-count"><strong id="resultCount"></strong><button id="railFold" aria-label="Fold the filters (L)" title="Fold the filters (L)">‹</button></div>
+        <div class="seg rail-side" id="railSide" role="group" aria-label="Which work">
+          <button data-side="ps" title="Band first, with the public safety agencies picked">Public safety</button><button data-side="cell" title="Carrier first, with the rows that name a carrier picked">Cellular</button><button data-side="all" title="Every source, in the rail's own order">Everything</button>
+        </div>
+        <div class="rail-actions">
+          <button id="railExportBtn" aria-expanded="false" aria-controls="railMenu">⇩ Export ▾</button>
+          <button id="takPush" title="Send what's on the map straight into ATAK, iTAK and WinTAK on this network (live markers that update when you push again), and open WinTAK">📡 Push to ATAK</button>
+          <button id="clearChips" title="Back to the default filters">Clear</button>
+        </div>
+        <div class="rail-menu" id="railMenu" hidden>
+          <button id="csvBtn">⇩ CSV</button>
+          <button id="kmlBtn">⇩ KML</button>
+          <label class="rail-all" title="CSV and KML follow the filters. Tick this for every row the search found."><input type="checkbox" id="exportAll"> Everything the search found</label>
+          <button id="takBtn" title="TAK data package for ATAK, iTAK and WinTAK: a marker per site, the search ring, and the heatmap when one is on">⇩ ATAK package</button>
+          <button id="printBtn">⎙ Prep sheet</button>
+        </div>
+        <div class="rail-pills" id="railPills"></div>
+        <div class="rail-why" id="railWhy" hidden></div>
+        <input id="railQ" type="search" placeholder="/  Filter list…" aria-label="Find a filter by name" autocomplete="off">
+      </div>
+      <div class="rail-body" id="railBody"></div>
+      <div class="rail-foot" id="railFoot"></div>
+      <button class="primary rail-show" id="railShow"></button>
+    </div>
+  </aside>
+  <div id="content">
+  <section class="panel no-print" id="searchPanel">
+    <div class="row">
+      <div class="seg" id="modeSeg"><button data-m="point" class="on">Pin + radius</button><button data-m="county">County</button></div>
+      <label class="grow" id="locWrap"><span class="lb">Pin (lat, lon or Maps link — or click / drag on the map)</span>
+        <input id="loc" placeholder="38.8895, -77.0353"></label>
+      <label><span class="lb">Radius (mi)</span><input id="radius" type="number" value="5" min="0.25" step="0.25" style="width:80px"><span class="bar-mi">mi</span></label>
+      <label class="bar-slide"><span class="lb">&nbsp;</span><input id="radiusSlider" type="range" min="0.25" max="50" step="0.25" value="5"></label>
+      <button id="gpsBtn" title="Use this device's GPS">◎ GPS</button>
+      <span id="countyWrap" class="row" style="display:none">
+        <label>State <select id="state"></select></label>
+        <label>County <select id="county"></select></label>
+      </span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="grow"><span class="lb">Search (licensee, call sign, city)</span><input id="q" placeholder="Licensee, call sign, city"></label>
+      <div class="rfbox" id="rfWrap">
+        <label><span class="lb">Frequency: a channel, range, band or list</span><input id="rf" autocomplete="off" spellcheck="false" placeholder="Freq: 851-869, B13"></label>
+        <button id="rfPick" type="button" aria-expanded="false" aria-controls="rfMenu" aria-label="Pick a band" title="Pick a band">▾</button>
+        <div class="rf-menu panel" id="rfMenu" hidden></div>
+      </div>
+      <span id="rfFields"><label><span class="lb">Freq from MHz</span><input id="fmin" type="number" step="any" style="width:100px" placeholder="From MHz"></label>
+      <label><span class="lb">to</span><input id="fmax" type="number" step="any" style="width:100px" placeholder="To MHz"></label></span>
+      <label class="inl"><input type="checkbox" id="hideMobile" checked> Fixed sites only</label>
+      <button class="primary" id="go">Search</button>
+    </div>
+  </section>
+
+  <div class="status" id="status">Drop a pin (or pick a county) and Search.</div>
+  <div class="filter-line no-print" id="filterLine">
+    <span class="fl-count" id="flCount"></span><span class="fl-pills" id="flPills"></span>
+    <button id="flClear" hidden>Clear all</button><button id="flUndo" hidden>Undo</button>
+    <span class="fl-views"><button id="viewsBtn" aria-expanded="false" aria-controls="viewsMenu">Views ▾</button><div class="views-menu panel" id="viewsMenu" hidden></div></span>
+  </div>
+  <section id="mapTop"></section>
+  <section id="view"></section>
+  </div>
+  </div>
+</main>
+<dialog id="dlg"><div class="dlg-h"><strong id="dlgTitle"></strong><span style="flex:1"></span>
+  <button onclick="document.getElementById('dlg').close()">✕</button></div><div class="dlg-b" id="dlgBody"></div></dialog>
+<script src="static/vendor/leaflet/leaflet.js"></script>
+<script src="static/zoombar.js"></script>
+<script src="static/vendor/cytoscape.min.js"></script>
+<script src="static/rfparse.js"></script>
+<script src="../vendor/sqljs/sql-wasm.js"></script>
+<script src="shim.js"></script>
+<script src="static/core.js"></script>
+<script src="static/views.js"></script>
+<script src="static/mission.js"></script>
+<script src="static/missiontools.js"></script>
+<script src="static/wmm.js"></script>
+<script src="static/hunt.js"></script>
+<script src="static/daspitch.js"></script>
+<script src="static/dasprospects.js"></script>
+<script src="static/dasmail.js"></script>
+<script src="static/report.js"></script>
+<script src="static/search.js"></script>
+<script src="static/spectrum.js"></script>
+<script src="static/keys.js"></script>
+<script src="static/rail.js"></script>
+<script src="static/checklists.js"></script>
+<script src="static/addrfill.js"></script>
+<script src="static/help.js"></script>
+<script src="static/tak.js"></script>
+<script src="static/takwatch.js"></script>
+<script src="static/mapstyle.js"></script>
+<script src="static/emitter.js"></script>
+<script src="static/sigmeta.js"></script>
+<script src="static/cells.js"></script>
+<script src="static/find.js"></script>
+<script src="static/das.js"></script>
+<script src="static/start.js"></script>
+<script src="static/dasrev.js"></script>
+<script src="static/dasahj.js"></script>
+<script src="static/dasbom.js"></script>
+<script src="static/fieldref.js"></script>
+<script src="static/plans.js"></script>
+<script src="static/dasdesign.js"></script>
+<script src="static/planlines.js"></script>
+<script src="static/readers.js"></script>
+<script src="static/dasread.js"></script>
+<script src="static/dswalls.js"></script>
+<script src="static/dxf.js"></script>
+<script src="static/dascell.js"></script>
+<script src="static/dasx.js"></script>
+<script src="static/daswalk.js"></script>
+<script src="static/dascommission.js"></script>
+<script src="static/dascellcomm.js"></script>
+<script src="static/dascloseout.js"></script>
+<script src="static/dasfiber.js"></script>
+<script src="static/dassweep.js"></script>
+<script src="static/dasscreen.js"></script>
+<script src="static/dasexample.js"></script>
+<script src="static/dasmonitor.js"></script>
+<script src="static/dascode.js"></script>
+<script src="static/dasfirm.js"></script>
+<script src="static/dasfi_data.js"></script>
+<script src="static/dasfi.js"></script>
+<script src="static/dasguide.js"></script>
+<script src="static/intake.js"></script>
+<script src="static/dasauto.js"></script>
+<script src="static/dasnext.js"></script>
+<link rel="stylesheet" href="static/dasfi.css">
+<link rel="stylesheet" href="static/intake.css">
+<link rel="stylesheet" href="static/readers.css">
+<link rel="stylesheet" href="static/dasfirm.css">
+<script src="static/welcome.js"></script>
+<script src="static/notes.js"></script>
+<script src="static/cellall.js"></script>
+<script>
+// One Look button (skin, glass, motion) from the dashboard kit; ◐ still switches light / dark, and the two stay in step.
+(function () {
+  var root = document.documentElement;
+  function fromTheme() {
+    var t = root.dataset.theme;
+    if (t === "light" && DashSkin.get() !== "day") DashSkin.set("day");
+    else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark());
+  }
+  new MutationObserver(fromTheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  DashLook.mount(document.getElementById("lookSlot"), {
+    onChange: function (kind, value) {
+      if (kind !== "skin") return;
+      var t = value === "day" ? "light" : "dark";
+      root.dataset.theme = t;
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      if (typeof render === "function") render();
+    }
+  });
+  fromTheme();
+})();
+</script>
+<script src="web.js"></script>
+</body>
+</html>

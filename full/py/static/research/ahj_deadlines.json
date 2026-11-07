@@ -1,0 +1,132 @@
+{
+ "about": "When an AHJ wants the ERRCS test report, and its own retest and five-year rules, read from each AHJ's own document (RF Recon lane D, 2026-11-04). Keyed by the AHJ as the DAS profiles name it. A job takes an entry when its DAS profile's name matches 'profiles' or its AHJ field matches 'ahj' (both case-insensitive regular expressions), so a renamed or new preset still finds it. A rule whose source gives no number has none here: RF Recon never makes one up. 'checked': read = the primary text was opened and read on the date; page = the AHJ's web page was read.",
+ "checked": "2026-11-04",
+ "ahjs": {
+  "OCSD": {
+   "name": "Orange County Sheriff's Department (OCSD/COMM), California",
+   "short": "OCSD",
+   "profiles": "^OCSD\\b|Orange County Sheriff",
+   "ahj": "\\bOCSD\\b|Orange County Sheriff",
+   "report": [
+    {"days": 30, "after": "test", "tests": ["acceptance", "annual", "five_year"],
+     "text": "The annual report must be filed with OCSD within 30 calendar days following successful completion of testing to be considered valid.",
+     "section": "OCSD ERRCS Deployment Guidelines Rev 4.5, 8-4-2025, Appendix E",
+     "source": "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf",
+     "checked": "read"}
+   ],
+   "annual_months": 13,
+   "annual_text": "The building owner must acquire, file and have available for inspection copies of the annual inspection report, conducted within the previous 13 calendar months.",
+   "annual_section": "OCSD ERRCS Deployment Guidelines Rev 4.5, 8-4-2025, Appendix E",
+   "annual_source": "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf",
+   "five_year": null,
+   "monitoring": {
+    "text": "The system shall be capable of providing SNMP based alarms to specified servers. The system shall be capable of receiving SNMP SET Commands for Remote RF Shut Off and Remote RF Power On.",
+    "section": "OCSD ERRCS Deployment Guidelines Rev 4.5, 8-4-2025, Appendix C 6.b.iii; Appendix D names the Response LINQ NOC and a service agreement the owner keeps",
+    "source": "https://ocsheriff.gov/sites/ocsd/files/2025-08/OCSD%20ERRCS%20Deployment%20Guidelines%20-REV%204.5%20%208-4-2025%202.pdf",
+    "checked": "read"
+   }
+  },
+  "Seattle SFC 510": {
+   "name": "Seattle Fire Department (Seattle Fire Code 510, CAM 5123)",
+   "short": "Seattle FD",
+   "profiles": "Seattle",
+   "ahj": "Seattle",
+   "report": [
+    {"days": 7, "after": "test", "tests": ["annual", "five_year"],
+     "text": "Test reports must be uploaded by the testing company within 7 calendar days of the annual test (The Compliance Engine). Reports of red tagged or impaired systems must be submitted by the end of the day of the test.",
+     "section": "Seattle FD CAM 5123, updated November 2024, Section 3",
+     "source": "https://seattle.gov/documents/Departments/Fire/Business/CAM5123_EmerRespondRadioSys.pdf",
+     "checked": "read"}
+   ],
+   "five_year": {
+    "label": "Full five-year test (keeps the shorter annual test allowed)",
+    "text": "The shorter annual coverage test is allowed when the acceptance test documentation is available, or the most recent full five-year test results are available if the system is older than six years.",
+    "section": "Seattle Fire Code 2021 510.6.1.1, Alternative in-building coverage test",
+    "source": "https://up.codes/viewer/seattle/ifc-2021/chapter/5/fire-service-features",
+    "checked": "read"
+   },
+   "impaired": {
+    "text": "Systems that are out-of-service for more than eight hours require notification to the fire code official.",
+    "section": "Seattle FD CAM 5123, updated November 2024, Section 4",
+    "source": "https://seattle.gov/documents/Departments/Fire/Business/CAM5123_EmerRespondRadioSys.pdf",
+    "checked": "read"
+   }
+  },
+  "Charleston SC": {
+   "name": "City of Charleston Fire Marshal (South Carolina)",
+   "short": "Charleston FD",
+   "profiles": "Charleston",
+   "ahj": "Charleston",
+   "report": [
+    {"days": 30, "after": "test", "tests": ["acceptance", "annual", "five_year"],
+     "text": "Reports go through The Compliance Engine ($15 a report). Reports that are uploaded to the system more than 30 days after the inspection date are subject to a $15 late fee.",
+     "section": "City of Charleston, Compliance Reporting",
+     "source": "https://www.charleston-sc.gov/2586/Compliance-Reporting",
+     "checked": "page"}
+   ],
+   "five_year": null
+  },
+  "Clark County FPAN": {
+   "name": "Las Vegas Fire & Rescue / Clark County, Nevada (FPAN guide)",
+   "short": "Clark County / Las Vegas",
+   "profiles": "Clark County|Las Vegas",
+   "ahj": "Las Vegas|Clark County.*\\b(NV|Nevada)\\b",
+   "report": [],
+   "five_year": {
+    "label": "Five-year quantitative retest and a new rebroadcasting agreement",
+    "text": "Every five years: a new frequency rebroadcasting agreement from the frequency holder; a quantitative test that the system still gives the required DAQ (NFPA 1225 18.9); no deviation of coverage more than 5 percent from the initial installation documentation; no change in the frequencies used.",
+    "section": "FPAN Guide for ERCES Permitting, Testing and Recertification, Rev 12/18/25, 9.0 5 Years, items 1-5",
+    "source": "https://files.lasvegasnevada.gov/fire-rescue/2025/FPAN-Guide_for_ERCES_Permitting_Testing_Recertification-Dec-2025.pdf",
+    "checked": "read"
+   }
+  },
+  "Douglas County CO": {
+   "name": "Douglas County Sheriff's Office Radio Shop (DCSORS), Colorado",
+   "short": "Douglas County (DCSORS)",
+   "profiles": "Douglas County",
+   "ahj": "DCSO|Douglas County Sheriff|Douglas County.*\\b(CO|Colorado)\\b",
+   "report": [],
+   "five_year": {
+    "label": "Five-year ERCES test (renews the final retransmission authorization)",
+    "text": "Every five years after the ERCES has been installed and approved, the five-year testing is performed and the results report uploaded to Central: the grid with the BDA on, and again with it off. The final retransmission authorization expires 5 years after issuance and is renewed after the 5-year inspection.",
+    "section": "DCSO ERCES Implementation Guidelines, Appendix H, Five-Year ERCES Testing",
+    "source": "https://dcsheriff.net/documents/derces-implementation-guidelines.pdf/",
+    "checked": "read"
+   }
+  },
+  "Denver 510-1": {
+   "name": "Denver Fire Department (Policy 510-1)",
+   "short": "Denver FD",
+   "profiles": "Denver",
+   "ahj": "Denver",
+   "report": [
+    {"days": 30, "after": "five_year_interval",
+     "text": "Documentation of all 5-year test results, new RF grids and a new Denver Fire Department RF Survey Information Document shall be submitted to the DFD Fire Prevention Bureau Engineering and Line shop within 30 days of each 5-year interval following system installation.",
+     "section": "Denver Fire Department Policy 510-1, effective 1 Feb 2018, Five-year testing, p. 6",
+     "source": "https://www.denvergov.org/content/dam/denvergov/Portals/678/documents/FPB/policydocuments/DFD%20(RES-BDA)%20Radio%20Sys%20Policy%20510-1.pdf",
+     "checked": "read"}
+   ],
+   "five_year": {
+    "label": "Five-year test with new RF grids",
+    "text": "Every five (5) years a radio coverage test with new RF grids per the acceptance test procedure, all annual tests passing, and a sweep test of the donor coax; the testing agency obtains an operational permit for the 5-year test.",
+    "section": "Denver Fire Department Policy 510-1, effective 1 Feb 2018, Five-year testing, pp. 6-7",
+    "source": "https://www.denvergov.org/content/dam/denvergov/Portals/678/documents/FPB/policydocuments/DFD%20(RES-BDA)%20Radio%20Sys%20Policy%20510-1.pdf",
+    "checked": "read"
+   }
+  },
+  "NYC FDNY ARCS (3 RCNY 510-01)": {
+   "name": "FDNY Bureau of Fire Prevention (New York City ARCS)",
+   "short": "FDNY",
+   "profiles": "FDNY|3 RCNY",
+   "ahj": "FDNY|New York City|\\bNYC\\b",
+   "report": [],
+   "five_year": {
+    "label": "Five-year ARCS recertification test",
+    "text": "In addition to the initial commissioning test report, a recertification test must be performed and submitted to the Department in accordance with 3 RCNY 511-01 section G.4 no less than once every 5 years. FDNY is notified 48 hours before any test (ARCradios@fdny.nyc.gov).",
+    "section": "FDNY ARCS Plan Submission and Approval Procedures, rev 7/11/2024, B",
+    "source": "https://www.nyc.gov/assets/fdny/downloads/pdf/business/arcs-submission-and-approval-procedures.pdf",
+    "checked": "read"
+   }
+  }
+ }
+}

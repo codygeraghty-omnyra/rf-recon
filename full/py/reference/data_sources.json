@@ -1,0 +1,531 @@
+{
+ "_about": "Open and crowd data sources for RF Recon: what each needs, costs and allows. Checked on the providers' own pages 2026-10-28; the map, terrain, address-search, building-outline and radar services 2026-11-02 (header-only or anonymous requests; no sign-ups). 'updater' names the Data & updates sources it covers; 'keys' the settings it needs; 'status' says whether RF Recon uses it.",
+ "sources": [
+  {
+   "name": "FCC ULS licences, ASR towers, broadcast",
+   "updater": [
+    "uls:LMpriv",
+    "uls:LMcomm",
+    "uls:LMbcast",
+    "uls:paging",
+    "uls:coast",
+    "uls:micro",
+    "asr",
+    "bcast"
+   ],
+   "url": "https://www.fcc.gov/wireless/data/public-access-files-database-downloads",
+   "what": "Licensed transmitters, towers and broadcast stations",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Bulk files (weekly and daily)",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "FCC market licences (carrier spectrum)",
+   "updater": [
+    "spectrum"
+   ],
+   "url": "https://www.fcc.gov/wireless/data/public-access-files-database-downloads",
+   "what": "Who holds which block in each market: l_market and l_cell, with the rules' band plans (47 CFR 22.905, 24.229, 27.5)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Bulk files (weekly), about 115 MB",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "NOAA Weather Radio",
+   "updater": [
+    "nwr"
+   ],
+   "url": "https://www.weather.gov/nwr/",
+   "what": "NWR transmitters and the counties each warns",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Bulk file",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "FAA aviation frequencies (NASR)",
+   "updater": [
+    "faa"
+   ],
+   "url": "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/",
+   "what": "Towers, ATIS, approach, navaids",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Bulk files every 28 days",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "Signal Identification Wiki",
+   "updater": [
+    "sigwiki"
+   ],
+   "url": "https://www.sigidwiki.com/",
+   "what": "What a signal could be",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Read on this PC; the catalog is never exported",
+   "area": "Catalog",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "Artemis signal database (Ares Valley)",
+   "url": "https://github.com/AresValley/Artemis",
+   "signup": "https://github.com/AresValley/artemis-db/releases",
+   "what": "Open-source signal identification app and its offline database of 500+ signals, built from the Signal Identification Wiki, with each signal's waterfall picture and audio clip",
+   "key": "none",
+   "cost": "Free (release v74 is a 302 MB download, about 290 MB unpacked)",
+   "terms": "App GPL-3.0; the database is Signal Identification Wiki content: read on this PC, never exported",
+   "area": "Catalog (by frequency, bandwidth and mode, not by place)",
+   "status": "In RF Recon: each Signal ID Wiki match shows its waterfall and plays its audio (map details, field log). Data & updates, Artemis signal database, downloads it (off until you switch it on)",
+   "updater": [
+    "artemis"
+   ]
+  },
+  {
+   "name": "WiGLE",
+   "updater": [
+    "wigle"
+   ],
+   "keys": [
+    "wigle_name",
+    "wigle_token"
+   ],
+   "url": "https://wigle.net",
+   "signup": "https://wigle.net/register",
+   "where_key": "wigle.net > Account > API token (shows the API name and token)",
+   "what": "Wi-Fi, Bluetooth and cell sightings",
+   "key": "Free key with a WiGLE account",
+   "cost": "Free (non-commercial only; commercial licensing is suspended)",
+   "terms": "Personal, research or educational use only; no redistribution",
+   "area": "Yes (lat/lon box)",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "OpenCelliD",
+   "updater": [
+    "opencellid"
+   ],
+   "keys": [
+    "opencellid_key"
+   ],
+   "url": "https://opencellid.org",
+   "signup": "https://my.opencellid.org/register",
+   "where_key": "my.opencellid.org > your account: the access token",
+   "what": "Cell towers: cell IDs, positions, ranges; country downloads",
+   "key": "Free key with an account",
+   "cost": "Free (1,000 requests a day); commercial plans unpriced",
+   "terms": "CC BY-SA 4.0: credit OpenCelliD with a link",
+   "area": "Yes (box up to 4 sq km, 50 cells a request); whole-country downloads",
+   "status": "In RF Recon"
+  },
+  {
+   "name": "RepeaterBook",
+   "updater": [
+    "repeaterbook"
+   ],
+   "keys": [
+    "repeaterbook_token"
+   ],
+   "url": "https://www.repeaterbook.com",
+   "signup": "https://www.repeaterbook.com/api/token_request.php",
+   "where_key": "Granted by RepeaterBook after you request a token",
+   "what": "Amateur and GMRS repeaters",
+   "key": "Free token, on request and approval",
+   "cost": "Free for approved non-commercial use; commercial needs paid terms",
+   "terms": "Personal use; its policy discourages tools that mix it with other sources, and repeater maps need written permission",
+   "area": "By state / county",
+   "status": "In RF Recon (check the token's approved use)"
+  },
+  {
+   "name": "RadioReference web service",
+   "keys": [
+    "radioreference_key"
+   ],
+   "url": "https://www.radioreference.com",
+   "signup": "https://www.radioreference.com/account/api/apply",
+   "what": "Trunked systems, sites, talk groups",
+   "key": "App key (free on approval) plus a Premium subscription for every user",
+   "cost": "Premium $30/year ($15 for 6 months, $60 for 2 years); dashboards need a paid licence (price not stated)",
+   "terms": "The free key is for radio-programming tools only",
+   "area": "By county; callsign radius under 3 mi",
+   "status": "Not added: needs Premium and a paid licence. RF Recon links to it instead."
+  },
+  {
+   "name": "OpenSky Network (ADS-B)",
+   "url": "https://opensky-network.org",
+   "signup": "https://opensky-network.org",
+   "what": "Live aircraft positions",
+   "key": "Free account (OAuth2 client)",
+   "cost": "Free for non-profit research",
+   "terms": "Any automated or live use needs a written licence",
+   "area": "Yes (box)",
+   "status": "Not added: needs OpenSky's written licence first"
+  },
+  {
+   "name": "aisstream.io (AIS)",
+   "url": "https://aisstream.io",
+   "signup": "https://aisstream.io",
+   "what": "Live ship positions",
+   "key": "Free key (sign in with GitHub)",
+   "cost": "Free",
+   "terms": "No terms published; no direct browser connections",
+   "area": "Yes (box, live stream only)",
+   "status": "In RF Recon: the map's Ships (AIS, live) layer, for the owner only (Cody's PC, and his admin login on the 24/7 server); streams only while the layer is on",
+   "keys": [
+    "aisstream_key"
+   ]
+  },
+  {
+   "name": "aprs.fi",
+   "url": "https://aprs.fi",
+   "signup": "https://aprs.fi/",
+   "what": "APRS stations",
+   "key": "Free key with an account",
+   "cost": "Free",
+   "terms": "Apps using it must be free and public; credit and link",
+   "area": "No (by callsign)",
+   "status": "Not added: no area search, and a private tool doesn't meet its terms"
+  },
+  {
+   "name": "beaconDB",
+   "url": "https://beacondb.net",
+   "what": "Wi-Fi / cell geolocation",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Public domain (dumps planned)",
+   "area": "No (turns what you see into a position)",
+   "status": "Not added: can't list emitters in an area yet"
+  },
+  {
+   "name": "FCC Broadband Data Collection: mobile coverage",
+   "url": "https://broadbandmap.fcc.gov",
+   "signup": "https://broadbandmap.fcc.gov/login",
+   "what": "Each carrier's modelled 3G / 4G / 5G coverage and signal level, as 0.1 km2 hexagons",
+   "key": "Free FCC account for the API; downloads open",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "Per state (the carrier-coverage states in Data & updates)",
+   "status": "In RF Recon",
+   "updater": [
+    "bdc"
+   ],
+   "keys": [
+    "fcc_bdc_username",
+    "fcc_bdc_token"
+   ],
+   "where_key": "broadbandmap.fcc.gov > sign in > Manage API Access > Generate (the token pairs with your FCC sign-in email)"
+  },
+  {
+   "name": "FCC Broadband Data Collection: coverage checks, fixed wireless, link budgets",
+   "updater": [
+    "bdc_extra"
+   ],
+   "url": "https://broadbandmap.fcc.gov/data-download",
+   "what": "The FCC's resolved mobile coverage challenges, verifications and audits (where claimed coverage was tested on the ground), who offers licensed, unlicensed and LBR fixed wireless where, and each carrier's filed link budgets (frequencies, bandwidths, antennas) and propagation tools",
+   "key": "Free FCC account for the API (the same token as carrier coverage)",
+   "cost": "Free",
+   "terms": "US government data; the API allows 10 calls a minute",
+   "area": "H3 cells of about 0.7 km2 (checks, fixed wireless); per provider (link budgets)",
+   "status": "In RF Recon from 2026-11-03: Cell sites, under Carrier coverage at the pin, and How modelled per carrier. Left out: wired broadband, summaries, raw coverage polygons (about 82 GB), the Funding Map, and Location Fabric points (CostQuest licence)",
+   "keys": [
+    "fcc_bdc_username",
+    "fcc_bdc_token"
+   ],
+   "signup": "https://broadbandmap.fcc.gov/login",
+   "where_key": "broadbandmap.fcc.gov > sign in > Manage API Access > Generate"
+  },
+  {
+   "name": "Map tiles and terrain kept for mission areas",
+   "updater": [
+    "tiles"
+   ],
+   "url": "https://basemap.nationalmap.gov/arcgis/rest/services",
+   "what": "The four USGS base maps (to zoom 16; shaded relief to zoom 13) and AWS terrain tiles for each mission area, kept so maps and coverage estimates work there with no signal",
+   "key": "none",
+   "cost": "Free (about 1.3 GB of disk an area)",
+   "terms": "USGS: public domain, tile export allowed (checked 2026-11-03); terrain: AWS open data, credit Tilezen's sources. OpenStreetMap and Esri tiles are never kept",
+   "area": "Each mission area",
+   "status": "In RF Recon from 2026-11-03"
+  },
+  {
+   "name": "FCC Equipment Authorization (FCC ID)",
+   "url": "https://www.fcc.gov/oet/ea/fccid",
+   "what": "A device's grants (look up any FCC ID), and every grantee code's company, kept on this PC",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "No (by FCC ID or company)",
+   "status": "In RF Recon: grantee codes download with the data sources; Look up an FCC ID in Data & updates; makers in Search",
+   "updater": [
+    "grantee"
+   ]
+  },
+  {
+   "name": "SatNOGS",
+   "url": "https://db.satnogs.org",
+   "what": "Satellite transmitters and ground stations",
+   "key": "none (telemetry needs a free token)",
+   "cost": "Free",
+   "terms": "CC BY-SA 4.0",
+   "area": "No (one list of all stations)",
+   "status": "In RF Recon",
+   "updater": [
+    "satnogs"
+   ]
+  },
+  {
+   "name": "RadioID.net",
+   "url": "https://radioid.net",
+   "signup": "https://radioid.net/account/register",
+   "what": "DMR / NXDN radio IDs",
+   "key": "none today (optional)",
+   "cost": "Free",
+   "terms": "No mirroring, bulk export or competing directory",
+   "area": "No (city / state)",
+   "status": "In RF Recon from 2026-11-03: look-ups only, from a DMR or NXDN reading's details (one ID when asked, kept 30 days)"
+  },
+  {
+   "name": "PSKReporter",
+   "url": "https://pskreporter.info",
+   "what": "Live HF reception reports",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Not stated; poll at most every 5 minutes",
+   "area": "By grid square",
+   "status": "In RF Recon",
+   "updater": [
+    "pskreporter"
+   ]
+  },
+  {
+   "name": "Reverse Beacon Network",
+   "url": "https://www.reversebeacon.net",
+   "what": "CW / digital skimmer spots",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Free for study and analysis",
+   "area": "No (daily files, telnet)",
+   "status": "Could add (daily files)"
+  },
+  {
+   "name": "wspr.live (WSPRnet)",
+   "url": "https://wspr.live",
+   "what": "WSPR propagation spots",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Non-commercial; results free for everyone; 20 requests a minute",
+   "area": "Yes (SQL on positions)",
+   "status": "In RF Recon",
+   "updater": [
+    "wspr"
+   ]
+  },
+  {
+   "name": "The Things Network gateways (Packet Broker)",
+   "url": "https://mapper.packetbroker.net",
+   "what": "LoRaWAN gateway locations",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Not stated",
+   "area": "Yes (radius)",
+   "status": "In RF Recon",
+   "updater": [
+    "ttn"
+   ]
+  },
+  {
+   "name": "Helium hotspots",
+   "url": "https://docs.helium.com/network-data/entity-api/",
+   "what": "IoT hotspot locations (blurred)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Not stated",
+   "area": "No (paged list of about a million)",
+   "status": "In RF Recon from 2026-11-03: active Helium IoT hotspots for each mission area; reads the whole network (about 190 MB) a week, so on for the 24/7 server and off by default",
+   "updater": [
+    "helium"
+   ]
+  },
+  {
+   "name": "Meshtastic map (meshmap.net)",
+   "url": "https://meshmap.net",
+   "what": "Meshtastic nodes that share their position",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Data terms not stated",
+   "area": "No (one file)",
+   "status": "In RF Recon from 2026-11-03: the Meshtastic mesh radios layer, for each mission area (one 4 MB list a day)",
+   "updater": [
+    "meshtastic"
+   ]
+  },
+  {
+   "name": "Ookla open data",
+   "url": "https://github.com/teamookla/ookla-open-data",
+   "what": "Mobile speed-test performance tiles",
+   "key": "none",
+   "cost": "Free",
+   "terms": "CC BY-NC-SA 4.0: non-commercial, credit Ookla",
+   "area": "Bulk files, quarterly",
+   "status": "Could add (bulk, non-commercial)"
+  },
+  {
+   "name": "KiwiSDR / WebSDR lists",
+   "url": "https://kiwisdr.com",
+   "what": "Remote receivers near a site",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Not stated",
+   "area": "No documented feed",
+   "status": "Not added: no documented list to read"
+  },
+  {
+   "name": "CellMapper",
+   "url": "https://www.cellmapper.net",
+   "what": "Crowd cell maps",
+   "key": "No API",
+   "cost": "n/a",
+   "terms": "Personal viewing only; no mirroring",
+   "area": "No",
+   "status": "Not added: its terms allow viewing only. RF Recon links to it."
+  },
+  {
+   "name": "FCC 911 PSAP registry",
+   "url": "https://opendata.fcc.gov/Public-Safety/911-Master-PSAP-Registry/dpq5-ta9j",
+   "what": "911 call centres",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "Bulk",
+   "status": "In RF Recon: rows last updated 2017-10-10; placed at town or county centres (no addresses in the registry)",
+   "updater": [
+    "psap"
+   ]
+  },
+  {
+   "name": "FCC Protected FSS Earth Station Registration",
+   "url": "https://opendata.fcc.gov/d/acbv-jbb4",
+   "what": "C-band satellite earth stations (3.6 to 4.2 GHz receive sites): position, pointing, gain, height",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "Bulk",
+   "status": "In RF Recon from 2026-11-02: about 470 sites, updated daily by the FCC",
+   "updater": [
+    "fss"
+   ]
+  },
+  {
+   "name": "FCC ULS microwave applications (a_micro.zip)",
+   "url": "https://www.fcc.gov/uls/transactions/daily-weekly",
+   "what": "Microwave links filed but not yet granted (application status 2, pending)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data",
+   "area": "Bulk",
+   "status": "In RF Recon from 2026-11-02, off by default (about 445 MB): about 2,300 pending links, drawn dashed on the Microwave backhaul layer",
+   "updater": [
+    "mw_pending"
+   ]
+  },
+  {
+   "name": "OpenStreetMap map tiles",
+   "url": "https://operations.osmfoundation.org/policies/tiles/",
+   "what": "The Street base map",
+   "key": "none",
+   "cost": "Free (donation-funded, best effort)",
+   "terms": "Tile policy: light use, credit OpenStreetMap, honour caching; no bulk downloads, prefetching or offline use",
+   "area": "Map tiles",
+   "status": "In RF Recon: the Street base map"
+  },
+  {
+   "name": "USGS The National Map",
+   "url": "https://www.usgs.gov/programs/national-geospatial-program/national-map",
+   "what": "Satellite, satellite + labels, topo and terrain relief base maps",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public domain; USGS asks for credit",
+   "area": "Map tiles",
+   "status": "In RF Recon: the four USGS base maps"
+  },
+  {
+   "name": "Esri World Imagery",
+   "url": "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9",
+   "what": "Hi-res satellite base map (the ATAK map style starts on it)",
+   "key": "none",
+   "cost": "Free to view",
+   "terms": "Esri Master License Agreement; credit Esri, Vantor, Earthstar Geographics; not for exporting tiles to use offline",
+   "area": "Map tiles",
+   "status": "In RF Recon: the Satellite hi-res (Esri) base map"
+  },
+  {
+   "name": "US Census Bureau TIGERweb",
+   "url": "https://tigerweb.geo.census.gov/",
+   "what": "County and state lines",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Map tiles; one point query per DAS job",
+   "status": "In RF Recon: the County + state lines layer; a DAS job's county and city (the AHJ guess)"
+  },
+  {
+   "name": "Terrain Tiles on AWS (Tilezen)",
+   "url": "https://registry.opendata.aws/terrain-tiles/",
+   "what": "Ground elevation: USGS 3DEP in the US, SRTM and others elsewhere",
+   "key": "none (no AWS account)",
+   "cost": "Free",
+   "terms": "AWS open data; credit the sources in Tilezen's attribution list",
+   "area": "Elevation tiles",
+   "status": "In RF Recon: terrain profiles and coverage estimates; tiles already fetched are kept for use with no signal"
+  },
+  {
+   "name": "Photon address search (komoot)",
+   "url": "https://photon.komoot.io/",
+   "what": "Addresses and places for the Pin box",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Public demo server: \"please be fair\"; heavy use is throttled; no availability promise. OpenStreetMap data",
+   "area": "By address or place name",
+   "status": "In RF Recon: addresses in the Pin box's search"
+  },
+  {
+   "name": "Overpass API (OpenStreetMap)",
+   "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
+   "what": "Building outlines; road and rail tunnels",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Main server: under 10,000 queries and 1 GB a day; OpenStreetMap data (ODbL), credit OpenStreetMap; tunnel prospects kept off the public packs",
+   "area": "Yes (box)",
+   "status": "In RF Recon: DAS jobs' building outlines, tunnels near a job and tunnel prospects (public servers asked at once)"
+  },
+  {
+   "name": "Iowa Environmental Mesonet: NEXRAD",
+   "url": "https://mesonet.agron.iastate.edu/ogc/",
+   "what": "Live weather radar, refreshed every 5 minutes",
+   "key": "none",
+   "cost": "Free",
+   "terms": "No terms published for the tile service",
+   "area": "Map tiles",
+   "status": "In RF Recon: the map's Weather radar (NEXRAD, live) layer"
+  },
+  {
+   "name": "USFA National Fire Department Registry",
+   "updater": [
+    "usfa_fd"
+   ],
+   "url": "https://apps.usfa.fema.gov/registry/download",
+   "what": "27,117 fire departments (HQ and mail address, phone, website, county, type, stations) and 8,092 station addresses; no coordinates (placed by ZIP centre)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government work: the registry says the general public can use the data; FEMA: free of copyright, may be copied and distributed (read 2026-11-04). Frozen: no updates after June 2026 (NERIS is the current list)",
+   "area": "Whole US (about 12 MB)",
+   "status": "In RF Recon from 2026-11-04: a DAS job's AHJ guess (the fire departments covering the address)"
+  }
+ ]
+}

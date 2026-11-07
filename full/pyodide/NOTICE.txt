@@ -1,0 +1,9 @@
+This folder is Pyodide 0.27.7 (https://pyodide.org), unmodified, as published at https://cdn.jsdelivr.net/pyodide/v0.27.7/full/.
+Pyodide is under the Mozilla Public License 2.0 (LICENSE). Its source: https://github.com/pyodide/pyodide/tree/0.27.7
+
+Licences here:
+  LICENSE: Pyodide 0.27.7, Mozilla Public License 2.0 (https://raw.githubusercontent.com/pyodide/pyodide/0.27.7/LICENSE)
+  LICENSE-CPython.txt: CPython 3.12.7 (python_stdlib.zip, the sqlite3 and ssl modules), PSF License (https://raw.githubusercontent.com/python/cpython/v3.12.7/LICENSE)
+  LICENSE-OpenSSL.txt: OpenSSL 1.1.1w (openssl-1.1.1w.zip), OpenSSL and SSLeay licences (https://raw.githubusercontent.com/openssl/openssl/OpenSSL_1_1_1w/LICENSE)
+
+SQLite is in the public domain. pyodide-http (MIT) carries its licence inside its wheel (pyodide_http-0.2.1.dist-info/LICENSE).

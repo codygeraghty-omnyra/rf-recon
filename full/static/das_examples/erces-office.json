@@ -1,0 +1,2334 @@
+{
+ "rfrecon_das_job": 1,
+ "name": "Example: public safety ERCES, 3-storey office (example)",
+ "stage": "Acceptance",
+ "data": {
+  "example": "erces",
+  "client": "Sample Properties LLC (example)",
+  "address": "Example office building, Arlington VA (fictional)",
+  "lat": 38.8893,
+  "lon": -77.0864,
+  "area_sqft": 72000,
+  "construction": "Thermally efficient (low-E glass, foil insulation), typical (31 dB)",
+  "ahj": "Example County Fire Marshal (example)",
+  "code": "IFC 2021 510 + NFPA 1225 (2022)",
+  "next_step": "AHJ signs the report; then move the job to In service",
+  "due": "2026-11-13",
+  "value": 185000,
+  "booster_class": "Class A (channelized)",
+  "floors": [
+   {
+    "name": "1",
+    "grids": 20,
+    "cols": 5,
+    "plan": "example-office-floor-1.png",
+    "gridbox": {
+     "cx": 50,
+     "cy": 47.2,
+     "w": 90.9,
+     "h": 80.9,
+     "rot": 0
+    },
+    "critical": [
+     1,
+     8,
+     16,
+     20
+    ]
+   },
+   {
+    "name": "2",
+    "grids": 20,
+    "cols": 5,
+    "plan": "example-office-floor-2.png",
+    "gridbox": {
+     "cx": 50,
+     "cy": 47.2,
+     "w": 90.9,
+     "h": 80.9,
+     "rot": 0
+    },
+    "critical": [
+     8,
+     20
+    ]
+   },
+   {
+    "name": "3",
+    "grids": 20,
+    "cols": 5,
+    "plan": "example-office-floor-3.png",
+    "gridbox": {
+     "cx": 50,
+     "cy": 47.2,
+     "w": 90.9,
+     "h": 80.9,
+     "rot": 0
+    },
+    "critical": [
+     8,
+     20
+    ]
+   }
+  ],
+  "checks": {
+   "consent": "2026-09-02",
+   "fcc_reg": "2026-10-22",
+   "permit": "2026-08-15",
+   "design_ok": "2026-09-10",
+   "monitoring": "2026-10-16",
+   "accepted_on": "2026-10-27",
+   "battery": "2026-10-21"
+  },
+  "accepted_on": "2026-10-27",
+  "retest_due": "2027-10-27",
+  "testing": {
+   "tester": "Sample Technician (example)",
+   "grol": "PG-EX-0001 (example)",
+   "nicet": "Level II (example)",
+   "date": "2026-10-20",
+   "date2": "2026-10-21",
+   "instruments": [
+    {
+     "model": "PCTEL IBflex",
+     "serial": "EX-1001",
+     "cal": "2026-06-15"
+    }
+   ]
+  },
+  "notes": "Worked example (fictional building, people and companies; the radio systems are real FCC licences near the pin).\nThe free-space pre-survey said every system clears -95 dBm inside, but the walk test before design found -98 to -104 dBm on floors 2 and 3 behind the low-E glass: free space is best case, a walk test decides.\nDesign: one Class A BDA in the first-floor BDA room, a fiber backbone to each floor, six ceiling antennas a floor.",
+  "presurvey": {
+   "radius": 15,
+   "loss": 31,
+   "threshold": -95,
+   "include": [
+    "KNIQ704",
+    "KIC338"
+   ],
+   "plan": [
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 851.7125,
+     "uplink_mhz": "806.7125",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 851.8125,
+     "uplink_mhz": "806.8125",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 852.675,
+     "uplink_mhz": "807.675",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 853.1875,
+     "uplink_mhz": "808.1875",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 856.4375,
+     "uplink_mhz": "811.4375",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 856.7625,
+     "uplink_mhz": "811.7625",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 856.9375,
+     "uplink_mhz": "811.9375",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.8
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 857.4375,
+     "uplink_mhz": "812.4375",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 857.7625,
+     "uplink_mhz": "812.7625",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 857.9375,
+     "uplink_mhz": "812.9375",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 858.4375,
+     "uplink_mhz": "813.4375",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 858.7625,
+     "uplink_mhz": "813.7625",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 858.9375,
+     "uplink_mhz": "813.9375",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 859.4375,
+     "uplink_mhz": "814.4375",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 859.7625,
+     "uplink_mhz": "814.7625",
+     "band": "800 MHz",
+     "emission": "8K70D1W",
+     "bandwidth_khz": 8.7,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 859.9375,
+     "uplink_mhz": "814.9375",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 860.4375,
+     "uplink_mhz": "815.4375",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 860.7625,
+     "uplink_mhz": "815.7625",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KNIQ704",
+     "service": "Public Safety 806-817/851-862 MHz, Trunked",
+     "trunked": "yes",
+     "technology": "Analog FM / Unknown",
+     "downlink_mhz": 860.9375,
+     "uplink_mhz": "815.9375",
+     "band": "800 MHz",
+     "emission": "20K0F3E 8K70D1W",
+     "bandwidth_khz": 20,
+     "best_outdoor_dbm": -10.9
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KIC338",
+     "service": "Public Safety Pool, Conventional",
+     "trunked": "no",
+     "technology": "Analog FM",
+     "downlink_mhz": 154.13,
+     "uplink_mhz": "153.89",
+     "band": "VHF High",
+     "emission": "11K0F3E",
+     "bandwidth_khz": 11,
+     "best_outdoor_dbm": -15.7
+    },
+    {
+     "system": "Arlington County Department of Public Safety Communications and Emergency Management",
+     "call_sign": "KIC338",
+     "service": "Public Safety Pool, Conventional",
+     "trunked": "no",
+     "technology": "Analog FM",
+     "downlink_mhz": 154.28,
+     "uplink_mhz": "153.89",
+     "band": "VHF High",
+     "emission": "11K0F3E",
+     "bandwidth_khz": 11,
+     "best_outdoor_dbm": -19.5
+    }
+   ]
+  },
+  "profile": {
+   "threshold": -95,
+   "daq": 3.0,
+   "general_pct": 95,
+   "critical_pct": 99,
+   "battery_h": 12
+  },
+  "require": {
+   "critical": [
+    "Fire command center",
+    "Fire pump room",
+    "Exit stairs",
+    "Elevator lobbies"
+   ],
+   "other": [
+    "BDA / telecom room"
+   ]
+  },
+  "design": {
+   "bands": {
+    "800 MHz": {
+     "roof_dbm": -58,
+     "roof_src": "rooftop reading 2026-08-28 (example)",
+     "donor_gain_dbi": 11,
+     "donor_cable": {
+      "kind": "cable",
+      "cable": "LDF4-50A",
+      "ft": 140
+     },
+     "bda_dl_gain_db": 64,
+     "bda_ul_gain_db": 35,
+     "bda_max_dbm": 30,
+     "bda_ul_max_dbm": 20,
+     "connectors": 10,
+     "server_gain_dbi": 2,
+     "edge_ft": 55,
+     "walls_db": 6,
+     "isolation_db": 105,
+     "site_dist_mi": 0.08,
+     "passive": [
+      {
+       "kind": "cable",
+       "cable": "LDF4-50A",
+       "ft": 220
+      },
+      {
+       "kind": "part",
+       "name": "2-way splitter",
+       "db": 3.3
+      },
+      {
+       "kind": "part",
+       "name": "Directional coupler 10 dB (through)",
+       "db": 0.6
+      }
+     ]
+    },
+    "VHF High": {
+     "roof_dbm": -60,
+     "roof_src": "rooftop reading 2026-08-28 (example)",
+     "donor_gain_dbi": 7,
+     "donor_cable": {
+      "kind": "cable",
+      "cable": "LDF4-50A",
+      "ft": 140
+     },
+     "bda_dl_gain_db": 70,
+     "bda_ul_gain_db": 30,
+     "bda_max_dbm": 30,
+     "bda_ul_max_dbm": 20,
+     "connectors": 10,
+     "server_gain_dbi": 0,
+     "edge_ft": 55,
+     "walls_db": 4,
+     "isolation_db": 100,
+     "site_dist_mi": 0.58,
+     "passive": [
+      {
+       "kind": "cable",
+       "cable": "LDF4-50A",
+       "ft": 220
+      },
+      {
+       "kind": "part",
+       "name": "2-way splitter",
+       "db": 3.3
+      },
+      {
+       "kind": "part",
+       "name": "Directional coupler 10 dB (through)",
+       "db": 0.6
+      }
+     ]
+    }
+   },
+   "floors": {
+    "1": {
+     "width_ft": 220,
+     "antennas": [
+      {
+       "x": 0.18,
+       "y": 0.22,
+       "label": "1-A1"
+      },
+      {
+       "x": 0.5,
+       "y": 0.22,
+       "label": "1-A2"
+      },
+      {
+       "x": 0.82,
+       "y": 0.22,
+       "label": "1-A3"
+      },
+      {
+       "x": 0.18,
+       "y": 0.7,
+       "label": "1-A4"
+      },
+      {
+       "x": 0.5,
+       "y": 0.78,
+       "label": "1-A5"
+      },
+      {
+       "x": 0.82,
+       "y": 0.7,
+       "label": "1-A6"
+      }
+     ],
+     "walls": [
+      {
+       "x1": 0.432,
+       "y1": 0.371,
+       "x2": 0.432,
+       "y2": 0.573,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      },
+      {
+       "x1": 0.568,
+       "y1": 0.371,
+       "x2": 0.568,
+       "y2": 0.573,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      },
+      {
+       "x1": 0.432,
+       "y1": 0.371,
+       "x2": 0.568,
+       "y2": 0.371,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      }
+     ]
+    },
+    "2": {
+     "width_ft": 220,
+     "antennas": [
+      {
+       "x": 0.18,
+       "y": 0.22,
+       "label": "2-A1"
+      },
+      {
+       "x": 0.5,
+       "y": 0.22,
+       "label": "2-A2"
+      },
+      {
+       "x": 0.82,
+       "y": 0.22,
+       "label": "2-A3"
+      },
+      {
+       "x": 0.18,
+       "y": 0.7,
+       "label": "2-A4"
+      },
+      {
+       "x": 0.5,
+       "y": 0.78,
+       "label": "2-A5"
+      },
+      {
+       "x": 0.82,
+       "y": 0.7,
+       "label": "2-A6"
+      }
+     ],
+     "walls": [
+      {
+       "x1": 0.432,
+       "y1": 0.371,
+       "x2": 0.432,
+       "y2": 0.573,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      },
+      {
+       "x1": 0.568,
+       "y1": 0.371,
+       "x2": 0.568,
+       "y2": 0.573,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      },
+      {
+       "x1": 0.432,
+       "y1": 0.371,
+       "x2": 0.568,
+       "y2": 0.371,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      }
+     ]
+    },
+    "3": {
+     "width_ft": 220,
+     "antennas": [
+      {
+       "x": 0.18,
+       "y": 0.22,
+       "label": "3-A1"
+      },
+      {
+       "x": 0.5,
+       "y": 0.22,
+       "label": "3-A2"
+      },
+      {
+       "x": 0.82,
+       "y": 0.22,
+       "label": "3-A3"
+      },
+      {
+       "x": 0.18,
+       "y": 0.7,
+       "label": "3-A4"
+      },
+      {
+       "x": 0.5,
+       "y": 0.78,
+       "label": "3-A5"
+      },
+      {
+       "x": 0.82,
+       "y": 0.7,
+       "label": "3-A6"
+      }
+     ],
+     "walls": [
+      {
+       "x1": 0.432,
+       "y1": 0.371,
+       "x2": 0.432,
+       "y2": 0.573,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      },
+      {
+       "x1": 0.568,
+       "y1": 0.371,
+       "x2": 0.568,
+       "y2": 0.573,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      },
+      {
+       "x1": 0.432,
+       "y1": 0.371,
+       "x2": 0.568,
+       "y2": 0.371,
+       "label": "Concrete wall or slab 8 in (203 mm)",
+       "mat": "concrete",
+       "cm": 20.3
+      }
+     ]
+    }
+   },
+   "battery": {
+    "volts": 24,
+    "hours": 12,
+    "margin_pct": 20,
+    "items": [
+     {
+      "name": "Class A BDA, 800 MHz + VHF (example)",
+      "qty": 1,
+      "amps": 4.2,
+      "watts": null
+     },
+     {
+      "name": "Fiber remote unit (example)",
+      "qty": 3,
+      "amps": 1.1,
+      "watts": null
+     },
+     {
+      "name": "ERCES annunciator (example)",
+      "qty": 1,
+      "amps": 0.15,
+      "watts": null
+     }
+    ]
+   }
+  },
+  "bom": [
+   {
+    "cat": "Component",
+    "item": "Public-safety BDA / signal booster (FCC Part 90 Class A channelized and Class B band-selective)",
+    "part": "Class A, 800 MHz + VHF (example)",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "1",
+    "unit": "ea",
+    "note": "UL 2524 listed; NEMA 4 enclosure"
+   },
+   {
+    "cat": "Component",
+    "item": "Donor antenna (Yagi, outdoor panel)",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "2",
+    "unit": "ea",
+    "note": "800 MHz and VHF, pointed at the agency sites"
+   },
+   {
+    "cat": "Cable",
+    "item": "LDF4-50A",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "140",
+    "unit": "ft",
+    "note": "donor run, roof to BDA room"
+   },
+   {
+    "cat": "Component",
+    "item": "Fiber DAS for public safety (master/head end + fiber optic unit + remote units)",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "3",
+    "unit": "ea",
+    "note": "one remote a floor"
+   },
+   {
+    "cat": "Component",
+    "item": "Omni ceiling antenna",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "18",
+    "unit": "ea",
+    "note": "six a floor"
+   },
+   {
+    "cat": "Component",
+    "item": "Power splitter / divider",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "6",
+    "unit": "ea",
+    "note": ""
+   },
+   {
+    "cat": "Component",
+    "item": "BDA / DAS battery backup unit (secondary power)",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "1",
+    "unit": "ea",
+    "note": "12 h at full load (Design, Battery)"
+   },
+   {
+    "cat": "Component",
+    "item": "ERCES annunciator / system monitoring panel",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "1",
+    "unit": "ea",
+    "note": "in the fire command center"
+   },
+   {
+    "cat": "Component",
+    "item": "2-hour fire-rated pathway / survivability for backbone cable (UL 2196 coax, circuit-protective wrap)",
+    "part": "",
+    "supplier": "",
+    "qty": "1",
+    "unit": "ea",
+    "note": "riser backbone"
+   }
+  ],
+  "pim": {
+   "limit_dbc": -140,
+   "runs": [
+    {
+     "where": "Head-end, BDA output",
+     "band": "800 PS",
+     "f1": "851.7125",
+     "f2": "856.4375",
+     "tone_dbm": "43",
+     "order": 3,
+     "result_dbm": "-104",
+     "dtp_ft": "",
+     "note": "",
+     "at": "2026-10-16T10:20"
+    },
+    {
+     "where": "Riser to floor 3",
+     "band": "800 PS",
+     "f1": "851.7125",
+     "f2": "856.4375",
+     "tone_dbm": "43",
+     "order": 3,
+     "result_dbm": "-101",
+     "dtp_ft": "",
+     "note": "",
+     "at": "2026-10-16T11:05"
+    },
+    {
+     "where": "Floor 2 branch",
+     "band": "800 PS",
+     "f1": "851.7125",
+     "f2": "856.4375",
+     "tone_dbm": "43",
+     "order": 3,
+     "result_dbm": "-92",
+     "dtp_ft": "84",
+     "note": "Loose N connector at the floor 2 splitter: retorqued, retested below",
+     "at": "2026-10-16T11:40"
+    },
+    {
+     "where": "Floor 2 branch (retest)",
+     "band": "800 PS",
+     "f1": "851.7125",
+     "f2": "856.4375",
+     "tone_dbm": "43",
+     "order": 3,
+     "result_dbm": "-106",
+     "dtp_ft": "",
+     "note": "after retorque",
+     "at": "2026-10-16T12:10"
+    }
+   ]
+  },
+  "grid": {
+   "inst": "PCTEL IBflex|EX-1001",
+   "results": {
+    "1|1": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -76,
+       "daq": 4.5,
+       "ul": -82,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:07:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 3.4,
+       "ul": -77,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:07:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|2": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 4.5,
+       "ul": -78,
+       "ul_daq": 4.2,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:14:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 4.2,
+       "ul": -80,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:14:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|3": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -79,
+       "daq": 4.3,
+       "ul": -79,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:21:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -80,
+       "daq": 4.3,
+       "ul": -89,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:21:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|4": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -70,
+       "daq": 3.7,
+       "ul": -76,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:28:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -72,
+       "daq": 3.4,
+       "ul": -84,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:28:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|5": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -85,
+       "daq": 4.4,
+       "ul": -76,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:35:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 3.6,
+       "ul": -82,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:35:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|6": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -84,
+       "daq": 4.4,
+       "ul": -80,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:42:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 4.0,
+       "ul": -81,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:42:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|7": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 3.9,
+       "ul": -86,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:49:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -90,
+       "daq": 3.8,
+       "ul": -74,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:49:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|8": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -80,
+       "daq": 4.3,
+       "ul": -81,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:56:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -86,
+       "daq": 3.8,
+       "ul": -86,
+       "ul_daq": 3.4,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:56:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|9": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -81,
+       "daq": 3.7,
+       "ul": -77,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:03:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -73,
+       "daq": 3.8,
+       "ul": -82,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:03:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|10": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -72,
+       "daq": 3.7,
+       "ul": -78,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:10:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -87,
+       "daq": 3.7,
+       "ul": -78,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:10:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|11": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 3.9,
+       "ul": -82,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:17:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -85,
+       "daq": 4.1,
+       "ul": -82,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:17:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|12": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -74,
+       "daq": 3.9,
+       "ul": -74,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:24:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -81,
+       "daq": 3.8,
+       "ul": -89,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:24:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|13": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -77,
+       "daq": 3.8,
+       "ul": -82,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:31:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -80,
+       "daq": 4.1,
+       "ul": -77,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:31:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|14": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -82,
+       "daq": 3.9,
+       "ul": -77,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:38:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -73,
+       "daq": 4.2,
+       "ul": -79,
+       "ul_daq": 3.4,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:38:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|15": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -70,
+       "daq": 4.3,
+       "ul": -73,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:45:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -75,
+       "daq": 4.1,
+       "ul": -81,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:45:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|16": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -68,
+       "daq": 4.3,
+       "ul": -84,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:52:00Z",
+       "source": "PCTEL IBflex export (example)",
+       "note": "Fire pump room: tested with the door closed; AHJ witness present (example)."
+      },
+      {
+       "freq": "154.13",
+       "dl": -73,
+       "daq": 4.1,
+       "ul": -80,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:52:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|17": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -74,
+       "daq": 4.1,
+       "ul": -83,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:59:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -72,
+       "daq": 3.9,
+       "ul": -84,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:59:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|18": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -81,
+       "daq": 4.2,
+       "ul": -74,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:06:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 4.1,
+       "ul": -80,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:06:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|19": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 4.2,
+       "ul": -86,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:13:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -73,
+       "daq": 4.1,
+       "ul": -84,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:13:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "1|20": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -80,
+       "daq": 4.4,
+       "ul": -77,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:20:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -74,
+       "daq": 3.4,
+       "ul": -77,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:20:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|1": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -81,
+       "daq": 4.4,
+       "ul": -75,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:07:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -75,
+       "daq": 3.9,
+       "ul": -77,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:07:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|2": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 4.3,
+       "ul": -81,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:14:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -85,
+       "daq": 4.0,
+       "ul": -81,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:14:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|3": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 4.2,
+       "ul": -81,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:21:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 3.8,
+       "ul": -89,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:21:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|4": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -83,
+       "daq": 4.1,
+       "ul": -76,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:28:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -79,
+       "daq": 3.8,
+       "ul": -87,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:28:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|5": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -71,
+       "daq": 3.9,
+       "ul": -74,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:35:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -74,
+       "daq": 4.0,
+       "ul": -77,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T13:35:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|6": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -79,
+       "daq": 4.2,
+       "ul": -83,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:42:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -81,
+       "daq": 4.0,
+       "ul": -80,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:42:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|7": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 3.9,
+       "ul": -79,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:49:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 3.6,
+       "ul": -89,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:49:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|8": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -71,
+       "daq": 3.8,
+       "ul": -72,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:56:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -78,
+       "daq": 3.8,
+       "ul": -79,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:56:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|9": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 4.2,
+       "ul": -79,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:03:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -89,
+       "daq": 3.8,
+       "ul": -80,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:03:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|10": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -86,
+       "daq": 4.5,
+       "ul": -72,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:10:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -87,
+       "daq": 3.4,
+       "ul": -80,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:10:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|11": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 3.8,
+       "ul": -75,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:17:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -79,
+       "daq": 3.5,
+       "ul": -75,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T14:17:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|12": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 4.4,
+       "ul": -82,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:24:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -75,
+       "daq": 4.3,
+       "ul": -78,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:24:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "851.7125",
+       "dl": -79,
+       "inst": "uncal",
+       "time": "2026-09-30T15:00:00Z",
+       "source": "RTL-SDR quick check (example)",
+       "note": "Pre-survey SDR reading: kept on the plan, not counted (no calibration)."
+      }
+     ]
+    },
+    "2|13": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -72,
+       "daq": 4.3,
+       "ul": -87,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:31:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -79,
+       "daq": 4.2,
+       "ul": -87,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:31:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|14": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -84,
+       "daq": 4.5,
+       "ul": -85,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:38:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -80,
+       "daq": 3.5,
+       "ul": -87,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:38:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|15": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -76,
+       "daq": 4.5,
+       "ul": -79,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:45:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -73,
+       "daq": 3.9,
+       "ul": -75,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:45:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|16": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -80,
+       "daq": 3.6,
+       "ul": -77,
+       "ul_daq": 3.4,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:52:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -86,
+       "daq": 4.1,
+       "ul": -76,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:52:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|17": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 4.3,
+       "ul": -81,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:59:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -75,
+       "daq": 3.8,
+       "ul": -80,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T15:59:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|18": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 3.9,
+       "ul": -82,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:06:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 3.8,
+       "ul": -81,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:06:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|19": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -68,
+       "daq": 3.7,
+       "ul": -73,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:13:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -75,
+       "daq": 3.7,
+       "ul": -89,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:13:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "2|20": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -83,
+       "daq": 3.7,
+       "ul": -77,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:20:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 3.6,
+       "ul": -82,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-20T16:20:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|1": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -74,
+       "daq": 4.1,
+       "ul": -79,
+       "ul_daq": 4.2,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:07:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -75,
+       "daq": 4.0,
+       "ul": -81,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:07:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|2": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -68,
+       "daq": 3.9,
+       "ul": -81,
+       "ul_daq": 4.2,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:14:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -78,
+       "daq": 4.0,
+       "ul": -87,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:14:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|3": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -83,
+       "daq": 4.2,
+       "ul": -85,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:21:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -82,
+       "daq": 4.0,
+       "ul": -88,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:21:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|4": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 4.4,
+       "ul": -85,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:28:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -79,
+       "daq": 3.4,
+       "ul": -78,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:28:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|5": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -69,
+       "daq": 4.0,
+       "ul": -77,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:35:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -94.5,
+       "daq": 3.4,
+       "ul": -81,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T13:35:00Z",
+       "source": "PCTEL IBflex export (example)",
+       "note": "Northwest corner office: VHF 0.5 dB above the -95 dBm floor, inside the IBflex's 1 dB accuracy. Passes; recheck before the witnessed walk and at the annual retest."
+      }
+     ]
+    },
+    "3|6": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -79,
+       "daq": 4.4,
+       "ul": -81,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:42:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -73,
+       "daq": 3.9,
+       "ul": -86,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:42:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|7": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -76,
+       "daq": 4.4,
+       "ul": -86,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:49:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -82,
+       "daq": 3.4,
+       "ul": -90,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:49:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|8": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -81,
+       "daq": 4.3,
+       "ul": -85,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:56:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 3.8,
+       "ul": -77,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:56:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|9": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -76,
+       "daq": 4.4,
+       "ul": -78,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:03:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 3.8,
+       "ul": -78,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:03:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|10": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -86,
+       "daq": 4.4,
+       "ul": -85,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:10:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -78,
+       "daq": 3.8,
+       "ul": -90,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:10:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|11": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -82,
+       "daq": 3.8,
+       "ul": -88,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:17:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 3.8,
+       "ul": -74,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T14:17:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|12": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -74,
+       "daq": 3.7,
+       "ul": -74,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:24:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -89,
+       "daq": 3.5,
+       "ul": -86,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:24:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|13": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -70,
+       "daq": 3.9,
+       "ul": -88,
+       "ul_daq": 4.1,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:31:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -78,
+       "daq": 3.7,
+       "ul": -75,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:31:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|14": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -73,
+       "daq": 4.0,
+       "ul": -87,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:38:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -88,
+       "daq": 3.5,
+       "ul": -83,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:38:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|15": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -72,
+       "daq": 4.4,
+       "ul": -82,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:45:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -82,
+       "daq": 4.1,
+       "ul": -80,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:45:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|16": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -74,
+       "daq": 4.5,
+       "ul": -87,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:52:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -80,
+       "daq": 4.0,
+       "ul": -78,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:52:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|17": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -79,
+       "daq": 3.7,
+       "ul": -79,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:59:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -83,
+       "daq": 3.8,
+       "ul": -81,
+       "ul_daq": 4.0,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T15:59:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|18": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -75,
+       "daq": 4.3,
+       "ul": -87,
+       "ul_daq": 3.7,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T16:06:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -79,
+       "daq": 4.2,
+       "ul": -81,
+       "ul_daq": 3.6,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T16:06:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|19": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -81,
+       "daq": 4.0,
+       "ul": -79,
+       "ul_daq": 3.9,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T16:13:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -76,
+       "daq": 3.8,
+       "ul": -89,
+       "ul_daq": 3.4,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T16:13:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    },
+    "3|20": {
+     "readings": [
+      {
+       "freq": "851.7125",
+       "dl": -77,
+       "daq": 4.5,
+       "ul": -73,
+       "ul_daq": 3.8,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T16:20:00Z",
+       "source": "PCTEL IBflex export (example)"
+      },
+      {
+       "freq": "154.13",
+       "dl": -89,
+       "daq": 3.7,
+       "ul": -84,
+       "ul_daq": 3.5,
+       "inst": "PCTEL IBflex|EX-1001",
+       "time": "2026-10-21T16:20:00Z",
+       "source": "PCTEL IBflex export (example)"
+      }
+     ]
+    }
+   },
+   "critical": {
+    "Fire command center": {
+     "dl": -71,
+     "daq": 4.4,
+     "ul": -75,
+     "ul_daq": 4.1,
+     "inst": "PCTEL IBflex|EX-1001",
+     "time": "2026-10-21T16:30:00Z"
+    },
+    "Fire pump room": {
+     "dl": -84,
+     "daq": 3.8,
+     "ul": -86,
+     "ul_daq": 3.6,
+     "inst": "PCTEL IBflex|EX-1001",
+     "time": "2026-10-21T16:30:00Z",
+     "note": "Tested with the pump running and the door closed; AHJ witness present (example)."
+    },
+    "Exit stairs": {
+     "dl": -82,
+     "daq": 3.9,
+     "ul": -84,
+     "ul_daq": 3.7,
+     "inst": "PCTEL IBflex|EX-1001",
+     "time": "2026-10-21T16:30:00Z"
+    },
+    "Elevator lobbies": {
+     "dl": -77,
+     "daq": 4.2,
+     "ul": -80,
+     "ul_daq": 4.0,
+     "inst": "PCTEL IBflex|EX-1001",
+     "time": "2026-10-21T16:30:00Z"
+    },
+    "BDA / telecom room": {
+     "dl": -69,
+     "daq": 4.5,
+     "ul": -72,
+     "ul_daq": 4.3,
+     "inst": "PCTEL IBflex|EX-1001",
+     "time": "2026-10-21T16:30:00Z"
+    }
+   }
+  }
+ }
+}

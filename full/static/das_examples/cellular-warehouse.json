@@ -1,0 +1,1305 @@
+{
+ "rfrecon_das_job": 1,
+ "name": "Example: carrier cellular DAS, warehouse (example)",
+ "stage": "Design",
+ "data": {
+  "example": "cellular",
+  "client": "Sample Logistics LLC (example)",
+  "address": "Example distribution warehouse, Arlington VA area (fictional)",
+  "lat": 38.8462,
+  "lon": -77.0531,
+  "area_sqft": 120000,
+  "construction": "Traditional build, worst 5% (28 dB)",
+  "ahj": "Example County Building Official (example)",
+  "code": "Owner spec: carrier coverage, Common preset",
+  "next_step": "Send the consent letters; order the booster when AT&T and Verizon consent",
+  "due": "2026-11-20",
+  "value": 140000,
+  "booster_class": "Not chosen yet",
+  "floors": [
+   {
+    "name": "1",
+    "grids": 20,
+    "cols": 5,
+    "plan": "example-warehouse-floor-1.png",
+    "gridbox": {
+     "cx": 50,
+     "cy": 48,
+     "w": 92.3,
+     "h": 86.4,
+     "rot": 0
+    }
+   }
+  ],
+  "checks": {
+   "permit": "2026-10-30"
+  },
+  "testing": {
+   "tester": "Sample Technician (example)",
+   "date": "2026-10-14",
+   "instruments": [
+    {
+     "model": "Nextivity COMPASS XR",
+     "serial": "EX-2001",
+     "cal": "2026-05-01"
+    }
+   ]
+  },
+  "notes": "Worked example (fictional building, people and companies).\nThe owner wants AT&T, Verizon and T-Mobile inside the warehouse. A COMPASS XR walk before design (Grid test) found every carrier weak behind the racking. The rooftop donor readings (Pre-survey, Cellular carriers) decide which carriers an off-air booster can serve; each carrier must consent before it goes on the air (47 CFR 20.21(c)).\nThe link budget (Design) passes for AT&T (B2) and Verizon (B13). T-Mobile (B71) fails on purpose: its rooftop donor is below the -95 dBm minimum, and more booster gain only amplifies a weak, noisy signal. Options: aim a donor at another T-Mobile site, ask T-Mobile for a carrier-fed source, or its own small cell.",
+  "presurvey": {
+   "radius": 15,
+   "loss": 28,
+   "threshold": -95,
+   "include": []
+  },
+  "cellular": {
+   "profile": {
+    "preset": "common",
+    "rsrp": -95,
+    "rsrp_hi": -100,
+    "sinr": 5,
+    "pct": 95,
+    "hi_by": null,
+    "carriers": [
+     "AT&T",
+     "Verizon",
+     "T-Mobile"
+    ]
+   },
+   "donor": {
+    "AT&T": {
+     "rsrp": -78,
+     "sinr": 11,
+     "band": "2",
+     "az": 215,
+     "height_ft": 38,
+     "at": "2026-10-14"
+    },
+    "Verizon": {
+     "rsrp": -88,
+     "sinr": 6,
+     "band": "13",
+     "az": 160,
+     "height_ft": 38,
+     "at": "2026-10-14"
+    },
+    "T-Mobile": {
+     "rsrp": -97,
+     "sinr": 1,
+     "band": "71",
+     "az": 300,
+     "height_ft": 38,
+     "at": "2026-10-14"
+    }
+   },
+   "approvals": {
+    "AT&T": {
+     "path": "industrial",
+     "asked": "2026-10-20",
+     "consent": null,
+     "contact": "AT&T account team (example), request EX-ATT-001"
+    },
+    "Verizon": {
+     "path": "industrial",
+     "asked": "2026-10-20",
+     "consent": null,
+     "contact": "Verizon account manager (example)"
+    },
+    "T-Mobile": {
+     "path": "industrial",
+     "asked": "2026-10-21",
+     "consent": null,
+     "contact": "Rebroadcast Agreement with Exhibit A sent (example)"
+    }
+   }
+  },
+  "design": {
+   "cell_bands": [
+    "2",
+    "13",
+    "71"
+   ],
+   "bands": {
+    "Cellular B2 / n2 PCS 1900": {
+     "bda_dl_gain_db": 68,
+     "bda_ul_gain_db": 55,
+     "bda_max_dbm": 33,
+     "connectors": 8,
+     "server_gain_dbi": 7,
+     "edge_ft": 55,
+     "walls_db": 3,
+     "isolation_db": 100,
+     "donor_cable": {
+      "kind": "cable",
+      "cable": "LCF12-50J",
+      "ft": 60
+     },
+     "passive": [
+      {
+       "kind": "cable",
+       "cable": "LCF12-50J",
+       "ft": 300
+      },
+      {
+       "kind": "part",
+       "name": "4-way splitter",
+       "db": 6.6
+      },
+      {
+       "kind": "part",
+       "name": "Directional coupler 6 dB (through)",
+       "db": 1.3
+      }
+     ],
+     "roof_dbm": -78,
+     "donor_gain_dbi": 12
+    },
+    "Cellular B13 / n13 Upper 700": {
+     "bda_dl_gain_db": 72,
+     "bda_ul_gain_db": 55,
+     "bda_max_dbm": 33,
+     "connectors": 8,
+     "server_gain_dbi": 5,
+     "edge_ft": 55,
+     "walls_db": 3,
+     "isolation_db": 100,
+     "donor_cable": {
+      "kind": "cable",
+      "cable": "LCF12-50J",
+      "ft": 60
+     },
+     "passive": [
+      {
+       "kind": "cable",
+       "cable": "LCF12-50J",
+       "ft": 300
+      },
+      {
+       "kind": "part",
+       "name": "4-way splitter",
+       "db": 6.6
+      },
+      {
+       "kind": "part",
+       "name": "Directional coupler 6 dB (through)",
+       "db": 1.3
+      }
+     ],
+     "roof_dbm": -88,
+     "donor_gain_dbi": 10
+    },
+    "Cellular B71 / n71 600 MHz": {
+     "bda_dl_gain_db": 65,
+     "bda_ul_gain_db": 55,
+     "bda_max_dbm": 33,
+     "connectors": 8,
+     "server_gain_dbi": 4,
+     "edge_ft": 55,
+     "walls_db": 3,
+     "isolation_db": 100,
+     "donor_cable": {
+      "kind": "cable",
+      "cable": "LCF12-50J",
+      "ft": 60
+     },
+     "passive": [
+      {
+       "kind": "cable",
+       "cable": "LCF12-50J",
+       "ft": 300
+      },
+      {
+       "kind": "part",
+       "name": "4-way splitter",
+       "db": 6.6
+      },
+      {
+       "kind": "part",
+       "name": "Directional coupler 6 dB (through)",
+       "db": 1.3
+      }
+     ],
+     "roof_dbm": -97,
+     "donor_gain_dbi": 10
+    }
+   },
+   "floors": {
+    "1": {
+     "width_ft": 433.3,
+     "antennas": [
+      {
+       "x": 0.15,
+       "y": 0.2,
+       "label": "P1"
+      },
+      {
+       "x": 0.38,
+       "y": 0.2,
+       "label": "P2"
+      },
+      {
+       "x": 0.62,
+       "y": 0.2,
+       "label": "P3"
+      },
+      {
+       "x": 0.85,
+       "y": 0.2,
+       "label": "P4"
+      },
+      {
+       "x": 0.15,
+       "y": 0.48,
+       "label": "P5"
+      },
+      {
+       "x": 0.38,
+       "y": 0.48,
+       "label": "P6"
+      },
+      {
+       "x": 0.62,
+       "y": 0.48,
+       "label": "P7"
+      },
+      {
+       "x": 0.85,
+       "y": 0.48,
+       "label": "P8"
+      },
+      {
+       "x": 0.15,
+       "y": 0.76,
+       "label": "P9"
+      },
+      {
+       "x": 0.38,
+       "y": 0.76,
+       "label": "P10"
+      },
+      {
+       "x": 0.62,
+       "y": 0.76,
+       "label": "P11"
+      },
+      {
+       "x": 0.78,
+       "y": 0.76,
+       "label": "P12"
+      }
+     ],
+     "walls": [
+      {
+       "x1": 0.885,
+       "y1": 0.05,
+       "x2": 0.885,
+       "y2": 0.33,
+       "label": "CMU block wall 8 in",
+       "mat": null,
+       "cm": null
+      }
+     ]
+    }
+   },
+   "battery": {
+    "volts": 48,
+    "hours": 4,
+    "margin_pct": 20,
+    "items": [
+     {
+      "name": "Industrial booster (example)",
+      "qty": 1,
+      "amps": null,
+      "watts": 180
+     }
+    ]
+   }
+  },
+  "bom": [
+   {
+    "cat": "Component",
+    "item": "Donor antenna (Yagi, outdoor panel)",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "3",
+    "unit": "ea",
+    "note": "one per carrier, aimed per the donor table"
+   },
+   {
+    "cat": "Cable",
+    "item": "LCF12-50J",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "900",
+    "unit": "ft",
+    "note": "horizontal runs to the panels"
+   },
+   {
+    "cat": "Component",
+    "item": "Indoor panel / directional antenna",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "12",
+    "unit": "ea",
+    "note": "down the racking aisles, 4 x 3"
+   },
+   {
+    "cat": "Component",
+    "item": "Power splitter / divider",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "2",
+    "unit": "ea",
+    "note": "4-way"
+   },
+   {
+    "cat": "Component",
+    "item": "Directional coupler / tapper",
+    "part": "",
+    "supplier": "Sample Supply Co. (example)",
+    "qty": "4",
+    "unit": "ea",
+    "note": ""
+   }
+  ],
+  "grid": {
+   "inst": "Nextivity COMPASS XR|EX-2001",
+   "results": {
+    "1|1": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -102,
+       "rsrq": -13,
+       "sinr": 1.9,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:11:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -92,
+       "rsrq": -13,
+       "sinr": 5.1,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:11:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -96,
+       "rsrq": -13,
+       "sinr": 5.9,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:11:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "NR",
+       "carrier": "AT&T",
+       "band": "n77",
+       "freq": "650000",
+       "mhz": 3750,
+       "rsrp": -108,
+       "rsrq": -11,
+       "sinr": 1.6,
+       "pci": 517,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:11:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|2": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -101,
+       "rsrq": -12,
+       "sinr": 2.0,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:22:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -90,
+       "rsrq": -11,
+       "sinr": 5.7,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:22:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -100,
+       "rsrq": -13,
+       "sinr": 2.9,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:22:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "NR",
+       "carrier": "AT&T",
+       "band": "n77",
+       "freq": "650000",
+       "mhz": 3750,
+       "rsrp": -110,
+       "rsrq": -13,
+       "sinr": 0.7,
+       "pci": 517,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:22:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|3": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -103,
+       "rsrq": -11,
+       "sinr": 2.0,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:33:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -92,
+       "rsrq": -10,
+       "sinr": 6.7,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:33:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -100,
+       "rsrq": -13,
+       "sinr": 4.1,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:33:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|4": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -102,
+       "rsrq": -13,
+       "sinr": 2.5,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:44:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -95,
+       "rsrq": -12,
+       "sinr": 3.2,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:44:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -97,
+       "rsrq": -12,
+       "sinr": 2.2,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T09:44:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|5": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -101,
+       "rsrq": -12,
+       "sinr": 4.0,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:55:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -97,
+       "rsrq": -13,
+       "sinr": 6.4,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:55:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -96,
+       "rsrq": -11,
+       "sinr": 5.0,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:55:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|6": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -98,
+       "rsrq": -10,
+       "sinr": 5.7,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:06:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -97,
+       "rsrq": -10,
+       "sinr": 3.0,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:06:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -99,
+       "rsrq": -11,
+       "sinr": 5.8,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:06:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "NR",
+       "carrier": "AT&T",
+       "band": "n77",
+       "freq": "650000",
+       "mhz": 3750,
+       "rsrp": -112,
+       "rsrq": -12,
+       "sinr": 3.2,
+       "pci": 517,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:06:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|7": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -105,
+       "rsrq": -11,
+       "sinr": 2.2,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:17:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -102,
+       "rsrq": -11,
+       "sinr": 5.300000000000001,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:17:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -100,
+       "rsrq": -14,
+       "sinr": 4.6,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:17:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|8": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -106,
+       "rsrq": -10,
+       "sinr": -0.3999999999999999,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:28:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -101,
+       "rsrq": -11,
+       "sinr": 2.3,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:28:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -105,
+       "rsrq": -12,
+       "sinr": 4.7,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:28:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|9": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -110,
+       "rsrq": -11,
+       "sinr": 2.9000000000000004,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:39:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -98,
+       "rsrq": -10,
+       "sinr": 3.5999999999999996,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:39:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -107,
+       "rsrq": -13,
+       "sinr": 0.3999999999999999,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T10:39:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|10": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -104,
+       "rsrq": -13,
+       "sinr": 2.3,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:50:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -95,
+       "rsrq": -12,
+       "sinr": 8.3,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:50:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -98,
+       "rsrq": -12,
+       "sinr": 6.3,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:50:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|11": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -100,
+       "rsrq": -12,
+       "sinr": 5.7,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:01:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -97,
+       "rsrq": -12,
+       "sinr": 8.0,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:01:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -98,
+       "rsrq": -13,
+       "sinr": 6.5,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:01:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|12": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -110,
+       "rsrq": -12,
+       "sinr": 1.0999999999999996,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:12:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -105,
+       "rsrq": -12,
+       "sinr": 2.0999999999999996,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:12:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -108,
+       "rsrq": -13,
+       "sinr": 3.5999999999999996,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:12:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|13": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -106,
+       "rsrq": -14,
+       "sinr": -1.7,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:23:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -101,
+       "rsrq": -9,
+       "sinr": 5.5,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:23:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|14": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -109,
+       "rsrq": -11,
+       "sinr": -1.8,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:34:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -103,
+       "rsrq": -12,
+       "sinr": 4.3,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:34:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -103,
+       "rsrq": -11,
+       "sinr": 0.6000000000000001,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T11:34:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|15": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -99,
+       "rsrq": -12,
+       "sinr": 1.4,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:45:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -91,
+       "rsrq": -11,
+       "sinr": 3.2,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:45:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -94,
+       "rsrq": -13,
+       "sinr": 3.5,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:45:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|16": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -103,
+       "rsrq": -11,
+       "sinr": 4.2,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:56:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -90,
+       "rsrq": -13,
+       "sinr": 5.6,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:56:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -99,
+       "rsrq": -11,
+       "sinr": 6.2,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:56:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|17": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -101,
+       "rsrq": -12,
+       "sinr": 6.9,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:07:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -90,
+       "rsrq": -10,
+       "sinr": 5.0,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:07:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -96,
+       "rsrq": -14,
+       "sinr": 3.9,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:07:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|18": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -103,
+       "rsrq": -13,
+       "sinr": 2.8,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:18:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -92,
+       "rsrq": -10,
+       "sinr": 5.5,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:18:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|19": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -97,
+       "rsrq": -13,
+       "sinr": 6.4,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:29:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -96,
+       "rsrq": -13,
+       "sinr": 3.9,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:29:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -97,
+       "rsrq": -11,
+       "sinr": 3.9,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T12:29:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    },
+    "1|20": {
+     "readings": [
+      {
+       "tech": "LTE",
+       "carrier": "AT&T",
+       "band": "2",
+       "freq": "675",
+       "mhz": 1960,
+       "rsrp": -100,
+       "rsrq": -13,
+       "sinr": 4.1,
+       "pci": 212,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T13:40:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "Verizon",
+       "band": "13",
+       "freq": "5230",
+       "mhz": 751,
+       "rsrp": -92,
+       "rsrq": -10,
+       "sinr": 6.9,
+       "pci": 88,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T13:40:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      },
+      {
+       "tech": "LTE",
+       "carrier": "T-Mobile",
+       "band": "71",
+       "freq": "68761",
+       "mhz": 634.5,
+       "rsrp": -95,
+       "rsrq": -12,
+       "sinr": 4.8,
+       "pci": 301,
+       "inst": "Nextivity COMPASS XR|EX-2001",
+       "time": "2026-10-14T13:40:00Z",
+       "source": "COMPASS XR Full Signal Report (example)"
+      }
+     ]
+    }
+   }
+  }
+ }
+}
