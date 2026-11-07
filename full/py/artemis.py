@@ -1,5 +1,5 @@
 """
-Artemis (Ares Valley, github.com/AresValley/Artemis-DB): the Signal Identification Wiki's signals with a waterfall
+Artemis (Ares Valley, github.com/AresValley/Artemis-Database): the Signal Identification Wiki's signals with a waterfall
 picture and an audio clip for each. RF Recon shows them beside its Signal ID Wiki "could be" matches, matched by the
 wiki page address both carry. The database is Signal ID Wiki content: read on this PC only, never exported, never
 in a pack, never through the remote door (remote.py blocks /api/artemis/).
@@ -20,7 +20,7 @@ import build
 import uls_import
 
 ART_DIR = os.path.join(uls_import.DATA_DIR, "artemis")
-RELEASES = "https://api.github.com/repos/AresValley/Artemis-DB/releases/latest"
+RELEASES = "https://api.github.com/repos/AresValley/Artemis-Database/releases/latest"  # renamed from Artemis-DB, which now answers 404 (QA 11/6)
 MIME = {"png": "image/png", "ogg": "audio/ogg"}
 MEMBER = re.compile(r"^(\./)?(data\.sqlite|media/\d+\.(png|ogg))$")  # all a release may hold
 

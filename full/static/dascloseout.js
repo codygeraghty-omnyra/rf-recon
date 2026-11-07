@@ -31,7 +31,7 @@ const coSame = (a, b) => String(a||"").toLowerCase().replace(/[^a-z0-9]/g,"").in
 function coCarriers(d){ const s=new Set(); const C=d.cellular||{};
   for(const c of C.carriers||[]) s.add(typeof c==="string"?c:c?.name);
   for(const k of Object.keys(C.approvals||{})) s.add(k);
-  try{ for(const b of (typeof dsBands==="function"?dsBands(d):[]).filter(x=>x.cell)) for(const x of b.systems||[]) s.add(x); }catch(e){}
+  try{ for(const b of (typeof dsBands==="function"?dsBands(d):[]).filter(x=>x.cell)) for(const x of b.systems||[]) s.add(x); }catch(e){ /* a design that won't read still leaves the carriers from Pre-survey and Commissioning */ }
   for(const r of ((d.commission_cell||{}).poi||{}).rows||[]) if(r.carrier) s.add(r.carrier);
   return typeof carrierNames==="function"?carrierNames([...s]):[...s].filter(Boolean); }
 // what the job's own records say about one item for one carrier: {status: "pass"|"fail"|"open"|null, why, files}
@@ -75,7 +75,7 @@ function coIndex(d, carrier, card, name){ const row=x=>`<tr><td>${x.done?"&#1000
 window.dasCloseout = async (el, j) => {
   if(!el) return;
   let d=j.data||{}, files=[];
-  try{ files=((await api(`/api/das/jobs/${j.id}/files`)).files||[]).map(f=>f.name); }catch(e){}
+  try{ files=((await api(`/api/das/jobs/${j.id}/files`)).files||[]).map(f=>f.name); }catch(e){ /* no file list: the items still tick from the records; only the file matches are missing */ }
   const who=()=>(S.me&&S.me.user)||((d.testing||{}).tester)||"";
   const now=()=>{ const t=new Date(), z=x=>String(x).padStart(2,"0"); return `${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())} ${z(t.getHours())}:${z(t.getMinutes())}`; };
   const keep=async co=>{ await post(`/api/das/jobs/${j.id}`, {data:{closeout:co}}); d={...d, closeout:co}; j={...j, data:d}; draw(); };

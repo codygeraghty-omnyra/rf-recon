@@ -293,6 +293,25 @@ S.views.dashboard = (v, rows) => {
 };
 
 /* ---------- topology ---------- */
+// crowd cell readings as cell sites (11/6): a carrier's readings within 200 m of each other are one site, on the FCC tower
+// within 200 m when there is one. One node per reading made an unreadable pile once the whole-US cell load arrived.
+const TOPO_CELL = ["LTE","5G NR","GSM","WCDMA/UMTS","CDMA"];
+const topoIsCrowdCell = r => TOPO_CELL.includes(r.sig_type) && r.lat!=null && !["uls","uls_hist","towers"].includes(r.layer);
+const topoKm = (a,b,c,d) => Math.hypot((d-b)*Math.cos((a+c)/2*Math.PI/180)*111.32, (c-a)*110.57);
+// the site a cell belongs to, as cells.py decode() reads it: LTE eNB = cell ID >> 8, NR gNB = cell ID >> 12; anything else has no
+// site in its ID and joins its carrier's readings within 200 m
+function topoSiteOf(r){ const p=String(r.ident||r.ext_id||"").split(/[_-]/), cid=Number(p[3]), plmn=`${p[0]||""}${p[1]||""}`;
+  const op=(typeof WK_PLMN!=="undefined"&&WK_PLMN[plmn])||(p[0]?`MCC ${p[0]} MNC ${p[1]||"?"}`:"Unknown carrier");
+  if(Number.isFinite(cid)&&r.sig_type==="LTE") return {op, key:`${plmn}|LTE|${Math.floor(cid/256)}`, id:`eNB ${Math.floor(cid/256)}`};
+  if(Number.isFinite(cid)&&r.sig_type==="5G NR") return {op, key:`${plmn}|NR|${Math.floor(cid/4096)}`, id:`gNB ${Math.floor(cid/4096)}`};
+  return {op, key:null, id:"", old:true}; }
+function topoCellSites(rows){
+  const sites=[], byKey=new Map();
+  for(const r of rows){ if(!topoIsCrowdCell(r)) continue; const k=topoSiteOf(r);
+    let x=k.key?byKey.get(k.key):sites.find(q=>!q.key&&q.op===k.op&&topoKm(q.lat,q.lon,r.lat,r.lon)<0.2);
+    if(!x){ x={op:k.op, key:k.key, id:k.id, old:!!k.old, lat:r.lat, lon:r.lon, cells:[], radios:new Set()}; sites.push(x); if(k.key) byKey.set(k.key, x); }
+    x.cells.push(r); x.radios.add(r.sig_type); const n=x.cells.length; x.lat=(x.lat*(n-1)+r.lat)/n; x.lon=(x.lon*(n-1)+r.lon)/n; }
+  return sites; }
 S.views.topology = (v, rows) => {
   const mode=S.topoMode||"logical", lay=S.topoLayout||"cose";
   v.innerHTML=`<div class="maptools" style="flex-wrap:wrap;gap:8px"><div class="seg" id="topoSeg">${[["logical","Logical"],["physical","Physical (geographic)"],["cochannel","Co-channel / interference"]].map(([k,l])=>`<button data-tm="${k}" class="${mode===k?"on":""}">${l}</button>`).join("")}</div>
@@ -317,18 +336,33 @@ S.views.topology = (v, rows) => {
   const edge=(a,b,kind,w)=>E.push({data:{id:`${a}>${b}>${E.length}`,source:a,target:b,kind,w:w||1}});
   const LIMIT=S.topoLimit||900;
   if(mode==="logical"){
+    // the nearest cell sites first, up to half the limit (the licences alone can fill every slot); the older technologies as
+    // one node per carrier and technology
+    const oldN=new Map();
+    topoCellSites(rows).map(q=>({q, d:S.center?topoKm(S.center[0],S.center[1],q.lat,q.lon):0})).sort((a,b)=>a.d-b.d).slice(0, Math.floor(LIMIT/2)).forEach(({q},i)=>{
+      const rd=[...q.radios][0]; const o=add("O:"+q.op, q.op, "operator",{color:typeColor(rd)});
+      if(q.old){ const k=`${q.op}|${rd}`; oldN.set(k, (oldN.get(k)||0)+q.cells.length); return; }
+      const c=add("CS:"+i, `${q.id||[...q.radios].join("/")} · ${q.cells.length} cell${q.cells.length===1?"":"s"}`, "cell",{color:typeColor(rd)}); edge(o,c,"site"); });
+    for(const [k,n] of oldN){ const [op, rd]=k.split("|"); const c=add("CG:"+k, `${rd} · ${n} cell${n===1?"":"s"}`, "cell",{color:"#8c959f"}); edge("O:"+op, c, "site"); }
     for(const r of rows){ if(N.size>LIMIT) break;
       if(r.layer==="uls"||r.layer==="uls_hist"){ const lic=add("L:"+r.licensee, r.licensee, "licensee",{color:catColor2(r.category)}); const cs=add("C:"+r.call_sign, r.call_sign, "license"); if(!E.some(e=>e.data.source===lic&&e.data.target===cs)) edge(lic,cs,"holds");  /* once per pair: it was one per row (421 edges, 231 real; 11/3) */
         const f=add("F:"+fmtF(r.freq_mhz), fmtF(r.freq_mhz), "freq",{color:colorOf(r)}); if(!E.some(e=>e.data.source===cs&&e.data.target===f)) edge(cs,f,"uses");
         if(r.freq_upper_mhz && r.station_class==="FB2"){ const fi=add("F:"+fmtF(r.freq_upper_mhz), fmtF(r.freq_upper_mhz)+" in","freq",{color:"#8c959f"}); if(!E.some(e=>e.data.source===f&&e.data.target===fi)) edge(f,fi,"pair"); } }
       else if(r.sig_type==="Wi-Fi" && r.label){ const s=add("S:"+r.label, r.label, "ssid",{color:typeColor("Wi-Fi")}); const ap=add("A:"+(r.ident||r.fid), r.ident||"AP","ap"); if(!E.some(e=>e.data.target===ap)) edge(s,ap,"bssid"); }
+      else if(topoIsCrowdCell(r)) continue;  // grouped into sites below
       else if(["LTE","5G NR","GSM","WCDMA/UMTS","CDMA"].includes(r.sig_type)){ const op=String(r.ident||r.ext_id||"").split(/[_-]/).slice(0,2).join("-")||"operator"; const o=add("O:"+op, "Operator "+op, "operator",{color:typeColor(r.sig_type)}); const c=add("X:"+(r.ident||r.fid), (r.ident||"").split(/[_-]/).pop()||"cell","cell"); if(!E.some(e=>e.data.target===c)) edge(o,c,"cell"); }
       else if(r.layer==="repeaterbook"){ const g=add("R:repeaters","Ham/GMRS repeaters","group"); const x=add("RB:"+r.fid, `${fmtF(r.freq_mhz)} ${r.label}`,"freq",{color:colorOf(r)}); edge(g,x,"lists"); }
     }
   } else if(mode==="physical"){
     if(S.center) add("PIN","Pin","pin",{x:0,y:0});
     const proj=(la,lo)=>S.center?{x:(lo-S.center[1])*Math.cos(S.center[0]*Math.PI/180)*9000,y:-(la-S.center[0])*9000}:{x:lo*900,y:-la*900};
-    for(const r of rows){ if(N.size>LIMIT) break; if(r.lat==null||r.layer==="captures"||r.layer==="wigle") continue;
+    // the nearest cell sites first, up to half the limit: the licences alone can fill every slot
+    const towersHere=rows.filter(r=>r.layer==="towers"&&r.lat!=null);
+    topoCellSites(rows).map(q=>({q, d:S.center?topoKm(S.center[0],S.center[1],q.lat,q.lon):0})).sort((a,b)=>a.d-b.d).slice(0, Math.floor(LIMIT/2)).forEach(({q},i)=>{ const rd=[...q.radios][0], id=add("CS:"+i, q.old?"":`${q.op}${q.id?` ${q.id}`:""} · ${q.cells.length} cell${q.cells.length===1?"":"s"}`, q.old?"oldcell":"site", {...proj(q.lat,q.lon), color:q.old?"#8c959f":typeColor(rd), name:`${q.op} ${[...q.radios].join("/")} · ${q.cells.length} cell${q.cells.length===1?"":"s"}`});
+      const t=towersHere.map(x=>({x, d:topoKm(q.lat,q.lon,x.lat,x.lon)})).filter(z=>z.d<0.2).sort((a,b)=>a.d-b.d)[0];
+      if(t){ const tid=add("T:"+t.x.reg,`${t.x.struct_type||"Tower"} ${t.x.overall_agl_m??""}m`,"tower",proj(t.x.lat,t.x.lon)); edge(id,tid,"on tower"); }
+    });  // no carrier-to-site lines here: the label names the carrier, and ~100 lines a carrier drew a starburst over the map (11/6)
+    for(const r of rows){ if(N.size>LIMIT) break; if(r.lat==null||r.layer==="captures"||r.layer==="wigle"||topoIsCrowdCell(r)) continue;
       if(r.layer==="towers"){ add("T:"+r.reg,`${r.struct_type||"Tower"} ${r.overall_agl_m??""}m`,"tower",proj(r.lat,r.lon)); continue; }
       const sid="SITE:"+r.lat+","+r.lon; add(sid, r.layer==="uls"?(r.city||"site"):titleOf(r), "site", {...proj(r.lat,r.lon), color:colorOf(r)});
       if(r.tower_reg && rows.some(x=>x.layer==="towers"&&x.reg===r.tower_reg)){ const t="T:"+r.tower_reg; if(!E.some(e=>e.data.source===sid&&e.data.target===t)) edge(sid,t,"on tower"); }
@@ -353,12 +387,13 @@ S.views.topology = (v, rows) => {
       {selector:'node[kind="tower"]',style:{shape:"triangle","background-color":"#57606a",width:18,height:18}},
       {selector:'node[kind="pin"]',style:{shape:"star","background-color":"#cf222e",width:22,height:22}},
       {selector:'node[kind="license"]',style:{shape:"diamond","background-color":"#6e7781"}},
+      {selector:'node[kind="oldcell"]',style:{width:6,height:6,opacity:.6}},
       {selector:"edge",style:{width:"data(w)","line-color":line,"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":line,"arrow-scale":.6}},
       {selector:'edge[kind="pair"]',style:{"line-style":"dashed","line-color":"#bf8700","target-arrow-color":"#bf8700"}},
       {selector:'edge[kind="co-channel"]',style:{"line-color":"#cf222e","target-arrow-shape":"none",opacity:.7}},
       {selector:".dim",style:{opacity:.12}},{selector:".hl",style:{"border-width":3,"border-color":"#bf8700"}}],
     layout: mode==="physical"?{name:"preset",positions:n=>({x:n.data("x")||0,y:n.data("y")||0}),fit:true,padding:30}
-      : lay==="cose"?{name:"cose",animate:false,nodeRepulsion:9000,idealEdgeLength:60,numIter:N.size>1500?400:1000,fit:true,padding:20}
+      : lay==="cose"?{name:"cose",animate:false,nodeRepulsion:9000,idealEdgeLength:60,numIter:Math.max(100, Math.min(1000, Math.round(80000/Math.max(N.size,1)))),fit:true,padding:20}  // fewer passes on a big graph: 900 nodes at 1000 passes froze the page 43 s; 671 nodes at 119 passes draw in 1.9 s on Wilmington's real data (11/6)
       : lay==="concentric"?{name:"concentric",concentric:n=>n.degree(),levelWidth:()=>2,minNodeSpacing:8,fit:true,padding:20}
       : lay==="breadthfirst"?{name:"breadthfirst",directed:true,spacingFactor:.9,fit:true,padding:20}
       : {name:"grid",fit:true,padding:20,avoidOverlap:true}});
