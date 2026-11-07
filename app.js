@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "898dbb8c7e";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "904cc05e5c";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -442,7 +442,9 @@ function itemHtml(r) {
 function viewList(v) {
   if (!S.db) { v.innerHTML = head("List", "") + noPack(); return; }
   const g = groupItems(S.rows);
-  if (!g.length) { v.innerHTML = head("List", where()) + `<div class="card glass empty"><p>${S.center || S.mode === "search" ? "Nothing here with the layers and filters on." : "Tap the map, use where you are, or search."}</p>
+  if (!g.length) { v.innerHTML = head("List", where()) + `<div class="card glass empty"><p>${S.center && S.mode !== "search" && !inPack(S.center)
+    ? `That spot is outside ${esc(S.pack.name)}, so nothing shows here. Load the pack for that area.`
+    : S.center || S.mode === "search" ? "Nothing here with the layers and filters on." : "Tap the map, use where you are, or search."}</p>
     <button class="btn" data-act="map">Open the map</button></div>`; return; }
   v.innerHTML = head("List", `${int(g.length)} entries ${where()}${S.truncated ? ". Showing the first 20,000 licences: zoom in with a smaller radius." : ""}`)
     + takRow()
@@ -456,7 +458,9 @@ async function sendToTak() {  // tak.js: the same data package the PC app makes
   const area = S.mode === "search" ? `“${S.query}”` : `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi`;
   const pkg = await RFTak.save({rows: S.rows, center: S.mode === "area" ? S.center : null, radius: S.radius, name: `RF Recon - ${area}`,
     colorOf, typeOf, fccDate: S.meta?.fcc_built_at});
-  toast(`${pkg.name}: ${int(pkg.sites)} sites${pkg.skipped ? ` (nearest ${int(pkg.sites)})` : ""}. In ATAK or iTAK: Import, then the file.`);
+  if (pkg.how === "cancelled" || pkg.steps) return;  // backed out, or the Android steps card is showing (tak.js)
+  toast(`${pkg.how === "shared" ? "Sent" : "Saved"} ${pkg.name}: ${int(pkg.sites)} sites${pkg.skipped ? ` (nearest ${int(pkg.sites)})` : ""}.`
+    + `${pkg.how === "shared" ? "" : " In ATAK or iTAK: Import, then the file."}`);
 }
 function viewReport(v) {
   if (!S.db) { v.innerHTML = head("Area report", "") + noPack(); return; }
@@ -851,6 +855,9 @@ async function start() {
   setTab(h.tab && ["map", "list", "report", "log", "das", "packs"].includes(h.tab) ? h.tab : (S.db ? "map" : "packs"), false);
   if (S.db) { if (S.center || S.mode === "search") run(true); else afterPackOpened(true); }
   else summary();
+  // opened at a spot (a link, a reload) no loaded pack covers: offer its state, as a tap on the map does (11/7: a link to
+  // Wilmington with the SC pack said "Nothing here with the layers and filters on")
+  if (S.center && S.mode !== "search" && !(S.db && inPack(S.center))) offerPackFor(S.center);
 }
 start().catch(e => { busy(); toast(`RF Recon lite couldn't start: ${e.message}`); console.error(e); });
 
@@ -863,11 +870,14 @@ window.RFNotes?.mount({store: "browser", bottom: "calc(env(safe-area-inset-botto
 }});
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  // an update only when an older worker ran this page: on a first visit the new worker claims the page too (sw.js), and
+  // "was updated" then covered the first thing a new user needs, the offer of a pack (found 11/7 on Cody's phone)
+  const hadWorker = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("sw.js").then(reg => {
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;
       nw?.addEventListener("statechange", () => {
-        if (nw.state === "activated" && navigator.serviceWorker.controller) toast("RF Recon lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
+        if (nw.state === "activated" && hadWorker) toast("RF Recon lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
       });
     });
   }).catch(() => {});

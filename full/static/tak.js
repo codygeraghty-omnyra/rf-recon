@@ -138,16 +138,66 @@ function build(o) {
   const fname = `${o.name.replace(/[\\/:*?"<>|]+/g, "-").slice(0, 80)} (ATAK).zip`;
   return {bytes: zip(files), name: fname, sites: use.length, skipped: sites.length - use.length, heat: !!o.heat?.png};
 }
+/* pkg.how: "shared" (the share sheet took it), "cancelled" (closed without picking), or "downloaded". On a phone the share
+   sheet hands it to ATAK or iTAK. Chrome on Android won't share a .zip (its Web Share takes images, audio, video, text and
+   PDF only), so there it downloads, and the card below says how to finish: Files, hold the file, Share, ATAK (Cody's phone,
+   11/7: no share sheet, and ATAK's own Import list is 774 downloads by name). */
 async function save(o) {
   const pkg = build(o), file = new File([pkg.bytes], pkg.name, {type: "application/zip"});
-  // on a phone, hand it to the share sheet (ATAK, iTAK, Files, Drive); on a computer, download it
   if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({files: [file]})) {
-    try { await navigator.share({files: [file], title: pkg.name}); return pkg; } catch (e) { if (e.name === "AbortError") return pkg; }
+    try { await navigator.share({files: [file], title: pkg.name}); pkg.how = "shared"; return pkg; }
+    catch (e) { if (e.name === "AbortError") { pkg.how = "cancelled"; return pkg; } }
+  }
+  // on Android a second send of the same area stopped at Chrome's "Download file again?" and then saved "... (1).zip", so
+  // the steps card named the wrong file: there the name carries the date and time
+  let dl = file;
+  if (isAndroid()) {
+    const d = new Date(), p2 = n => String(n).padStart(2, "0");
+    pkg.name = pkg.name.replace(/ \(ATAK\)\.zip$/, ` ${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())} (ATAK).zip`);
+    dl = new File([pkg.bytes], pkg.name, {type: "application/zip"});
   }
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(file); a.download = pkg.name; document.body.appendChild(a); a.click(); a.remove();
+  a.href = URL.createObjectURL(dl); a.download = pkg.name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  pkg.how = "downloaded";
+  if (isAndroid()) { pkg.steps = true; showSteps(pkg, o); }
   return pkg;
+}
+const isAndroid = () => navigator.userAgentData?.platform === "Android" || /Android/i.test(navigator.userAgent);
+
+/* the card: stays until Close or Escape, so the steps can be read while switching apps */
+function showSteps(pkg, o) {
+  if (!document.getElementById("takStepsCss")) {
+    const css = document.createElement("style"); css.id = "takStepsCss";
+    css.textContent = `.tak-steps{position:fixed;z-index:60;left:12px;right:12px;bottom:var(--tak-steps-bottom,calc(env(safe-area-inset-bottom) + 16px));
+      max-width:520px;margin:0 auto;padding:14px 16px;border-radius:18px;color:var(--ink,#f4efe8);font-size:14px;line-height:1.45;
+      background:var(--g-strong,rgba(30,27,23,.96));border:1px solid var(--g-border,rgba(255,248,238,.12));box-shadow:0 12px 40px rgba(0,0,0,.35);
+      backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);animation:takStepsIn var(--t-move,.35s) var(--ease,cubic-bezier(.2,.8,.2,1)) both}
+      .tak-steps[hidden]{display:none!important}
+      .tak-steps h3{margin:0 0 4px;font-size:15px}.tak-steps p{margin:0 0 6px;color:var(--ink-2,#c4bbaf)}
+      .tak-steps ol{margin:4px 0 8px;padding-left:20px}.tak-steps li{margin:2px 0}.tak-steps b{word-break:break-word}
+      .tak-steps .row{display:flex;justify-content:flex-end}
+      .tak-steps button{font:inherit;padding:8px 18px;border-radius:999px;border:1px solid var(--g-border,rgba(255,248,238,.18));
+        background:var(--accent,#f0a07a);color:var(--on-accent,#2b1208);cursor:pointer}
+      @keyframes takStepsIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+      @media (prefers-reduced-motion:reduce){.tak-steps{animation:none}}`;
+    document.head.appendChild(css);
+  }
+  let el = document.getElementById("takSteps");
+  if (!el) {
+    el = document.createElement("div"); el.id = "takSteps"; el.className = "tak-steps"; el.setAttribute("role", "status");
+    document.body.appendChild(el);
+    document.addEventListener("keydown", e => { if (e.key === "Escape") el.hidden = true; });
+  }
+  const what = `${pkg.sites.toLocaleString()} site${pkg.sites === 1 ? "" : "s"}${o.center || o.outline ? " and the search ring" : ""}`;
+  el.innerHTML = `<h3>Saved to Downloads</h3>
+    <p>Android's browser can't hand a .zip straight to ATAK. To open it there:</p>
+    <ol><li>Open the Files app (My Files on a Samsung), then Downloads.</li>
+      <li>Hold <b>${x(pkg.name)}</b>, tap Share, then ATAK.</li></ol>
+    <p>ATAK imports it and shows ${what}.</p>
+    <div class="row"><button type="button">Close</button></div>`;
+  el.querySelector("button").onclick = () => { el.hidden = true; };
+  el.hidden = false;
 }
 // the same markers as live CoT events for Push to ATAK: they fade in ATAK a day after the last push unless pushed again
 function events(o, staleHours = 24) {
@@ -166,12 +216,15 @@ if (btn && typeof filtered === "function") btn.onclick = async () => {
     : S.mode === "nationwide" ? "licence search" : S.center ? `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi` : "area";
   const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `RF Recon - ${S.mission?.name || area}`,
     colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
-  st.textContent = `Saved ${pkg.name}: ${pkg.sites.toLocaleString()} sites${pkg.skipped ? ` (the nearest ${pkg.sites.toLocaleString()}; ${pkg.skipped.toLocaleString()} more left out)` : ""}`
-    + `${pkg.heat ? " and the coverage heatmap" : ""}. In ATAK or iTAK: Import, then the file. WinTAK: drag it onto the map.`;
+  if (pkg.how === "cancelled") { st.textContent = "Not sent to ATAK."; return; }
+  st.textContent = `${pkg.how === "shared" ? "Sent" : "Saved"} ${pkg.name}: ${pkg.sites.toLocaleString()} sites${pkg.skipped ? ` (the nearest ${pkg.sites.toLocaleString()}; ${pkg.skipped.toLocaleString()} more left out)` : ""}`
+    + `${pkg.heat ? " and the coverage heatmap" : ""}. ${pkg.how === "shared" ? "" : pkg.steps ? "The steps to open it in ATAK are on screen."
+      : "In ATAK or iTAK: Import, then the file. WinTAK: drag it onto the map."}`;
 };
 
 /* Push to ATAK: on the PC, the markers go live into every TAK app on this network (and a TAK Server, if set) and
-   WinTAK opens; on a phone or in the web version, the share sheet hands ATAK the package and ATAK opens on import */
+   WinTAK opens; on a phone or in the web version, the share sheet hands ATAK the package and ATAK opens on import
+   (on Android it downloads instead, with the steps card: see save()) */
 const push = document.getElementById("takPush");
 if (push && typeof filtered === "function") push.onclick = async () => {
   const rows = filtered(), st = document.getElementById("status");
@@ -193,7 +246,9 @@ if (push && typeof filtered === "function") push.onclick = async () => {
   const area = S.center ? `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi` : "area";
   const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `RF Recon - ${S.mission?.name || area}`,
     colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
-  st.textContent = matchMedia("(pointer: coarse)").matches ? `Pick ATAK (or iTAK) in the share sheet: it opens and imports ${pkg.sites.toLocaleString()} sites.`
+  st.textContent = pkg.how === "cancelled" ? "Not sent to ATAK."
+    : pkg.how === "shared" ? `Sent ${pkg.sites.toLocaleString()} sites to the app you picked: ATAK and iTAK import them as they open.`
+    : pkg.steps ? `Saved ${pkg.name} to Downloads: the steps to open it in ATAK are on screen.`
     : `Saved ${pkg.name}. Open it with ATAK or WinTAK (drag it onto the map); live push runs from RF Recon on the PC.`;
 };
 })();

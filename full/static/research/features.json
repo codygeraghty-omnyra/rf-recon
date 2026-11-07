@@ -4153,11 +4153,12 @@
     },
     {
      "name": "Push in the web version",
-     "text": "With no PC behind it, Push to ATAK hands the package to ATAK through a phone's share sheet, or saves the zip on a computer for ATAK or WinTAK.",
+     "text": "With no PC behind it, Push to ATAK hands the package to ATAK or iTAK through an iPhone's share sheet; on Android, where Chrome won't share a .zip, it saves the zip and a card gives the two steps to open it in ATAK; on a computer it saves the zip for ATAK or WinTAK.",
      "where": "web",
      "src": [
       "d-2026-10-31",
-      "static/tak.js"
+      "static/tak.js",
+      "d-2026-11-07-1821"
      ]
     },
     {

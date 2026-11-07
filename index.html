@@ -151,6 +151,7 @@ details + details { border-top: 1px solid var(--line); }
 .check.allowed { border-left-color: #a78bfa; }
 .check.unlisted { border-left-color: #e5534b; }
 .check.outside { border-left-color: #fab219; }
+:root { --tak-steps-bottom: calc(env(safe-area-inset-bottom) + 84px); }  /* tak.js's Android steps card sits above the tab bar */
 #toast { position: fixed; z-index: 50; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 84px); border-radius: 18px; padding: 10px 10px 10px 16px;
   display: flex; gap: 10px; align-items: center; animation: rise var(--t-move) var(--ease) both; }
 #toast span { flex: 1; font-size: 14px; }
