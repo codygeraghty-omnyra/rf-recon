@@ -256,6 +256,7 @@ window.dasPim = async (el, j, save) => {
     <div id="dpIm" style="margin-top:10px"></div>`;
   window.dasIntermod?.($("#dpIm"), j, save, "pim");  // IM3 / IM5 of the job's channels into its uplinks, and a test plan (dasx.js)
   if(window.dasSweep){ const sw=document.createElement("div"); sw.id="dpSweep"; el.prepend(sw); window.dasSweep(sw, j, save); }  // sweeps (dassweep.js)
+  if(window.dasFiber){ const fb=document.createElement("div"); fb.id="dpFiber"; const sw=el.querySelector("#dpSweep"); if(sw) sw.after(fb); else el.prepend(fb); window.dasFiber(fb, j, save); }  // fiber links (dasfiber.js, 11/6)
   const keep=async patch=>{ await save({pim:{...pim, ...patch}}); render(); };
   $("#dpLimit").onchange=e=>keep({limit_dbc:+e.target.value});
   $("#dpAdd").onclick=()=>{ const g=s=>$(s).value.trim(); if(!g("#dpRes")&&!g("#dpWhere")) return;

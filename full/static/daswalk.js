@@ -120,7 +120,8 @@ const wkSig = (results, f) => JSON.stringify(Object.keys(results||{}).filter(k=>
    .graded (the pass the grid and the Report use), .compare {a, b, sig, met} (the comparison the Report prints). A point or
    walk tap carries pass: <id>; one without (every walk saved before passes) belongs to the acceptance pass. */
 const WK_PASS0 = "acceptance";
-const WK_PASS_KINDS = [["bda_off","BDA off"],["bda_on","BDA on"],["acceptance","Acceptance"],["annual","Annual"],["five_year","Five-year"]];
+const WK_PASS_KINDS = [["bda_off","BDA off"],["bda_on","BDA on"],["acceptance","Acceptance"],["annual","Annual"],["five_year","Five-year"],
+  ["macro","Cellular: macro only, before the DAS"],["cw","Cellular: CW walk"],["cell_opt","Cellular: after optimization"],["cell_accept","Cellular: carrier acceptance"]];  // cellular added 11/6 (lessons 7.9, 8.3)
 const wkPassOf = p => (p&&p.pass) || WK_PASS0;
 function wkPasses(d){ const L=((d.walk||{}).passes||[]).filter(p=>p&&p.id); return L.some(p=>p.id===WK_PASS0)?L:[{id:WK_PASS0, kind:"acceptance"}, ...L]; }
 const wkPassId = (kind, year) => kind==="annual"||kind==="five_year" ? `${kind}-${year}` : kind;
@@ -227,8 +228,15 @@ function wkHeat(pts, W, H, cols){ const rows=Math.max(1, Math.round(cols*H/W)), 
 // GRID_ALIASES) and the person picks the rest. G-NetTrack's Level / Qual / SNR are RSRP / RSRQ / SINR on LTE.
 const WK_FIELDS = [["time","Time"],["tech","Technology"],["carrier","Carrier"],["band","Band"],["pci","PCI"],["freq","Channel / EARFCN / MHz"],["mhz","DL MHz"],
   ["rsrp","RSRP dBm"],["rsrq","RSRQ dB"],["sinr","SINR dB"],["dl","DL dBm (public safety)"],["daq","DL DAQ"],["ber","BER %"],["ul","UL dBm"],["ul_daq","UL DAQ"],
-  ["x","Plan X"],["y","Plan Y"],["note","Note"]];
-const WK_NUMS = ["rsrp","rsrq","sinr","dl","daq","ber","ul","ul_daq"];
+  ["ue_tx","Phone Tx power dBm"],["call","Call result"],["x","Plan X"],["y","Plan Y"],["note","Note"]];
+const WK_NUMS = ["rsrp","rsrq","sinr","dl","daq","ber","ul","ul_daq","ue_tx"];
+// phone transmit power and call results in a walk, when the log carries them: phones at maximum power (23 dBm, power class 3,
+// within 1 dB) at no more than 10% of points (Providence Water RFP PVD26-53, 3.10). High power with good RSRP: the uplink is short.
+function wkPhoneStats(P){ const rs=P.flatMap(p=>p.rs||[]), tx=rs.filter(r=>has(r.ue_tx)), calls=rs.filter(r=>r.call);
+  const bad=calls.filter(r=>/drop|fail|block|lost/i.test(r.call)), atMax=tx.filter(r=>+r.ue_tx>=22);
+  return {tx:tx.length, atMax:atMax.length, share:tx.length?atMax.length/tx.length:null, calls:calls.length, bad:bad.length}; }
+function wkPhoneLine(P){ const s=wkPhoneStats(P); if(!s.tx&&!s.calls) return "";
+  return `${s.tx?` Phone transmit power at ${s.tx.toLocaleString()} reading${s.tx===1?"":"s"}: at maximum (22 dBm or more) at ${Math.round(s.share*100)}%${s.share>0.10?' <b style="color:var(--bad)">over the 10% an owner RFP allows: the uplink is short</b>':", inside the 10% an owner RFP allows"}.`:""}${s.calls?` Calls: ${s.calls-s.bad} of ${s.calls} ok${s.bad?`, <b>${s.bad} dropped or failed</b>`:""}.`:""}`; }
 function wkSniff(headers, guess){ const hit=n=>headers.find(h=>h.toLowerCase()===n.toLowerCase());
   const m={}; for(const [k] of WK_FIELDS) if(guess&&guess[k]) m[k]=guess[k];
   if(hit("Timestamp")&&hit("NetworkTech")&&hit("Level")&&(hit("Operatorname")||hit("Operator"))){
@@ -242,7 +250,7 @@ function wkSniff(headers, guess){ const hit=n=>headers.find(h=>h.toLowerCase()==
 // one row of a log -> a reading
 function wkRow(row, m){ const r={};
   for(const k of WK_NUMS) if(m[k]){ const v=wkNum(row[m[k]]); if(v!=null) r[k]=v; }
-  for(const k of ["tech","carrier","band","pci","freq"]) if(m[k]&&String(row[m[k]]??"").trim()!=="") r[k]=String(row[m[k]]).trim();
+  for(const k of ["tech","carrier","band","pci","freq","call"]) if(m[k]&&String(row[m[k]]??"").trim()!=="") r[k]=String(row[m[k]]).trim();
   if(m.mhz){ const v=wkNum(row[m.mhz]); if(v!=null) r.mhz=v; }
   if(r.tech&&/^(4g|lte.*)$/i.test(r.tech)) r.tech="LTE"; else if(r.tech&&/^(5g|nr.*)$/i.test(r.tech)) r.tech="NR";
   if(r.carrier) r.carrier=carrierName(r.carrier);
@@ -524,7 +532,7 @@ function wkMount(panel, j0, save, ctx){
     const nw=pv().wps.length;
     $p("#wkScore").innerHTML=`<b>${P.length.toLocaleString()}</b> point${P.length===1?"":"s"} on this floor${wkPasses(d()).length>1||cur()!==WK_PASS0?` in ${esc(wkPassName(d(), cur()))}`:""} (${tapped} tapped, ${timed.toLocaleString()} placed by time${out?`, <b>${out.toLocaleString()}</b> outside the walk's times: not placed`:""}${wait?`, ${wait} spot${wait===1?"":"s"} waiting for a log`:""}) · ${nw} walk tap${nw===1?"":"s"} · ${sqW} of ${n-skip.size} squares get walk readings.
       ${gp?"":`<b>The grid and the Report use ${esc(wkPassName(d(), wkGraded(d())))}</b>; the squares here are this pass's own. `}Grid${gp?"":` (${esc(wkPassName(d(), cur()))})`}, judged by ${esc(st.rule)}: ${st.genPass}/${st.gen} general${st.crit?`, ${st.critPass}/${st.crit} critical`:""} pass${st.untested?`, ${st.untested} untested`:""}${st.notCounted?`, ${st.notCounted} not counted (no calibrated instrument)`:""} · <b>${st.untested?"not complete":st.ok?"pass":"fail"}</b>.`+(sig.startsWith("cell")?(()=>{ const [,c,l]=sig.split("|"), cf=cellFloor(d(), f, `${c}|${l}`), P2=cellProfile(d());
-        return ` ${esc(c)}, ${esc(LAYER_NAME[l])}: ${cf.pass}/${cf.tested} squares at target (${cf.pct}%, ${esc(P2.name)} asks ${P2.pct}%)${cf.untested?`, ${cf.untested} with no cellular reading`:""}.`; })():"");
+        return ` ${esc(c)}, ${esc(LAYER_NAME[l])}: ${cf.pass}/${cf.tested} squares at target (${cf.pct}%, ${esc(P2.name)} asks ${P2.pct}%)${cf.untested?`, ${cf.untested} with no cellular reading`:""}.`; })():"")+wkPhoneLine(P);
   }
 
   // a tap on the plan

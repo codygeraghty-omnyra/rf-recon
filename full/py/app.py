@@ -2131,6 +2131,14 @@ class H(BaseHTTPRequestHandler):
                     set_setting("tak", cfg)
                 return self.send(200, dict({"multicast": True, "group": "", "server": ""}, **(get_setting("tak", {}) or {}),
                                            default_group=takpush.MULTICAST))
+            if p == "/api/tak/feed":  # the TAK team on our map: ATAK users heard on this PC's networks, while the layer is on (takwatch.py)
+                if getattr(remote.ON, "login", None):  # through the door: the server isn't on anyone's local network
+                    return self.send(404, {"error": "The TAK team layer runs on the PC only: the server isn't on your local network."})
+                import takwatch
+                if method == "POST" and (self.body_json() or {}).get("on") is False:
+                    takwatch.stop()
+                    return self.send(200, {"listening": False, "items": []})
+                return self.send(200, {**takwatch.ask(), "items": takwatch.feed()})
             if p == "/api/tak/push" and method == "POST":  # RF Recon's markers straight into ATAK / WinTAK (takpush.py)
                 d = self.body_json()
                 return self.send(200, takpush.push(d.get("events"), get_setting("tak", {}) or {}, bool(d.get("open", True))))
@@ -2440,6 +2448,10 @@ class H(BaseHTTPRequestHandler):
                         return self.send(200, das.note(con, jid, self.body_json().get("text", "")))
                     if action == "example":  # a completed example job's people, quotes, consent, log and mail (dasexample.py)
                         import dasexample; return self.send(200, dasexample.seed(con, jid, self.body_json(), getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"))  # noqa: E702
+                    if action == "closeout":  # a carrier closeout package: the page's index, the files it names, the BOM (closeout.py); reads only
+                        import closeout
+                        data, name = closeout.zip_for(jid, job, self.body_json())
+                        return self.send(200, data, "application/zip", {"Content-Disposition": disposition("attachment", name)})
                     if action == "specsheets":  # every BOM part's spec sheet into the job's folder (Joe 11/3: "build spec sheets")
                         return self.send(200, das.build_specsheets(con, jid, job))
                     if action == "register":  # a row of the firm register, copied onto this job's own fields (dasfirm.py)

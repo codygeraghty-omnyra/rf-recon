@@ -280,3 +280,19 @@ document.head.insertAdjacentHTML("beforeend", `<style>.cm-n{display:inline-flex;
   .cm-sum{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px}.cm-s{white-space:nowrap}
   .cm-up{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
   .cm-t td{vertical-align:top}.cm-t input,.cm-t select{min-height:32px}</style>`);
+
+// Public safety | Cellular (Cody 11/6): the cellular side is dascellcomm.js, with its own record (data.commission_cell); the
+// public-safety steps above and their acceptance tests are unchanged. A job whose design carries only LTE / 5G bands, and that has no public-safety record yet, opens on
+// Cellular; any other on Public safety; the pick is kept on the job (data.commission_mode).
+(() => { const ps=window.dasCommission;
+  window.dasCommission = (el, j, save) => {
+    if(typeof window.dasCellCommission!=="function") return ps(el, j, save);
+    const d=j.data||{}, cellOnly=(()=>{ try{ const b=typeof dsBands==="function"?dsBands(d):[]; return b.length>0&&b.every(x=>x.cell); }catch(e){ return false; } })();
+    const psUsed=!!(d.commission&&["iso","gain","noise","osc","donor","talk"].some(k=>d.commission[k]));  // a public-safety record already made opens where it was made
+    const mode=d.commission_mode==="cell"||d.commission_mode==="ps"?d.commission_mode:cellOnly&&!psUsed?"cell":"ps";
+    el.innerHTML=`<div class="seg" id="cmMode" aria-label="Commissioning: public safety or cellular" style="margin:0 0 8px">${[["ps","Public safety"],["cell","Cellular"]].map(([k,l])=>`<button data-cmm="${k}" class="${mode===k?"on":""}" aria-pressed="${mode===k}">${l}</button>`).join("")}</div><div id="cmBody"></div>`;
+    el.querySelectorAll("[data-cmm]").forEach(b=>b.onclick=async()=>{ const m=b.dataset.cmm; if(m===mode) return;
+      const nj=await save({commission_mode:m}); window.dasCommission(el, nj||{...j, data:{...d, commission_mode:m}}, save); });
+    return (mode==="cell"?window.dasCellCommission:ps)(el.querySelector("#cmBody"), j, save);
+  };
+})();

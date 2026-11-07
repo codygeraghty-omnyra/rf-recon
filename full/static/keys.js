@@ -22,7 +22,8 @@ function typing(el = document.activeElement) {
   if (t === "INPUT") return !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(el.type || "");
   return false;
 }
-const combo = e => {
+const combo = e => {  // a keydown with no key (Chrome's autofill sends one) has no combo
+  if (typeof e.key !== "string" || !e.key) return "";
   let k = e.key; if (k === " ") k = "space"; k = k.length === 1 ? k.toLowerCase() : k.toLowerCase();
   return [(e.ctrlKey || e.metaKey) && "ctrl", e.altKey && "alt", e.shiftKey && k !== "shift" && "shift", k].filter(Boolean).join("+");
 };

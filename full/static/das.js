@@ -530,7 +530,7 @@ async function dasJob(v, id){
   const drawn=j.rev, d=j.data||{}, save=async(patch,extra)=>{ try{ j=await post(`/api/das/jobs/${id}`,{...(extra||{}),data:patch,rev:drawn}); }catch(e){ dasSay("Not saved: "+e.message); } return j; };
   const subs=[["overview","Overview"],["presurvey","Pre-survey"],["plans","Plans"],["require","Requirements"],...(window.dasAudit?[["audit","Existing system"]]:[]),["design","Design"],["materials","Materials"],["grid","Grid test"],["screen","Screening"],["pim","PIM"],["files","Files"],["log","Log"],["report","Report"]];
   if(window.dasFaultChart) subs.splice(1, 0, ["fault","Fault chart"]);  // this job's stage and type, a step at a time (dasfi.js)
-  if(window.dasCommission) subs.splice(subs.findIndex(s=>s[0]==="grid"), 0, ["commission","Commissioning"]); if(window.dasSweep) subs.find(s=>s[0]==="pim")[1]="PIM / sweeps";  // dascommission.js, dassweep.js
+  if(window.dasCommission) subs.splice(subs.findIndex(s=>s[0]==="grid"), 0, ["commission","Commissioning"]); if(window.dasSweep) subs.find(s=>s[0]==="pim")[1]=window.dasFiber?"PIM / sweeps / fiber":"PIM / sweeps";  // dascommission.js, dassweep.js
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px"><button id="djBack">← All jobs</button>
       <input id="djName" value="${esc(j.name)}" style="font-size:18px;font-weight:700;min-width:260px">
       <label class="inl">Stage <select id="djStage">${D.stages.map(s=>`<option ${s===j.stage?"selected":""}>${esc(s)}</option>`).join("")}</select></label>
@@ -1607,6 +1607,7 @@ function dasReport(el, j){
     if(s){ im.src=s; im.style.minHeight=""; } else { const box=im.parentElement, g=box.querySelector("div"); box.style.aspectRatio=im.dataset.ar; if(g) g.style.cssText=g.style.cssText.replace(/left:[^;]+;top:[^;]+;width:[^;]+;height:[^;]+;transform:[^;]+/,"inset:0"); im.remove(); } });
   window.dasWalkReport?.(el.querySelector("#drWalk"), j);  // the walk's heat maps (daswalk.js)
   window.dasSweepReport?.(el.querySelector("#drSweep"), j);  // PIM runs and sweeps (dassweep.js)
+  if(window.dasCloseout&&window.coCarriers&&(dasCellOnly(d)||coCarriers(d).length)){ let box=el.querySelector("#drCloseout"); if(!box){ box=document.createElement("div"); box.id="drCloseout"; el.appendChild(box); } window.dasCloseout(box, j); }  // carrier closeout packages (dascloseout.js), outside the printed report
   $("#drPrint").onclick=()=>dasPrintCopy($("#dasPrint"));
   window.dasReportAhj?.(el, j);  // the AHJ packet index, acceptance tests, sign-off and the seal (dasahj.js)
   $("#drMail")&&($("#drMail").onclick=async()=>{ const word=S.das.rview==="submittal"?"design submittal":window.dasReportWord?.(d)||"acceptance test report", cs=S.das.contacts||[], ahj=cs.find(c=>String(c.id)===String((d.contacts||{}).ahj)), me=cs.find(c=>String(c.id)===String((d.contacts||{}).tech));
