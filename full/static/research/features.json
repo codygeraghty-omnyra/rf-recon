@@ -3629,7 +3629,8 @@
       "d-2026-10-31",
       "d-2026-10-28",
       "static/mission.js",
-      "app.py"
+      "app.py",
+      "d-2026-11-07-2309"
      ]
     },
     {
@@ -4460,12 +4461,13 @@
     },
     {
      "name": "WiGLE sightings",
-     "text": "Wi-Fi, Bluetooth and cell sightings in each mission area. Weekly when on, off by default; needs your WiGLE name and token. Personal build only: WiGLE's terms are non-commercial.",
+     "text": "Wi-Fi, Bluetooth and cell sightings in each mission area. Weekly when on, off by default; needs your WiGLE name and token. Personal build only: WiGLE's terms are non-commercial. On the server, which WiGLE refuses, a request waits in a queue that Cody's PC fetches (every 15 minutes while it's on) and sends back; the points stay on the server.",
      "src": [
       "d-2026-11-04-late",
       "d-2026-11-02",
       "updater.py",
-      "build.py"
+      "build.py",
+      "d-2026-11-07-2309"
      ]
     },
     {

@@ -668,13 +668,20 @@ class Updater:
                     self._mark(ids, state="skipped", message="no active mission area", last_checked=now())
                     return
                 con = connectors.open_db(self.crowd)
-                total = 0
+                total, queued = 0, 0
                 for lat, lon, radius, state in areas:
                     if job == "wigle":
                         if not (creds.get("wigle_name") and creds.get("wigle_token")):
                             raise RuntimeError("add your WiGLE API name and token in Settings")
-                        total += connectors.fetch_wigle(con, lat, lon, radius, creds["wigle_name"], creds["wigle_token"],
-                                                        kinds=("network", "bluetooth", "cell"))
+                        try:
+                            total += connectors.fetch_wigle(con, lat, lon, radius, creds["wigle_name"], creds["wigle_token"],
+                                                            kinds=("network", "bluetooth", "cell"))
+                        except Exception as e:  # WiGLE refuses the server's address: the PC fetcher brings it (crowdpull.py)
+                            import crowdpull
+                            if not crowdpull.refused(e):
+                                raise
+                            crowdpull.enqueue(con, "wigle", lat, lon, radius, ("network", "bluetooth", "cell"), "scheduled")
+                            queued += 1
                     elif job == "opencellid":
                         if not creds.get("opencellid_key"):
                             raise RuntimeError("add your OpenCelliD key in Settings")
@@ -687,8 +694,9 @@ class Updater:
                         import opensources
                         total += max(0, opensources.fetch(con, job, lat, lon, radius, force=force))
                 con.close()
-                self._mark(ids, state="ok", message=f"{total:,} points for {len(areas)} area(s)", last_checked=now(),
-                           last_updated=now(), rows=total)
+                self._mark(ids, state="ok", message=f"{total:,} points for {len(areas)} area(s)" + (
+                    f"; {queued} area(s) queued for the PC fetcher (WiGLE won't answer the server)" if queued else ""),
+                    last_checked=now(), last_updated=now(), rows=total)
         except dlstop.Stopped:  # Stop all downloads: not a failure, so no quicker retry (state skipped)
             self._mark(ids, state="skipped", message=f"stopped by you {now()}: the data you had is kept", last_checked=now())
         except Exception as e:

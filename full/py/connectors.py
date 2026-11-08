@@ -160,10 +160,20 @@ def log_fetch(con, source, lat, lon, radius, n, msg):
 # ---------------------------------------------------------------- WiGLE
 
 def fetch_wigle(con, lat, lon, radius_mi, api_name, api_token, kinds=("network",), max_pages=5):
+    total = 0
+    for rows in wigle_pages(lat, lon, radius_mi, api_name, api_token, kinds, max_pages):
+        upsert(con, rows)
+        total += len(rows)
+    log_fetch(con, "wigle", lat, lon, radius_mi, total, "ok")
+    return total
+
+
+def wigle_pages(lat, lon, radius_mi, api_name, api_token, kinds=("network",), max_pages=5):
+    """WiGLE's answers for an area, a page of ext_point rows at a time, with nothing stored: fetch_wigle stores them here; the PC
+    fetcher (ops/crowd_pull.py, crowdpull.py) sends them to the server, which WiGLE refuses (11/7)."""
     s, n, w, e = geo.bbox(lat, lon, radius_mi)
     auth = "Basic " + base64.b64encode(f"{api_name}:{api_token}".encode()).decode()
     now = time.strftime("%Y-%m-%d %H:%M")
-    total = 0
     for kind in kinds:
         search_after = None
         for _ in range(max_pages):
@@ -196,13 +206,10 @@ def fetch_wigle(con, lat, lon, radius_mi, api_name, api_token, kinds=("network",
                              pick(r, "ssid", "name", default=""), f, None, None, pick(r, "encryption", default=""),
                              c["sig_type"], pick(r, "firsttime", default=""), pick(r, "lasttime", "lastupdt", default=""),
                              json.dumps(r), now, ATTRIBUTION["wigle"]))
-            upsert(con, rows)
-            total += len(rows)
+            yield rows
             search_after = data.get("searchAfter")
             if not search_after or not res:
                 break
-    log_fetch(con, "wigle", lat, lon, radius_mi, total, "ok")
-    return total
 
 
 # ---------------------------------------------------------------- OpenCelliD

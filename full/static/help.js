@@ -266,7 +266,7 @@ const HELP = [
     <p>DAStastic for Android opens this DAStastic in a full-screen app and lets the DAS walk test read the phone's own LTE / 5G signal.
       Android 10 or newer. (iPhones can't: Apple gives no app the phone's signal readings.)</p>
     <p><a href="${RF_APK}" download="DAStastic (Android) 1.1.apk" style="display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--on-accent,#fff);font-weight:600;text-decoration:none">⇩ Download the Android app (1.1)</a>
-      <span class="hint">Open this on the phone, or get the same file from Drive › DAStastic › install kit.</span></p>
+      <span class="hint">Open this page on the phone and tap it there.</span></p>
     <ol><li>On the phone, tap the download (or the <i>.apk</i> file in Drive) to open it.</li>
     <li>The first time, Android says installs from that app are blocked: tap <b>Settings</b>, turn on <b>Allow from this source</b>, go back,
       tap <b>Install</b>. Once only. If Play Protect warns about an unknown app, tap <b>Install anyway</b>: it isn't on the Play Store.</li>

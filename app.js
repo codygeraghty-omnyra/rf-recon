@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "0be5ae3504";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "055877a648";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];

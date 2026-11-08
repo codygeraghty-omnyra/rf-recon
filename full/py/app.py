@@ -3118,6 +3118,13 @@ class H(BaseHTTPRequestHandler):
                                        "states": get_setting("update.states", ""), "bdc_states": get_setting("bdc.states", "")})
             if p == "/api/build":  # personal or sold, what the sold build leaves out and why, and the data notices
                 return self.send(200, build.info())
+            if p in ("/api/crowd/pull/queue", "/api/crowd/pull/status"):  # the PC fetcher's work list, and how it stands (crowdpull.py)
+                import crowdpull
+                cc = connectors.open_db(CROWD_PATH)
+                try:
+                    return self.send(200, {"queue": crowdpull.pending(cc)} if p.endswith("/queue") else crowdpull.status(cc))
+                finally:
+                    cc.close()
             if p == "/api/update/status":
                 UPD.refresh_net_if_stale()  # the page polls this every 15 s
                 return self.send(200, UPD.snapshot())
@@ -3353,6 +3360,19 @@ class H(BaseHTTPRequestHandler):
                     con.execute(f"DELETE FROM {t} WHERE {col}=?", (cid,))
                 con.commit(); con.close()
                 return self.send(200, {"ok": True})
+            if p == "/api/crowd/pull/result":  # what the PC fetcher brings back (crowdpull.py): stored here, kept nowhere else
+                import crowdpull
+                d = self.body_json()
+                cc = connectors.open_db(CROWD_PATH)
+                try:
+                    if d.get("error") and d.get("id") is not None:
+                        crowdpull.failed(cc, d["id"], d["error"])
+                        return self.send(200, {"ok": True, "rows": 0})
+                    n = crowdpull.accept(cc, d.get("id"), d.get("source", ""), d.get("rows") or [], d.get("lat"), d.get("lon"),
+                                         d.get("radius_mi"), d.get("message") or "ok")
+                    return self.send(200, {"ok": True, "rows": n})
+                finally:
+                    cc.close()
             if p == "/api/crowd/fetch":
                 d = self.body_json()
                 creds = get_setting("creds", {}) or {}
@@ -3362,8 +3382,17 @@ class H(BaseHTTPRequestHandler):
                     cc.close()
                     return self.send(403, {"error": "Not in this build: " + build.PERSONAL_ONLY[src]})
                 if src == "wigle":
-                    n = connectors.fetch_wigle(cc, la, lo, rad, creds.get("wigle_name", ""), creds.get("wigle_token", ""),
-                                               kinds=tuple(d.get("kinds") or ("network", "bluetooth", "cell")))
+                    kinds = tuple(d.get("kinds") or ("network", "bluetooth", "cell"))
+                    try:
+                        n = connectors.fetch_wigle(cc, la, lo, rad, creds.get("wigle_name", ""), creds.get("wigle_token", ""), kinds=kinds)
+                    except Exception as e:  # WiGLE refuses the server's address (11/7): the PC fetcher brings it (crowdpull.py)
+                        import crowdpull
+                        if not crowdpull.refused(e):
+                            raise
+                        crowdpull.enqueue(cc, "wigle", la, lo, rad, kinds, getattr(remote.ON, "login", None) or "")
+                        waiting = crowdpull.status(cc)["waiting"]
+                        cc.close()
+                        return self.send(200, {"ok": True, "rows": 0, "queued": True, "message": crowdpull.queued_message(waiting)})
                 elif src == "opencellid":
                     n = connectors.fetch_opencellid(cc, la, lo, rad, creds.get("opencellid_key", ""))
                 elif src == "repeaterbook":

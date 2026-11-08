@@ -44,7 +44,10 @@ NOTE_WRITE = re.compile(r"^/api/notes(/\d+/(file|sent))?$")  # a new note, its r
 SERVER_URL = (os.environ.get("RF_RECON_PUBLIC_URL") or "").rstrip("/")  # set on the 24/7 server: always on, no Tailscale
 # ahj (11/4): an AHJ or radio shop reviewer. It sees only the jobs shared with it by name (dashist.py access lists), in
 # the review page, and can Accept or Return the report with a comment; nothing else in DAStastic answers it.
-ROLES = ("view", "full", "admin", "ahj")
+ROLES = ("view", "full", "admin", "ahj", "fetcher")
+# a fetcher is a machine, not a person: the PC that fetches crowd data the server can't (crowdpull.py, ops/crowd_pull.py, 11/7).
+# It reaches the pull routes and nothing else; made by that script, shown in the people list, removed like anyone
+FETCHER_PATHS = {("GET", "/api/crowd/pull/queue"), ("GET", "/api/crowd/pull/status"), ("POST", "/api/crowd/pull/result")}
 REVIEW_WRITE = re.compile(r"^/api/das/jobs/\d+/review$")  # a review decision or comment: checked per job (dashist.level)
 AHJ_READ = re.compile(r"^(/review|/api/das/jobs|/api/das/jobs/\d+/(review|file))$")  # all an ahj login reaches, besides /static/
 COURSE_SAVE = "/api/course/progress"  # a login's own progress in the DAS course: app.py checks the login has the course
@@ -281,6 +284,8 @@ def refused(method, path, role="view"):
     """Why a remote person can't do this, or None when they can."""
     if role == "admin":
         return None
+    if role == "fetcher":
+        return None if (method, path) in FETCHER_PATHS else "A fetcher login only brings crowd data to the server."
     if role == "ahj":  # the review page and the jobs shared with it, nothing else
         if method == "GET" and (AHJ_READ.match(path) or path.startswith("/static/")):
             return None

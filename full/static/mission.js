@@ -504,7 +504,10 @@ S.views.data = async (v) => {
       :L.state!=="Running"?`<p class="hint">Tailscale is ${esc(ts)} on this PC. Sign in to Tailscale (system tray) to get the link.</p>`
       :`<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><b>Link</b><span class="mono">${esc(L.url||"")}</span><span class="tag">${L.on?"On":"Off"}</span>
          ${L.on?'<button id="raCopy">Copy link</button>':""}<button id="raToggle">${L.on?"Turn the link off":"Turn the link on"}</button></div>`;
-    $("#raList").innerHTML=r.people.map(u=>`<tr><td>${esc(u.name)}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
+    $("#raList").innerHTML=r.people.map(u=>u.role==="fetcher"  // the PC that brings crowd data (ops/crowd_pull.py): a machine, so no role to pick and no password to hand out
+      ?`<tr><td>${esc(u.name)}</td><td title="Brings WiGLE data the server can't fetch; reaches nothing else">PC fetcher (a machine)</td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
+      <td style="text-align:right;white-space:nowrap"><button data-rarm="${esc(u.name)}">Remove</button></td></tr>`
+      :`<tr><td>${esc(u.name)}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
       <td style="text-align:right;white-space:nowrap"><button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
       ||'<tr><td colspan="5" class="hint">No one yet. Add a person to give them a sign-in.</td></tr>';
     if($("#raCopy")) $("#raCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(L.url); $("#raMsg").textContent="Link copied."; }catch(e){ $("#raMsg").textContent=L.url; } };
@@ -586,7 +589,7 @@ S.views.data = async (v) => {
   v.querySelectorAll("[data-fetch]").forEach(b=>b.onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ $("#fetchMsg").textContent="Drop a pin first."; return; }
     $("#fetchMsg").textContent=`Fetching ${b.dataset.fetch}…`;
     try{ const r=await post("/api/crowd/fetch",{source:b.dataset.fetch,lat:p[0],lon:p[1],radius:+$("#radius").value||5,state:S.mission?.state||S.rows.find(x=>x.state)?.state});
-      $("#fetchMsg").textContent=r.skipped?`${b.dataset.fetch}: ${r.skipped}.`:`${b.dataset.fetch}: ${r.rows} points saved. Re-running search…`; if(!r.skipped) runSearch(); }catch(e){ $("#fetchMsg").textContent=`${b.dataset.fetch}: ${e.message}`; } });
+      $("#fetchMsg").textContent=r.queued?`${b.dataset.fetch}: ${r.message}`:r.skipped?`${b.dataset.fetch}: ${r.skipped}.`:`${b.dataset.fetch}: ${r.rows} points saved. Re-running search…`; if(!r.skipped&&!r.queued) runSearch(); }catch(e){ $("#fetchMsg").textContent=`${b.dataset.fetch}: ${e.message}`; } });
   $("#cl_file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const r=await api(`/api/layers/import?layer=${encodeURIComponent($("#cl_name").value)}&filename=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()});
     $("#impMsg").textContent=`Layer “${$("#cl_name").value}”: ${r.rows} points.`; if(parseLoc($("#loc").value)) runSearch(); }catch(err){ $("#impMsg").textContent="Error: "+err.message; } };
   $("#lb_file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const r=await api(`/api/overlay/import?state=${encodeURIComponent($("#state").value||"")}&county=${encodeURIComponent($("#county").value||"")}`,{method:"POST",body:await f.text()});
