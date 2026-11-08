@@ -52,7 +52,7 @@ const DAS_SOURCES = `Sources: <a href="https://oci.georgia.gov/document/document
   <a href="https://sbc.memberclicks.net/assets/Useful_Links/2025/ocsd-errcs-deployment-guidelines-deployment-rev4-5.pdf" target="_blank" rel="noopener">OCSD ERRCS guidelines</a>,
   <a href="https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf" target="_blank" rel="noopener">San Diego FD C-1</a>.
   All of it, with every source: the <a href="https://drive.google.com/drive/folders/1QRpqPV35gINsrQVGQAxbT4ik-ibcsfxu" target="_blank" rel="noopener">DAS research database</a>
-  (<span class="mono">RF Recon\\docs\\research\\DAS-ERCES\\das_research.db</span> in Drive, with a CSV per table).`;
+  (<span class="mono">DAStastic\\docs\\research\\DAS-ERCES\\das_research.db</span> in Drive, with a CSV per table).`;
 // a job's AHJ profile: the defaults above, with what this AHJ changes (presets below, editable under Requirements)
 let DASJ = DAS;
 // The presets (R2, 2026-11-04 DAS deep research, section 1.3 and C-2/C-3). A job stores the numbers it uses (and, since
@@ -474,7 +474,7 @@ async function dasData(el){
     <div class="panel"><h3>Codes, rules, lookups and downloads</h3>
       ${DAS_LINKS.map(([g,ls])=>`<h4 style="margin:10px 0 4px">${esc(g)}</h4>${ls.map(([t,u,w])=>`<div style="padding:2px 0"><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a> <span class="hint">· ${esc(w)}</span></div>`).join("")}`).join("")}
       <h4 style="margin:10px 0 4px">Research</h4><div>${DAS_SOURCES}</div>
-      <p style="margin:8px 0 0">The rest of the research, each a database with a CSV per table and its report, in Drive under <span class="mono">RF Recon\\docs\\research</span>:
+      <p style="margin:8px 0 0">The rest of the research, each a database with a CSV per table and its report, in Drive under <span class="mono">DAStastic\\docs\\research</span>:
         ${DAS_RESEARCH.map(([n,id,w])=>`<a href="https://drive.google.com/drive/folders/${id}" target="_blank" rel="noopener">${esc(n)}</a> <span class="hint">(${esc(w)})</span>`).join(", ")}.</p></div>`;
   el.querySelectorAll("[data-run]").forEach(b=>b.onclick=async()=>{ b.disabled=true; b.textContent="Updating…"; await post("/api/update/run",{ids:[b.dataset.run],force:true}); });
   if($("#ddAuto")) $("#ddAuto").onchange=async e=>{ const on=e.target.checked;

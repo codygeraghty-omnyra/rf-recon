@@ -184,7 +184,7 @@ const HELP = [
   ["notes", "Notes", `
     <ul><li>The <b>Note</b> button, bottom right on every screen (or the <b>N</b> key): a voice note, the screen recorded while you
       talk and point, a photo with a voice or written note, or just words. Each note keeps the time, the screen, the pin and the mission.</li>
-    <li>On Cody's PC a note is a folder in <i>RF Recon › notes</i> in Drive (note.txt plus the recording or photo), so it opens there too.
+    <li>On Cody's PC a note is a folder in <i>DAStastic › notes</i> in Drive (note.txt plus the recording or photo), so it opens there too.
       On the 24/7 server a note is kept on the server. From the PC's remote link a note goes to Cody's PC. In the web version and DAStastic lite
       it stays in that browser.</li>
     <li>To send one to Cody: <b>Share with Cody</b>, then <b>Send email now</b>. It's emailed from the page, numbered (report #1, #2 ...)
@@ -265,12 +265,12 @@ const HELP = [
   ["android", "Android app", () => `
     <p>DAStastic for Android opens this DAStastic in a full-screen app and lets the DAS walk test read the phone's own LTE / 5G signal.
       Android 10 or newer. (iPhones can't: Apple gives no app the phone's signal readings.)</p>
-    <p><a href="${RF_APK}" download="DAStastic (Android) 1.0.apk" style="display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--on-accent,#fff);font-weight:600;text-decoration:none">⇩ Download the Android app (1.0)</a>
-      <span class="hint">Open this on the phone, or get the same file from Drive › RF Recon › install kit.</span></p>
+    <p><a href="${RF_APK}" download="DAStastic (Android) 1.1.apk" style="display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--on-accent,#fff);font-weight:600;text-decoration:none">⇩ Download the Android app (1.1)</a>
+      <span class="hint">Open this on the phone, or get the same file from Drive › DAStastic › install kit.</span></p>
     <ol><li>On the phone, tap the download (or the <i>.apk</i> file in Drive) to open it.</li>
     <li>The first time, Android says installs from that app are blocked: tap <b>Settings</b>, turn on <b>Allow from this source</b>, go back,
       tap <b>Install</b>. Once only. If Play Protect warns about an unknown app, tap <b>Install anyway</b>: it isn't on the Play Store.</li>
-    <li>Open <b>RF Recon</b> and sign in as usual. The sign-in is kept.</li>
+    <li>Open <b>DAStastic</b> and sign in as usual. The sign-in is kept.</li>
     <li><b>DAS › a job › Grid test › Walk › Point › Read the phone</b>, then tap where you stand: the spot takes the phone's serving cell.
       The first time, allow <b>location</b> (precise, while using the app): Android only gives signal readings to apps that have it,
       and the phone's Location must be on.</li>
@@ -291,7 +291,7 @@ const HELP = [
     <ul><li><b>The 24/7 server</b>: its FCC data, database, DAS jobs, field packs and notes are on the server.</li>
     <li><b>Cody's PC</b>: the app runs from its own folder (<span class="mono">rf-recon\\app</span> in the Windows user folder, outside Drive since 11/3);
       FCC data and the database stay on the PC (<span class="mono">rf-recon\\data</span>): gigabytes that shouldn't sync or go over a phone connection.
-      The docs, field packs, backups (missions, captures, labels and settings, not API keys, every 6 hours) and notes are in the <b>RF Recon</b> folder in Google Drive.</li>
+      The docs, field packs, backups (missions, captures, labels and settings, not API keys, every 6 hours) and notes are in the <b>DAStastic</b> folder in Google Drive.</li>
     <li><b>The web version and DAStastic lite</b>: the data is a state pack from the DAStastic site, or a field pack you load (from Drive or the server's
       admin), kept in that browser with everything you do there.</li></ul>`],
 ];

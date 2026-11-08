@@ -10,7 +10,9 @@ has no docs, else the code's parent.
 import os
 
 APP = os.path.dirname(os.path.abspath(__file__))
-DRIVE = r"G:\My Drive\RF Recon"
+# the Drive folder took the product's new name with it (11/7, Cody: "fix them all"); the old name while a PC hasn't synced it yet
+DRIVE_OLD = r"G:\My Drive\RF Recon"
+DRIVE = r"G:\My Drive\DAStastic" if os.path.isdir(r"G:\My Drive\DAStastic") or not os.path.isdir(DRIVE_OLD) else DRIVE_OLD
 
 
 def root():

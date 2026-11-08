@@ -3,7 +3,7 @@ Notes from the Note button on every screen (static/notes.js): a voice note, the 
 and points, a photo with a voice or a written note, or just words.
 
 On a PC each note is a folder of plain files in NOTES_DIR, so it opens without DAStastic: note.txt (when, where, who,
-which screen, the words) and voice / screen / photo files. The launcher points NOTES_DIR at RF Recon\\notes in Drive.
+which screen, the words) and voice / screen / photo files. The launcher points NOTES_DIR at DAStastic\\notes in Drive.
 The note table keeps the list. People on the remote link can leave notes too, their one write (remote.py), and see
 only their own. The web version and DAStastic lite keep notes in the browser instead (notes.js).
 """

@@ -108,7 +108,7 @@ async function packPanels(v) {
       <div class="row" style="margin-top:10px"><button id="pkRemove" data-id="${esc(p.id)}">Remove from this browser</button></div>`
       : '<p class="status">No pack loaded yet. Load one below to start.</p>'}</div>
     <div class="panel"><h3>Load a pack</h3>
-      <p class="hint" style="margin-top:0">A pack made on Cody's PC is in the RF Recon folder in Google Drive, under <b>field packs</b> (only people the
+      <p class="hint" style="margin-top:0">A pack made on Cody's PC is in the DAStastic folder in Google Drive, under <b>field packs</b> (only people the
         folder is shared with see it); one made on the server is downloaded there by the admin. Pick the .rfpack file here.</p>
       <div class="row"><input type="file" id="pkFile" accept=".rfpack"><span class="hint" id="pkMsg"></span></div>
       <h3 style="margin-top:14px">Or a state from this site</h3>

@@ -300,7 +300,7 @@ function show(title, body, back) {
   if (!dlg.open) dlg.showModal();
 }
 const whereText = () => opts.store !== "server" ? "Kept in this browser on this device until you delete it. Share with Cody emails a note to him."
-  : opts.remote ? "Goes straight to Cody's DAStastic. Only you and Cody see it." : "Saved on this PC, a folder each in RF Recon › notes in Drive.";
+  : opts.remote ? "Goes straight to Cody's DAStastic. Only you and Cody see it." : "Saved on this PC, a folder each in DAStastic › notes in Drive.";
 function context() {
   let c = {};
   try { c = opts.context?.() || {}; } catch (e) { /* the page isn't ready: a note without context */ }
@@ -500,7 +500,7 @@ function compose(focusText, err) {
 
 async function saved(id) {
   const n = opts.remote ? null : (await store.list().catch(() => ({notes: []}))).notes.find(x => x.id === id);
-  show("Note saved", `<p>${h(opts.remote ? "Cody has it." : opts.store !== "server" ? "It's kept in this browser. Share it with Cody to email it to him." : "It's in RF Recon › notes, and under My notes here.")}</p>
+  show("Note saved", `<p>${h(opts.remote ? "Cody has it." : opts.store !== "server" ? "It's kept in this browser. Share it with Cody to email it to him." : "It's in DAStastic › notes, and under My notes here.")}</p>
     ${n ? sendBox(n) : ""}
     <div class="rfn-btns"><button class="rfn-btn" data-act="done">Done</button><button class="rfn-btn quiet" data-act="list">My notes</button></div>`);
   dlg.querySelector("[data-act=done]").onclick = () => dlg.close();

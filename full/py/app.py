@@ -715,7 +715,7 @@ def query_area(qs):
 # ---------------------------------------------------------------- field packs for the phone app
 
 PHONE_URL = "https://codygeraghty-omnyra.github.io/rf-recon/"
-ANDROID_VERSION = "1.0"  # DAStastic for Android (android/, built outside this repo): the one version not readable from a file here
+ANDROID_VERSION = "1.1"  # DAStastic for Android (android/, built outside this repo): the one version not readable from a file here
 FP_JOB = {"running": False, "log": [], "result": None, "error": None}
 
 
@@ -768,9 +768,9 @@ def coverage_args(qs):
 
 # ---------------------------------------------------------------- backup of your own work
 
-BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at RF Recon\backups in Drive (shared)
+BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at DAStastic\backups in Drive (shared)
 USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES
-NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: RF Recon\notes in Drive)
+NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: DAStastic\notes in Drive)
 
 
 def backup_user_data():

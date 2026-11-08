@@ -288,7 +288,7 @@ const WAYS=[
   ["DAStastic lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>',"","site"],
   ["Field packs","One area's public data in a file, for the web version or DAStastic lite","Yes. On the server only the admin login makes and downloads them","Phone app: field packs, below","",""],
   ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of DAStastic, below; install kit in the Drive folder","","kit"],
-  ["Drive folder","The docs and the install kit, and Cody's PC copy's field packs, backups and notes (its code left Drive on 11/3)","Yes","Google Drive › RF Recon, for the people it's shared with","",""],
+  ["Drive folder","The docs and the install kit, and Cody's PC copy's field packs, backups and notes (its code left Drive on 11/3)","Yes","Google Drive › DAStastic, for the people it's shared with","",""],
   ["Exports","CSV, KML and ATAK data packages of what's on the map","Yes, once made","The export buttons beside the results","",""],
   ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK: from Cody's PC to TAK apps on its networks; from either copy to your TAK Server. On the server only the admin login pushes","Yes, from the server to a TAK Server (admin login)","Push to ATAK, below","",""],
 ];

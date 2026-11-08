@@ -15,6 +15,11 @@ import os
 import time
 
 PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "course", "index.html")
+# the team edition (das-master-course: node tools/build.mjs --edition team), approved by Cody 11/7 for Josh, Doug and Hunter: every
+# login but Cody's gets it. The personal edition is written for Cody's SIGINT background and cites his research, so it never goes
+# to anyone else: without the team file another login has no course here
+TEAM_PAGE = os.path.join(os.path.dirname(PAGE), "team.html")
+OWNER = os.environ.get("RF_RECON_COURSE_OWNER", "Cody")
 MAX_BODY = 4 * 1024 * 1024  # all 1,157 answers and 1,418 cards saved take a tenth of this
 TABLES = ("course_progress",)
 SCHEMA = """
@@ -28,9 +33,10 @@ def _now():
 
 
 def page(login):
-    """The page for this login, or None if it isn't on this copy. The tag is what turns on saving to the sign-in."""
+    """The page for this login, or None if it isn't on this copy. The tag is what turns on saving to the sign-in. Cody's
+    login has the personal edition, every other login the team edition."""
     try:
-        with open(PAGE, "rb") as fh:
+        with open(PAGE if login.strip().lower() == OWNER.lower() else TEAM_PAGE, "rb") as fh:
             raw = fh.read()
     except OSError:
         return None

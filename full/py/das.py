@@ -1092,7 +1092,7 @@ def safe_name(s):
 
 
 def job_dir(jid, name, create=True):
-    """RF Recon/DAS jobs/0007 Some building: one folder per job, found by its number if the job is renamed."""
+    """DAStastic/DAS jobs/0007 Some building: one folder per job, found by its number if the job is renamed."""
     if os.path.isdir(DAS_DIR):
         for d in os.listdir(DAS_DIR):
             if d.startswith(f"{jid:04d} ") and os.path.isdir(os.path.join(DAS_DIR, d)):
@@ -2586,10 +2586,43 @@ def migrate(con):
                 con.execute(f"ALTER TABLE {table} ADD COLUMN {c} {typ}")
     con.commit()
     price_history_begins(con)
+    seed_supplier_renamed(con)
     rfq_ids_never_reused(con)
     dashist.ensure(con)  # the job's revision column; existing jobs shared with the whole team, as before
     import ahjbook
     ahjbook.seed(con)  # what jobs confirmed before the AHJ book began
+
+
+def seed_supplier_renamed(con):
+    """RF Recon became DAStastic (11/7, Cody and Josh): the starter parts' supplier "RF Recon research" takes the new name in the
+    catalogue, its price history, saved kits and the bill-of-materials lines copied into jobs (Cody: "fix them all"). Only rows
+    that still carry the old name are touched, so it runs at every start for nothing once done. A part whose key the new name
+    already has stays as it was (UNIQUE(supplier, key)), and SEED_SUPPLIERS still keeps it off the supplier list."""
+    import sqlite3
+    old, new = "RF Recon research", SEED_SUPPLIER
+    try:
+        con.execute("UPDATE OR IGNORE das_part SET supplier=? WHERE supplier=?", (new, old))
+        con.execute("UPDATE das_part_price SET supplier=? WHERE supplier=?", (new, old))
+        for kid, lines in con.execute("SELECT id, lines FROM das_bom_kit WHERE lines LIKE ?", (f"%{old}%",)).fetchall():
+            v = json.loads(lines or "[]")
+            if _bom_renamed(v, old, new):
+                con.execute("UPDATE das_bom_kit SET lines=? WHERE id=?", (json.dumps(v), kid))
+        for jid, data in con.execute("SELECT id, data FROM das_job WHERE data LIKE ?", (f"%{old}%",)).fetchall():
+            d = json.loads(data or "{}")
+            if _bom_renamed(d.get("bom"), old, new):
+                con.execute("UPDATE das_job SET data=? WHERE id=?", (json.dumps(d), jid))
+        con.commit()
+    except (sqlite3.OperationalError, ValueError):  # a copy without these tables yet, or a line that isn't JSON: left for next start
+        pass
+
+
+def _bom_renamed(lines, old, new):
+    n = 0
+    for x in lines if isinstance(lines, list) else []:
+        if isinstance(x, dict) and x.get("supplier") == old:
+            x["supplier"] = new
+            n += 1
+    return n
 
 
 def price_history_begins(con):

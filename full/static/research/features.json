@@ -3338,13 +3338,14 @@
     },
     {
      "name": "DAS course",
-     "text": "DAS has a DAS course link for accounts given the course, opening it in its own tab. Progress saves to your sign-in and merges, so a phone and a PC stay in step.",
+     "text": "DAS has a DAS course link for accounts given the course, opening it in its own tab. Progress saves to your sign-in and merges, so a phone and a PC stay in step. Cody's login opens his own edition; every other login opens the team edition, written for anyone coming from another RF trade.",
      "where": "server",
      "group": "the course",
      "src": [
       "d-2026-11-05-2330",
       "static/das.js",
-      "course.py"
+      "course.py",
+      "d-2026-11-07-2159"
      ]
     }
    ]
@@ -3835,11 +3836,12 @@
     },
     {
      "name": "Android app download",
-     "text": "Help › Android app downloads DAStastic for Android 1.0 without signing in, and walks through installing it outside the Play Store, reading the phone in the walk test and correcting it against a calibrated instrument.",
+     "text": "Help › Android app downloads DAStastic for Android 1.1 without signing in, and walks through installing it outside the Play Store, reading the phone in the walk test and correcting it against a calibrated instrument.",
      "src": [
       "d-2026-11-04-late",
       "static/help.js",
-      "app.py"
+      "app.py",
+      "d-2026-11-07-2159"
      ]
     },
     {
@@ -4848,12 +4850,13 @@
     },
     {
      "name": "DAStastic for Android",
-     "text": "Version 1.0, for Android 10 and up, opens the server full-screen and keeps the sign-in. Back on the first page offers the server, the web version, reload or exit, and downloads land in Downloads/RF Recon.",
+     "text": "Version 1.1, for Android 10 and up, opens the server full-screen and keeps the sign-in. Back on the first page offers the server, the web version, reload or exit, and downloads land in Downloads/DAStastic.",
      "where": "android",
      "src": [
       "d-2026-11-04-late",
       "android/README.md",
-      "android/AndroidManifest.xml"
+      "android/AndroidManifest.xml",
+      "d-2026-11-07-2159"
      ]
     },
     {

@@ -1,9 +1,9 @@
 "use strict";
 /* DAStastic (beta) for phones: one area's FCC data, offline. Map, list, area report and a field log.
-   Packs (.rfpack) are made by DAStastic on the PC and kept in the RF Recon folder in Google Drive. The phone's file
+   Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "42cc3ee2b8";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "0be5ae3504";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -427,7 +427,7 @@ function render() {
   v.scrollTop = 0;
 }
 const noPack = () => `<div class="card glass empty" style="--i:1"><h2>No data pack yet</h2>
-  <p>Packs hold the FCC data for an area. They're in the RF Recon folder in Google Drive, under “field packs”.</p>
+  <p>Packs hold the FCC data for an area. They're in the DAStastic folder in Google Drive, under “field packs”.</p>
   <button class="btn primary" data-act="load">Load a pack</button></div>`;
 const where = () => S.mode === "search" ? `results for “${esc(S.query)}” across ${esc(S.pack?.name)}`
   : S.center ? `within ${S.radius} mi of <span class="mono">${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)}</span>` : "";
@@ -668,7 +668,7 @@ async function viewPacks(v) {
     + (other.length ? `<div class="card glass" style="--i:2"><h2>Also on this phone</h2>${other.map(o => `<div class="item" style="cursor:default"><div class="main"><div class="t">${esc(o.name)}</div>
       <div class="s">${esc(area(o.area))} · made ${esc(o.made_at)} · ${num(o.size / 1e6, 1)} MB</div></div>
       <div class="row"><button class="btn small" data-act="use" data-id="${esc(o.id)}">Use</button><button class="btn small danger" data-act="rmpack" data-id="${esc(o.id)}">Remove</button></div></div>`).join("")}</div>` : "")
-    + `<div class="card glass" style="--i:3"><h2>Load a pack</h2><p style="margin:0 0 10px">A pack made on Cody's PC is in the RF Recon folder in Google Drive, under <b>field packs</b>; one made on the server, the admin downloads there. Tap below and pick
+    + `<div class="card glass" style="--i:3"><h2>Load a pack</h2><p style="margin:0 0 10px">A pack made on Cody's PC is in the DAStastic folder in Google Drive, under <b>field packs</b>; one made on the server, the admin downloads there. Tap below and pick
       ${isIOS() ? "<b>Browse</b>, then <b>Google Drive</b> (turn it on under Browse, the ⋯ menu, Edit, if it isn't listed)" : "<b>Drive</b> from the picker's menu"}. Only people the folder is shared with can see them.
       A pack made on the PC with “Make a field pack” (Data &amp; updates) appears there when Drive has synced.</p>
       <div class="row"><button class="btn primary" data-act="load">Load a pack</button>${p ? '<button class="btn danger" data-act="rmpack" data-id="' + esc(p.id) + '">Remove this pack</button>' : ""}</div></div>`
