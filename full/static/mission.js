@@ -27,6 +27,7 @@ window.missionBoot = async () => {
     const b=document.createElement("button"); b.className="hbtn"; b.id="meOut"; b.textContent=`Admin · ${S.me.user}`;
     b.title="Your account: change your password or sign out"; b.onclick=()=>openAccount(S.me); $("#netChip").after(b);
   }
+  if((S.remote||S.me)?.server) watchBuild();
   try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){ /* no active mission, or the server is starting: the app opens without one */ }
   if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000);
     api("/api/kit").then(k=>{ if(!k.update) return;  // a kit copy with a newer kit out: say so in the header
@@ -35,6 +36,21 @@ window.missionBoot = async () => {
 };
 $("#missionChip").onclick=()=>setTab("mission");
 $("#netChip").onclick=()=>setTab("data");
+
+// Updates on the server (Cody 11/7 item 7): a tab left open keeps the code it loaded. Every 10 minutes it asks which build the
+// server runs; when that changed, a chip says so with Reload, and with Update by itself on (Your account; the default) it
+// reloads on its own the next time you leave the tab, so never in the middle of something.
+function watchBuild(){
+  let first=null, shown=false;
+  const autoOn=()=>{ try{ return localStorage.getItem("rfr.autoUpdate")!=="0"; }catch(e){ return true; } };
+  const tick=async()=>{ let b; try{ b=await api("/api/build"); }catch(e){ return; }
+    if(!b||!b.commit) return; if(first===null){ first=b.commit; return; }
+    if(b.commit===first||shown) return; shown=true;
+    const c=document.createElement("button"); c.className="hbtn"; c.id="updChip"; c.title=`DAStastic was updated on the server (build ${b.commit}). Reload to use it.`;
+    c.innerHTML='<span class="led busy"></span>Updated · Reload'; c.onclick=()=>location.reload(); $("#netChip").after(c);
+    document.addEventListener("visibilitychange",()=>{ if(document.hidden&&autoOn()) location.reload(); }); };  // the choice as it is when you leave
+  tick(); setInterval(tick, 600000);
+}
 
 // a line under the mission form, once the (async) view has drawn it; gives up after 3 s (the user left the tab)
 function missionSay(t, tries=30){ const m=$("#mMsg"); if(m) m.textContent=t; else if(tries>0) setTimeout(()=>missionSay(t, tries-1), 100); }

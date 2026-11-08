@@ -1,6 +1,6 @@
 /* DAStastic (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "501cd4fe69";
+const VERSION = "fd43dcab99";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 // the full version's Python engine (Pyodide, full/pyodide/, served from this site since 11/4): kept apart from the app
 // files, by the engine's version (publish.py writes it), so a new build doesn't download it again
@@ -18,8 +18,16 @@ const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glas
 const TILE_HOSTS = ["basemap.nationalmap.gov"];
 const NOT_KEPT = ["tile.openstreetmap.org"];  // saved here before 2026-11-02: removed on the next update
 
+// Updates (Cody 11/7 item 7: "an Update button and/or auto-update with an on/off toggle"): the page keeps the choice in Cache
+// Storage (PREFS, "__prefs.json" {auto}), which this worker can read. Auto, the default and every page from before 11/8 that
+// never said: a new version takes over at once, as before. Off: it waits until the page says "update-now" (Update now).
+const PREFS = "rfr-prefs";
+async function autoUpdate() {
+  try { const r = await (await caches.open(PREFS)).match("__prefs.json"); return !r || (await r.json()).auto !== false; } catch (e) { return true; }
+}
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES.map(f => new Request(f, {cache: "reload"})))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES.map(f => new Request(f, {cache: "reload"}))))
+    .then(async () => { if (!self.registration.active || await autoUpdate()) self.skipWaiting(); }));
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => (k.startsWith("rfr-shell-") && k !== SHELL) || (k.startsWith("rfr-engine-") && k !== ENGINE)
@@ -97,6 +105,7 @@ async function keepFull(listUrl) {
 }
 self.addEventListener("message", e => {
   const m = e.data || {}, port = e.ports && e.ports[0];
+  if (m.kind === "update-now") { self.skipWaiting(); return; }  // Update now: the waiting version takes over (the page reloads)
   if (m.kind !== "keep-full" || !m.list || new URL(m.list).origin !== location.origin) return;
   e.waitUntil(keepFull(m.list).then(r => port && port.postMessage(r), err => port && port.postMessage({error: err.message || String(err)})));
 });

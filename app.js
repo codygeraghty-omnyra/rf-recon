@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "501cd4fe69";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "fd43dcab99";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -703,7 +703,13 @@ async function viewPacks(v) {
       <p class="hint" id="mapsave"></p></div>`
     + `<div class="card glass" style="--i:5"><h2>This phone</h2><dl class="kv">${kvs([["Storage used", est ? `${num(est.usage / 1e6)} MB` : ""],
       ["Kept when space is low", persisted == null ? "" : persisted ? "Yes" : "Not guaranteed (add to home screen)"], ["App version", `${APP_VERSION} (${BUILD})`]])}</dl>
-      <p class="hint" style="margin:0">Your packs and field log stay in this phone's browser storage. Nothing is sent anywhere.</p></div>`;
+      <p class="hint" style="margin:0">Your packs and field log stay in this phone's browser storage. Nothing is sent anywhere.</p></div>`
+    + (!window.RFUpdate ? "" : `<div class="card glass" style="--i:6" id="updCard"><h2>Updates</h2>
+      <label class="row" style="gap:10px;align-items:center;cursor:pointer;margin:0 0 8px"><input type="checkbox" id="updAuto" ${RFUpdate.auto() ? "checked" : ""}>
+        <span><b>Update by itself</b><br><span class="hint">On: a new version takes over as soon as it's downloaded. Off: it waits until you press Update now, so nothing changes mid-job.</span></span></label>
+      <div class="row">${RFUpdate.waiting() ? '<button class="btn primary" data-act="updnow">Update now</button>' : ""}<button class="btn" data-act="updcheck">Check for updates</button></div>
+      <p class="hint" id="updMsg" style="margin:6px 0 0">${RFUpdate.waiting() ? "A new version is downloaded and waiting." : `This is version ${esc(APP_VERSION)} (${esc(BUILD)}).`}</p></div>`);
+  const ua = $("#updAuto"); if (ua) ua.onchange = async () => { await RFUpdate.setAuto(ua.checked); const m = $("#updMsg"); if (m) m.textContent = ua.checked ? "It updates by itself." : "New versions wait for Update now."; };
   sitePacks().then(list => { const sel = $("#spSel"); if (!sel) return;
     sel.innerHTML = list.length ? list.map(s => `<option value="${esc(s.st)}">${esc(s.name)} · ${num(s.mb, 1)} MB</option>`).join("") : '<option value="">Not reachable: try again with signal</option>'; });
 }
@@ -840,6 +846,8 @@ document.addEventListener("click", async e => {
     else if (act === "savemap") saveMap();
     else if (act === "clearmap") { await caches.delete("rfr-tiles").catch(() => {}); $("#mapsave").textContent = "Saved map cleared."; }
     else if (act === "install" && installEvt) { installEvt.prompt(); installEvt = null; }
+    else if (act === "updnow") RFUpdate.now();
+    else if (act === "updcheck") { const m = $("#updMsg"); if (m) m.textContent = "Checking…"; const t = await RFUpdate.check(); if ($("#updMsg")) $("#updMsg").textContent = t; }
     return;
   }
   const it = e.target.closest(".item[data-fid]");
@@ -899,15 +907,41 @@ window.RFNotes?.mount({store: "browser", bottom: "calc(env(safe-area-inset-botto
   return {screen: tab ? `the ${tab} screen` : "", lat: c?.[0], lon: c?.[1]};
 }});
 
+// Updates (Cody 11/7 item 7: "Update button and/or auto-update with an on/off toggle"). Auto-update on (the default): a new
+// version installs and takes over by itself, then says so. Off: it downloads and waits; Packs › Updates and a toast offer
+// Update now. The choice is in localStorage and, for sw.js, in Cache Storage (rfr-prefs). Check for updates asks the site now.
+const UPD = {reg: null, reloading: false, said: ""};
+window.RFUpdate = {
+  auto: () => { try { return localStorage.getItem("rfr.autoUpdate") !== "0"; } catch (e) { return true; } },
+  async tellWorker() { try { await (await caches.open("rfr-prefs")).put("__prefs.json", new Response(JSON.stringify({auto: RFUpdate.auto()}))); } catch (e) { /* private window: the worker keeps its default (auto) */ } },
+  async setAuto(on) { try { localStorage.setItem("rfr.autoUpdate", on ? "1" : "0"); } catch (e) {} await RFUpdate.tellWorker(); if (on && UPD.reg?.waiting) RFUpdate.now(); },
+  waiting: () => !!UPD.reg?.waiting,
+  async check() {
+    if (!UPD.reg) return "This browser doesn't keep DAStastic lite, so there's nothing to update: reload for the newest.";
+    try { await UPD.reg.update(); } catch (e) { return "Couldn't reach the DAStastic site: try again with signal."; }
+    return UPD.reg.installing || UPD.reg.waiting ? "A new version is downloading…" : `You have the newest version (${BUILD}).`;
+  },
+  now() { const w = UPD.reg?.waiting; if (!w) { location.reload(); return; } UPD.reloading = true; w.postMessage({kind: "update-now"}); },
+};
+function updateReady() {  // a new version waits (Auto-update off): say it once, offer it
+  if (UPD.said === "ready") return; UPD.said = "ready";
+  toast("A new version of DAStastic lite is ready.", () => RFUpdate.now(), "Update now");
+  if (S.tab === "packs") render();
+}
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   // an update only when an older worker ran this page: on a first visit the new worker claims the page too (sw.js), and
   // "was updated" then covered the first thing a new user needs, the offer of a pack (found 11/7 on Cody's phone)
   const hadWorker = !!navigator.serviceWorker.controller;
+  RFUpdate.tellWorker();
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (UPD.reloading) location.reload(); });
   navigator.serviceWorker.register("sw.js").then(reg => {
+    UPD.reg = reg;
+    if (reg.waiting && hadWorker) updateReady();
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;
       nw?.addEventListener("statechange", () => {
-        if (nw.state === "activated" && hadWorker) toast("DAStastic lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
+        if (nw.state === "installed" && reg.waiting && hadWorker && !RFUpdate.auto()) updateReady();  // auto: it takes over a moment later
+        if (nw.state === "activated" && hadWorker && !UPD.reloading) toast("DAStastic lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
       });
     });
   }).catch(() => {});

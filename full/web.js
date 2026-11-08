@@ -120,6 +120,10 @@ async function packPanels(v) {
   </div>
   <div class="panel"><h3>With no signal</h3><p style="margin-top:0" id="offMsg">${esc(offlineNote())}</p>
     <div class="row"><button id="offKeep">Keep it again</button><span class="hint">The page, its research, DAStastic's own code and the engine stay in this browser, so DAS jobs open, change and save in a basement. Your work is kept here either way.</span></div></div>
+  <div class="panel" id="updPanel"><h3>Updates</h3>
+    <label class="row" style="gap:10px;align-items:center;cursor:pointer"><input type="checkbox" id="wuAuto" ${WebUpdate.auto() ? "checked" : ""}>
+      <span><b>Update by itself</b> <span class="hint">On: a new version takes over as soon as it's downloaded. Off: it waits until you press Update now, so nothing changes mid-job. The same choice covers DAStastic lite in this browser.</span></span></label>
+    <div class="row" style="margin-top:8px">${WebUpdate.waiting() ? '<button class="primary" id="wuNow">Update now</button>' : ""}<button id="wuCheck">Check for updates</button><span class="hint" id="wuMsg">${WebUpdate.waiting() ? "A new version is downloaded and waiting." : ""}</span></div></div>
   <div class="panel"><h3>About the web version</h3>
     <p class="hint" style="margin-top:0">This is DAStastic in your browser, run by the PC app's own code: every tab, from search and the map's layers to
       missions, captures, the field log, labels, DAS jobs, talk groups, your own layers and crowd data with your own keys. The first time you keep
@@ -149,6 +153,9 @@ async function packPanels(v) {
     $("#pkUpdMsg").textContent = `Downloading ${upd.name}…`;
     try { await RFPack.loadSite(upd); reload(); } catch (err) { $("#pkUpdMsg").textContent = err.message; }
   };
+  $("#wuAuto").onchange = async e => { await WebUpdate.setAuto(e.target.checked); $("#wuMsg").textContent = e.target.checked ? "It updates by itself." : "New versions wait for Update now."; };
+  $("#wuCheck").onclick = async () => { $("#wuMsg").textContent = "Checking…"; $("#wuMsg").textContent = await WebUpdate.check(); };
+  if ($("#wuNow")) $("#wuNow").onclick = () => WebUpdate.now();
   $("#offKeep").onclick = async e => { e.currentTarget.disabled = true; $("#offMsg").textContent = "Keeping it…";
     await RFOffline.keep().catch(() => {}); if ($("#offMsg")) { $("#offMsg").textContent = offlineNote(); $("#offKeep").disabled = false; } };
   $("#pkRemove") && ($("#pkRemove").onclick = async e => { await RFPack.remove(e.target.dataset.id); location.reload(); });
@@ -192,8 +199,46 @@ async function keepOffline() {
   return s;
 }
 window.RFOffline = {keep: keepOffline, note: offlineNote, ready: null};
+// Updates (Cody 11/7 item 7): the same worker and the same choice as DAStastic lite on this site (../sw.js reads it from Cache
+// Storage, rfr-prefs). Auto-update on: a new version takes over by itself and a line says so; off: it waits for Update now.
+const WU = {reg: null, reloading: false, said: ""};
+const WebUpdate = {
+  auto: () => { try { return localStorage.getItem("rfr.autoUpdate") !== "0"; } catch (e) { return true; } },
+  async tellWorker() { try { await (await caches.open("rfr-prefs")).put("__prefs.json", new Response(JSON.stringify({auto: WebUpdate.auto()}))); } catch (e) { /* the worker keeps its default (auto) */ } },
+  async setAuto(on) { try { localStorage.setItem("rfr.autoUpdate", on ? "1" : "0"); } catch (e) {} await WebUpdate.tellWorker(); if (on && WU.reg?.waiting) WebUpdate.now(); },
+  waiting: () => !!WU.reg?.waiting,
+  async check() {
+    if (!WU.reg) return "This browser doesn't keep the web version, so there's nothing to update: reload for the newest.";
+    try { await WU.reg.update(); } catch (e) { return "Couldn't reach the DAStastic site: try again with signal."; }
+    return WU.reg.installing || WU.reg.waiting ? "A new version is downloading…" : "You have the newest version.";
+  },
+  now() { const w = WU.reg?.waiting; if (!w) { location.reload(); return; } WU.reloading = true; w.postMessage({kind: "update-now"}); },
+};
+function wuBanner(text, label, act) {  // one line at the foot of the page, with its button; it goes when pressed or closed
+  let b = document.getElementById("wuBanner");
+  if (!b) { b = document.createElement("div"); b.id = "wuBanner"; b.setAttribute("role", "status");
+    b.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;background:var(--panel,#1e1a16);color:var(--ink,#eee);border:1px solid var(--line,#555);box-shadow:0 8px 30px rgba(0,0,0,.35);max-width:calc(100% - 24px);font-size:14px";
+    document.body.append(b); }
+  b.innerHTML = `<span>${esc(text)}</span><button type="button" class="primary" id="wuAct">${esc(label)}</button><button type="button" id="wuX" aria-label="Close">✕</button>`;
+  b.querySelector("#wuAct").onclick = () => { b.remove(); act(); };
+  b.querySelector("#wuX").onclick = () => b.remove();
+}
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("../sw.js").catch(() => {});  // opens with no signal next time
+  const hadWorker = !!navigator.serviceWorker.controller;
+  WebUpdate.tellWorker();
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (WU.reloading) location.reload(); });
+  navigator.serviceWorker.register("../sw.js").then(reg => {  // opens with no signal next time
+    WU.reg = reg;
+    const ready = () => { if (WU.said) return; WU.said = "ready"; wuBanner("A new version of DAStastic is ready.", "Update now", () => WebUpdate.now()); };
+    if (reg.waiting && hadWorker) ready();
+    reg.addEventListener("updatefound", () => {
+      const nw = reg.installing;
+      nw?.addEventListener("statechange", () => {
+        if (nw.state === "installed" && reg.waiting && hadWorker && !WebUpdate.auto()) ready();
+        if (nw.state === "activated" && hadWorker && !WU.reloading) wuBanner("DAStastic was updated.", "Reload", () => location.reload());
+      });
+    });
+  }).catch(() => {});
   if (!navigator.connection?.saveData) RFOffline.ready = (document.readyState === "complete" ? Promise.resolve() : new Promise(ok => addEventListener("load", ok))).then(keepOffline)
     .then(() => { if ($("#offMsg")) $("#offMsg").textContent = offlineNote(); }).catch(e => console.warn("DAStastic: not kept for offline use", e));
 }

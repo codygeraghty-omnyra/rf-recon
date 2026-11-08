@@ -3782,7 +3782,7 @@
     },
     {
      "name": "Your account",
-     "text": "Anyone signed in presses their name in the header for Your account: change their own password (the current one first, then at least 10 characters) or sign out. A change signs out their other devices and keeps this one signed in; wrong current passwords count toward the same lock as signing in. An AHJ reviewer has the same from the review page. A forgotten password: Cody makes a new one in People and logins, and the sign-in page says so.",
+     "text": "Anyone signed in presses their name in the header for Your account: change their own password (the current one first, then at least 10 characters) or sign out. A change signs out their other devices and keeps this one signed in; wrong current passwords count toward the same lock as signing in. An AHJ reviewer has the same from the review page. A forgotten password: Cody makes a new one in People and logins, and the sign-in page says so. It also holds Update by itself: whether an open tab reloads into a new build when it's left.",
      "where": "server",
      "src": [
       "remote.py",
@@ -3790,7 +3790,8 @@
       "static/mission.js",
       "static/dasreview.js",
       "tests/test_password_change.py",
-      "d-2026-11-08-0220"
+      "d-2026-11-08-0220",
+      "d-2026-11-08-0410"
      ]
     },
     {
@@ -5015,6 +5016,19 @@
       "d-2026-10-29",
       "kitupdate.py",
       "static/mission.js"
+     ]
+    },
+    {
+     "name": "App updates",
+     "text": "Update now, or update by itself: one choice, Update by itself, on unless it's turned off. DAStastic lite (Packs › Updates) and the web version (Data & updates › Updates) download a new version in the background; on, it takes over as soon as it's downloaded and a line says so; off, it waits, a line offers Update now, and Check for updates looks for one. Lite and the web version share the choice in the same browser, and a browser that never chose updates as before. On the server, a tab left open asks every 10 minutes which build the server runs; when it changed, an Updated · Reload chip shows, and with Update by itself on (Your account) the tab reloads the next time it's left, never while it's in use.",
+     "where": "server, web, phone",
+     "src": [
+      "d-2026-11-08-0410",
+      "phone/sw.js",
+      "phone/app.js",
+      "web/web.js",
+      "static/mission.js",
+      "static/account.js"
      ]
     },
     {
