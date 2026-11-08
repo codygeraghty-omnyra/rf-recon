@@ -128,7 +128,14 @@ window.dasAccess = async function(el, j){
             <select id="daDays" aria-label="How long the link works">${[1, 7, 30, 90].map(n => `<option value="${n}" ${n === 7 ? "selected" : ""}>${n} day${n === 1 ? "" : "s"}</option>`).join("")}</select><button class="primary" id="daMake">Make a link</button></div><div id="daNew"></div>` : ""}
           ${sh.links.length ? `<div class="tw" style="margin-top:8px"><table><thead><tr><th>For</th><th>Until</th><th class="n">Opened</th><th></th></tr></thead><tbody>${sh.links.map(l => `<tr><td>${esc(l.label || "—")}<br><span class="hint">by ${esc(dasWho(l.made_by))}</span></td>
             <td class="mono">${esc(l.expires.slice(0, 16))}<br><span class="hint">${esc(l.state)}</span></td><td class="n">${l.uses}</td><td>${l.state === "live" && M ? `<button class="sm" data-revoke="${l.id}">Turn off</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
-          ${A.admin ? '<button id="daOff" style="margin-top:8px">Turn share links off (every link stops)</button>' : ""}`}</div></div>`;
+          ${A.admin ? '<button id="daOff" style="margin-top:8px">Turn share links off (every link stops)</button>' : ""}`}</div>
+    ${A.admin ? `<div class="panel"><h3>Schedule a watch</h3>
+      <p class="hint" style="margin:0 0 8px">For someone watching the grid test live from anywhere: the review page shows each square as it's tested. This opens your Google Calendar with the event filled in; add Google Meet there and save to send the invites. DAStastic sends nothing.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end"><label>Day<input type="date" id="dwDay"></label><label>Starts<input type="time" id="dwTime" value="09:00"></label>
+        <label>For<select id="dwLen">${[[60, "1 hour"], [120, "2 hours"], [240, "4 hours"], [480, "8 hours"]].map(([m, l]) => `<option value="${m}" ${m === 120 ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>
+      <label class="hint" style="display:block;margin-top:6px">Who (emails, separated by commas)<input id="dwWho" style="width:100%" placeholder="andy@example.com, inspector@example.gov"></label>
+      <label class="hint" style="display:block;margin-top:6px">Their way in: a read-only link from above, or leave blank for watchers with a login on this job<input id="dwLink" style="width:100%" placeholder="${esc(location.origin)}/share/…"></label>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="primary" id="dwGo">Open in Google Calendar ↗</button><span class="hint" id="dwMsg" role="status"></span></div></div>` : ""}</div>`;
   const msg = t => { const x = el.querySelector("#daMsg"); if(x) x.textContent = t; };
   const again = () => window.dasAccess(el, j);
   const put = async (who, level) => { try{ await post(`/api/das/jobs/${j.id}/access`, {who, level}); again(); }catch(e){ msg(e.message); } };
@@ -154,7 +161,34 @@ window.dasAccess = async function(el, j){
       el.querySelector("#daCopy")?.addEventListener("click", async e => { try{ await navigator.clipboard.writeText(url); e.target.textContent = "Copied"; }catch(err){ /* select it by hand */ } }); }
     catch(e){ msg(e.message); } });
   el.querySelectorAll("[data-revoke]").forEach(b => b.onclick = async () => { try{ await post(`/api/das/jobs/${j.id}/share/revoke`, {id: +b.dataset.revoke}); again(); }catch(e){ msg(e.message); } });
+  el.querySelector("#dwGo")?.addEventListener("click", () => {
+    const u = dasWatchUrl(j, {day: el.querySelector("#dwDay").value, time: el.querySelector("#dwTime").value, minutes: +el.querySelector("#dwLen").value,
+      who: el.querySelector("#dwWho").value, link: el.querySelector("#dwLink").value.trim(), origin: location.origin});
+    if (u.error) { el.querySelector("#dwMsg").textContent = u.error; return; }
+    el.querySelector("#dwMsg").textContent = "Opened in Google Calendar: add Google Meet, then Save to send the invites.";
+    window.open(u.url, "_blank", "noopener");
+  });
 };
+
+// Google Calendar's "add an event" address, filled in (item 9: a scheduled watch with a Meet link). Times are this browser's own
+// time zone, said to Calendar (ctz). Nothing is sent: Cody adds Meet and saves in Calendar, which sends the invites.
+function dasWatchUrl(j, o) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(o.day || "")) return {error: "Pick the day first."};
+  if (!/^\d{2}:\d{2}$/.test(o.time || "")) return {error: "Pick the start time."};
+  const who = (o.who || "").split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+  const bad = who.find(s => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s));
+  if (bad) return {error: `"${bad}" isn't an email address.`};
+  if (o.link && !o.link.startsWith(o.origin + "/share/")) return {error: `A read-only link starts ${o.origin}/share/: make one under Read-only links.`};
+  const [y, mo, d] = o.day.split("-").map(Number), [hh, mm] = o.time.split(":").map(Number);
+  const start = new Date(y, mo - 1, d, hh, mm), end = new Date(start.getTime() + (o.minutes || 120) * 60000);
+  const f = t => `${t.getFullYear()}${String(t.getMonth() + 1).padStart(2, "0")}${String(t.getDate()).padStart(2, "0")}T${String(t.getHours()).padStart(2, "0")}${String(t.getMinutes()).padStart(2, "0")}00`;
+  const way = o.link ? `Watch it live here (read only, no sign-in): ${o.link}` : `Watch it live here (sign in with your DAStastic login): ${o.origin}/review?job=${j.id}`;
+  const details = `The grid test of ${j.name}${j.data?.address ? `, ${j.data.address}` : ""}, live as each square is tested.\n\n${way}\n\nThe page refreshes itself every 10 seconds.`;
+  const q = new URLSearchParams({action: "TEMPLATE", text: `Live grid test: ${j.name}`, dates: `${f(start)}/${f(end)}`, details,
+    ctz: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York", ...(who.length ? {add: who.join(",")} : {})});
+  return {url: `https://calendar.google.com/calendar/render?${q}`, start, end};
+}
+if (typeof module !== "undefined") module.exports = {dasWatchUrl};
 
 document.head.insertAdjacentHTML("beforeend", `<style>
 .dasrev-dlg{max-width:640px}.dasrev-b{padding:18px 20px}

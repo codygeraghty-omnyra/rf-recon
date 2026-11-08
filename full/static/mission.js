@@ -20,11 +20,12 @@ window.missionBoot = async () => {
   try{ const me=await api("/api/me"); S.me=me.remote?me:null; S.remote=me.remote&&me.role!=="admin"?me:null; }catch(e){ S.remote=null; S.me=null; }
   if(S.remote){
     document.body.classList.add("remote"); if(S.tab==="data") setTab("map");
-    $("#netLed").className="led on"; $("#netText").textContent=`${S.remote.role==="full"?"Signed in":"View only"} · ${S.remote.user} · Sign out`;
-    $("#netChip").title=`Signed in to ${S.remote.server?"DAStastic":"Cody's DAStastic"}. Press to sign out.`; $("#netChip").onclick=()=>{ location.href="/remote/logout"; };
+    $("#netLed").className="led on"; $("#netText").textContent=`${S.remote.role==="full"?"Signed in":"View only"} · ${S.remote.user}`;
+    $("#netChip").title=`Signed in to ${S.remote.server?"DAStastic":"Cody's DAStastic"}. Press for your account: change your password or sign out.`;
+    $("#netChip").onclick=()=>openAccount(S.remote);
   } else if(S.me){
-    const b=document.createElement("button"); b.className="hbtn"; b.id="meOut"; b.textContent=`Admin · ${S.me.user} · Sign out`;
-    b.onclick=()=>{ location.href="/remote/logout"; }; $("#netChip").after(b);
+    const b=document.createElement("button"); b.className="hbtn"; b.id="meOut"; b.textContent=`Admin · ${S.me.user}`;
+    b.title="Your account: change your password or sign out"; b.onclick=()=>openAccount(S.me); $("#netChip").after(b);
   }
   try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){ /* no active mission, or the server is starting: the app opens without one */ }
   if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000);
@@ -304,14 +305,35 @@ function waysVersions(){
     put("android", `<span class="mono">${esc(x.android)}</span>`);
   }).catch(()=>$$("#waysPanel [data-ver]").forEach(td=>{ if(td.dataset.ver) td.innerHTML='<span class="hint">not readable</span>'; }));
 }
+// Item 16 (Cody 11/7: "Data & Updates tab"): what needs the admin here, each key's standing, and how WiGLE gets here.
+const REFUSED=/\b40[13]\b|unauthori[sz]ed|forbidden|refused|invalid (api )?key/i;
+const pullAge=p=>p&&p.last_pc?(Date.now()-Date.parse(p.last_pc.replace(" ","T")))/3600000:Infinity;  // hours since the PC brought points
+function pullLine(p){
+  return `WiGLE refuses this server's address, so Cody's PC fetches it with its own key, every 15 minutes while it's on, and the points stay here: `
+    +`${p.waiting?`${p.waiting} area${p.waiting===1?"":"s"} waiting`:"nothing waiting"}, last brought ${esc(p.last_pc||"never")}.`;
+}
+function needsYou(pull){
+  const u=UPD; if(!u) return "";
+  const out=[];
+  for(const [id,s] of Object.entries(u.sources||{})){
+    if(!s.enabled || (id==="wigle" && pull)) continue;  // WiGLE through the PC: its own line below
+    if(s.access?.needs_key && !s.access.key_saved) out.push(`<b>${esc(s.label)}</b> is on but has no key: add it under Your API keys, or turn it off.`);
+    else if(s.state==="error") out.push(`<b>${esc(s.label)}</b>: the last run failed${s.message?`: ${esc(s.message)}`:""}.`);
+  }
+  if(pull && pull.waiting && pullAge(pull)>24)
+    out.push(`<b>WiGLE</b>: ${pull.waiting} area${pull.waiting===1?"":"s"} waiting for Cody's PC, which ${pull.last_pc?`last brought points ${esc(pull.last_pc)}`:"hasn't brought any yet"}. It fetches every 15 minutes while it's on.`);
+  return `<div class="panel" id="needsYou"><h3>Needs you here</h3>${out.length?`<ul style="margin:4px 0 0 18px;padding:0">${out.map(x=>`<li>${x}</li>`).join("")}</ul>`
+    :'<p class="hint" style="margin:0">Nothing: every source that\'s on has its key and its last run went through.</p>'}</div>`;
+}
 S.views.data = async (v) => {
   if(S.remote){ v.innerHTML=`<p class="status">${S.remote.server?"Data &amp; updates is for the admin login.":"Data &amp; updates stays on Cody's PC."}</p>`; return; }
   let settings={creds:{},states:""}, layers={layers:[],fetches:[]};
   const gen=S.viewGen;
   try{ [settings, layers]=await Promise.all([api("/api/settings"), api("/api/layers")]); UPD=await api("/api/update/status"); }catch(e){ /* a view login or offline: the panels below say what they couldn't read */ }
+  let pull=null; try{ pull=await api("/api/crowd/pull/status"); }catch(e){ /* a copy without the PC fetcher's queue: no line for it */ }
   if(gen!==S.viewGen) return;  // you moved on while it loaded
   const c=navigator.connection||{};
-  v.innerHTML=`
+  v.innerHTML=`${needsYou(pull)}
   <div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Connection</h3><div id="netCard"></div>
       <p class="hint">Browser reports: ${navigator.onLine?"online":"offline"}${c.type?` · ${esc(c.type)}`:""}${c.effectiveType?` · ${esc(c.effectiveType)}`:""}${c.downlink?` · ~${c.downlink} Mb/s`:""}${c.saveData?" · data saver on":""}</p>
@@ -353,7 +375,7 @@ S.views.data = async (v) => {
     <p class="hint" id="raHow" style="margin-top:0">People you add open the link in any browser, sign in, and do what their login allows: View only looks and searches; Full also works DAS jobs, missions and notes; Admin also has the keys, updates and people. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay with the admin. The link works while this PC is on and DAStastic is running, and what they look at runs over this PC's connection.</p>
     <div id="raLink"><p class="hint">Checking Tailscale…</p></div>
     <div class="row" style="margin-top:8px;align-items:end"><label class="grow">Add a person<input id="raName" placeholder="Their name, e.g. Josh" autocomplete="off"></label>
-      <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option><option value="ahj">AHJ reviewer: only the jobs shared with it</option></select></label><button class="primary" id="raAdd">Add and make a password</button></div>
+      <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option><option value="ahj">AHJ reviewer: only the jobs shared with it</option></select></label><label title="For a temporary login (an inspector, someone watching a test): it works through this day, then can't sign in">Last day <span class="hint">(optional)</span><input type="date" id="raEnds"></label><button class="primary" id="raAdd">Add and make a password</button></div>
     <p class="hint" id="raMsg" style="margin:6px 0 0"></p>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Person</th><th>Can</th><th>Added</th><th>Last here</th><th></th></tr></thead><tbody id="raList"></tbody></table></div></div>
   <div class="panel" id="dcPanel" hidden><h3>DAS course: who has it</h3>
@@ -390,13 +412,15 @@ S.views.data = async (v) => {
       <p class="hint" style="margin-top:0">Free accounts of your own, sealed for your Windows account on this PC, outside every database file, so no copy, kit or backup carries them. Each sign-up has its own terms, so DAStastic can't make them for you.</p>
       ${API_KEYS.map(k=>{ const saved=keySaved(settings,k), s=k.src&&UPD?.sources?.[k.src];
         const last=s?.state==="error"?` · Last try failed: ${esc(s.message||"")}`:s?.last_updated?` · Last fetch ${esc(s.last_updated)}${s.message?`: ${esc(s.message)}`:""}`:"";
+        const viaPc=k.id==="wigle"&&saved&&pull, refused=saved&&!viaPc&&s?.state==="error"&&REFUSED.test(s.message||"");
+        const stand=!saved?"Not set":viaPc?"✓ Saved · via Cody's PC":refused?"Saved, refused":"✓ Saved";
         return `<div style="border-top:1px solid var(--line);padding:10px 0 4px">
         <div class="row" style="justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
-          <div><b>${esc(k.name)}</b> <span class="tag ${saved?"v":""}">${saved?"✓ Saved":"Not set"}</span> <span class="hint">· ${esc(k.what)}</span></div>
+          <div><b>${esc(k.name)}</b> <span class="tag ${saved&&!refused?"v":""}"${refused?' style="color:var(--bad)"':""}>${stand}</span> <span class="hint">· ${esc(k.what)}</span></div>
           <div class="row" style="gap:12px"><a href="${esc(k.get)}" target="_blank" rel="noopener">${saved?"Your account ↗":"Get a key ↗"}</a>${saved?`<a href="#" data-kclear="${k.id}">Remove</a>`:""}</div></div>
         <div class="row" style="margin-top:6px">${k.fields.map(([f,label,ph])=>`<label class="grow">${esc(label)}<input data-cred="${f}" type="${ph==="text"?"text":"password"}" autocomplete="off"
           placeholder="${saved?"saved: type to replace":esc(ph==="text"?"":ph)}"></label>`).join("")}</div>
-        <p class="hint" style="margin:4px 0 0">${esc(k.how)}${last}</p>${DAS_USES[k.src]?dasNote(DAS_USES[k.src]):""}</div>`; }).join("")}
+        <p class="hint" style="margin:4px 0 0">${esc(k.how)}${last}</p>${viaPc?`<p class="hint" style="margin:4px 0 0">${pullLine(pull)}</p>`:""}${DAS_USES[k.src]?dasNote(DAS_USES[k.src]):""}</div>`; }).join("")}
       <div class="row" style="margin-top:10px;align-items:center"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
       <p class="hint">Not here: RepeaterBook (its policy discourages tools that mix sources) and RadioReference (its API needs Premium, $30 a year, plus a paid licence for dashboards).</p></div>
     <div class="panel"><h3>Fetch crowd data for the current pin now</h3>
@@ -404,7 +428,7 @@ S.views.data = async (v) => {
         return `<button data-fetch="${id}" ${off?`disabled title="Add your ${esc(k.name)} key first (Your API keys)"`:""}>${esc(label)}${off?' <span class="hint">· needs key</span>':""}</button>`; }).join("")}</div>
       <p class="hint" style="margin:4px 0 0">Uses the pin and radius above. An area already fetched recently isn't downloaded again; the same emitter from several sources shows once on the map, with each source's data.</p>
       ${dasNote("WiGLE and OpenCelliD fetched around a building are the cell sites its cellular pre-survey shows")}
-      <div id="fetchMsg" class="hint" style="margin-top:6px"></div>
+      <div id="fetchMsg" class="hint" style="margin-top:6px"></div>${pull?`<p class="hint" style="margin:6px 0 0">${pullLine(pull)}</p>`:""}
       <h3 style="margin-top:14px">Import your own layer</h3>
       <div class="row"><label class="grow">Layer name<input id="cl_name" value="My layer"></label><input type="file" id="cl_file" accept=".csv,.kml,.kmz,.geojson,.json,.gpx"></div>
       <h3 style="margin-top:14px">Import labels (RadioReference-style CSV)</h3>
@@ -507,13 +531,15 @@ S.views.data = async (v) => {
     $("#raList").innerHTML=r.people.map(u=>u.role==="fetcher"  // the PC that brings crowd data (ops/crowd_pull.py): a machine, so no role to pick and no password to hand out
       ?`<tr><td>${esc(u.name)}</td><td title="Brings WiGLE data the server can't fetch; reaches nothing else">PC fetcher (a machine)</td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
       <td style="text-align:right;white-space:nowrap"><button data-rarm="${esc(u.name)}">Remove</button></td></tr>`
-      :`<tr><td>${esc(u.name)}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
-      <td style="text-align:right;white-space:nowrap"><button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
+      :`<tr><td>${esc(u.name)}${u.ends?`<div class="hint" style="${u.ended?"color:var(--bad)":""}">${u.ended?`ended ${esc(u.ends)}`:`until ${esc(u.ends)}`}</div>`:""}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
+      <td style="text-align:right;white-space:nowrap">${u.ends&&!u.ended?`<button data-raend="${esc(u.name)}" title="Its last day becomes yesterday: it can't sign in, and its open sessions stop">End now</button> `:""}<button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
       ||'<tr><td colspan="5" class="hint">No one yet. Add a person to give them a sign-in.</td></tr>';
     if($("#raCopy")) $("#raCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(L.url); $("#raMsg").textContent="Link copied."; }catch(e){ $("#raMsg").textContent=L.url; } };
     if($("#raToggle")) $("#raToggle").onclick=async()=>{ $("#raMsg").textContent=L.on?"Turning the link off…":"Turning the link on…";
       try{ await post("/api/remote/link",{on:!L.on}); $("#raMsg").textContent=""; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); };
     $("#raList").querySelectorAll("[data-ranew]").forEach(b=>b.onclick=()=>raAdd(b.dataset.ranew, true));
+    $("#raList").querySelectorAll("[data-raend]").forEach(b=>b.onclick=async()=>{  // a temporary login, ended early (item 9)
+      try{ await post("/api/remote/ends",{name:b.dataset.raend, ends:"now"}); $("#raMsg").textContent=`${b.dataset.raend}'s login has ended: it can't sign in, and its open sessions have stopped.`; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); });
     $("#raList").querySelectorAll("[data-rarole]").forEach(s=>s.onchange=async()=>{
       try{ await post("/api/remote/role",{name:s.dataset.rarole, role:s.value}); $("#raMsg").textContent=`${s.dataset.rarole} is now ${s.options[s.selectedIndex].text}.`; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); });
     $("#raList").querySelectorAll("[data-rarm]").forEach(b=>b.onclick=async()=>{  // two presses, so a stray click doesn't lock someone out
@@ -553,8 +579,9 @@ S.views.data = async (v) => {
     $("#sfRoots").querySelectorAll("[data-sfroot]").forEach(b=>b.onclick=()=>sfOpen(b.dataset.sfroot));
     if(r.folders[0]) sfOpen(r.folders[0].id); };
   const raAdd=async (name, renew)=>{ name=(name||"").trim(); if(!name){ $("#raMsg").textContent="Type their name first."; return; }
-    try{ const r=await post("/api/remote/add",renew?{name}:{name, role:$("#raRole").value}); $("#raName").value="";
-      $("#raMsg").innerHTML=`Password for <b>${esc(r.name)}</b>: <span class="mono" style="user-select:all;font-size:15px">${esc(r.password)}</span> · Shown only now: send it to them with the link. Their old password, if any, no longer works.`; raPaint(); }
+    try{ const ends=renew?undefined:($("#raEnds")?.value||"");
+      const r=await post("/api/remote/add",renew?{name}:{name, role:$("#raRole").value, ends}); $("#raName").value=""; if($("#raEnds")) $("#raEnds").value="";
+      $("#raMsg").innerHTML=`Password for <b>${esc(r.name)}</b>: <span class="mono" style="user-select:all;font-size:15px">${esc(r.password)}</span> · Shown only now: send it to them with the link. Their old password, if any, no longer works.${ends?` It works through ${esc(ends)}.`:""}`; raPaint(); }
     catch(e){ $("#raMsg").textContent=e.message; } };
   $("#raAdd").onclick=()=>raAdd($("#raName").value); $("#raName").onkeydown=e=>{ if(e.key==="Enter") raAdd($("#raName").value); };
   raPaint();

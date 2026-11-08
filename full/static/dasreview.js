@@ -24,7 +24,7 @@
 
   async function me() {
     if (share) { whoEl.textContent = "Read-only link"; return; }
-    try { const m = await get("/api/me"); if (m.user) whoEl.innerHTML = `<span>${h(m.user)}${m.role === "ahj" ? " · reviewer" : ""}</span><a class="btn" href="/remote/logout">Sign out</a>`; } catch (e) { /* the PC's own window */ }
+    try { const m = await get("/api/me"); if (m.user) { whoEl.innerHTML = `<span>${h(m.user)}${m.role === "ahj" ? " · reviewer" : ""}</span>${typeof openAccount === "function" ? `<button type="button" class="btn" id="rvAcct">Account</button>` : ""}<a class="btn" href="/remote/logout">Sign out</a>`; const b = document.getElementById("rvAcct"); if (b) b.onclick = () => openAccount(m); } } catch (e) { /* the PC's own window */ }
   }
 
   async function list() {
@@ -90,12 +90,54 @@
         <button data-d="comment">Add comment</button><span class="hint" id="rvMsg" role="status"></span></div></div>` : ""}</div>`;
   }
 
+  // Live (Cody 11/7 item 9: watch a grid test from anywhere): the walk saves into the job as the tester taps, so the page asks
+  // for the job every 10 seconds while it's open and showing, and redraws when it changed. Not while you're writing a comment:
+  // then it offers the new readings. It stops after 6 hours on the page, and says so.
+  const LIVE_MS = 10000, LIVE_FOR = 6 * 3600e3;
+  let live = null;
+  const clock = d => d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit", second: "2-digit"});
+  function liveLine() {
+    const el = document.getElementById("rvLive"); if (!el || !live) return;
+    el.innerHTML = live.stopped ? `Live updates stopped after 6 hours. <a href="${h(location.href)}">Reload</a> to watch again.`
+      : live.pending ? `New readings came in. <button type="button" class="btn" id="rvShow">Show them</button> <span class="hint">(your comment stays)</span>`
+      : `<span class="dot"></span> Live: checks for new readings every 10 seconds · last checked ${clock(live.checked)}${live.changed ? ` · last change ${clock(live.changed)}` : ""}${live.err ? ` · <span style="color:var(--bad)">${h(live.err)}</span>` : ""}`;
+    const b = document.getElementById("rvShow"); if (b) b.onclick = () => { live.pending = false; show(live.next, true); };
+  }
+  function watch(url, v) {
+    if (live && live.url === url) { live.rev = v.rev; live.at = v.updated_at; return liveLine(); }
+    if (live) clearInterval(live.t);
+    live = {url, rev: v.rev, at: v.updated_at, checked: new Date(), changed: null, started: Date.now()};
+    live.t = setInterval(async () => {
+      if (document.hidden || live.pending) return;
+      if (Date.now() - live.started > LIVE_FOR) { clearInterval(live.t); live.stopped = true; return liveLine(); }
+      let n; try { n = await get(url); live.err = ""; } catch (e) { live.err = `couldn't check: ${e.message}`; return liveLine(); }
+      live.checked = new Date();
+      if (n.rev !== live.rev || n.updated_at !== live.at) {
+        live.changed = new Date(); live.next = n;
+        const t = document.getElementById("rvText");
+        if (t && (t.value.trim() || document.activeElement === t)) { live.pending = true; return liveLine(); }
+        show(n, true);
+      }
+      liveLine();
+    }, LIVE_MS);
+  }
+
   async function job(id) {
-    let v; try { v = await get(share ? `${base}/data` : `/api/das/jobs/${id}/review`); } catch (e) { return say(e.message, true); }
+    const url = share ? `${base}/data` : `/api/das/jobs/${id}/review`;
+    let v; try { v = await get(url); } catch (e) { return say(e.message, true); }
+    show(v, false, url);
+  }
+
+  function show(v, again, url) {
+    url = url || (live && live.url);
+    // a redraw keeps your place: the scroll, which readings lists are open, and a comment you'd started
+    const y = again ? scrollY : 0, opened = again ? [...main.querySelectorAll("details")].map(d => d.open) : null;
+    const text = again ? (document.getElementById("rvText") || {}).value || "" : "";
     document.title = `${v.name} · review`;
     document.getElementById("rvTitle").textContent = v.name;
     const T = v.testing || {}, ins = T.instruments || [];
     main.innerHTML = `${share ? "" : '<p class="no-print" style="margin:0 0 12px"><a class="btn" href="/review">← All reports</a></p>'}
+      <p class="hint no-print" id="rvLive" role="status" style="margin:0 0 12px"></p>
       <div class="grid"><div class="panel"><h2>Building</h2><dl class="kv">
         ${v.address ? `<dt>Address</dt><dd>${h(v.address)}</dd>` : ""}${v.ahj ? `<dt>AHJ</dt><dd>${h(v.ahj)}</dd>` : ""}
         ${v.client ? `<dt>Owner / client</dt><dd>${h(v.client)}</dd>` : ""}${v.booster_class ? `<dt>Booster</dt><dd>${h(v.booster_class)}</dd>` : ""}
@@ -119,6 +161,12 @@
       try { await send(`/api/das/jobs/${v.id}/review`, {decision: d, comment: text}); await job(v.id); }
       catch (e) { msg.textContent = e.message; main.querySelectorAll("[data-d]").forEach(x => x.disabled = false); }
     });
+    if (again) {
+      const ds = main.querySelectorAll("details"); if (opened && opened.length === ds.length) ds.forEach((d, i) => { d.open = opened[i]; });
+      const t = document.getElementById("rvText"); if (t && text) t.value = text;
+      scrollTo(0, y);
+    }
+    if (url) watch(url, v);
   }
 
   me();

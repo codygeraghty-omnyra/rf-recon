@@ -102,7 +102,8 @@ def active():
 
 
 def users():
-    return [{"name": u["name"], "added": u.get("added"), "last": u.get("last"), "role": u.get("role") or "view", "course": _has_course(u)} for u in _load().values()]
+    return [{"name": u["name"], "added": u.get("added"), "last": u.get("last"), "role": u.get("role") or "view", "course": _has_course(u),
+             "ends": u.get("ends") or "", "ended": ended(u)} for u in _load().values()]
 
 
 def role_of(name):
@@ -133,23 +134,70 @@ def set_course(name, on):
         _save(us)
 
 
-def add(name, role=None):
-    """Add a person (or give them a new password; their role stays unless one is given). Returns the password: shown
-    once, never stored."""
+def _ends(ends):
+    """A login's last day (Cody 11/7 item 9: a temporary account for an inspector or a watcher): "YYYY-MM-DD", today or later,
+    or "" for none."""
+    ends = (ends or "").strip()
+    if not ends:
+        return ""
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", ends):
+        raise ValueError("A last day is a date: YYYY-MM-DD.")
+    try:
+        time.strptime(ends, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("A last day is a date: YYYY-MM-DD.") from None
+    if ends < time.strftime("%Y-%m-%d"):
+        raise ValueError("A last day can't be in the past: use End now to end a login today.")
+    return ends
+
+
+def ended(u):
+    """Whether a login's last day has passed (it works through the whole of its last day)."""
+    return bool(u.get("ends")) and time.strftime("%Y-%m-%d") > u["ends"]
+
+
+def add(name, role=None, ends=None):
+    """Add a person (or give them a new password; their role and last day stay unless given). Returns the password: shown
+    once, never stored. ends: a last day ("YYYY-MM-DD"), "" for none, None to keep what they had."""
     name = (name or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._@'-]{1,39}", name):
         raise ValueError("Use a name of 2 to 40 letters, numbers, spaces or . _ @ ' -")
     if role is not None and role not in ROLES:
         raise ValueError(f"A role is one of: {', '.join(ROLES)}.")
+    if ends is not None:
+        ends = _ends(ends)
     pw = "-".join(secrets.token_urlsafe(6) for _ in range(2))
     salt = secrets.token_hex(16)
     with _LOCK:
         us = _load()
         old = us.get(name.lower(), {})
+        keep_ends = old.get("ends", "") if ends is None else ends
         us[name.lower()] = {"name": name, "salt": salt, "hash": _hash(pw, salt), "added": old.get("added") or time.strftime("%Y-%m-%d %H:%M"),
-                            "last": old.get("last"), "role": role or old.get("role") or "view", **({"course": old["course"]} if "course" in old else {})}
+                            "last": old.get("last"), "role": role or old.get("role") or "view", **({"course": old["course"]} if "course" in old else {}),
+                            **({"ends": keep_ends} if keep_ends else {})}
         _save(us)
     return pw
+
+
+def set_ends(name, ends):
+    """Give a login a last day, take it away (""), or end it now ("now": its last day was yesterday). An admin can't end
+    the last admin."""
+    with _LOCK:
+        us = _load()
+        u = us.get((name or "").strip().lower())
+        if u is None:
+            raise LookupError("No one by that name.")
+        if ends == "now":
+            if u.get("role") == "admin" and sum(1 for x in us.values() if x.get("role") == "admin" and not ended(x)) == 1:
+                raise ValueError("That's the last admin: make someone else admin first.")
+            u["ends"] = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400))
+        else:
+            e = _ends(ends)
+            if e:
+                u["ends"] = e
+            else:
+                u.pop("ends", None)
+        _save(us)
 
 
 def set_role(name, role):
@@ -192,9 +240,43 @@ def check(name, pw):
         raise ValueError("That name and password don't match.")
     with _LOCK:
         _FAILS.pop(key, None)
+    if ended(u):  # said only to someone with the right password
+        raise ValueError(f"This login ended on {u['ends']}. Ask Cody if you need it again.")
     payload = f"{key}|{int(now + SESSION_S)}|{u['salt'][:12]}"
     sig = hmac.new(_secret(), payload.encode(), hashlib.sha256).hexdigest()
     return base64.urlsafe_b64encode(payload.encode()).decode() + "." + sig
+
+
+MIN_PW = 10  # a password a person picks for themselves (made ones are 17 random characters)
+
+
+def change_password(name, current, new):
+    """A signed-in person's own new password (Cody 11/7: "change own password"). The current one first: a wrong one counts
+    toward the same 8-try lock as signing in. The new one: 10 to 200 characters, not their name, not the current one. Every
+    other session of theirs ends (the salt changes) and this one gets a new cookie value, returned."""
+    key = (name or "").strip().lower()
+    try:
+        check(name, current or "")
+    except ValueError as e:
+        raise ValueError("That isn't your current password." if "don't match" in str(e) else str(e)) from None
+    new = new or ""
+    if len(new) < MIN_PW:
+        raise ValueError(f"Use at least {MIN_PW} characters.")
+    if len(new) > 200:
+        raise ValueError("Use at most 200 characters.")
+    if new.strip().lower() == key:
+        raise ValueError("Use something other than your name.")
+    if new == current:
+        raise ValueError("That's the password you have now.")
+    salt = secrets.token_hex(16)
+    with _LOCK:
+        us = _load()
+        u = us.get(key)
+        if u is None:
+            raise LookupError("No one by that name.")
+        u["salt"], u["hash"], u["changed"] = salt, _hash(new, salt), time.strftime("%Y-%m-%d %H:%M")
+        _save(us)
+    return check(name, new)
 
 
 def user_of(cookie_header):
@@ -210,7 +292,7 @@ def user_of(cookie_header):
         return None
     key, exp, salt = (payload.split("|") + ["", "", ""])[:3]
     u = _load().get(key)
-    if not u or not exp.isdigit() or int(exp) < time.time() or u["salt"][:12] != salt:
+    if not u or not exp.isdigit() or int(exp) < time.time() or u["salt"][:12] != salt or ended(u):  # an ended login's sessions end too
         return None
     if not u.get("last") or u["last"] < time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - 300)):
         with _LOCK:  # when they were last here, written at most every 5 minutes
@@ -341,7 +423,7 @@ button:hover{{filter:brightness(1.08)}}
 <label for="n">Name</label><input id="n" name="name" autocomplete="username" required value="{html.escape(name)}" {'' if name else 'autofocus'}>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required {'autofocus' if name else ''}>
 <button type="submit">Sign in</button>{err}</form>
-<p class="foot">No login? Ask Cody for one.</p></main></body></html>"""
+<p class="foot">No login? Ask Cody for one. Forgot your password? Ask Cody for a new one.</p></main></body></html>"""
 
 
 if __name__ == "__main__":  # on the server: make or reset a login without the web page (the first admin)

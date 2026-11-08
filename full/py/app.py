@@ -2909,7 +2909,8 @@ class H(BaseHTTPRequestHandler):
             if what is None:
                 with open(os.path.join(STATIC, "review.html"), "rb") as fh:
                     page = fh.read().replace(b"/static/das.js", f"/share/{m.group(1)}/das.js".encode()) \
-                        .replace(b"/static/dasreview.js", f"/share/{m.group(1)}/review.js".encode())
+                        .replace(b"/static/dasreview.js", f"/share/{m.group(1)}/review.js".encode()) \
+                        .replace(b'<script src="/static/account.js"></script>', b"")  # a link has no account (and no sign-in to fetch it)
                 return self.send(200, page, "text/html; charset=utf-8", dict(hdr, **{"X-Frame-Options": "DENY"}))
             files = das.list_files(jid, job["name"], con)["files"]
             view = dashist.review_view(job, files)
@@ -3224,7 +3225,18 @@ class H(BaseHTTPRequestHandler):
                 return self.course_people()
             if p == "/api/remote/add":  # a new person (or a new password): shown once, for Cody to pass on
                 d = self.body_json()
-                return self.send(200, {"name": (d.get("name") or "").strip(), "password": remote.add(d.get("name"), d.get("role") or None), "people": remote.users()})
+                try:  # "ends": a last day for a temporary login (item 9); absent keeps what they had
+                    pw = remote.add(d.get("name"), d.get("role") or None, d.get("ends") if "ends" in d else None)
+                except ValueError as e:
+                    return self.send(400, {"error": str(e)})
+                return self.send(200, {"name": (d.get("name") or "").strip(), "password": pw, "people": remote.users()})
+            if p == "/api/remote/ends":  # a login's last day: a date, "" for none, or "now" to end it today (remote.set_ends)
+                d = self.body_json()
+                try:
+                    remote.set_ends(d.get("name"), d.get("ends") or "")
+                except ValueError as e:
+                    return self.send(400, {"error": str(e)})
+                return self.send(200, {"people": remote.users()})
             if p == "/api/remote/role":  # view, full or admin (the server's logins)
                 d = self.body_json()
                 remote.set_role(d.get("name"), d.get("role"))
@@ -3487,6 +3499,9 @@ class H(BaseHTTPRequestHandler):
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
 
 
+PASSWORD_PATH = "/remote/password"  # a signed-in person's own new password (RemoteH.answer)
+
+
 class RemoteH(H):
     """The remote door (remote.py): Tailscale Funnel forwards the public link to this port. Everyone here is signed
     in and can view and search only; the same routes answer, minus anything that writes or stays on Cody's PC."""
@@ -3511,7 +3526,8 @@ class RemoteH(H):
         user = remote.user_of(self.headers.get("Cookie"))
         role = remote.role_of(user) if user else None
         # what the handler itself reads: a note's words and files (anyone signed in), and every change by a full or admin login
-        keep = bool(user) and remote.reads_body(method, p, role) or remote.note_write(method, p) and role != "ahj"
+        keep = bool(user) and remote.reads_body(method, p, role) or remote.note_write(method, p) and role != "ahj" \
+            or bool(user) and method == "POST" and p == PASSWORD_PATH  # your own new password: read below, signed in only
         if method != "GET" and p != "/remote/login" and not keep:
             self.raw_body()  # read what was sent even when refusing it: left on a kept-alive connection, it garbles the next request
             if self.headers.get("Content-Length"):
@@ -3544,6 +3560,15 @@ class RemoteH(H):
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})
         if p == "/api/me":
             return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL), "course": remote.has_course(user)})
+        if p == PASSWORD_PATH:  # change your own password (remote.change_password): your other sessions end, this one carries on
+            if method != "POST" or role == "fetcher":  # the PC fetcher's password is sealed on the PC: a new one is made with --setup
+                return self.send(405 if method != "POST" else 403, {"error": "Not here."})
+            try:
+                d = json.loads(self.raw_body() or b"{}")
+                tok = remote.change_password(user, d.get("current"), d.get("new"))
+            except (ValueError, LookupError) as e:
+                return self.send(400, {"error": str(e)})
+            return self.send(200, {"ok": True}, "application/json", {"Set-Cookie": remote.cookie(tok, self.secure())})
         if role == "ahj" and p in ("/", "/index.html"):  # an AHJ reviewer's DAStastic is the review page
             return self.send(303, b"", "text/plain", {"Location": "/review"})
         if p in remote.EMPTY and role != "admin":
