@@ -12,7 +12,7 @@ requests wait here and the app says so.
 import json
 import time
 
-SOURCES = ("wigle",)        # what the PC fetcher may bring; nothing else is accepted
+SOURCES = ("wigle",)        # what the PC fetcher may bring when the Data desk's registry can't be read; nothing else is accepted
 MAX_ROWS = 20000            # one post
 ROW_LEN = 17                # connectors' ext_point row: source, layer, ext_id, lat, lon, kind, label, freq_mhz, freq_in_mhz, dbm,
                             # mode, sig_type, first_seen, last_seen, details, fetched_at, attribution
@@ -39,10 +39,22 @@ def refused(err):
     return code in (401, 403) or "401" in text or "403" in text or "unauthorized" in text or "forbidden" in text or "refused" in text
 
 
+def sources():
+    """What the PC fetcher may bring: the updater ids of every source the Data desk routes through a PC (reference/
+    data_desk.json route "pc", each with its why: the key holder's own machine is the permitted client). WiGLE today. Never a
+    way round a provider's refusal: the registry refuses a pc route without its why (datadesk/registry.py problems)."""
+    try:
+        import desk
+        got = tuple(u for s in desk.sources() if s["route"] == "pc" and s.get("why") for u in s["updater"])
+        return got or SOURCES
+    except Exception:  # the registry unreadable: the fetcher keeps working for what it always could
+        return SOURCES
+
+
 def enqueue(con, source, lat, lon, radius_mi, kinds=None, who=""):
     """One area to fetch. The same area still waiting (to about 100 m and the same radius) isn't queued twice. Returns its id."""
     ensure(con)
-    if source not in SOURCES:
+    if source not in sources():
         raise ValueError(f"{source} isn't fetched by the PC")
     lat, lon, radius_mi = round(float(lat), 3), round(float(lon), 3), round(float(radius_mi), 1)
     row = con.execute("SELECT id FROM crowd_queue WHERE state IN ('waiting','taken') AND source=? AND lat=? AND lon=? AND radius_mi=?",
@@ -89,7 +101,7 @@ def accept(con, qid, source, rows, lat=None, lon=None, radius_mi=None, message="
     fetch would be. Returns how many rows."""
     import connectors
     ensure(con)
-    if source not in SOURCES:
+    if source not in sources():
         raise ValueError(f"{source} isn't fetched by the PC")
     q = None
     if qid is not None:

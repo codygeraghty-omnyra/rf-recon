@@ -33,6 +33,7 @@ SOURCES = {
     "uls:coast": ("FCC ULS: Marine & aviation ground", "fcc", 168, "Coast and ground stations"),
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
     "uls:cell": ("FCC ULS: Cellular 800 MHz sites", "fcc", 168, "Each carrier's licensed 800 MHz sites: where, which tower, frequencies each way, power (about 24 MB)"),
+    "uls_daily": ("FCC ULS: daily changes (land mobile, cellular)", "fcc", 24, "The FCC's change files, Monday to Saturday: a new or changed private land mobile licence (and 800 MHz cellular site, when loaded) shows the next day instead of after Sunday's full file, and applications filed but not yet granted show apart, marked pending. A few hundred KB a day"),
     "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
     "spectrum": ("FCC carrier spectrum (market licences)", "fcc", 168, "Who holds which block in each market: cellular, PCS, AWS, 600, 700, 3.45 GHz, C-band, CBRS (about 115 MB)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
@@ -63,8 +64,10 @@ SOURCES = {
     "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
 }
 DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:cell", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
-                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic"}
-AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
+                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic", "uls_daily"}
+# psap: placed at town centres from the place list the licence import builds; uls_daily: the day's changes go over the
+# weekly licences, so after a rebuild in the same batch
+AFTER_ULS = {"psap", "uls_daily"}
 LINKS = ("wifi", "ethernet", "cellular")
 LINK_NAMES = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "cellular": "cellular / phone tether"}
 # what each source needs, costs and allows, and the open / crowd sources DAStastic doesn't use (checked 2026-10-28)
@@ -286,7 +289,8 @@ class Updater:
             out = {sid: meta.get("built_at") for sid in SOURCES if sid.startswith("uls:") and f"l_{sid[4:]}.zip" in loaded}
             out.update(asr=meta.get("towers_built_at"), bcast=meta.get("bcast_built_at"), nwr=meta.get("nwr_built_at"),
                        faa=meta.get("faa_built_at"), psap=meta.get("psap_built_at"),
-                       fss=meta.get("fss_built_at"), mw_pending=meta.get("mw_pending_built_at"))
+                       fss=meta.get("fss_built_at"), mw_pending=meta.get("mw_pending_built_at"),
+                       uls_daily=(meta.get("uls_daily_at") or "")[:16] or None)
             con = sqlite3.connect(self.crowd, timeout=5)
             out["sigwiki"] = con.execute("SELECT MAX(fetched_at) FROM sigwiki").fetchone()[0]
             con.close()
@@ -356,10 +360,22 @@ class Updater:
 
     RETRY_H = 2  # a source whose last run failed tries again after this, however long its interval
 
+    def _weekly_built(self):
+        try:
+            con = sqlite3.connect(self.db, timeout=5)
+            try:
+                return (con.execute("SELECT v FROM meta WHERE k='built_at'").fetchone() or [None])[0]
+            finally:
+                con.close()
+        except sqlite3.Error:
+            return None
+
     def _due(self, sid, c):
         last = self.status[sid].get("last_checked")
         if not last:
             return True
+        if sid == "uls_daily" and self.status[sid].get("weekly") and self._weekly_built() not in (None, self.status[sid]["weekly"]):
+            return True  # the weekly licences were rebuilt since: the daily changes newer than them go back on now
         try:
             t = time.mktime(time.strptime(last, "%Y-%m-%d %H:%M"))
         except ValueError:
@@ -474,6 +490,22 @@ class Updater:
                     daswatch.run_all(self.db, log=lambda m: None)
                 except Exception as e:
                     print(f"DAS licence watch after the FCC update: {type(e).__name__}: {str(e)[:200]}", flush=True)
+            elif job == "uls_daily":  # the FCC's daily change files over the weekly licences (ulsdaily.py)
+                import ulsdaily
+                from datadesk import clean, fetchkit
+                with self.lock:
+                    rebuilding = sorted(i for i in self.running if i.startswith("uls:"))
+                if rebuilding:  # another batch is rebuilding the licences: the changes go on after it (next tick), not under it
+                    self._mark(ids, state="idle", message="waiting for the weekly licence rebuild to finish; the daily changes go on after it")
+                    return
+                try:
+                    r = ulsdaily.run(self.db, uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m)[:200]), force=force)
+                except fetchkit.Refused as e:  # stops here; the Data desk files it for a person. Never tried another way
+                    raise RuntimeError(clean.scrub_text(f"{e} (HTTP {e.status or 'page'}): stopped, not tried another way")) from e
+                if r.get("skipped"):
+                    self._mark(ids, state="skipped", message=r["skipped"], last_checked=now())
+                    return
+                self._mark(ids, state="ok", message=r["message"], last_checked=now(), last_updated=now(), rows=r["rows"], weekly=r["weekly"])
             elif job == "asr":
                 import towers
                 rm = remote_modified(towers.URL)

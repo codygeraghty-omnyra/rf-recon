@@ -520,9 +520,33 @@ function printSheet(rows){
 }
 
 /* ---------- agencies (RadioReference-style) ---------- */
+// Filed with the FCC, not granted (ulsdaily.py): the search area's pending applications, kept apart from the licences.
+// Fetched once per search (the same query string), drawn from that copy on every redraw; nothing shows when there are none.
+function agPending(box){
+  const q=S.lastQuery;
+  if(!box || !q || !S.layerOn.has("uls")) return;
+  const draw=d=>{ if(!box.isConnected) return;
+    const f=(S.ag?.q||"").trim().toLowerCase();
+    const apps=(d.apps||[]).filter(a=>!f||`${a.applicant||""} ${a.call_sign||""} ${a.file_number} ${a.freqs.join(" ")}`.toLowerCase().includes(f))
+      .sort((a,b)=>(b.public_safety-a.public_safety)||((a.nearest_mi??1e9)-(b.nearest_mi??1e9)));
+    if(!apps.length){ box.innerHTML=""; return; }
+    const n=apps.length, ps=apps.filter(a=>a.public_safety).length;
+    box.innerHTML=`<details class="panel ag" style="padding:0;margin-bottom:8px"><summary style="padding:9px 12px;cursor:pointer"><span class="tag w">Pending</span> <b>Filed with the FCC, not granted</b> <span class="hint">· ${n} application${n===1?"":"s"}${ps?`, ${ps} public safety`:""} in this area · not licensed and not on the air yet</span></summary>
+      <div class="tw" style="border:0;border-top:1px solid var(--line);border-radius:0"><table><thead><tr><th>Applicant</th><th>Filed</th><th>For</th><th>Call sign</th><th>MHz asked for</th><th>Where</th><th>FCC application</th></tr></thead><tbody>`+
+      apps.map(a=>{ const p=a.places[0]||{}; return `<tr><td style="white-space:normal;min-width:170px;max-width:320px"><b>${esc(a.applicant||"")}</b>${a.public_safety?' <span class="tag">public safety</span>':""}<div class="hint">${esc(a.service_name||a.service||"")}</div></td>
+        <td>${esc(a.received||"")}</td><td>${esc(a.purpose||"")}</td><td class="mono">${a.call_sign?esc(a.call_sign):'<span class="hint">none yet</span>'}</td>
+        <td class="mono">${esc(a.freqs.slice(0,6).join(", "))}${a.freqs.length>6?` <span class="hint">+${a.freqs.length-6} more</span>`:""}</td>
+        <td>${p.dist_mi!=null?`${num(p.dist_mi,1)} mi · `:""}${esc([p.city,p.state].filter(Boolean).join(", "))}${a.places.length>1?` <span class="hint">+${a.places.length-1} more</span>`:""}</td>
+        <td class="mono"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.file_number)}</a></td></tr>`; }).join("")+
+      `</tbody></table></div><p class="hint" style="margin:6px 12px 10px">An application can change or be refused before the FCC grants it. From the FCC's daily application files${d.since?` since ${esc(d.since.slice(0,10))}`:""}: one filed earlier and untouched since isn't listed.</p></details>`; };
+  if(S.agPend?.q===q) return draw(S.agPend.d);
+  box.innerHTML="";
+  api("/api/uls/pending?"+q).then(d=>{ S.agPend={q, d}; if(S.lastQuery===q) draw(d); })
+    .catch(()=>{ S.agPend={q, d:{apps:[]}}; });  // the web version has none: nothing shows, and it isn't asked again this search
+}
 S.views.agencies = (v, rows) => {
   const uls=rows.filter(r=>r.layer==="uls"||r.layer==="uls_hist");
-  if(!uls.length){ v.innerHTML='<p class="status">No FCC-licensed entries with the current layers and filters.</p>'; return; }
+  if(!uls.length){ v.innerHTML='<p class="status">No FCC-licensed entries with the current layers and filters.</p><div id="agPend"></div>'; agPending($("#agPend")); return; }
   const A=S.ag=S.ag||{sort:"name", q:""};
   const q=A.q.trim().toLowerCase();
   const byCat=new Map(); for(const r of uls){ const k=r.licensee||r.call_sign; if(q && !`${k} ${r.call_sign} ${fmtF(r.freq_mhz)} ${r.ov_alpha_tag||""}`.toLowerCase().includes(q)) continue;
@@ -534,7 +558,7 @@ S.views.agencies = (v, rows) => {
       <label class="inl">Sort licensees <select id="agSort"><option value="name">A to Z</option><option value="near">Nearest first</option><option value="most">Most frequencies</option></select></label>
       <label class="inl">Find <input id="agQ" value="${esc(A.q)}" placeholder="licensee, call sign, MHz, tag" style="width:220px"></label>
       <button id="agOpen">Expand all</button><button id="agClose">Collapse all</button>
-      <span class="hint">${nLic.toLocaleString()} licensees in ${byCat.size} categories${q?` matching “${esc(A.q)}”`:""}. Click a row for details, labels and tones.</span></div>`+
+      <span class="hint">${nLic.toLocaleString()} licensees in ${byCat.size} categories${q?` matching “${esc(A.q)}”`:""}. Click a row for details, labels and tones.</span></div><div id="agPend"></div>`+
     [...byCat].sort((a,b)=>[...b[1].values()].flat().length-[...a[1].values()].flat().length).map(([cat,ags])=>
     `<h3 style="margin-top:14px"><span class="dot" style="background:${catColor2(cat)}"></span> ${esc(cat)} <span class="hint">· ${ags.size} licensees</span></h3>`+
     [...ags].sort(order).map(([name,rs])=>{ const byF=new Map(); for(const r of rs){ const k=fmtF(r.freq_mhz)+"|"+r.call_sign; if(!byF.has(k)) byF.set(k,[]); byF.get(k).push(r); }
@@ -548,6 +572,7 @@ S.views.agencies = (v, rows) => {
   let t; $("#agQ").oninput=e=>{ clearTimeout(t); t=setTimeout(()=>{ A.q=e.target.value; render(); const i=$("#agQ"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },300); };
   $("#agOpen").onclick=()=>v.querySelectorAll("details.ag").forEach(d=>d.open=true);
   $("#agClose").onclick=()=>v.querySelectorAll("details.ag").forEach(d=>d.open=false);
+  agPending($("#agPend"));
 };
 
 /* ---------- spectrum ---------- */

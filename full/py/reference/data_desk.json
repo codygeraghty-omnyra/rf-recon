@@ -1,0 +1,60 @@
+{
+ "_about": "The Data desk's own fields for each outside source (datadesk/registry.py), over reference/data_sources.json and static/research/permit_sources.json, which stay as they are. Keyed by source id: a catalogue source's id is its name in lower case with hyphens; a permit dataset's is permit:<its id>. Only what was decided by hand is here; every other field is worked out from the lists, and the loaded source names those in derived. route: server | pc | import | git; access: open | key | sign-in | form | paid; owner: Cody, or Josh for anything paid or contractual.",
+ "sources": {
+  "wigle": {
+   "route": "pc",
+   "why": "WiGLE refuses the server's cloud address (11/7); its personal key is for its holder's own machine, so Cody's PC fetches (ops/crowd_pull.py) and sends the points to the server. Never a route round a terms refusal."
+  },
+  "repeaterbook": {
+   "access": "form",
+   "owner": "Josh",
+   "status": "Off on the server (Cody 11/8 04:40)",
+   "note": "Its terms bar multi-source tools and commercial use without paid access; a PC pull doesn't change the terms.",
+   "person_task": "Ask RepeaterBook for permission or paid access for DAStastic's use, or find a permitted source for the same repeaters."
+  },
+  "usa-structures": {
+   "name": "FEMA/ORNL USA Structures",
+   "url": "https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24",
+   "status": "In DAStastic from 2026-11-08: a DAS job's Find the AHJ (asked only when pressed)",
+   "terms": "CC BY 4.0: credit Oak Ridge National Laboratory and FEMA",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24"
+   },
+   "note": "Heights in metres and patchy (none in Wilmington NC); rows say how they were checked (VAL_METHOD)."
+  },
+  "wi-911-response-boundaries": {
+   "name": "Wisconsin NG911 response boundaries (fire, EMS, law, 911 centre)",
+   "url": "https://www.arcgis.com/home/item.html?id=593d0da225b24601ad0c21598ef52fb0",
+   "status": "In DAStastic from 2026-11-08: a DAS job's Find the AHJ (asked only when pressed)",
+   "terms": "\"This data is free and open for use by the public\"",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.arcgis.com/home/item.html?id=593d0da225b24601ad0c21598ef52fb0"
+   }
+  },
+  "ky-911-response-boundaries": {
+   "name": "Kentucky 911 response boundaries (fire, EMS, law, 911 centre)",
+   "url": "https://services3.arcgis.com/ghsX9CKghMvyYjBU/arcgis/rest/services",
+   "status": "In DAStastic from 2026-11-08: a DAS job's Find the AHJ (asked only when pressed)",
+   "terms": "CC0 (public domain dedication), after a liability note",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://services3.arcgis.com/ghsX9CKghMvyYjBU/arcgis/rest/services"
+   }
+  },
+  "usgs-national-structures": {
+   "name": "USGS National Structures (fire/EMS and police stations)",
+   "url": "https://carto.nationalmap.gov/arcgis/rest/services/structures/MapServer",
+   "status": "In DAStastic from 2026-11-08: a DAS job's Find the AHJ (asked only when pressed)",
+   "terms": "U.S. public domain; credit asked",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits"
+   }
+  },
+  "fcc-uls-daily-change-files": {
+   "note": "Terms as read 2026-10-28 for the FCC's weekly and daily ULS files (US government public data). On 11/8 www.fcc.gov answered 403 to a fetch of its terms page, so it wasn't read again; data.fcc.gov serves the files themselves to DAStastic's own client (fetchkit, conditional requests)."
+  }
+ }
+}

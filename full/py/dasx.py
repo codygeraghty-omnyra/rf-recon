@@ -119,6 +119,12 @@ def route(con, method, p, qs, body):
             return 200, ahj.lookup(uls_import.DATA_DIR, float(j["data"]["lat"]), float(j["data"]["lon"]), j["data"].get("address") or "")
         except LookupError as e:
             return 404, {"error": str(e), "status": ahj.status(uls_import.DATA_DIR), "page": ahj.SOURCE["page"], "license": ahj.SOURCE["license"]}
+    if what == "here" and jid:  # the building, who responds and the nearest stations, from open data (deskpoint.py, Cody 11/8)
+        import deskpoint
+        j = _job(con, jid)
+        if j["data"].get("lat") is None:
+            raise ValueError("Set the building's location first.")
+        return 200, deskpoint.lookup(con, float(j["data"]["lat"]), float(j["data"]["lon"]))
     if what == "code" and jid:
         import codecheck
         j = _job(con, jid)

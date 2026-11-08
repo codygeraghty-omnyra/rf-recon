@@ -333,6 +333,29 @@ def find_member(zf, rtype):
     return None
 
 
+_CREATED = re.compile(r"File Creation Date:\s*\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d\d):(\d\d):(\d\d)\s+([A-Z]{2,4})\s+(\d{4})")
+_TZ_H = {"EST": -5, "EDT": -4, "CST": -6, "CDT": -5, "MST": -7, "MDT": -6, "PST": -8, "PDT": -7, "UTC": 0, "GMT": 0}
+_MON = {m: i for i, m in enumerate(("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), 1)}
+
+
+def file_created(path):
+    """When the FCC made a ULS zip, as UTC 'YYYY-MM-DD HH:MM:SS': its counts file says ("File Creation Date: Sat Nov  7
+    04:00:46 EST 2026"). With no counts file, the newest member's time, read as US Eastern standard time. None if neither."""
+    import datetime
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = {os.path.basename(n).lower(): n for n in zf.namelist()}
+            if "counts" in names:
+                m = _CREATED.search(zf.read(names["counts"])[:400].decode("latin-1"))
+                if m and m.group(1) in _MON:
+                    t = datetime.datetime(int(m.group(7)), _MON[m.group(1)], int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5)))
+                    return (t - datetime.timedelta(hours=_TZ_H.get(m.group(6), -5))).strftime("%Y-%m-%d %H:%M:%S")
+            newest = max((i.date_time for i in zf.infolist()), default=None)
+    except (OSError, zipfile.BadZipFile, ValueError):
+        return None
+    return (datetime.datetime(*newest) + datetime.timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S") if newest else None
+
+
 def load_zip(con, path, states, include_inactive, log):
     src = os.path.basename(path)
     zf = zipfile.ZipFile(path)
@@ -514,6 +537,17 @@ def build_links(con, log):
     return n
 
 
+TX_COLS = ("usi", "call_sign", "service", "service_name", "licensee", "category", "grant_date", "expired_date",
+           "loc_num", "address", "city", "county", "state", "lat", "lon", "ground_elev_m", "radius_km", "is_mobile", "ant_num",
+           "height_tip_m", "haat_m", "gain_dbi", "azimuth", "station_class", "freq_mhz", "freq_upper_mhz", "band",
+           "power_out_w", "erp_w", "units", "emissions", "bandwidth_khz", "mode", "tolerance", "tx_make", "tx_model", "digital_mod",
+           "ant_make", "ant_model", "polarization", "beamwidth", "height_raat_m", "status", "tower_reg")
+
+
+def tx_insert(table):
+    return f"INSERT INTO {table}({','.join(TX_COLS)}) VALUES(" + ",".join("?" * len(TX_COLS)) + ")"
+
+
 def build_tx(con, log):
     log("Building search table...")
     con.execute("DROP TABLE IF EXISTS tx_new")
@@ -521,6 +555,39 @@ def build_tx(con, log):
     # After the first swap SQLite stores this as CREATE TABLE "tx"(...), quoted, so match any form
     con.execute(re.sub(r'^CREATE TABLE (IF NOT EXISTS )?["`\[]?tx["`\]]?\s*\(', "CREATE TABLE tx_new(", ddl, count=1))
     con.execute(f"CREATE INDEX IF NOT EXISTS {raw_schema(con)}.em_key ON raw_emission(usi, loc_num, ant_num)")
+    out, n = [], 0
+    ins = tx_insert("tx_new")
+    for row in tx_rows(con):
+        out.append(row)
+        if len(out) >= 50000:
+            con.executemany(ins, out)
+            n += len(out)
+            out.clear()
+            log(f"  {n:,} rows...", end="\r")
+    if out:
+        con.executemany(ins, out)
+        n += len(out)
+    built = time.strftime("%Y-%m-%d %H:%M")
+    # history: remember every (call, freq, site) ever seen, so removed entries stay searchable
+    con.execute("""INSERT INTO tx_history(hkey,call_sign,freq_mhz,lat,lon,licensee,service,mode,county,state,first_seen,last_seen)
+        SELECT call_sign||'|'||printf('%.5f',freq_mhz)||'|'||CASE WHEN lat IS NULL THEN '' ELSE printf('%.4f',lat) END||'|'||CASE WHEN lon IS NULL THEN '' ELSE printf('%.4f',lon) END,
+               call_sign,freq_mhz,lat,lon,licensee,service,mode,county,state,?,? FROM tx_new WHERE status='A'
+        ON CONFLICT(hkey) DO UPDATE SET last_seen=excluded.last_seen, licensee=excluded.licensee, mode=excluded.mode""",
+                (built, built))
+    con.execute("DROP TABLE IF EXISTS tx")
+    con.execute("ALTER TABLE tx_new RENAME TO tx")
+    con.executescript(TX_INDEXES)
+    con.execute("INSERT OR REPLACE INTO meta VALUES('built_at', ?)", (built,))
+    con.execute("INSERT OR REPLACE INTO meta VALUES('tx_rows', ?)", (str(n),))
+    con.commit()
+    log(f"  {n:,} searchable transmitter/frequency rows")
+    build_places(con)
+    log("  town and county names indexed for search")
+
+
+def tx_rows(con):
+    """Each searchable row (TX_COLS, in order) from the raw_* tables: the weekly import's (build_tx) and the daily change
+    files' (ulsdaily.py), so a licence reads the same whichever file brought it."""
     # emissions per (usi, loc, ant, freq)
     em, dmod = {}, {}
     for usi, loc, ant, fm, code, rate, mtype in con.execute(
@@ -548,13 +615,6 @@ def build_tx(con, log):
     LEFT JOIN raw_location lo ON lo.usi = f.usi AND lo.loc_num = f.loc_num
     LEFT JOIN raw_antenna a ON a.usi = f.usi AND a.loc_num = f.loc_num AND a.ant_num = f.ant_num
     """
-    out, n = [], 0
-    ins = ("INSERT INTO tx_new(usi,call_sign,service,service_name,licensee,category,grant_date,expired_date,"
-           "loc_num,address,city,county,state,lat,lon,ground_elev_m,radius_km,is_mobile,ant_num,"
-           "height_tip_m,haat_m,gain_dbi,azimuth,station_class,freq_mhz,freq_upper_mhz,band,"
-           "power_out_w,erp_w,units,emissions,bandwidth_khz,mode,tolerance,tx_make,tx_model,digital_mod,"
-           "ant_make,ant_model,polarization,beamwidth,height_raat_m,status,tower_reg) "
-           "VALUES(" + ",".join("?" * 44) + ")")
     for r in con.execute(q):
         (usi, call, svc, lic, gd, ed, lstatus, treg, loc, addr, city, county, st, lat, lon, elev, rad, ant,
          htip, haat, gain, az, scls, fm, fup, pout, erp, units,
@@ -570,35 +630,11 @@ def build_tx(con, log):
                 modes.append(md)
         mode = " / ".join(sorted(modes)) or None
         is_mobile = 1 if (scls or "").startswith(("MO", "MOB")) or lat is None else 0
-        out.append((usi, call, svc, SERVICE_NAMES.get(svc, svc), lic, category_for(lic, svc), gd, ed,
-                    loc, addr, city, county, st, lat, lon, elev, rad, is_mobile, ant, htip, haat, gain,
-                    az, scls, fm, fup, band_for(fm), pout, erp, units, " ".join(codes), bw, mode,
-                    tol, txmk, txmd, "; ".join(dmod.get(key, [])) or None, amk, amd, pol, bwd, hraat,
-                    lstatus, treg))
-        if len(out) >= 50000:
-            con.executemany(ins, out)
-            n += len(out)
-            out.clear()
-            log(f"  {n:,} rows...", end="\r")
-    if out:
-        con.executemany(ins, out)
-        n += len(out)
-    built = time.strftime("%Y-%m-%d %H:%M")
-    # history: remember every (call, freq, site) ever seen, so removed entries stay searchable
-    con.execute("""INSERT INTO tx_history(hkey,call_sign,freq_mhz,lat,lon,licensee,service,mode,county,state,first_seen,last_seen)
-        SELECT call_sign||'|'||printf('%.5f',freq_mhz)||'|'||CASE WHEN lat IS NULL THEN '' ELSE printf('%.4f',lat) END||'|'||CASE WHEN lon IS NULL THEN '' ELSE printf('%.4f',lon) END,
-               call_sign,freq_mhz,lat,lon,licensee,service,mode,county,state,?,? FROM tx_new WHERE status='A'
-        ON CONFLICT(hkey) DO UPDATE SET last_seen=excluded.last_seen, licensee=excluded.licensee, mode=excluded.mode""",
-                (built, built))
-    con.execute("DROP TABLE IF EXISTS tx")
-    con.execute("ALTER TABLE tx_new RENAME TO tx")
-    con.executescript(TX_INDEXES)
-    con.execute("INSERT OR REPLACE INTO meta VALUES('built_at', ?)", (built,))
-    con.execute("INSERT OR REPLACE INTO meta VALUES('tx_rows', ?)", (str(n),))
-    con.commit()
-    log(f"  {n:,} searchable transmitter/frequency rows")
-    build_places(con)
-    log("  town and county names indexed for search")
+        yield (usi, call, svc, SERVICE_NAMES.get(svc, svc), lic, category_for(lic, svc), gd, ed,
+               loc, addr, city, county, st, lat, lon, elev, rad, is_mobile, ant, htip, haat, gain,
+               az, scls, fm, fup, band_for(fm), pout, erp, units, " ".join(codes), bw, mode,
+               tol, txmk, txmd, "; ".join(dmod.get(key, [])) or None, amk, amd, pol, bwd, hraat,
+               lstatus, treg)
 
 
 def build_places(con):
@@ -751,6 +787,8 @@ def run_import(db_path, paths, states=(), active_only=False, log=print):
             for p in paths:
                 log(f"Importing {p}")
                 load_zip(con, p, states, not active_only, log)
+                # the FCC's own date for this file: a daily change file made before it is already in it (ulsdaily.py)
+                con.execute("INSERT OR REPLACE INTO meta VALUES(?, ?)", ("uls_asof:" + os.path.basename(p), file_created(p) or ""))
             build_tx(con, log)
             ulscontacts.build(con, log)  # the licences' own contacts, for consent letters
             build_links(con, log)

@@ -922,6 +922,13 @@ async function dasPresurvey(el, j, save){
         <td class="n hint">${num(s.best_out,0)}</td><td class="n hint">${num(s.best_in,0)}</td><td class="n" style="color:${mc(s.margin_db)}">${num(s.margin_db,0)}</td>
         <td>${dasTerrainCell(s, (ps.terrain||{})[s.call_sign])}</td></tr>`; }).join("")}</tbody></table></div>
       <p class="hint">Downlink: what the agency's sites transmit (the building's donor antenna hears it). Uplink: what the radios transmit, from each licence's mobile entries, or the fixed 800 MHz (−45 MHz) and 700 MHz (+30 MHz) offsets. Bearing is from the building to the site (magnetic from NOAA's WMM2025): point the donor antenna there. The donor site is the strongest on the realistic estimate; ~ marks a level outside Hata's tested range (below 150 MHz, or under 1 km), so rougher.</p></div>
+    ${(r.pending||[]).length?`<div class="panel" id="psPend" style="margin-top:10px"><h3><span class="tag w">Pending</span> Filed with the FCC, not granted <span class="hint">· ${r.pending.length} public safety application${r.pending.length===1?"":"s"} within ${P.radius} mi · not on the air yet, so not in the systems above or the channel plan</span></h3>
+      <div class="tw"><table><thead><tr><th>Applicant</th><th>Filed</th><th>For</th><th>Call sign</th><th>MHz asked for</th><th>Nearest site</th><th>FCC application</th></tr></thead><tbody>
+      ${r.pending.map(a=>{ const p=a.places[0]||{}; return `<tr><td style="white-space:normal;min-width:170px;max-width:260px"><b>${esc(a.applicant||"")}</b><div class="hint">${esc(a.service_name||a.category||"")}</div></td>
+        <td>${esc(a.received||"")}</td><td>${esc(a.purpose||"")}</td><td class="mono">${a.call_sign?esc(a.call_sign):'<span class="hint">none yet</span>'}</td><td class="mono">${psFold(a.freqs,f=>esc(f))}</td>
+        <td>${p.dist_mi!=null?`${num(p.dist_mi,2)} mi`:""}<div class="hint">${esc([p.city,p.state].filter(Boolean).join(", "))}</div></td>
+        <td class="mono"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.file_number)}</a></td></tr>`; }).join("")}</tbody></table></div>
+      <p class="hint">An application can change or be refused before it's granted: ask the licensee before designing for it. From the FCC's daily application files${r.pending_since?` since ${esc(r.pending_since.slice(0,10))}`:""}.</p></div>`:""}
     <div id="psX" style="margin-top:10px"></div>
     <div id="psCell" style="margin-top:10px"></div>`;
   window.dasCellPresurvey?.($("#psCell"), j, save);  // the commercial carriers here (dascell.js)

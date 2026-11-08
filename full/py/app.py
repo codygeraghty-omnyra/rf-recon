@@ -94,6 +94,7 @@ import sigid  # noqa: E402
 import sigwiki  # noqa: E402
 import terrain  # noqa: E402
 import uls_import  # noqa: E402
+import ulsdaily  # noqa: E402
 import updater as updmod  # noqa: E402
 
 DB_PATH = uls_import.DB_PATH
@@ -762,7 +763,7 @@ def start_fieldpack(d):
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
                 "/api/cells", "/api/cells/import", "/api/cells/fetch", "/api/spectrum", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
-                "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid"}
+                "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid", "/api/uls/pending"}
 
 
 def coverage_args(qs):
@@ -1188,7 +1189,8 @@ def track_record():
     con = db()
     try:
         key = con.execute("SELECT COUNT(*), MAX(id) FROM capture_point").fetchone()
-        key = (tuple(key), con.execute("SELECT v FROM meta WHERE k='built_at'").fetchone())
+        key = (tuple(key), tuple(tuple(r) for r in con.execute(  # the weekly rebuild, and each day's changes (ulsdaily.py)
+            "SELECT k, v FROM meta WHERE k IN ('built_at', 'uls_daily_at') ORDER BY k")))
         missions = [dict(r) for r in con.execute("SELECT id, lat, lon, radius_mi FROM mission WHERE lat IS NOT NULL")]
         caps_by = {m["id"]: [dict(r, layer="captures") for r in con.execute("SELECT * FROM capture_point WHERE mission_id=?", (m["id"],))]
                    for m in missions}
@@ -2157,6 +2159,15 @@ class H(BaseHTTPRequestHandler):
                 if getattr(remote.ON, "user", None):  # remote viewers never start the stream on Cody's key
                     return self.send(200, ais.known(s_, n_, w_, e_))
                 return self.send(200, ais.ships(s_, n_, w_, e_, (get_setting("creds", {}) or {}).get("aisstream_key")))
+            if p == "/api/uls/pending":  # applications filed, not yet granted, in the search's area (ulsdaily.py): Agencies
+                area = area_filter(qs)
+                if not area:
+                    raise ValueError("Drop a pin or pick a state/county.")
+                con = db()
+                try:
+                    return self.send(200, ulsdaily.pending(con, area["sql"], area["args"], area["point"], area["radius"]))
+                finally:
+                    con.close()
             if p == "/api/mwlinks":  # microwave backhaul links with an end in the box (uls_import.build_links)
                 s_, n_, w_, e_ = (fnum(qs, k) for k in ("s", "n", "w", "e"))
                 if None in (s_, n_, w_, e_):
@@ -3169,6 +3180,13 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/update/status":
                 UPD.refresh_net_if_stale()  # the page polls this every 15 s
                 return self.send(200, UPD.snapshot())
+            if p == "/api/update/desk":  # the Data desk (desk.py, Cody 11/8): each source watched, and what needs a person
+                import desk
+                dc = db()
+                try:
+                    return self.send(200, desk.view(dc, UPD.snapshot()))
+                finally:
+                    dc.close()
             if p == "/api/fieldpacks":
                 return self.send(200, {"folder": fieldpack.PACK_DIR, "phone_url": PHONE_URL,
                                        "packs": fieldpack.list_packs(), "job": FP_JOB})
@@ -3512,6 +3530,27 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/update/resume":
                 UPD.resume_all()
                 return self.send(200, UPD.snapshot())
+            mt = re.match(r"^/api/update/desk/task/(\d+)$", p)
+            if mt:  # Done (the desk re-tests the source, and closes it only when the source answers) or Won't do (it stands)
+                import desk
+                from datadesk import persons
+                d, dc = self.body_json(), db()
+                try:
+                    persons.ensure(dc)
+                    who = getattr(remote.ON, "login", None) or "Cody"
+                    if d.get("action") == "done":
+                        persons.mark_done(dc, int(mt.group(1)), who)
+                        t = dc.execute("SELECT * FROM desk_task WHERE id=?", (int(mt.group(1)),)).fetchone()
+                        ups = [u for s in desk.sources() if s["id"] == (t["source_id"] if t else None) for u in s["updater"]]
+                        if ups:  # try the source again now, so the re-test doesn't wait for its next turn
+                            UPD.run_sources(ups, force=True)
+                    elif d.get("action") == "wontdo":
+                        persons.wont_do(dc, int(mt.group(1)), who, (d.get("why") or "")[:300] or "marked won't do")
+                    else:
+                        raise ValueError("Say done or wontdo.")
+                    return self.send(200, desk.view(dc, UPD.snapshot()))
+                finally:
+                    dc.close()
             if p == "/api/update/run":
                 d = self.body_json()
                 ids = d.get("ids")

@@ -283,6 +283,7 @@ const keySaved=(settings,k)=>k.fields.every(([f])=>settings.creds[f]);
 // (cells.py), carrier coverage (bdc.at), donor terrain and building outlines.
 const DAS_USES={"uls:LMpriv":"the pre-survey's public safety, business and government systems",
   "uls:LMcomm":"the pre-survey's commercial and SMR trunked systems",
+  "uls_daily":"the pre-survey's licences the day after they change, and its pending public safety applications",
   "asr":"donor site heights and owners, and the tower each cell site sits on",
   "bdc":"the cellular pre-survey's carriers at the building",
   "opencellid":"the cell sites near the building (cellular pre-survey)",
@@ -329,6 +330,43 @@ function pullLine(p){
     +`${p.waiting?`${p.waiting} area${p.waiting===1?"":"s"} waiting`:"nothing waiting"}, last brought ${esc(p.last_pc||"never")}.`;
 }
 const NY={pull:null, people:null};  // what Needs you was drawn with, so paintSources can redraw it after a switch
+// The Data desk (desk.py, Cody 11/8): each step a person must do for a source, with the link and the steps; Done makes the
+// desk try the source again, and the task closes only when the source answers. Below it, every source as it stands.
+const DESK={v:null};
+const DESK_STATE={fresh:"var(--good)", stale:"var(--warn)", failed:"var(--bad)", "needs a key":"var(--warn)", "never fetched":"var(--warn)", off:"inherit"};
+function deskPanel(dv){
+  DESK.v=dv; if(!dv) return '<div id="deskPanel"></div>';  // a place to fill when the desk answers
+  const tasks=dv.tasks||[], rows=dv.sources||[], c=dv.counts||{};
+  const kind={key:"a key", "sign-up":"a sign-up", form:"a form", permission:"a permission", paid:"paid access", refused:"a refusal"};
+  const task=t=>`<li class="desk-t" data-task="${t.id}" style="margin:0 0 10px"><b>${esc(t.source_name)}</b> · needs ${esc(kind[t.kind]||t.kind)} · for ${esc(t.who)}
+      ${t.status==="done"?`<span class="tag">done ${esc((t.done_at||"").slice(5,16).replace("T"," "))}: trying the source again</span>`:""}${t.seen>1?` <span class="hint">· seen ${t.seen} times</span>`:""}
+    <div>${esc(t.why||"")}${t.detail?` <span class="hint">(${esc(t.detail)})</span>`:""}</div>
+    ${t.link?`<div><a href="${esc(t.link)}" target="_blank" rel="noopener">${esc(t.link)}</a></div>`:""}
+    ${(t.steps||[]).length?`<ol style="margin:4px 0 4px 18px;padding:0">${t.steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>`:""}
+    ${t.enter||t.key_goes?`<div class="hint">${t.enter?`Enter: ${esc(t.enter)}. `:""}${t.key_goes?`It goes in: ${esc(t.key_goes)}.`:""}</div>`:""}
+    ${t.last_test_result&&t.status==="open"?`<div class="status err">Tried again ${esc((t.last_test||"").slice(5,16).replace("T"," "))}: ${esc(t.last_test_result)}</div>`:""}
+    <div class="row" style="gap:6px;margin-top:4px">${t.status==="open"?`<button class="sm primary" data-desk="done">Done</button>`:""}<button class="sm" data-desk="wontdo">Won't do</button></div></li>`;
+  const row=w=>`<tr><td>${esc(w.name)}</td><td><b style="color:${DESK_STATE[w.state]||"inherit"}">${esc(w.state)}</b></td><td>${w.last_good?esc(w.last_good.replace("T"," ")):"never"}</td>
+    <td>${w.cadence_h?`every ${w.cadence_h>=48?Math.round(w.cadence_h/24)+" days":w.cadence_h+" h"}`:""}</td><td>${esc(w.route)} · ${esc(w.access)}</td><td>${esc(w.owner)}</td>
+    <td class="hint">${esc(w.message||w.why||"")}</td></tr>`;
+  return `<div class="panel" id="deskPanel"><h3>Needs a person <span class="hint">· the Data desk: what a person has to do for a source to download</span></h3>
+    ${tasks.length?`<ul style="margin:6px 0 0 18px;padding:0">${tasks.map(task).join("")}</ul>`
+      :'<p class="hint" style="margin:0">Nothing: no source is waiting on a key, a sign-up, a form or a permission, and none was refused.</p>'}
+    ${(dv.problems||[]).length?`<p class="status err" style="margin:6px 0 0">Registry: ${dv.problems.map(esc).join("; ")}</p>`:""}
+    <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Every source, watched: ${["fresh","stale","failed","needs a key","never fetched","off"].filter(k=>c[k]).map(k=>`${c[k]} ${k}`).join(", ")||"none"}</summary>
+      <div class="tw" style="margin-top:6px"><table><thead><tr><th>Source</th><th>State</th><th>Last good</th><th>Fetched</th><th>Route · access</th><th>Owner</th><th>Why</th></tr></thead>
+      <tbody>${rows.map(row).join("")}</tbody></table></div></details></div>`;
+}
+function wireDesk(){
+  const p=$("#deskPanel"); if(!p) return;
+  p.onclick=async e=>{ const b=e.target.closest("[data-desk]"); if(!b) return;
+    const li=b.closest("[data-task]"), act=b.dataset.desk;
+    let why=""; if(act==="wontdo"){ why=prompt("Why won't it be done? (it stays on record)", ""); if(why===null) return; }
+    b.disabled=true;
+    try{ const dv=await post(`/api/update/desk/task/${li.dataset.task}`, {action:act, why});
+      $("#deskPanel").outerHTML=deskPanel(dv); wireDesk(); const ny=$("#needsYou"); if(ny) ny.outerHTML=needsYou(NY.pull, NY.people); }
+    catch(err){ b.disabled=false; alert(err.message); } };
+}
 function needsYou(pull, people){
   NY.pull=pull; NY.people=people;
   const u=UPD; if(!u) return "";
@@ -344,6 +382,8 @@ function needsYou(pull, people){
   }
   if(pull && pull.waiting && pullAge(pull)>24)
     out.push(`<b>WiGLE</b>: ${pull.waiting} area${pull.waiting===1?"":"s"} waiting for Cody's PC, which ${pull.last_pc?`last brought points ${esc(pull.last_pc)}`:"hasn't brought any yet"}. It fetches every 15 minutes while it's on.`);
+  const dt=(DESK.v?.tasks||[]).filter(t=>t.status==="open").length;
+  if(dt) out.push(`<b>${dt} data source${dt===1?"":"s"}</b> need${dt===1?"s":""} a person: see Needs a person, below.`);
   return `<div class="panel" id="needsYou"><h3>Needs you here</h3>${out.length?`<ul style="margin:4px 0 0 18px;padding:0">${out.map(x=>`<li>${x}</li>`).join("")}</ul>`
     :'<p class="hint" style="margin:0">Nothing: every source that\'s on has its key and its last run went through.</p>'}${news.length?`<p class="hint" style="margin:8px 0 0">New: ${news.join(" ")}</p>`:""}</div>`;
 }
@@ -356,9 +396,10 @@ S.views.data = async (v) => {
   let people=null; try{ people=await api("/api/remote"); }catch(e){ /* not the admin, or no remote door: no sign-in news */ }
   // where each DAS job's files are kept: here since 11/8, not across the top of the DAS board (UX review 11/8 #15)
   let dasDir=S.das?.folder??null; if(dasDir==null) try{ dasDir=(await api("/api/das/jobs")).folder??null; }catch(e){ /* no DAS jobs on this copy: the panel says it couldn't read the folder */ }
+  // the desk is drawn as it was last time and filled in when it answers: the tab doesn't wait for it (11/8, a slower tab fails)
   if(gen!==S.viewGen) return;  // you moved on while it loaded
   const c=navigator.connection||{};
-  v.innerHTML=`${needsYou(pull, people)}
+  v.innerHTML=`${needsYou(pull, people)}${deskPanel(DESK.v)}
   <div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Connection</h3><div id="netCard"></div>
       <p class="hint">Browser reports: ${navigator.onLine?"online":"offline"}${c.type?` · ${esc(c.type)}`:""}${c.effectiveType?` · ${esc(c.effectiveType)}`:""}${c.downlink?` · ~${c.downlink} Mb/s`:""}${c.saveData?" · data saver on":""}</p>
@@ -618,6 +659,11 @@ S.views.data = async (v) => {
     catch(e){ $("#raMsg").textContent=e.message; } };
   $("#raAdd").onclick=()=>raAdd($("#raName").value); $("#raName").onkeydown=e=>{ if(e.key==="Enter") raAdd($("#raName").value); };
   raPaint();
+  wireDesk();
+  // the Data desk is asked once the tab is drawn: asked beside the tab's own calls it built the same snapshot at the same
+  // time and slowed the tab (11/8, measured: median 640 ms against 460); drawn last time's way meanwhile
+  api("/api/update/desk").catch(()=>null).then(dv=>{ if(gen!==S.viewGen||!dv) return; const p=$("#deskPanel"); if(!p) return;
+    p.outerHTML=deskPanel(dv); wireDesk(); const ny=$("#needsYou"); if(ny) ny.outerHTML=needsYou(NY.pull, NY.people); });
   $("#netCheck").onclick=async()=>{ $("#netCard").innerHTML='<p class="hint">Checking…</p>'; UPD=await post("/api/net/hint?check=1",{type:c.type||null,effectiveType:c.effectiveType||null}); paintNet(); paintSources(); };
   const cfg=async body=>{ UPD=await post("/api/update/config",body); paintNet(); paintSources(); };
   $("#uAuto").onchange=e=>cfg({auto:e.target.checked});

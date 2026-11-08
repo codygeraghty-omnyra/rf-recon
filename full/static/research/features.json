@@ -947,6 +947,16 @@
      ]
     },
     {
+     "name": "Filed, not granted",
+     "text": "Land mobile applications filed with the FCC and not granted yet, for the search area, in a collapsed panel marked Pending, public safety first: applicant, date filed, new or changed, frequencies asked for, where, and the FCC application link. Never among the licences; gone once the FCC grants, dismisses or withdraws them. Kept from the first daily file read.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-1039",
+      "ulsdaily.py",
+      "static/views.js"
+     ]
+    },
+    {
      "name": "Sort, find, expand",
      "text": "Sort licensees A to Z, nearest first or by most frequencies. Find matches licensee, call sign, MHz or alpha tag as you type; Expand all and Collapse all open or fold every panel.",
      "src": [
@@ -1794,6 +1804,17 @@
      ]
     },
     {
+     "name": "Pending public safety applications",
+     "group": "pre-survey and screening",
+     "text": "The pre-survey lists public safety applications filed with the FCC and not granted yet within its radius, apart from the systems and the channel plan.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-1039",
+      "ulsdaily.py",
+      "static/das.js"
+     ]
+    },
+    {
      "name": "Licensee consent letters",
      "text": "One letter per licensee asking consent to retransmit under 47 CFR 90.219, listing its channels, addressed to the licence's own FCC contact; with no record, nothing is guessed. Print it, save it as a PDF, or email it.",
      "group": "pre-survey and screening",
@@ -2025,6 +2046,17 @@
      "src": [
       "d-2026-11-04-night",
       "ahj.py",
+      "static/dasx.js",
+      "d-2026-11-08-1039"
+     ]
+    },
+    {
+     "name": "What's at the address",
+     "group": "requirements and AHJ",
+     "text": "Find the AHJ also shows the building at the pin (use, floor area, height, how it was checked: USA Structures), who responds there by the state's 911 boundaries (fire, EMS, law, 911 centre: Wisconsin and Kentucky) and the nearest fire, EMS and police stations where each really is (USGS). Asked only when pressed, kept on the job.",
+     "src": [
+      "d-2026-11-08-1039",
+      "deskpoint.py",
       "static/dasx.js"
      ]
     },
@@ -3558,7 +3590,19 @@
       "static/mission.js",
       "tests/ui_sweep.mjs",
       "d-2026-11-08-0220",
-      "d-2026-11-08-0520"
+      "d-2026-11-08-0520",
+      "d-2026-11-08-1039"
+     ]
+    },
+    {
+     "name": "Needs a person",
+     "text": "The Data desk: each thing a person has to do for a data source to download (a key a switched-on source lacks, a provider that refused, a permission to ask for), with why, who it's for (Josh for anything paid or contractual), the page to open, the steps and where the key goes. Done tries the source again at once and the task closes only when it answers; Won't do asks why and stands. Below it, every downloaded source as fresh, stale, failed, waiting for a key, never fetched or off, with its last good update.",
+     "src": [
+      "d-2026-11-08-1039",
+      "desk.py",
+      "datadesk/",
+      "static/mission.js",
+      "reference/data_desk.json"
      ]
     },
     {
@@ -4441,6 +4485,17 @@
      "text": "Private and commercial land mobile, broadcast auxiliary, paging, and marine and aviation ground licences, rebuilt into one search table. Weekly, on by default, downloading only files the FCC changed; no key, every build.",
      "src": [
       "d-2026-10-27",
+      "updater.py",
+      "d-2026-11-08-1039"
+     ]
+    },
+    {
+     "name": "FCC ULS daily changes",
+     "text": "The FCC's daily change files, Monday to Saturday: new and changed private land mobile licences (and 800 MHz cellular sites where loaded) the day after, cancelled ones to History, over Sunday's full file, which still wins. Applications filed and not granted kept apart as pending. Every day, on by default, conditional requests; no key.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-1039",
+      "ulsdaily.py",
       "updater.py"
      ]
     },
@@ -4742,6 +4797,15 @@
       "d-2026-11-04-night",
       "updater.py",
       "ahj.py"
+     ]
+    },
+    {
+     "name": "Buildings, 911 boundaries and stations",
+     "text": "FEMA/ORNL USA Structures (CC BY 4.0), the Wisconsin and Kentucky 911 response boundaries (open; CC0) and USGS National Structures (public domain), asked per DAS job when Find the AHJ is pressed. No key, nothing downloaded in bulk.",
+     "src": [
+      "d-2026-11-08-1039",
+      "deskpoint.py",
+      "reference/data_desk.json"
      ]
     },
     {

@@ -439,6 +439,21 @@ window.dasAudit = async (el, j, save) => {
   $("#laOff").onclick = e => { e.preventDefault(); keep({ flag: false }); };
 };
 
+/* ---------- what open data says is at the job (deskpoint.py, Cody 11/8): the building, who responds, the nearest stations ---------- */
+const dxHere = H => {
+  if(!H) return "";
+  const b = H.building, row = (t, body) => `<div style="border-top:1px solid var(--line);padding:5px 0"><b>${t}</b>${body}</div>`;
+  return `<div style="margin-top:8px">
+    ${b ? row(`The building${b.inside ? "" : ' <span class="hint">(the nearest within 40 m of the pin)</span>'}`,
+      `<div>${esc(b.occupancy || "Use not recorded")}${b.sq_ft ? ` · ${b.sq_ft.toLocaleString()} sq ft` : ""}${b.height_m ? ` · ${b.height_m} m (${b.height_ft} ft) high` : " · no height recorded"}${b.address ? ` · ${esc(b.address)}` : ""}</div>`
+      + (b.checked ? `<div class="hint">USA Structures marks this building ${esc(b.checked.toLowerCase())}.</div>` : "")) : ""}
+    ${(H.responders || []).length ? row('Who responds here <span class="hint">· the state\'s 911 boundaries</span>', H.responders.map(r => `<div>${esc(r.what)}: ${esc(r.name)}</div>`).join("")) : ""}
+    ${(H.stations || []).length ? row('Nearest stations <span class="hint">· where each one is</span>', H.stations.map(x => `<div>${esc(x.name)} <span class="hint">· ${esc(x.what)} · ${x.miles} mi${x.address ? ` · ${esc(x.address)}` : ""}</span></div>`).join("")) : ""}
+    ${(H.refused || []).length ? `<p class="status err" style="margin:4px 0 0">${esc(H.refused.join("; "))}. It's on Data &amp; updates, Needs a person.</p>` : ""}
+    ${(H.failed || []).length ? `<p class="hint" style="margin:4px 0 0">Not reached this time: ${esc(H.failed.join("; "))}</p>` : ""}
+    ${(H.credits || []).length ? `<p class="hint" style="margin:4px 0 0">${esc(H.credits.join(" · "))}; looked ${esc(H.at)}.</p>` : ""}</div>`;
+};
+
 /* ---------- AHJ guess (Overview) ---------- */
 window.dasAhjGuess = (el, j, save) => {
   const d = j.data || {}, G = d.ahj_guess;
@@ -447,8 +462,11 @@ window.dasAhjGuess = (el, j, save) => {
         <div class="hint">${esc(x.hq)}${x.dept_type ? ` · ${esc(x.dept_type)}` : ""}${x.stations ? ` · ${x.stations} station${x.stations === 1 ? "" : "s"}` : ""}</div><div class="hint">${esc(x.why.join("; "))}</div></span>
       <button class="sm" data-ahj="${i}">Use as AHJ</button></div></div>`;
   el.innerHTML = `<div class="row" style="gap:8px;align-items:center;margin-top:6px"><button id="ahjGo" title="Fire departments covering this address, from the USFA National Fire Department Registry and the Census place the building is in">Suggest the AHJ (USFA fire department list)</button><span class="hint" id="ahjMsg"></span></div>
-    <div id="ahjOut">${G ? `${G.list.length ? G.list.slice(0, 4).map(card).join("") : '<p class="hint">No department matched this address.</p>'}<p class="hint">${esc(G.where || "")} · ${esc(G.source || "")}, looked ${esc(G.at)}. ${esc(G.note || "")}</p>` : ""}</div>`;
+    <div id="ahjOut">${G ? `${G.list.length ? G.list.slice(0, 4).map(card).join("") : '<p class="hint">No department matched this address.</p>'}<p class="hint">${esc(G.where || "")} · ${esc(G.source || "")}, looked ${esc(G.at)}. ${esc(G.note || "")}</p>` : ""}</div>
+    <div id="ahjHere">${dxHere(d.ahj_here)}</div>`;
   const go = async () => { if(d.lat == null){ alert("Set the building's location first."); return; } const b = $("#ahjGo"), msg = $("#ahjMsg"); b.disabled = true; msg.textContent = "Looking…";
+    const here = api(`/api/das/x/here/${j.id}`).catch(e => ({ error: e.message }));  // the building, who responds, stations (deskpoint.py)
+    const keepHere = async () => { const h = await here; if(!h.error) j = await save({ ahj_here: h }); return h; };
     try{ let r; try{ r = await api(`/api/das/x/ahj/${j.id}`); }
       catch(e){ if(!/isn't on this copy/.test(e.message)) throw e;
         if(!confirm("The USFA fire department list (about 12 MB, US government) isn't on this copy yet. Download it now?")){ msg.textContent = "Not downloaded."; b.disabled = false; return; }
@@ -456,8 +474,10 @@ window.dasAhjGuess = (el, j, save) => {
       const w = r.where || {}, where = w.state ? `The building is in ${[w.place, w.county, w.state].filter(Boolean).join(", ")} (${w.source})` : r.typed?.state ? `From the job's address: ${[r.typed.city, r.typed.state].filter(Boolean).join(", ")}` : "The Census place couldn't be read: nearest departments";
       j = await save({ ahj_guess: { at: today(), where, source: `${r.registry.name}, ${r.registry.as_of}`, note: r.note,
         list: r.suggestions.map(x => ({ name: x.name, fdid: x.fdid, phone: x.phone, website: x.website, hq: x.hq, dept_type: x.dept_type, stations: x.stations, why: x.why })) } });
+      await keepHere();
       window.dasAhjGuess(el, j, save); }
-    catch(e){ b.disabled = false; msg.textContent = e.message; } };
+    catch(e){ const h = await keepHere().catch(() => ({})); if(!h.error && h.at) window.dasAhjGuess(el, j, save);
+      const b2 = $("#ahjGo"), m2 = $("#ahjMsg"); if(b2) b2.disabled = false; if(m2) m2.textContent = e.message; } };
   $("#ahjGo").onclick = go;
   el.querySelectorAll("[data-ahj]").forEach(b => b.onclick = async () => { const x = G.list[+b.dataset.ahj];
     try{ const c = await window.dasAhjContact(x);

@@ -67,6 +67,38 @@ def index_ready(con):
         con.execute("SELECT 1 FROM sqlite_master WHERE name='lic_fts'").fetchone() is not None
 
 
+FTS_ROWS = """SELECT MAX(licensee), call_sign, MAX(service_name), MAX(state), MAX(city), COUNT(*), MAX(lat), MAX(lon)
+              FROM tx WHERE status='A' AND licensee IS NOT NULL {} GROUP BY call_sign"""
+
+
+def index_rows(con, calls):
+    """[(rowid, call sign)] of these call signs in the name index: one pass over it (the column isn't indexed; about 2.5 s at
+    1.5 million call signs), so a caller runs it before taking the write lock. [] when the index isn't built for this data."""
+    want = {c for c in calls if c}
+    if not want or not index_ready(con):
+        return []
+    return [(rid, cs) for rid, cs in con.execute("SELECT rowid, call_sign FROM lic_fts") if cs in want]
+
+
+def index_calls(con, calls, old=None):
+    """Bring these call signs' rows in the name index up to date with tx, inside the caller's transaction (the FCC's daily
+    changes, ulsdaily.py). Nothing when the index isn't built for the data loaded now: its next build takes them.
+    old: index_rows() found before the transaction; each is deleted only if its rowid still holds that call sign.
+    Returns rows written."""
+    calls = sorted({c for c in calls if c})
+    if not calls or not index_ready(con):
+        return 0
+    old = index_rows(con, calls) if old is None else old
+    for i in range(0, len(old), 400):
+        ids, cs = [p[0] for p in old[i:i + 400]], sorted({p[1] for p in old[i:i + 400]})
+        con.execute(f"DELETE FROM lic_fts WHERE rowid IN ({','.join('?' * len(ids))}) AND call_sign IN ({','.join('?' * len(cs))})", ids + cs)
+    n = 0
+    for i in range(0, len(calls), 500):
+        ch = calls[i:i + 500]
+        n += con.execute("INSERT INTO lic_fts " + FTS_ROWS.format(f"AND call_sign IN ({','.join('?' * len(ch))})"), ch).rowcount
+    return n
+
+
 def build_index(db_path):
     """The licensee name index: one row per active call sign. About a minute on the whole US; runs in the background."""
     with _LOCK:
@@ -81,8 +113,7 @@ def build_index(db_path):
             con.executescript("""DROP TABLE IF EXISTS lic_fts;
                 CREATE VIRTUAL TABLE lic_fts USING fts5(licensee, call_sign UNINDEXED, service UNINDEXED, state UNINDEXED,
                     city UNINDEXED, n UNINDEXED, lat UNINDEXED, lon UNINDEXED, tokenize="unicode61 remove_diacritics 2");""")
-            con.execute("""INSERT INTO lic_fts SELECT MAX(licensee), call_sign, MAX(service_name), MAX(state), MAX(city), COUNT(*),
-                           MAX(lat), MAX(lon) FROM tx WHERE status='A' AND licensee IS NOT NULL GROUP BY call_sign""")
+            con.execute("INSERT INTO lic_fts " + FTS_ROWS.format(""))
             con.execute("INSERT OR REPLACE INTO meta(k, v) VALUES('lic_fts_built', ?)", (built,))
             con.commit()
             INDEX.update(state="ready", took_s=round(time.time() - INDEX["started"]))

@@ -160,11 +160,12 @@ def clear():
 
 
 def uls_stamp(con):
-    """Changes when the FCC data is rebuilt (uls_import writes meta built_at and tx_rows)."""
+    """Changes when the FCC data is rebuilt (uls_import writes meta built_at and tx_rows) or the day's changes go on
+    (ulsdaily.py writes uls_daily_at)."""
     try:
-        got = dict(con.execute("SELECT k, v FROM meta WHERE k IN ('built_at', 'tx_rows')").fetchall())
+        got = dict(con.execute("SELECT k, v FROM meta WHERE k IN ('built_at', 'tx_rows', 'uls_daily_at')").fetchall())
         if got:
-            return f"{got.get('built_at')}|{got.get('tx_rows')}"
+            return f"{got.get('built_at')}|{got.get('tx_rows')}" + (f"|{got['uls_daily_at']}" if got.get("uls_daily_at") else "")
     except sqlite3.Error:
         pass
     try:

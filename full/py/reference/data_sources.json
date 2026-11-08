@@ -435,6 +435,19 @@
    ]
   },
   {
+   "name": "FCC ULS daily change files",
+   "url": "https://www.fcc.gov/uls/transactions/daily-weekly",
+   "what": "Each day's new, changed, cancelled and expired private land mobile licences (l_lp; 800 MHz cellular l_cl where those are loaded) and the land mobile applications filed (a_lp), Monday to Saturday",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government public data",
+   "area": "Bulk daily files (data.fcc.gov/download/pub/uls/daily/), about 20 to 400 KB each, each replaced a week later",
+   "status": "In DAStastic from 2026-11-08, on by default: changed licences go into the licence data the next day (Sunday's full file still wins); applications filed, not granted, show apart on Agencies and the DAS pre-survey",
+   "updater": [
+    "uls_daily"
+   ]
+  },
+  {
    "name": "OpenStreetMap map tiles",
    "url": "https://operations.osmfoundation.org/policies/tiles/",
    "what": "The Street base map",

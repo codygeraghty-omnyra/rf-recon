@@ -651,7 +651,7 @@ async function boot(){
     const [meta, states, lib, bld] = await Promise.all([api("/api/meta"), api("/api/states"), api("/api/sigid"), api("/api/build").catch(()=>null)]);
     S.build=bld;  // personal or sold, what the sold build leaves out, the data notices (build.py)
     S.lib=lib.library; S.bandplan=lib.bandplan; S.meta=meta;
-    $("#meta").textContent = meta.built_at ? `FCC data ${meta.built_at} · ${Number(meta.tx_rows||0).toLocaleString()} entries${meta.towers_rows?` · ${Number(meta.towers_rows).toLocaleString()} towers`:""}` : "No FCC data yet — see Data & updates";
+    $("#meta").textContent = meta.built_at ? `FCC data ${meta.built_at}${meta.uls_daily_asof?` + daily changes to ${meta.uls_daily_asof.slice(0,10)}`:""} · ${Number(meta.tx_rows||0).toLocaleString()} entries${meta.towers_rows?` · ${Number(meta.towers_rows).toLocaleString()} towers`:""}` : "No FCC data yet — see Data & updates";
     $("#state").innerHTML='<option value="">—</option>'+states.map(s=>`<option>${esc(s.state)}</option>`).join("");
     $("#meta").title=$("#meta").textContent;
   }catch(e){ $("#meta").textContent="Server error: "+e.message; }

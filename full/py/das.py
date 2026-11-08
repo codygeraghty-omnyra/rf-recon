@@ -148,8 +148,11 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=None, threshold_dbm=-95.0, 
         site["freqs"].add(f)
         if out is not None and (site["best_out"] is None or out > site["best_out"]):
             site["best_out"] = round(out, 1)
+    import ulsdaily  # filed, not granted: public safety applications within the radius, from the FCC's daily files
+    pend = ulsdaily.pending(con, "lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", (s, n, w, e), (lat, lon), radius_mi, ps_only=True)
+    pend = {"pending": pend["apps"], "pending_since": pend.get("since"), "pending_asof": pend.get("asof")} if pend["loaded"] else {}
     if not systems:
-        return {"systems": [], "bands": [], "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db, "entry_loss": entry}
+        return {"systems": [], "bands": [], "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db, "entry_loss": entry, **pend}
 
     # uplink: the radios' transmit frequencies, from each licence's mobile rows (or the fixed 700/800 MHz offsets)
     calls = list(systems)
@@ -210,7 +213,7 @@ def presurvey(con, lat, lon, radius_mi=15.0, loss_db=None, threshold_dbm=-95.0, 
     bands = [{"band": b, "lo": min(fs), "hi": max(fs), "channels": len(set(fs))} for b, fs in need.items()]
     bands.sort(key=lambda x: x["lo"])
     return {"systems": out_systems, "bands": bands, "firstnet": FIRSTNET, "threshold_dbm": threshold_dbm, "loss_db": loss_db,
-            "radius_mi": radius_mi, "entry_loss": entry}
+            "radius_mi": radius_mi, "entry_loss": entry, **pend}
 
 
 # ---------------------------------------------------------------- the building's outline (OpenStreetMap)
