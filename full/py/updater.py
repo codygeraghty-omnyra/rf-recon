@@ -173,7 +173,7 @@ def check_online(timeout=5):
 
 
 def remote_modified(url):
-    return uls_import.last_modified(url)  # falls back to curl where the FCC refuses Python's requests
+    return uls_import.last_modified(url)  # a one-byte GET by DAStastic's own downloader; a refusal is None, never curl
 
 
 # ---------------------------------------------------------------- updater

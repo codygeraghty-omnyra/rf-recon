@@ -98,22 +98,30 @@ function isoTime(s){ if(!s) return ""; s=String(s).trim(); let m;
   return s; }
 function timeOf(r){ return isoTime(r.ts || r.last_seen || r.grant_date || r.constructed || ""); }
 const tval = r => { const t=Date.parse(timeOf(r)); return isNaN(t) ? Infinity : t; };
+// a header press sorts every record by that column, as a spreadsheet would (rfsort.js), not only the rows shown; the
+// Order picker's own choices stay as they were and take over again when one is picked. No. is a row's place: it doesn't sort.
+const AN_VAL={time:timeOf, dt:timeOf, src:r=>LAYERS[r.layer]?.label||r.layer, type:typeOf, freq:r=>r.freq_mhz, ident:r=>r.call_sign||r.ident||r.reg||"",
+  name:titleOf, dbm:levelOf, dist:r=>r.dist_mi, band:r=>r.band||"", info:r=>infoOf(r)};
+rfSort.own("anEndpoints", ()=>render());  // Statistics' endpoints: the first 300 of every endpoint, sorted (anStats)
+rfSort.own("pktTable", m=>{ const vis=AN_COLS.filter(([k])=>!(S.anHide||new Set()).has(k)), k=vis[m.c]?.[0]; if(!AN_VAL[k]) return; S.anCol={k, d:m.d}; render(); });
 S.views.analyzer = (v, rowsIn) => {
   let rows=rowsIn, err="";
   if(S.filterExpr.trim()){ try{ const f=compileFilter(S.filterExpr); rows=rowsIn.filter(r=>{ try{ return f(r); }catch(e){ return false; } }); }catch(e){ err=e.message; } }
   const order=S.anOrder||"time", dir=S.anDir||1;
   const key={time:tval, dist:r=>r.dist_mi??1e9, freq:r=>r.freq_mhz??1e9, level:r=>-(levelOf(r)??-999)}[order];
   rows=rows.slice().sort((a,b)=>{ const x=key(a),y=key(b); return (x>y?1:x<y?-1:0)*dir; });
+  const AC=S.anCol&&AN_VAL[S.anCol.k]?S.anCol:null;  // a header pressed: that column over every record, the Order picker's order breaking ties
+  if(AC) rows=rfSort.by(rows, AN_VAL[AC.k], AC.d);
   const hide=S.anHide||(S.anHide=new Set());  // columns the user turned off
   S.anRows=rows;
-  const t0=rows.length&&order==="time"?tval(rows[0]):NaN;
+  const t0=rows.length&&(AC?AC.k==="time"||AC.k==="dt":order==="time")?tval(rows[0]):NaN;
   v.innerHTML=`
     <div class="panel"><div class="filterbar">
       <input id="dfilter" class="${S.filterExpr?(err?"bad":"ok"):""}" placeholder='Display filter, e.g.  type == "DMR" && dbm > -80   ·   freq >= 450 && freq < 470   ·   licensee contains "county"' value="${esc(S.filterExpr)}">
       <button class="primary" id="dApply">Apply</button><button id="dClear">Clear</button>
       <select id="dPreset"><option value="">Presets…</option>${PRESETS.map(([n,x])=>`<option value="${esc(x)}">${esc(n)}</option>`).join("")}</select>
-      <label class="inl">Order <select id="anOrder">${[["time","Time"],["dist","Distance"],["freq","Frequency"],["level","Level"]].map(([k,l])=>`<option value="${k}" ${order===k?"selected":""}>${l}</option>`).join("")}</select></label>
-      <button id="anDir" title="Reverse the order">${dir>0?"↑ Ascending":"↓ Descending"}</button>
+      <label class="inl">Order <select id="anOrder">${AC?`<option value="" selected>${esc((AN_COLS.find(([k])=>k===AC.k)||[])[1]||"")} column</option>`:""}${[["time","Time"],["dist","Distance"],["freq","Frequency"],["level","Level"]].map(([k,l])=>`<option value="${k}" ${!AC&&order===k?"selected":""}>${l}</option>`).join("")}</select></label>
+      <button id="anDir" title="Reverse the order">${(AC?AC.d:dir)>0?"↑ Ascending":"↓ Descending"}</button>
       <label class="inl">Rows <select id="anLim">${[500,3000,10000,25000].map(n=>`<option ${(S.anLimit||3000)===n?"selected":""}>${n}</option>`).join("")}</select></label>
       <div class="seg"><button data-an="packets" class="${S.anView!=="stats"?"on":""}">Records</button><button data-an="stats" class="${S.anView==="stats"?"on":""}">Statistics</button></div>
     </div>
@@ -125,8 +133,8 @@ S.views.analyzer = (v, rowsIn) => {
   $("#dApply").onclick=apply; $("#dfilter").onkeydown=e=>{ if(e.key==="Enter") apply(); };
   $("#dClear").onclick=()=>{ S.filterExpr=""; render(); };
   $("#dPreset").onchange=e=>{ if(e.target.value){ S.filterExpr=e.target.value; render(); } };
-  $("#anOrder").onchange=e=>{ S.anOrder=e.target.value; render(); };
-  $("#anDir").onclick=()=>{ S.anDir=-dir; render(); };
+  $("#anOrder").onchange=e=>{ if(!e.target.value) return; S.anCol=null; S.anOrder=e.target.value; render(); };
+  $("#anDir").onclick=()=>{ if(AC) S.anCol={...AC, d:-AC.d}; else S.anDir=-dir; render(); };
   $("#anLim").onchange=e=>{ S.anLimit=+e.target.value; render(); };
   v.querySelectorAll("[data-ancol]").forEach(c=>c.onclick=()=>{ const k=c.dataset.ancol; hide.has(k)?hide.delete(k):hide.add(k); render(); });
   v.querySelectorAll("[data-an]").forEach(b=>b.onclick=()=>{ S.anView=b.dataset.an; render(); });
@@ -142,7 +150,8 @@ S.views.analyzer = (v, rowsIn) => {
     name:r=>`<td>${esc(titleOf(r))}</td>`, dbm:r=>{ const l=levelOf(r); return `<td class="n" style="${l!=null?bar((l-lmin)/((lmax-lmin)||1),"#1f6feb"):""}">${l!=null?num(l,1):""}</td>`; },
     dist:r=>`<td class="n" style="${r.dist_mi!=null?bar(r.dist_mi/dmax,"#8250df"):""}">${num(r.dist_mi,2)}</td>`, band:r=>`<td data-fk="band" data-fv="${esc(r.band||"")}">${esc(r.band||"")}</td>`, info:r=>`<td>${esc(infoOf(r))}</td>`};
   const body=shown.map((r,i)=>`<tr data-i="${i}" style="background:color-mix(in srgb, ${colorOf(r)} 13%, transparent)">${cols.map(([k])=>cell[k](r,i)).join("")}</tr>`).join("");
-  $("#anBody").innerHTML=`<div class="tw pkts"><table id="pktTable"><thead><tr>${cols.map(([,l])=>`<th>${l}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>
+  const ac=AC?cols.findIndex(([k])=>k===AC.k):-1; rfSort.set("pktTable", ac>=0?{c:ac, d:AC.d}:null);  // the header's ▲ / ▼ follows the order in use
+  $("#anBody").innerHTML=`<div class="tw pkts"><table id="pktTable"><thead><tr>${cols.map(([k,l])=>`<th${k==="no"?" data-nosort":""}>${l}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>
     <p class="hint">Alt + click a source, type, frequency, ident or band cell to keep only that value; Alt + Shift + click to drop it. On a touch screen, tap the cell and use the buttons that appear.</p>
     <div id="anAct" class="row" style="gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap"></div>
     ${rows.length>lim?`<button id="anMore" style="margin:6px 0">Show ${Math.min(3000,rows.length-lim).toLocaleString()} more</button>`:""}
@@ -190,16 +199,18 @@ function anStats(rows){
   const h=new Map(); for(const r of rows){ const a=LAYERS[r.layer]?.label||r.layer; if(!h.has(a)) h.set(a,new Map()); const m=h.get(a); const t=typeOf(r); m.set(t,(m.get(t)||0)+1); }
   const hier=[...h].sort((a,b)=>[...b[1].values()].reduce((x,y)=>x+y,0)-[...a[1].values()].reduce((x,y)=>x+y,0)).map(([src,m])=>{ const n=[...m.values()].reduce((x,y)=>x+y,0);
     return `<tr><td><b>${esc(src)}</b></td><td class="n">${n.toLocaleString()}</td><td class="n">${(100*n/total).toFixed(1)}%</td><td></td></tr>`+
-      [...m].sort((a,b)=>b[1]-a[1]).map(([t,c])=>`<tr><td style="padding-left:24px"><span class="dot" style="background:${typeColor(t)}"></span> ${esc(t)}</td><td class="n">${c.toLocaleString()}</td><td class="n">${(100*c/total).toFixed(1)}%</td><td><div style="height:8px;width:${Math.max(2,200*c/total)}px;background:${typeColor(t)};border-radius:3px"></div></td></tr>`).join(""); }).join("");
+      [...m].sort((a,b)=>b[1]-a[1]).map(([t,c])=>`<tr data-srt-with><td style="padding-left:24px"><span class="dot" style="background:${typeColor(t)}"></span> ${esc(t)}</td><td class="n">${c.toLocaleString()}</td><td class="n">${(100*c/total).toFixed(1)}%</td><td><div style="height:8px;width:${Math.max(2,200*c/total)}px;background:${typeColor(t)};border-radius:3px"></div></td></tr>`).join(""); }).join("");
   // endpoints
   const ep=new Map(); for(const r of rows){ const k=r.call_sign||r.ident||r.reg||r.label||"?"; const e=ep.get(k)||{k,name:titleOf(r),type:typeOf(r),n:0,freqs:new Set(),lv:[],first:null,last:null,dist:Infinity};
     e.n++; if(r.freq_mhz) e.freqs.add(fmtF(r.freq_mhz)); const l=levelOf(r); if(l!=null) e.lv.push(l); const t=timeOf(r); if(t){ if(!e.first||t<e.first) e.first=t; if(!e.last||t>e.last) e.last=t; }
     if(r.dist_mi!=null) e.dist=Math.min(e.dist,r.dist_mi); ep.set(k,e); }
-  const eps=[...ep.values()].sort((a,b)=>b.n-a.n).slice(0,300).map(e=>`<tr><td class="mono">${esc(e.k)}</td><td>${esc(e.name)}</td><td>${esc(e.type)}</td><td class="n">${e.n}</td><td class="mono">${[...e.freqs].slice(0,4).join(", ")}${e.freqs.size>4?" …":""}</td>
+  const lvAvg=e=>e.lv.length?e.lv.reduce((a,b)=>a+b,0)/e.lv.length:null;  // a header press sorts every endpoint, then the first 300 show
+  const eps=rfSort.data("anEndpoints", [...ep.values()].sort((a,b)=>b.n-a.n), [e=>e.k, e=>e.name, e=>e.type, e=>e.n, e=>[...e.freqs][0]||"",
+    e=>e.lv.length?Math.min(...e.lv):null, lvAvg, e=>e.lv.length?Math.max(...e.lv):null, e=>e.first||"", e=>e.last||"", e=>isFinite(e.dist)?e.dist:null]).slice(0,300).map(e=>`<tr><td class="mono">${esc(e.k)}</td><td>${esc(e.name)}</td><td>${esc(e.type)}</td><td class="n">${e.n}</td><td class="mono">${[...e.freqs].slice(0,4).join(", ")}${e.freqs.size>4?" …":""}</td>
     <td class="n">${e.lv.length?num(Math.min(...e.lv),0):""}</td><td class="n">${e.lv.length?num(e.lv.reduce((a,b)=>a+b,0)/e.lv.length,1):""}</td><td class="n">${e.lv.length?num(Math.max(...e.lv),0):""}</td><td class="mono">${esc(e.first||"")}</td><td class="mono">${esc(e.last||"")}</td><td class="n">${isFinite(e.dist)?num(e.dist,2):""}</td></tr>`).join("");
   return `<div class="grid2" style="margin-top:0"><div class="panel"><h3>Hierarchy (source → signal type)</h3><div class="tw" style="max-height:380px"><table><thead><tr><th>Source / type</th><th>Count</th><th>%</th><th></th></tr></thead><tbody>${hier}</tbody></table></div></div>
     <div class="panel"><h3>IO graph — records and average level over time</h3>${ioGraph(rows)}</div></div>
-    <div class="panel"><h3>Endpoints (by call sign / MAC / cell / ID)</h3><div class="tw" style="max-height:420px"><table><thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Records</th><th>Frequencies</th><th>Min dBm</th><th>Avg</th><th>Max</th><th>First</th><th>Last</th><th>Nearest mi</th></tr></thead><tbody>${eps}</tbody></table></div></div>`;
+    <div class="panel"><h3>Endpoints (by call sign / MAC / cell / ID)</h3><div class="tw" style="max-height:420px"><table id="anEndpoints"><thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Records</th><th>Frequencies</th><th>Min dBm</th><th>Avg</th><th>Max</th><th>First</th><th>Last</th><th>Nearest mi</th></tr></thead><tbody>${eps}</tbody></table></div></div>`;
 }
 function ioGraph(rows){
   const pts=rows.map(r=>({t:Date.parse(r.ts||""),l:r.dbm})).filter(p=>!isNaN(p.t));

@@ -442,20 +442,52 @@ def _warn(field, text, source=None):
     return {"field": field, "text": text, "source": source}
 
 
-COVERED_MAKERS = re.compile(r"\b(sinclair|norsat)\b", re.I)  # Hytera subsidiaries (FCC Covered List; FINDINGS 15)
+COVERED_MAKERS = re.compile(r"\b(hytera|sinclair|norsat)\b", re.I)  # Hytera and its subsidiaries (FCC Covered List; FINDINGS 15)
 COVERED_SOURCE = {"kind": "code", "label": "FCC Covered List; DA 26-635 (June 2026)", "url": "https://docs.fcc.gov/public/attachments/DA-26-635A1.pdf",
                   "text": "Hytera equipment for public-safety and security uses is on the Covered List (since 12 Mar 2021). DA 26-635 bars importing "
                           "or marketing previously authorized Hytera equipment for those uses; equipment already bought may stay in use."}
 
 
+LISTS_SOURCE = {"kind": "code", "label": "FCC Covered List; DA 26-1181 (30 Oct 2026)", "url": "https://docs.fcc.gov/public/attachments/DA-26-1181A1.pdf",
+                "text": "The FCC's Covered List as of 30 Oct 2026 (Appendix A) and the routers, inverters and other devices with a "
+                        "Conditional Approval (Appendix B)."}
+CONSOLIDATED_SOURCE = {"kind": "code", "label": "FCC prohibited entities list (47 CFR 2.902)",
+                       "url": "https://www.fcc.gov/engineering-technology/prohibited-entities-list",
+                       "text": "The FCC's consolidated list of entities whose equipment can't be authorized: the Covered List with the "
+                               "Commerce, Homeland Security, Treasury and defense lists it draws on."}
+
+
+def maker_warnings(x, part):
+    """What the FCC's prohibited-entity lists say about a line's maker (prohibited.py): a Covered List maker plainly, a maker
+    whose whole name matches another list's entry as one to check, a router or inverter as a Covered List category."""
+    import prohibited
+    text = f"{_line_text(x)} {x.get('maker') or ''} {part.get('maker') or ''}"
+    got = prohibited.check(maker=x.get("maker") or part.get("maker"), text=text)
+    out = []
+    for c in got["listed"]:
+        if c["name"] == "Hytera":
+            hy = COVERED_MAKERS.search(text).group(1).title()
+            who = "Hytera's" if hy == "Hytera" else f"{hy} belongs to Hytera (through Norsat), whose"
+            out.append(_warn("maker", f"{who} public-safety equipment is on the FCC Covered List; DA 26-635 (June 2026) bars importing "
+                                      "or marketing previously authorized Hytera gear for those uses. Whether a passive part is caught isn't "
+                                      "settled: tell the owner before it's specified.", COVERED_SOURCE))
+        else:
+            out.append(_warn("maker", f"{c['name']} is on the FCC Covered List (since {c['since']}): {c['scope']}. Its equipment can't "
+                                      "get a new FCC authorization; tell the owner before it's specified.", LISTS_SOURCE))
+    for e in got["same_name"][:2]:
+        where = ", ".join(x for x in (e.get("country"), f"added {e['added']}" if e.get("added") else "", e.get("cite")) if x)
+        out.append(_warn("maker", f"{x.get('maker') or part.get('maker')} has the same name as an entry on the "
+                                  f"{' and '.join(e['lists'])} ({e['name']}{'; ' + where if where else ''}): check it's the same company "
+                                  "before buying.", CONSOLIDATED_SOURCE))
+    for g in got["category"]:
+        out.append(_warn("covered", g["text"], LISTS_SOURCE))
+    return out
+
+
 def line_warnings(d, x, c, bom_names):
     """What's wrong with one line for this job: [{field, text, source}]. Warnings only: nothing here stops a save."""
     out, codes, part = [], x.get("codes") or {}, x.get("catalogue") or {}
-    hy = COVERED_MAKERS.search(f"{_line_text(x)} {x.get('maker') or ''} {part.get('maker') or ''}")
-    if hy:
-        out.append(_warn("maker", f"{hy.group(1).title()} belongs to Hytera (through Norsat), whose public-safety equipment is on the FCC Covered List; "
-                                  "DA 26-635 (June 2026) bars importing or marketing previously authorized Hytera gear for those uses. Whether a passive "
-                                  "part is caught isn't settled: tell the owner before it's specified.", COVERED_SOURCE))
+    out += maker_warnings(x, part)
     k, grant = kind_of(x), part.get("grant")
     bands = c["bands"]
     ranges, how = freq_ranges(x, codes, grant)

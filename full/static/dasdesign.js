@@ -312,7 +312,7 @@ async function dsBudget(el, j, save){
     return `<label style="display:block;margin:4px 0"><span class="hint">${esc(b.cell&&CELL_LABEL[k]||l)}${u?` (${u})`:""}</span>
     <input data-lb="${k}" type="number" step="any" value="${v??""}" style="width:100%">${note&&mine[k]==null?`<span class="hint" style="font-size:11px">default: ${note}</span>`:""}</label>`; };
   const FIELDS=lbFieldsFor(!!b.cell), groups=[...new Set(FIELDS.map(f=>f[3]))];
-  const stageTable=rows=>`<div class="tw"><table><thead><tr><th>Stage</th><th class="n">dB</th><th class="n">Level dBm</th><th>Note</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.stage)}</td><td class="n">${r.db==null?"":(r.db>=0?"+":"")+r.db.toFixed(1)}</td><td class="n"><b>${r.level==null||isNaN(r.level)?"–":r.level.toFixed(1)}</b></td><td class="hint">${esc(r.note||"")}</td></tr>`).join("")}</tbody></table></div>`;  /* scrolls inside its panel on a phone (11/3: 835 px page) */
+  const stageTable=rows=>`<div class="tw"><table data-nosort><thead><tr><th>Stage</th><th class="n">dB</th><th class="n">Level dBm</th><th>Note</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.stage)}</td><td class="n">${r.db==null?"":(r.db>=0?"+":"")+r.db.toFixed(1)}</td><td class="n"><b>${r.level==null||isNaN(r.level)?"–":r.level.toFixed(1)}</b></td><td class="hint">${esc(r.note||"")}</td></tr>`).join("")}</tbody></table></div>`;  /* scrolls inside its panel on a phone (11/3: 835 px page) */
   el.innerHTML=`<div class="maptools no-print" style="gap:10px;flex-wrap:wrap"><div class="seg" id="lbBand">${bands.map(x=>`<button data-b="${esc(x.band)}" class="${x.band===b.band?"on":""}">${esc(x.band)}</button>`).join("")}</div>
       ${cellAdd}${b.cell?"":`<label class="inl" title="Fill the check fields with an AHJ's or licensee's own caps, each with its section">AHJ / licensee caps <select id="lbCaps"><option value="">None: code defaults</option>${Object.entries(DS_CAPS).map(([k,x])=>`<option value="${k}" ${(d.design||{}).caps===k?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>`}${b.cell?`<button id="lbRmCell" title="Take this LTE / 5G band out of the job's link budget">Remove this band</button>`:""}
       <span class="hint">${b.cell?`${esc(b.systems.join(", "))} · ${I.bw_khz/1000} MHz at ${I.scs_khz} kHz = ${cellSubcarriers(I.bw_khz/1000, +I.scs_khz)} subcarriers · worst case at ${b.f_dl} MHz down, ${b.f_ul} MHz up · RSRP target ${I.dl_min_dbm} dBm`
@@ -653,8 +653,8 @@ async function dsFloors(el, j, save){
   const walkPanel=(cmp)=>{ const F=D.dsFitRes&&D.dsFitRes.band===b.band?D.dsFitRes:null, s=dsStats(cmp.map(o=>o.err));
     const allObs=tune||F?null:null;  // (the fit's own numbers cover every floor)
     let h=cmp.length?`<div class="kvg"><div>Walk points here</div><div><b>${s.n}</b> readings</div><div>Mean error</div><div><b>${f1(s.mean)} dB</b> <span class="hint">measured − predicted</span></div><div>Spread (SD)</div><div><b>${s.sd.toFixed(1)} dB</b></div></div>
-      <div class="tw" style="max-height:220px;margin-top:6px"><table><thead><tr><th>Point</th><th class="n">Measured</th><th class="n">Predicted</th><th class="n">Error dB</th></tr></thead><tbody>
-      ${cmp.slice(0,60).map(o=>`<tr><td>${esc(String(o.id))}</td><td class="n">${o.meas.toFixed(1)}</td><td class="n">${o.pred.toFixed(1)}</td><td class="n" style="color:${Math.abs(o.err)<=3?"var(--good)":Math.abs(o.err)<=6?"var(--warn)":"var(--bad)"}">${f1(o.err)}</td></tr>`).join("")}</tbody></table></div>${cmp.length>60?`<p class="hint">+${cmp.length-60} more on the map.</p>`:""}`
+      <div class="tw" style="max-height:220px;margin-top:6px"><table id="dsCmpT"><thead><tr><th>Point</th><th class="n">Measured</th><th class="n">Predicted</th><th class="n">Error dB</th></tr></thead><tbody>
+      ${rfSort.data("dsCmpT", cmp, [o=>String(o.id), o=>o.meas, o=>o.pred, o=>o.err]).slice(0,60).map(o=>`<tr><td>${esc(String(o.id))}</td><td class="n">${o.meas.toFixed(1)}</td><td class="n">${o.pred.toFixed(1)}</td><td class="n" style="color:${Math.abs(o.err)<=3?"var(--good)":Math.abs(o.err)<=6?"var(--warn)":"var(--bad)"}">${f1(o.err)}</td></tr>`).join("")}</tbody></table></div>${cmp.length>60?`<p class="hint">+${cmp.length-60} more on the map.</p>`:""}`
       :'<p class="hint">No walk readings on this floor yet (Grid test, Walk: a public safety downlink in dBm at each point).</p>';
     h+=`<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><button data-dsfit="fit" title="Fit P.1238's N, each wall type's loss and the loss a floor to the walk readings on every floor">Fit to the walk</button>
       ${tune?'<button data-dsfit="off">Back to the defaults</button>':tuneSaved?`<button data-dsfit="on">Use the tuned values (${esc(tuneSaved.at||"")})</button>`:""}</div>`;
@@ -683,7 +683,7 @@ async function dsFloors(el, j, save){
       g.innerHTML=cmp.map(o=>{ const c=Math.abs(o.err)<=3?"#2f9e5f":Math.abs(o.err)<=6?"#d29014":"#c62828";
         return `<g><circle cx="${o.x*W}" cy="${o.y*H}" r="6" fill="${c}" stroke="#fff" stroke-width="1.5"><title>Point ${esc(String(o.id))}: measured ${o.meas.toFixed(1)}, predicted ${o.pred.toFixed(1)} dBm</title></circle><text x="${o.x*W}" y="${o.y*H-9}" text-anchor="middle" font-size="10" fill="${c}" style="paint-order:stroke;stroke:#fff;stroke-width:3px">${f1(o.err)}</text></g>`; }).join("");
       svg.appendChild(g); }
-    $("#dfWalk").innerHTML=walkPanel(cmp);
+    $("#dfWalk").innerHTML=walkPanel(cmp); rfSort.own("dsCmpT", ()=>{ const w=$("#dfWalk"); if(w) w.innerHTML=walkPanel(cmp); });  // a header press: every point sorted, the first 60 shown
     if(!sc.ants.length){ cv.width=1; cv.height=1; $("#dfStats").innerHTML='<p class="hint">Place antennas to see the prediction.</p>'; $("#dfAnt").innerHTML='<p class="hint">No antennas on this floor.</p>';
       $("#dfHint").textContent=DWon?DW.hint():"Click to place a server antenna."; return; }
     const P=dsPredictScene(sc, 140);
@@ -845,7 +845,7 @@ async function dsSubDetails(el, j, save){
         <label>Sprinklers<select data-sd="sprinkler"><option value="">–</option>${DS_SPRINKLER.map(x=>`<option ${s.sprinkler===x?"selected":""}>${x}</option>`).join("")}</select></label>
         ${inp("sqft","Total sq ft",s.sqft,110)}${inp("above","Floors above grade",s.above,80)}${inp("below","Floors below grade",s.below,80)}</div>
       ${d.nsi?`<p class="hint" style="margin:4px 0">NSI (estimate): ${esc([d.nsi.occupancy_label, d.nsi.sqft?`${Number(d.nsi.sqft).toLocaleString()} sq ft`:"", d.nsi.year_built?`built about ${d.nsi.year_built}`:""].filter(Boolean).join(" · "))}</p>`:""}
-      <div class="tw" style="margin-top:6px"><table><thead><tr><th>Floor</th><th>Construction type (IBC 602)</th></tr></thead><tbody>${floors.map(f=>`<tr><td>${esc(f.name)}</td><td><select data-ct="${esc(f.name)}" aria-label="Construction type, floor ${esc(f.name)}"><option value="">–</option>${DS_IBC_TYPES.map(t=>`<option value="${t}" ${s.floors[f.name]===t?"selected":""}>Type ${t}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>
+      <div class="tw" style="margin-top:6px"><table data-nosort><thead><tr><th>Floor</th><th>Construction type (IBC 602)</th></tr></thead><tbody>${floors.map(f=>`<tr><td>${esc(f.name)}</td><td><select data-ct="${esc(f.name)}" aria-label="Construction type, floor ${esc(f.name)}"><option value="">–</option>${DS_IBC_TYPES.map(t=>`<option value="${t}" ${s.floors[f.name]===t?"selected":""}>Type ${t}</option>`).join("")}</select></td></tr>`).join("")}</tbody></table></div>
       ${floors.length>1?'<button id="sdCtAll" style="margin-top:6px">Same type on every floor as the first</button>':""}
       <label style="display:block;margin-top:8px">Scope of work<textarea data-sd="scope" rows="3" style="width:100%">${esc(s.scope)}</textarea></label></div>
     <div class="panel"><h3>Statement of compliance</h3>
@@ -973,8 +973,8 @@ window.dasSubmittal = async (el, j) => {
   sheets.push(`${sh(2)}${bands.map(b=>{ const I=dsInputs(d,b), R=lbCompute(I), cap=dsCapValues(d, I); return `<div style="break-inside:avoid;margin-bottom:10px"><h4 style="margin:6px 0">${esc(b.band)} · ${b.n_ch} channel${b.n_ch===1?"":"s"}, worst case ${b.f_dl} MHz down / ${b.f_ul} MHz up</h4>
       ${cap.P?`<p class="hint" style="margin:0 0 4px">Caps: ${esc(cap.P.name)} (${esc(cap.P.src)})${cap.note?`. ${esc(cap.note)}`:""}</p>`:""}
       <table><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>${R.checks.map(c=>`<tr><td>${esc(c.name)}</td><td><b>${c.ok==null?"open":c.ok==="warn"?"warn":c.ok?"pass":"FAIL"}</b></td><td>${esc(c.detail)}</td></tr>`).join("")}</tbody></table>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"><table><thead><tr><th>Downlink</th><th class="n">dB</th><th class="n">dBm</th></tr></thead><tbody>${stageRows(R.dl)}</tbody></table>
-        <table><thead><tr><th>Uplink</th><th class="n">dB</th><th class="n">dBm</th></tr></thead><tbody>${stageRows(R.ul)}</tbody></table></div></div>`; }).join("")||"<p>No link budget yet.</p>"}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"><table data-nosort><thead><tr><th>Downlink</th><th class="n">dB</th><th class="n">dBm</th></tr></thead><tbody>${stageRows(R.dl)}</tbody></table>
+        <table data-nosort><thead><tr><th>Uplink</th><th class="n">dB</th><th class="n">dBm</th></tr></thead><tbody>${stageRows(R.ul)}</tbody></table></div></div>`; }).join("")||"<p>No link budget yet.</p>"}
     <p class="hint">${LB_FORMULA_NOTE}</p>`);
   // ER-3 per antenna
   sheets.push(`${sh(3, worst?` (${esc(worst.band)})`:"")}${pics.some(p=>p&&p.ants.length)?floors.map((f,i)=>{ const p=pics[i]; return p&&p.ants.length?`<h4 style="margin:6px 0">Floor ${esc(f.name)}</h4>${dsAntTable(p.ants, p.I, true)}`:""; }).join("")
@@ -1063,7 +1063,7 @@ window.dasSubmittal = async (el, j) => {
   const mq=s.mon||{};
   sheets.push(`${sh(19)}${blanks(mq, [["facu","Fire alarm control unit (make, model)"],["location","Where it is"],["module","Interface (monitor module, dry contacts)"],["annunciator","Dedicated annunciator (make, model)"],["ann_location","Annunciator location"],["station","Supervising station"]])}
     <p style="margin:8px 0 0"><b>Inputs:</b> ${mq.single==="Yes"?"one supervisory input for all signals (needs the AHJ's approval: IFC 2024 510.4.2.5.1, NFPA 1225 18.14)":"one point per signal, as below"}.</p>
-    <table style="margin-top:6px"><thead><tr><th>Supervisory signal</th><th>Point on the panel</th></tr></thead><tbody>${DS_SIGNALS.map(x=>`<tr><td>${esc(x)}</td><td>__________</td></tr>`).join("")}</tbody></table>
+    <table style="margin-top:6px" data-nosort><thead><tr><th>Supervisory signal</th><th>Point on the panel</th></tr></thead><tbody>${DS_SIGNALS.map(x=>`<tr><td>${esc(x)}</td><td>__________</td></tr>`).join("")}</tbody></table>
     ${rule("Supervisory signals to the fire alarm system")}${rule("Dedicated annunciator")}</div>`);
   el.innerHTML=`<div class="maptools no-print"><div class="seg" id="drView"><button data-rv="test">Test report</button><button data-rv="submittal" class="on">Design submittal</button></div>
       <button class="primary" id="dsPrint">⎙ Print / save as PDF</button><span class="hint">Prints the submittal only, a sheet a page, with the project, revision and page number on every page. Licensee consent letters print from the Pre-survey.</span></div>
@@ -1150,12 +1150,12 @@ function dsBatteryTable(c){
   if(!B.items.length) return '<p class="hint">No equipment on the battery yet.</p>';
   if(c.table==="cos") return `<table><thead><tr><th>Device / model</th><th class="n">Qty</th><th class="n">Standby A each</th><th class="n">Standby A total</th><th class="n">Full-load A each</th><th class="n">Full-load A total</th></tr></thead><tbody>
     ${B.items.map(x=>`<tr><td>${esc(x.name)}</td><td class="n">${esc(x.qty??1)}</td><td class="n">${f2(c.sb(x))}</td><td class="n">${f2((+x.qty||1)*c.sb(x))}</td><td class="n">${f2(c.amps(x))}</td><td class="n">${f2((+x.qty||1)*c.amps(x))}</td></tr>`).join("")}
-    <tr><td><b>Total current</b></td><td></td><td></td><td class="n"><b>${f2(c.standby)}</b></td><td></td><td class="n"><b>${f2(c.load)}</b></td></tr>
-    <tr><td>Time</td><td></td><td></td><td class="n">${c.hours} h standby</td><td></td><td class="n">${c.hours} h at 100%</td></tr>
-    <tr><td>Ampere-hours</td><td></td><td></td><td class="n">${f1(c.standby*c.hours)}</td><td></td><td class="n">${f1(c.load*c.hours)}</td></tr>
-    <tr><td>With ${B.margin_pct}% margin (sized on full load)</td><td></td><td></td><td></td><td></td><td class="n"><b>${f1(c.ah)} Ah</b></td></tr>
-    <tr><td>Battery size, series / parallel</td><td colspan="5">${c.bank?`${c.bank.n} × ${B.cell_v} V ${B.cell_ah} Ah: ${c.bank.series} in series × ${c.bank.par} in parallel = ${c.bank.ah} Ah at ${B.volts} V`:"pick the battery (Ah each) to size the bank"}</td></tr></tbody></table>`;
-  if(c.table==="fdny") return `<table><thead><tr><th>TM-ARCS-2 item</th><th>Value</th></tr></thead><tbody>
+    <tr data-srt-foot><td><b>Total current</b></td><td></td><td></td><td class="n"><b>${f2(c.standby)}</b></td><td></td><td class="n"><b>${f2(c.load)}</b></td></tr>
+    <tr data-srt-foot><td>Time</td><td></td><td></td><td class="n">${c.hours} h standby</td><td></td><td class="n">${c.hours} h at 100%</td></tr>
+    <tr data-srt-foot><td>Ampere-hours</td><td></td><td></td><td class="n">${f1(c.standby*c.hours)}</td><td></td><td class="n">${f1(c.load*c.hours)}</td></tr>
+    <tr data-srt-foot><td>With ${B.margin_pct}% margin (sized on full load)</td><td></td><td></td><td></td><td></td><td class="n"><b>${f1(c.ah)} Ah</b></td></tr>
+    <tr data-srt-foot><td>Battery size, series / parallel</td><td colspan="5">${c.bank?`${c.bank.n} × ${B.cell_v} V ${B.cell_ah} Ah: ${c.bank.series} in series × ${c.bank.par} in parallel = ${c.bank.ah} Ah at ${B.volts} V`:"pick the battery (Ah each) to size the bank"}</td></tr></tbody></table>`;
+  if(c.table==="fdny") return `<table data-nosort><thead><tr><th>TM-ARCS-2 item</th><th>Value</th></tr></thead><tbody>
     <tr><td>Battery type</td><td>${esc(B.cell_type||"")}</td></tr><tr><td>Voltage</td><td>${B.volts} V (${c.bank?`${c.bank.series} × ${B.cell_v} V`:`${B.cell_v} V units`})</td></tr>
     <tr><td>Capacity</td><td>${c.bank?`${c.bank.ah} Ah (${c.bank.n} × ${B.cell_ah} Ah)`:`${f1(c.ah)} Ah needed (battery not picked)`}</td></tr>
     <tr><td>Calculated capacity, standby</td><td><b>${c.bank&&c.bank.standby_h!=null?`${f1(c.bank.standby_h)} hours`:c.standby?`${f1(c.ah/c.standby)} hours`:"–"}</b> at ${f2(c.standby)} A</td></tr>

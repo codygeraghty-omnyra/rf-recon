@@ -16,6 +16,10 @@ function towersHtml(towers, list){
     <p class="hint">${rows.length} tower${rows.length===1?"":"s"} with cells on them. Click one for its sites, cells and channel numbers. Bands are what each carrier is licensed for in the county; which band a cell is on only a scan says.</p>`;
 }
 
+// the site list shows the first 1,500: a header press sorts every site by that column first (rfsort.js)
+rfSort.own("csList", ()=>render());
+const csSorted = list => rfSort.data("csList", list, [s=>s.operator, s=>s.radio, s=>`${String(s.site_kind||"").split(" ")[0]} ${s.site_id}`, s=>s.cells[0]?.gci||"",
+  s=>s.tower?.reg||"", s=>s.tower?.owner||"", s=>s.tower?.overall_agl_m??null, s=>s.tower?s.tower.licensees.length:null, s=>s.samples||null, s=>s.last||"", s=>s.dist_mi]);
 S.views.cells = async v => {
   if(!S.center){ v.innerHTML='<p class="status">Drop a pin (or search an address) first: cell sites are found around it.</p>'; return; }
   const C=S.cellsView=S.cellsView||{op:"", radio:"", q:"", by:"site"};
@@ -75,8 +79,8 @@ S.views.cells = async v => {
         <li><b>Your captures</b>: WiGLE WiFi app exports and cell scanner CSVs imported in a mission (cells need their MCC-MNC-area-cell ID).</li></ul></div>`}
     <div class="panel"><h3>Import an OpenCelliD download</h3>
       <div class="row"><input type="file" id="csImp" accept=".csv,.gz"><span class="hint" id="csMsg">Kept to the states set in Data &amp; updates (${esc(r.states||"all states: large")}).</span></div></div>
-    ${C.by==="tower"?towersHtml(r.towers||[], list):list.length?`<div class="tw"><table><thead><tr><th>Operator</th><th>Tech</th><th>Site</th><th>Sectors (cell IDs)</th><th>Tower (FCC)</th><th>Owner</th><th class="n">Height</th><th class="n">Licensees on it</th><th class="n">Samples</th><th>Last seen</th><th class="n">Distance</th></tr></thead><tbody>
-      ${list.slice(0,1500).map((s,i)=>`<tr data-i="${all.indexOf(s)}" style="cursor:pointer"><td><b>${esc(s.operator)}</b><div class="hint mono">${esc(s.plmn)}</div></td><td>${esc(s.radio)}</td>
+    ${C.by==="tower"?towersHtml(r.towers||[], list):list.length?`<div class="tw"><table id="csList"><thead><tr><th>Operator</th><th>Tech</th><th>Site</th><th>Sectors (cell IDs)</th><th>Tower (FCC)</th><th>Owner</th><th class="n">Height</th><th class="n">Licensees on it</th><th class="n">Samples</th><th>Last seen</th><th class="n">Distance</th></tr></thead><tbody>
+      ${csSorted(list).slice(0,1500).map((s,i)=>`<tr data-i="${all.indexOf(s)}" style="cursor:pointer"><td><b>${esc(s.operator)}</b><div class="hint mono">${esc(s.plmn)}</div></td><td>${esc(s.radio)}</td>
         <td class="mono">${esc(s.site_kind.split(" ")[0])} ${esc(String(s.site_id))}</td>
         <td class="mono" style="font-size:11px">${s.cells.slice(0,6).map(c=>`${esc(c.gci)}${c.az_est!=null?` <span class="hint">${c.az_est}°</span>`:""}`).join("<br>")}${s.cells.length>6?`<br><span class="hint">+${s.cells.length-6}</span>`:""}</td>
         <td class="mono">${s.tower?esc(s.tower.reg):'<span class="hint">none within 1 km</span>'}</td><td>${esc(s.tower?.owner||"")}</td>

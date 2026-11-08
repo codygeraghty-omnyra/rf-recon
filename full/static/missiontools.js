@@ -94,12 +94,13 @@ function mtReplay(el, T, B, M){
       L.circleMarker([p.lat, p.lon], {radius: 5, color: "#fff", weight: 1, fillColor: mtColor(p.sig_type), fillOpacity: .9 - .7 * age, opacity: 1 - .6 * age})
         .bindTooltip(`${esc(mtName(p))}${p.dbm != null ? ` · ${num(p.dbm, 0)} dBm` : ""}${p.label ? ` · ${esc(p.label)}` : ""}<br>${esc(new Date(p.t).toLocaleTimeString())} · ${esc(p.capture)}`).addTo(dots); }
     const by = new Map(); for(const p of shown){ const k = mtKey(p), x = by.get(k); if(!x || (p.dbm ?? -999) > (x.dbm ?? -999)) by.set(k, {...p, n: (x?.n || 0) + 1}); else x.n++; }
-    const rows = [...by.values()].sort((a, b) => (b.dbm ?? -999) - (a.dbm ?? -999));
+    const rows = rfSort.data("rpReplay", [...by.values()].sort((a, b) => (b.dbm ?? -999) - (a.dbm ?? -999)), [r => mtName(r), r => r.sig_type || "", r => r.dbm, r => r.n]);
     $("#rpCount").textContent = `· ${rows.length} signal${rows.length === 1 ? "" : "s"}, ${shown.length} reading${shown.length === 1 ? "" : "s"}`;
-    $("#rpList").innerHTML = rows.length ? `<table><thead><tr><th>Signal</th><th>Type</th><th class="n">Strongest</th><th class="n">Readings</th></tr></thead><tbody>${rows.slice(0, 40).map(r =>
+    $("#rpList").innerHTML = rows.length ? `<table id="rpReplay"><thead><tr><th>Signal</th><th>Type</th><th class="n">Strongest</th><th class="n">Readings</th></tr></thead><tbody>${rows.slice(0, 40).map(r =>
       `<tr><td><span class="dot" style="background:${mtColor(r.sig_type)}"></span> ${esc(mtName(r))}${r.label ? `<br><span class="hint">${esc(r.label)}</span>` : ""}</td><td>${esc(r.sig_type)}</td><td class="n">${num(r.dbm, 0)}</td><td class="n">${r.n}</td></tr>`).join("")}</tbody></table>`
       : '<p class="hint">Nothing heard in this stretch.</p>';
   };
+  rfSort.own("rpReplay", () => { if(document.body.contains($("#rpList"))) paint(); });
   const stop = () => { clearInterval(S.mtTimer); S.mtTimer = null; $("#rpPlay").textContent = "▶ Play"; };
   $("#rpPlay").onclick = () => {
     if(S.mtTimer){ stop(); return; }

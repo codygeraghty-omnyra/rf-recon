@@ -120,7 +120,7 @@ window.dasCellCommission = (el, j0, save) => {
   let chain=Promise.resolve();
   const keep=()=>{ CCX.busy++; chain=chain.then(async()=>{ j=await save({commission_cell:cur})||j; refresh(); }).finally(()=>{ CCX.busy--; }); return chain; };
   const table=(step, cols)=>{ const rows=(cur[step]||{}).rows||[];
-    return `<div class="tw"><table class="cm-t"><thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}<th>Result</th><th></th></tr></thead><tbody>
+    return `<div class="tw"><table class="cm-t" data-nosort><thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}<th>Result</th><th></th></tr></thead><tbody>
       ${rows.map((r,i)=>`<tr data-cstep="${step}" data-i="${i}">${cols.map(([k,,t,w])=>`<td>${
         t==="kind"?`<select data-f="${k}">${[["voice","Voice"],["volte","VoLTE"],["data","Data"],["failover","Failover"]].map(([v,l])=>`<option value="${v}" ${(r[k]||"voice")===v?"selected":""}>${l}</option>`).join("")}</select>`
         :t==="result"?`<select data-f="${k}"><option value="">—</option>${[["ok","OK"],["dropped","Dropped"],["failed","Failed"]].map(([v,l])=>`<option value="${v}" ${r[k]===v?"selected":""}>${l}</option>`).join("")}</select>`

@@ -12,8 +12,10 @@ const api = async (path, opts) => { if(window.dasJobApi && !opts?.dasRaw && /^\/
   // with an error line wherever they were). The PC's own copy never answers 401.
   if(r.status===401){ location.href="/remote/login"; throw new Error("Signed out."); }
   const t = await r.text(); let j; try { j = JSON.parse(t); } catch(e){ throw new Error(t.slice(0,200) || r.statusText); }
-  if(!r.ok || j.error) throw new Error(j.error || r.statusText); return j; };
+  if(!r.ok || j.error) throw new Error(j.error || r.statusText); rfSort.soon(); return j; };  // a table drawn from the answer keeps its sort (rfSort)
 const post = (path, body) => api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{})});
+
+// rfSort, the sort every table and list shares (static/rfsort.js, loaded before this file)
 
 const LAYERS = {
   uls:{label:"FCC licensed", color:"#0b6e4f"}, uls_hist:{label:"FCC history (expired / removed)", color:"#9a6700"},
@@ -177,6 +179,7 @@ function render(){
   S.viewGen=(S.viewGen||0)+1;  // a tab that waits for data checks this after the wait: a newer draw since means stop
   if(fn && !S.searched && PIN_TABS.has(S.tab)) v.innerHTML=pinFirst();
   else if(fn) fn(v, rows); else v.innerHTML="";
+  rfSort.soon();  // a table drawn again keeps the sort it had
   if(window.writeUrlState) window.writeUrlState();
 }
 $("#tabs").addEventListener("click", e => { const b=e.target.closest("button"); if(b) setTab(b.dataset.t); });
@@ -209,6 +212,7 @@ S.views.map = (v, rows) => {
       <label class="inl">Opacity <input type="range" id="heatOp" min="0.1" max="1" step="0.05" value="${S.heat.opacity}" style="width:90px"></label>
       <button id="heatExport" title="KMZ for Google Earth / ATAK, GeoTIFF for QGIS / ArcGIS / Global Mapper">⇩ Heatmap (KMZ + GeoTIFF)</button>
       <div class="seg" style="margin-left:auto"><button data-lv="list" class="${S.listMode!=="table"?"on":""}">List</button><button data-lv="table" class="${S.listMode==="table"?"on":""}">Table</button></div>
+      ${S.listMode!=="table"?`<label class="inl" title="The list's order. The Table's headers sort it by any column.">Sort <select id="sideSort">${Object.entries(SIDE_SORT).map(([k,[l]])=>`<option value="${k}" ${(S.sideSort||"")===k?"selected":""}>${l}</option>`).join("")}</select></label>`:""}
     </div>
     <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
@@ -232,16 +236,22 @@ S.views.map = (v, rows) => {
   $("#heatExport").onclick=()=>{ if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county, then press Show what's here."; return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
     getFile("/api/heatmap.zip?"+params(heatParams(k))); };
   top.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
+  if($("#sideSort")) $("#sideSort").onchange=e=>{ S.sideSort=e.target.value; S.shown=600; render(); };
   drawMap(rows);
   const items=groupItems(rows);
   if(S.listMode==="table") $("#mapTable").innerHTML = S.views.freqTable(items);
   else drawSideList(items);
 };
 
+// the Map list's orders (its Sort picker): nearest first is the list as it always was, in rings out from the pin; the others drop the
+// rings and sort every entry before the first ones show (rfSort.by: numbers as numbers, blanks last)
+const SIDE_SORT={"":["Nearest first"], freq:["Frequency, low to high",r=>r.freq_mhz,1], name:["Name, A to Z",titleOf,1], type:["Type, A to Z",typeOf,1],
+  lvl:["Strongest first",levelOf,-1], erp:["Most power first",erpOf,-1]};
 function drawSideList(items){
   const side=$("#side"); if(!side) return;
   if(!items.length){ side.innerHTML=S.searched?'<p class="status" style="padding:10px">Nothing here with the current layers and filters.</p>':pinFirst(true); return; }
-  const step = S.center ? niceStep(S.radius) : null;
+  const ss=SIDE_SORT[S.sideSort||""]; if(ss?.[1]) items=rfSort.by(items, ss[1], ss[2]);
+  const step = S.center && !ss?.[1] ? niceStep(S.radius) : null;
   let html="", ring=-1, n=0;
   for(const r of items.slice(0, S.shown)){
     if(step!=null && r.dist_mi!=null){ const rg=Math.floor(r.dist_mi/step); if(rg!==ring){ ring=rg; const cnt=items.filter(x=>x.dist_mi!=null&&Math.floor(x.dist_mi/step)===rg).length;

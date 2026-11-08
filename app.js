@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "cc9f9d0b86";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "65eb5194bc";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -447,6 +447,7 @@ function render() {
   ({list: viewList, report: viewReport, log: v => S.logView === "hunt" && window.viewHunt ? window.viewHunt(v) : viewLog(v),  // hunt.js
     das: v => window.viewDas?.(v), packs: viewPacks})[S.tab]?.(v);  // das.js
   v.scrollTop = 0;
+  rfSort.soon();  // a table's headers sort it, and a sorted one drawn again keeps its order (rfsort.js, shared with the PC app)
 }
 const noPack = () => `<div class="card glass empty" style="--i:1"><h2>No data pack yet</h2>
   <p>Packs hold the FCC data for an area. They're in the DAStastic folder in Google Drive, under “field packs”.</p>
@@ -463,17 +464,26 @@ function itemHtml(r) {
 }
 function viewList(v) {
   if (!S.db) { v.innerHTML = head("List", "") + noPack(); return; }
-  const g = groupItems(S.rows);
+  const g = sortList("list", groupItems(S.rows), LIST_SORTS());
   if (!g.length) { v.innerHTML = head("List", where()) + `<div class="card glass empty"><p>${S.center && S.mode !== "search" && !inPack(S.center)
     ? `That spot is outside ${esc(S.pack.name)}, so nothing shows here. Load the pack for that area.`
     : S.center || S.mode === "search" ? "Nothing here with the layers and filters on." : "Tap the map, use where you are, or search."}</p>
     <button class="btn" data-act="map">Open the map</button></div>`; return; }
   v.innerHTML = head("List", `${int(g.length)} entries ${where()}${S.truncated ? ". Showing the first 20,000 licences: zoom in with a smaller radius." : ""}`)
-    + takRow()
+    + takRow() + sortChips("list", LIST_SORTS())
     + `<div class="card glass" style="--i:1">${g.slice(0, S.shown).map(itemHtml).join("")}
     ${g.length > S.shown ? `<div class="row" style="justify-content:center;padding-top:10px"><button class="btn small" data-act="more">Show ${Math.min(200, g.length - S.shown)} more</button></div>` : ""}</div>`;
 }
 const head = (title, line) => `<div class="head"><h1>${title}</h1>${line ? `<p>${line}</p>` : ""}</div>`;
+// a list's Sort chips (Cody 11/8: every list sorts by its columns): the first chip is the order the list always had; the others sort
+// every entry (rfSort.by, static/rfsort.js: numbers as numbers, blanks last) before the first ones show. opts: [key, label, value, dir]
+S.sorts = {};
+const sortChips = (list, opts) => `<div class="chips" role="group" aria-label="Sort" style="margin:0 2px 10px;align-items:center"><span class="hint">Sort</span>${opts.map(([k, l]) =>
+  `<button class="chip ${(S.sorts[list] || "") === k ? "on" : ""}" data-act="sort" data-list="${list}" data-k="${k}" aria-pressed="${(S.sorts[list] || "") === k}">${l}</button>`).join("")}</div>`;
+const sortList = (list, rows, opts) => { const o = opts.find(([k]) => k === (S.sorts[list] || "")); return o?.[2] ? rfSort.by(rows, o[2], o[3]) : rows; };
+const LIST_SORTS = () => [["", S.mode === "search" ? "As found" : "Nearest"], ["freq", "Frequency", r => r.freq_mhz, 1], ["name", "Name", r => r.label || r.licensee || "", 1],
+  ["lvl", "Strongest", r => r.est_rx_dbm, -1]];
+const LOG_SORTS = [["", "Newest first"], ["freq", "Frequency", e => e.freq_mhz, 1], ["lvl", "Strongest", e => e.dbm, -1], ["type", "Type", e => e.sig_type || "", 1]];
 const takRow = () => `<div class="row" style="margin:0 2px 12px"><button class="btn small" data-act="tak" title="TAK data package: a marker per site with its frequencies, and the search ring">Send to ATAK / iTAK</button></div>`;
 async function sendToTak() {  // tak.js: the same data package the PC app makes
   if (!S.rows.length) { toast("Nothing to send yet: pick a spot or search first."); return; }
@@ -514,7 +524,7 @@ function viewReport(v) {
     <div class="card glass" style="--i:3"><h2>Technologies</h2>${techs.map(([t, n]) => { const u = t !== "Unknown" && S.meta.sig_lib?.[t]?.url;
       return `<div class="item" style="cursor:default"><span class="dot" style="background:${colorOf(radios.find(r => typeOf(r) === t))}"></span><div class="main"><div class="t">${esc(t)}</div>
         <div class="s">${esc([...new Set(radios.filter(r => typeOf(r) === t).map(r => r.band || "Other"))].join(", "))}${u ? ` · <a href="${esc(u)}" target="_blank" rel="noopener">Signal ID wiki</a>` : ""}</div></div><div class="f">${int(n)}</div></div>`; }).join("") || '<p class="hint">None.</p>'}</div>
-    <div class="card glass" style="--i:4"><h2>Every licensed frequency, by band</h2>${bands.map(b => { const g = groupItems(b.rs).sort((x, y) => x.freq_mhz - y.freq_mhz || (x.dist_mi ?? 0) - (y.dist_mi ?? 0));
+    <div class="card glass" style="--i:4"><h2>Every licensed frequency, by band</h2>${sortChips("list", [["", "Frequency"], ...LIST_SORTS().slice(2)])}${bands.map(b => { const g = sortList("list", groupItems(b.rs).sort((x, y) => x.freq_mhz - y.freq_mhz || (x.dist_mi ?? 0) - (y.dist_mi ?? 0)), LIST_SORTS());
       return `<details><summary><b>${esc(b.band)}</b><span class="hint">${b.freqs} freqs · ${b.lics} licensees</span></summary>${g.slice(0, 80).map(itemHtml).join("")}
         ${g.length > 80 ? `<p class="hint">First 80 of ${g.length}. The List has them all.</p>` : ""}</details>`; }).join("") || '<p class="hint">None.</p>'}</div>
     ${st ? `<div class="card glass" style="--i:5"><h2>Compare</h2><p style="margin:0">What scanner listeners have logged here: <a href="${rrStateUrl(st)}" target="_blank" rel="noopener">RadioReference ${esc(st)}</a> (pick the county).</p></div>` : ""}
@@ -637,7 +647,8 @@ function viewLog(v) {
     : "Signals you hear or see, with where you were.")
     + logSeg()
     + `<div class="row" style="margin:0 2px 12px"><button class="btn primary" data-act="newlog">＋ Log a signal</button>${n ? '<button class="btn" data-act="export">Export CSV</button>' : ""}</div>`
-    + (n ? S.log.map((e, i) => { const c = e.check;
+    + (n ? sortChips("log", LOG_SORTS) : "")
+    + (n ? sortList("log", S.log, LOG_SORTS).map((e, i) => { const c = e.check;
       return `<div class="card glass" style="--i:${Math.min(i, 8)}"><div class="row" style="justify-content:space-between;align-items:baseline">
         <b class="mono" style="font-size:17px">${e.freq_mhz != null ? fmtF(e.freq_mhz) + " MHz" : "No frequency"}</b><span class="hint">${esc(new Date(e.ts).toLocaleString())}</span></div>
         <div class="s" style="color:var(--ink-2)">${esc([e.sig_type || "Unknown", e.dbm != null ? `${e.dbm} dBm` : "", e.bearing != null ? `bearing ${Math.round(e.bearing)}°` : "", e.label].filter(Boolean).join(" · "))}</div>
@@ -824,6 +835,7 @@ document.addEventListener("click", async e => {
     else if (act === "map") setTab("map");
     else if (act === "here") { setTab("map"); locate(true); }
     else if (act === "more") { S.shown += 200; const y = $("#page").scrollTop; render(); $("#page").scrollTop = y; }
+    else if (act === "sort") { S.sorts[a.dataset.list] = a.dataset.k; if (a.dataset.list === "list") S.shown = 200; render(); }
     else if (act === "apply") applyFilters();
     else if (act === "clearf") { S.layerOn = new Set(Object.keys(LAYERS)); S.fmin = S.fmax = null; S.text = ""; kv.set("filters", null); $("#filterBtn").classList.remove("on"); closeSheet(); run(false); }
     else if (act === "newlog") logForm();

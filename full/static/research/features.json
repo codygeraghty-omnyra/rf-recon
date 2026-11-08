@@ -4034,6 +4034,23 @@
      ]
     },
     {
+     "name": "Sort any table or list",
+     "text": "Every table with column headings sorts by any of them like a spreadsheet: click (or Enter) for low to high, again for high to low; numbers with their units, dates, and names sort as they should, blanks last; detail rows, groups and totals stay where they belong; the order holds when the table is drawn again; long lists sort all their rows, not just those shown. Lists that aren't tables (the Map list, the DAS board, lite's lists) have a Sort picker. Tables you type into and ordered ones (a link budget's stages) keep their order.",
+     "src": [
+      "d-2026-11-08-1440",
+      "static/rfsort.js"
+     ]
+    },
+    {
+     "name": "Makers on the FCC's prohibited lists",
+     "text": "A maker on the FCC Covered List (Huawei, ZTE, Hytera and its Norsat and Sinclair, Hikvision, Dahua, Kaspersky) is flagged on a job's materials, in the parts catalogue, on an FCC ID lookup and among boosters from FCC grants, with the date it was listed and what the listing covers. A maker whose whole name matches an entry on the other lists the FCC draws on (Commerce, Homeland Security, Treasury, defense) is shown as one to check, with the list, country, date and Federal Register citation. A router or power inverter on a job's materials is flagged as a Covered List category, with the Conditional Approvals to check against.",
+     "src": [
+      "d-2026-11-08-1440",
+      "prohibited.py",
+      "dasbom.py"
+     ]
+    },
+    {
      "name": "Rail fits the screen",
      "text": "From 1,100 px the rail docks left of the content, open from 1,600 px and folded below; L or a click opens it and the choice is kept. Narrower it opens over the content; on a phone it is a bottom sheet.",
      "src": [

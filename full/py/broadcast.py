@@ -3,8 +3,9 @@ FCC broadcast stations (AM, FM, TV, low-power and translators) as a layer: call 
 power, antenna height, location, licensee.
 
 Source: the FCC Media Bureau's AM / FM / TV query lists (pipe-delimited, list=4), nationwide. They aren't in the
-ULS files, which cover land mobile, paging, microwave and the like. Read from saved files when the FCC refuses
-the app's own downloader (it answers curl): fcc_fmq.txt, fcc_amq.txt and fcc_tvq.txt in the data folder.
+ULS files, which cover land mobile, paging, microwave and the like. When the FCC refuses the app's own downloader, the
+run stops (no other route, Cody 11/5) and a person can save the lists from a browser into the data folder:
+fcc_fmq.txt, fcc_amq.txt and fcc_tvq.txt, which are read as they are.
 """
 import os
 import re
@@ -84,7 +85,7 @@ def download(data_dir, log=print):
     for kind, fname in FILES.items():
         path = os.path.join(data_dir, fname)
         try:
-            uls_import.http_get(URL.format(svc=fname[4:7]), path, log=lambda m, end="\n": None)  # curl fallback on a 403
+            uls_import.http_get(URL.format(svc=fname[4:7]), path, log=lambda m, end="\n": None)  # a refusal stops the run
             got.append(path)
         except Exception as e:
             log(f"  {kind.upper()} list not downloaded ({e}); using the saved copy if there is one")

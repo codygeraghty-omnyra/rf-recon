@@ -191,6 +191,7 @@ S.views.pim = async v => {
 };
 
 /* ---------- Parts tab ---------- */
+const DM_PART_SORT=["standard","part","item","maker","supplier","price","unit","weight_lb","std_qty"];  // Materials' parts list: its columns, as the server sorts them (das.py PART_SORT)
 S.views.parts = async v => {
   v.innerHTML='<p class="status">Loading the parts research…</p>';
   const gen=S.viewGen;
@@ -294,6 +295,9 @@ const pcPattern=p=>{ const t=p.pattern, ant=/antenna|yagi|panel|omni/i.test(`${p
         <br>beamwidth ${esc(w(t.h_width,t.h_width_measured))} horizontal, ${esc(w(t.v_width,t.v_width_measured))} vertical${t.front_to_back!=null?` · front to back ${t.front_to_back} dB`:""}${t.tilt?` · tilt ${esc(t.tilt)}`:""}
         <br><span class="hint">From ${esc(t.file||"the file")}${t.comment?`: ${esc(t.comment)}`:""}</span></p></div>`:'<p class="hint" style="margin:0">No pattern kept yet.</p>'}
     <div class="row" style="gap:8px;align-items:center;margin-top:6px"><label class="inl">${t?"Replace the pattern":"Add its pattern"} <input type="file" id="pcPat" accept=".msi,.pln,.txt"></label><span class="hint" id="pcPatMsg"></span></div></div>`; };
+// a maker on the FCC's prohibited-entity lists (prohibited.py), beside its name in the catalogue: what list, since when
+const partLists=L=>!L?"":(L.listed||[]).map(c=>` <span class="tag w" style="background:var(--bad);border-color:var(--bad)">FCC Covered List since ${esc(c.since)}</span>`).join("")
+  +((L.same_name||[]).length&&!(L.listed||[]).length?` <span class="tag w">Same name as an entry on the ${esc(L.same_name[0].lists.join(" and "))}: check</span>`:"");
 // the editor for one part's code fields, below the catalogue: on.saved() after each save, on.closed(changed) when it closes
 function pcEditor(box, p, fields, on={}){
   const g=p.grant, c=p.codes||{};
@@ -397,14 +401,16 @@ window.dasMaterials = async (el, j, save) => {
       ${r.empty?"":`<div class="panel" id="dmRules"><h3>Material rules for ERCES / DAS</h3>${(r.das||[]).map(x=>{ const k=`${x.topic}|${x.requirement}`; return `<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--line)">
         <input type="checkbox" data-mck="${esc(k)}" ${mchecks[k]?"checked":""} style="margin-top:4px;width:auto;flex:none"><span><b>${esc(x.topic)}</b>: ${esc(x.requirement||"")}${x.code?` <span class="tag">${esc(x.code)}</span>`:""}${x.detail?` <span class="hint">· ${esc(x.detail)}</span>`:""} ${frCite(r,x.sources)}</span></label>`; }).join("")}</div>`}</div></div>`;
   // the catalogue: a search, and each part's star, default quantity, spec sheet and Add
+  rfSort.own("dmPartsT", ()=>catList());
   const catList=async()=>{ const box=$("#dmCatList"); if(!box) return; const q=($("#dmCatQ")?.value||"").trim();
     const fcc=!!$("#dmCatFcc")?.checked;
-    const res=await api(`/api/das/parts?limit=60${q?`&q=${encodeURIComponent(q)}`:fcc?"":"&standard=1"}${fcc?"&grants=1":""}`).catch(e=>({parts:[], err:e.message}));
+    const ps=rfSort.get("dmPartsT"), pc=ps&&DM_PART_SORT[ps.c];  // a header pressed: the server sorts every match by it, then sends the first 60
+    const res=await api(`/api/das/parts?limit=60${q?`&q=${encodeURIComponent(q)}`:fcc?"":"&standard=1"}${fcc?"&grants=1":""}${pc?`&sort=${pc}&dir=${ps.d>0?"asc":"desc"}`:""}`).catch(e=>({parts:[], err:e.message}));
     if(!$("#dmCatList")) return;
     box.innerHTML=res.err?`<p class="hint">${esc(res.err)}</p>`:!res.parts.length?`<p class="hint">${fcc&&!res.grants?"No FCC booster grants are kept here: import them in Data & updates, FCC IDs, then press Boosters from FCC grants.":q?"No part matches.":res.all?"No standard parts yet: find a part and star it.":"No parts yet: import a supplier's price list above."}</p>`
-      :`<div class="tw" style="max-height:420px"><table><thead><tr><th>★</th><th>Part number</th><th>Description</th><th>Maker</th><th>Supplier</th><th class="n">Price</th><th>Unit</th><th class="n" title="Shipping weight of one, for shipping estimates">lb</th><th class="n">Default qty</th><th>Spec sheet</th><th>Code fields</th><th></th></tr></thead><tbody>
+      :`<div class="tw" style="max-height:420px"><table id="dmPartsT"><thead><tr><th>★</th><th>Part number</th><th>Description</th><th>Maker</th><th>Supplier</th><th class="n">Price</th><th>Unit</th><th class="n" title="Shipping weight of one, for shipping estimates">lb</th><th class="n">Default qty</th><th data-nosort>Spec sheet</th><th data-nosort>Code fields</th><th></th></tr></thead><tbody>
         ${res.parts.map(p=>`<tr><td><button class="sm" data-pstar="${p.id}" aria-pressed="${p.standard}" title="${p.standard?"A standard part: press to unstar":"Star it as a standard part"}">${p.standard?"★":"☆"}</button></td>
-          <td class="mono">${esc(p.part||"")}</td><td style="white-space:normal;min-width:14em">${esc(p.item||"")}</td><td>${esc(p.maker||"")}</td><td>${esc(p.supplier||"")}</td><td class="n">${money(p.price)} <a class="hint" href="#" data-phist="${p.id}">history</a></td><td>${esc(p.unit||"")}</td>
+          <td class="mono">${esc(p.part||"")}</td><td style="white-space:normal;min-width:14em">${esc(p.item||"")}</td><td>${esc(p.maker||"")}${partLists(p.lists)}</td><td>${esc(p.supplier||"")}</td><td class="n">${money(p.price)} <a class="hint" href="#" data-phist="${p.id}">history</a></td><td>${esc(p.unit||"")}</td>
           <td class="n"><input data-pwt="${p.id}" type="number" step="any" min="0" value="${esc(p.weight_lb??"")}" style="width:58px" title="Shipping weight of one (lb)"></td>
           <td class="n">${p.standard?`<input data-pqty="${p.id}" type="number" step="any" value="${esc(p.std_qty??"")}" style="width:64px">`:""}</td>
           <td style="white-space:nowrap">${p.spec_file?`<a href="/api/das/parts/${p.id}/spec" target="_blank" rel="noopener">PDF</a> · `:p.spec_url?`<a href="${esc(p.spec_url)}" target="_blank" rel="noopener">link ↗</a> · `:`<a class="hint" href="${esc(find(p.part||p.item,p.maker))}" target="_blank" rel="noopener">find ↗</a> · `}
@@ -528,7 +534,7 @@ window.dasMaterials = async (el, j, save) => {
         quotes(); setTimeout(()=>{ const m=$("#qMsg"); if(m) m.textContent=`${i.dataset.qimp}: ${r.imported.lines} lines read${r.imported.unmatched?`, ${r.imported.unmatched} didn't match a part`:""}.`; },400); }
       catch(err){ alert(err.message); } });
     box.querySelectorAll("[data-qenter]").forEach(b=>b.onclick=()=>{ const s=b.dataset.qenter, mine=Object.fromEntries(q.quotes.filter(x=>x.supplier===s).map(x=>[x.key,x])), t=q.terms[s]||{};
-      $("#qEnter").innerHTML=`<div class="panel" style="margin-top:8px"><h3>${esc(s)}'s quote</h3><div class="tw"><table><thead><tr><th>Part</th><th class="n">Qty</th><th class="n">Unit price</th><th class="n">Lead time (days)</th><th>Note</th></tr></thead><tbody>
+      $("#qEnter").innerHTML=`<div class="panel" style="margin-top:8px"><h3>${esc(s)}'s quote</h3><div class="tw"><table data-nosort><thead><tr><th>Part</th><th class="n">Qty</th><th class="n">Unit price</th><th class="n">Lead time (days)</th><th>Note</th></tr></thead><tbody>
         ${q.lines.map(ln=>`<tr><td><b>${esc(ln.part||"")}</b> ${esc(ln.item||"")}</td><td class="n">${ln.qty} ${esc(ln.unit)}</td>
           <td class="n"><input data-qp="${esc(ln.key)}" type="number" step="0.0001" value="${mine[ln.key]?.unit_price??""}" style="width:90px"></td>
           <td class="n"><input data-ql="${esc(ln.key)}" type="number" step="1" value="${mine[ln.key]?.lead_days??""}" style="width:70px"></td>

@@ -299,6 +299,10 @@ function dasLifeNeed(x){
   return `${what}: ${x.note||"open"}`;
 }
 window.dasOpenView = view => { S.das = S.das || {view:"board", q:"", job:null, sub:"overview"}; S.das.view = view; S.das.job = null; render(); };
+// the board's orders (its Sort picker): as the board has always had them, or by name, a date due, or the last change (rfSort.by: dates as
+// dates, blanks last)
+const DS_SORT={"":["As they come"], name:["Name, A to Z",j=>j.name,1], due:["Next step due first",j=>j.due||j.standing?.next?.due||"",1],
+  retest:["Retest due first",j=>j.retest_due||"",1], updated:["Changed most recently",j=>j.updated_at||"",-1]};
 S.views.das = async v => {
   const D=S.das=S.das||{view:"board", q:"", job:null, sub:"overview"};
   const gen=D.gen=(D.gen||0)+1;  // a draw overtaken by a newer one while it waited stops, instead of binding to the newer one's screen
@@ -331,6 +335,7 @@ S.views.das = async v => {
   v.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <button class="primary" id="dsNew">+ New job</button>${S.me?.course?'<a class="hbtn" id="dsCourse" href="/course" target="_blank" rel="noopener" style="text-decoration:none">DAS course ↗</a>':""}
       <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["register","Equipment & people"],["prospects","Prospects"],["pitch","Pitch"],["mail",window.rfMail?.ready_n?`Mail · ${rfMail.ready_n}`:"Mail"],["fault","Fault chart"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
+      ${D.view==="board"?`<label class="inl" title="The order of the jobs in each stage. The List's headers sort by any column.">Sort <select id="dsSort">${Object.entries(DS_SORT).map(([k,[l]])=>`<option value="${k}" ${(D.sort||"")===k?"selected":""}>${l}</option>`).join("")}</select></label>`:""}
       <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
       <label class="inl" title="A job exported from DAStastic (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>${window.dasVerifyBox?'<button id="dsVerifyBtn" title="Paste a sealed report\'s verify code: what was sealed, and whether the job changed since">Verify a report</button>':""}</div>
@@ -361,7 +366,8 @@ S.views.das = async v => {
       jobs.map(j=>`<tr data-open="${j.id}" style="cursor:pointer"><td><b>${esc(j.name)}</b></td><td>${esc(j.stage)}</td><td>${esc(j.address||"")}</td><td>${esc(j.ahj||"")}</td><td>${esc(window.dasNextText?.(j)||j.next_step||"")}</td><td class="mono">${esc(j.due||j.standing?.next?.due||"")}</td><td class="mono">${esc(j.retest_due||"")}</td><td class="mono">${esc((j.updated_at||"").slice(0,16))}</td></tr>`).join("")}</tbody></table></div>`
       :'<p class="status">No jobs yet. Start one with + New job.</p>';
   else {  // board: a column per stage; drag a card to move the job
-    body.innerHTML=`<div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(210px,1fr);gap:10px;overflow-x:auto;padding-bottom:6px">${D.stages.map(st=>{ const js=jobs.filter(j=>j.stage===st);
+    const ord=DS_SORT[D.sort||""], inOrder=js=>ord?.[1]?rfSort.by(js, ord[1], ord[2]):js;  // the Sort picker, within each stage
+    body.innerHTML=`<div style="display:grid;grid-auto-flow:column;grid-auto-columns:minmax(210px,1fr);gap:10px;overflow-x:auto;padding-bottom:6px">${D.stages.map(st=>{ const js=inOrder(jobs.filter(j=>j.stage===st));
       return `<div class="panel ds-col" data-stage="${esc(st)}" style="margin:0;min-height:160px"><h3 style="display:flex;justify-content:space-between">${esc(st)} <span class="hint">${js.length}</span></h3>${js.map(j=>{ const ck=j.checks||{}, CK=dasChecksFor(j.cell_only), done=CK.filter(([k])=>ck[k]).length, rd=daysTo(j.retest_due);
         return `<div class="ds-card" draggable="true" data-open="${j.id}" data-id="${j.id}" style="border:1px solid var(--line);border-radius:12px;padding:9px 10px;margin-top:8px;cursor:grab;background:var(--wash,transparent)">
           <b>${esc(j.name)}</b><div class="hint">${esc(j.address||"No address yet")}</div>
@@ -385,6 +391,7 @@ S.views.das = async v => {
   $("#dsNeedAll")?.addEventListener("click", e=>{ S.das.needAll=!S.das.needAll; v.querySelectorAll("#dsNeed .need-more").forEach(r=>{ r.style.display=S.das.needAll?"":"none"; });
     e.target.textContent=S.das.needAll?"Show the first 8":`Show all ${v.querySelectorAll("#dsNeed .row").length}`; });
   $("#dsView").onclick=e=>{ const b=e.target.closest("button"); if(b){ D.view=b.dataset.v; render(); } };
+  if($("#dsSort")) $("#dsSort").onchange=e=>{ D.sort=e.target.value; render(); };
   let t; $("#dsQ").oninput=e=>{ clearTimeout(t); t=setTimeout(()=>{ D.q=e.target.value; render(); const i=$("#dsQ"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },300); };
   $("#dsNew").onclick=async e=>{ const b=e.currentTarget; if(b.disabled) return; b.disabled=true;  // one press, one job (a double click made two, 11/3)
     try{ const p=parseLoc($("#loc").value); const j=await post("/api/das/jobs",{name:"New job",stage:"Lead",data:p?{lat:p[0],lon:p[1]}:{}}); D.job=j.id; D.sub="overview"; render(); }
@@ -504,7 +511,7 @@ function dasContacts(el){
       <div class="row"><label class="inl">Import (CSV, Excel, vCard) <input type="file" id="dcImp" accept=".csv,.tsv,.txt,.xlsx,.vcf,.json"></label><button id="dcCsv">⇩ CSV</button><button id="dcVcf">⇩ vCard</button></div></div>
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Name</th><th>Organisation</th><th>Role</th><th>Phone</th><th>Email</th><th>Notes</th><th></th></tr></thead><tbody>
     ${cs.map(c=>`<tr data-cid="${c.id}">${["name","org","role","phone","email","notes"].map(f=>`<td><input data-f="${f}" value="${esc(c[f]||"")}" style="width:100%;min-width:90px"></td>`).join("")}<td><button data-del="${c.id}">Delete</button></td></tr>`).join("")}
-    <tr id="dcNewRow">${["name","org","role","phone","email","notes"].map(f=>`<td><input data-f="${f}" placeholder="${f==="org"?"organisation":f}" style="width:100%;min-width:90px"></td>`).join("")}<td><button class="primary" id="dcAdd">Add</button></td></tr></tbody></table></div>
+    <tr id="dcNewRow" data-srt-foot>${["name","org","role","phone","email","notes"].map(f=>`<td><input data-f="${f}" placeholder="${f==="org"?"organisation":f}" style="width:100%;min-width:90px"></td>`).join("")}<td><button class="primary" id="dcAdd">Add</button></td></tr></tbody></table></div>
     <p class="hint" id="dcMsg">Changes save when you leave a field. Roles: AHJ / fire marshal, building owner, radio system owner (agency), general contractor, technician, or anything you like.</p></div>`;
   el.querySelectorAll("tr[data-cid] input").forEach(i=>i.onchange=async()=>{ const tr=i.closest("tr"), d={}; tr.querySelectorAll("input").forEach(x=>d[x.dataset.f]=x.value);
     await post(`/api/das/contacts/${tr.dataset.cid}`, d); $("#dcMsg").textContent="Saved."; });
@@ -882,7 +889,7 @@ async function dasPresurvey(el, j, save){
   const psCh=f=>`<span data-ch="${fmtF(f)}">${fmtF(f)}</span>`;
   const psFold=(list,cell)=>list.slice(0,6).map((c,i)=>cell(c,i)).join("<br>")+(list.length>6?`<details class="ps-more"><summary class="hint">+${list.length-6} more</summary>${list.slice(6).map((c,i)=>cell(c,i+6)).join("<br>")}</details>`:"");
   const psTier={1:"Government trunked and 700/800 MHz systems",2:"Other agency trunked and 700/800 MHz systems",3:"Other agency systems",4:"Other public safety licences"};
-  const psHead=(s,i)=>s.tier&&s.tier!==r.systems[i-1]?.tier?`<tr class="ps-tier"><td colspan="14"><b>${psTier[s.tier]}</b> <span class="hint">· ${r.systems.filter(x=>x.tier===s.tier).length}</span></td></tr>`:"";
+  const psHead=(s,i)=>s.tier&&s.tier!==r.systems[i-1]?.tier?`<tr class="ps-tier" data-srt-head><td colspan="14"><b>${psTier[s.tier]}</b> <span class="hint">· ${r.systems.filter(x=>x.tier===s.tier).length}</span></td></tr>`:"";
   const bands=new Map(); for(const p of plan){ for(const f of [p.downlink_mhz, ...String(p.uplink_mhz).split(" ").filter(Boolean).map(Number)]){ const b=dasBand(f); const x=bands.get(b)||{lo:1e9,hi:0,set:new Set()}; x.lo=Math.min(x.lo,f); x.hi=Math.max(x.hi,f); x.set.add(f); x.n=x.set.size; bands.set(b,x); } }
   el.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <label class="inl">Within <input id="psR" type="number" value="${P.radius}" min="1" max="60" style="width:70px"> mi</label>
@@ -1497,7 +1504,7 @@ function dasMapImport(el, t, fname, where, done){
     <div class="row">${fields.map(([k,l])=>`<label>${l}<select data-m="${k}">${opts(t.guess[k])}</select></label>`).join("")}
       <label title="Rows with no grid or area (all of them when there's no grid column) go in this square">Rows with no grid go in<select id="dmAll"><option value="">— skip them —</option>${squares.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join("")}</select></label>
       <button class="primary" id="dmGo">Import</button><button id="dmNo">Cancel</button></div>
-    <div class="tw" style="max-height:240px;margin-top:8px"><table><thead><tr>${t.headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.slice(0,12).map(r=>`<tr>${t.headers.map(h=>`<td>${esc(r[h]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <div class="tw" style="max-height:240px;margin-top:8px"><table data-nosort><thead><tr>${t.headers.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.slice(0,12).map(r=>`<tr>${t.headers.map(h=>`<td>${esc(r[h]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
     <p class="hint">Rows without a grid or area are skipped. Grid names like “Grid 7” or “2-7” are read as square 7. Floors the file names that this job doesn't have yet are added.
       Several rows for one square (one per channel or system) are all kept, and the worst decides it; a row replaces what that square already had on the same channel.
       Cellular rows (LTE or 5G, or any row with RSRP / RSRQ) are kept and shown but never scored against these public-safety rules.</p></div>`;

@@ -1405,12 +1405,20 @@ def _part_row(r):
     d["pattern"] = _json(d.get("pattern"), None)  # a Planet antenna pattern (save_pattern)
     d["kind"] = part_kind(dict(d, grant_info=d["grant"]))
     d["checks"] = part_checks(dict(d, grant_info=d["grant"]), d["codes"])
+    import prohibited  # the FCC's prohibited-entity lists: a Covered List maker, or a same-name match to check
+    got = prohibited.check(maker=d.get("maker"), text=f"{d.get('maker') or ''} {d.get('item') or ''}")
+    d["lists"] = {"listed": got["listed"], "same_name": got["same_name"]} if got["listed"] or got["same_name"] else None
     return d
 
 
-def list_parts(con, q="", standard=False, ids=None, limit=200, grants=False):
+# the catalogue's columns a header can sort by (Materials' parts list shows the first ones, so the sort is the server's)
+PART_SORT = ("standard", "part", "item", "maker", "supplier", "price", "unit", "weight_lb", "std_qty")
+
+
+def list_parts(con, q="", standard=False, ids=None, limit=200, grants=False, sort=None, desc=False):
     """Search the catalogue (part number, description, maker, supplier, FCC ID); or just the standard parts; or the
-    boosters from FCC grants; or given ids."""
+    boosters from FCC grants; or given ids. sort (one of PART_SORT) orders every match by that column before the limit,
+    text without case, blanks last either way (as a spreadsheet does); without it, standard parts first, by supplier."""
     where, args = [], []
     if ids:
         where.append(f"id IN ({','.join('?' * len(ids))})")
@@ -1424,7 +1432,10 @@ def list_parts(con, q="", standard=False, ids=None, limit=200, grants=False):
         args += [f"%{w}%"] * 6
     sql = "SELECT * FROM das_part" + (" WHERE " + " AND ".join(where) if where else "")
     total = con.execute(sql.replace("SELECT *", "SELECT COUNT(*)", 1), args).fetchone()[0]
-    rows = con.execute(sql + " ORDER BY standard DESC, supplier, part LIMIT ?", args + [int(limit)]).fetchall()
+    order = "standard DESC, supplier, part"
+    if sort in PART_SORT:  # a known column only: nothing typed reaches the SQL
+        order = f"({sort} IS NULL OR {sort} = ''), {sort} COLLATE NOCASE {'DESC' if desc else 'ASC'}, {order}"
+    rows = con.execute(sql + f" ORDER BY {order} LIMIT ?", args + [int(limit)]).fetchall()
     return {"parts": [_part_row(r) for r in rows], "total": total,
             "all": con.execute("SELECT COUNT(*) FROM das_part").fetchone()[0],
             "grants": con.execute("SELECT COUNT(*) FROM das_part WHERE grant_info IS NOT NULL").fetchone()[0],

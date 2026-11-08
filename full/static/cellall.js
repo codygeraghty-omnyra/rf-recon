@@ -22,12 +22,15 @@
       <button class="sm" data-cellgo style="margin-left:6px">Open Cell sites</button></h3>`; };
   const note = r => `<p class="hint" style="margin:6px 0 0">${esc(r.licensed_note || "")}${Object.values(r.sources || {}).length ? ` Sources: ${Object.values(r.sources).map(esc).join("; ")}.` : ""}</p>`;
   // one row per site, opening to its full record
+  // a header press sorts every site by that column, then the first 400 show (rfsort.js)
+  const listSorted = sites => rfSort.data("cellAllList", sites, [s => s.operator || "", s => s.radio || "", s => `${String(s.site_kind || "").split(" ")[0]} ${s.site_id}`,
+    s => (s.tower || {}).reg || "", s => s.dist_mi, s => (s.bands || []).join(", "), s => s.cells.length, s => (s.heard || []).join(", "), s => s.last || ""]);
   const listHtml = (r, sites) => `${head(r, sites)}<div class="tw"><table id="cellAllList"><thead><tr><th>Carrier</th><th>Technology</th><th>Site</th><th>Tower</th><th class="n">Distance</th><th>Bands licensed here</th><th class="n">Cells</th><th>PCI / PSC heard</th><th>Last seen</th></tr></thead><tbody>
-      ${sites.slice(0, 400).map((s, i) => `<tr data-cs="${i}" style="cursor:pointer" title="Open its full record"><td><b>${esc(s.operator || "")}</b></td><td>${esc(s.radio || "")}</td><td class="mono">${esc(String(s.site_kind || "").split(" ")[0])} ${esc(String(s.site_id))}</td>
+      ${listSorted(sites).slice(0, 400).map((s, i) => `<tr data-cs="${i}" style="cursor:pointer" title="Open its full record"><td><b>${esc(s.operator || "")}</b></td><td>${esc(s.radio || "")}</td><td class="mono">${esc(String(s.site_kind || "").split(" ")[0])} ${esc(String(s.site_id))}</td>
         <td class="mono">${esc((s.tower || {}).reg || "")}</td><td class="n">${num(s.dist_mi, 2)} mi</td><td>${esc((s.bands || []).join(", ") || "none on file")}</td><td class="n">${s.cells.length}</td>
         <td class="mono">${esc((s.heard || []).slice(0, 8).join(", "))}</td><td>${esc(s.last || "")}</td></tr>
         <tr data-csrec="${i}" hidden><td colspan="9" style="white-space:normal">${typeof emCellLicensed === "function" ? emCellLicensed(s) : ""}</td></tr>`).join("")}</tbody></table></div>
-    ${sites.length > 400 ? `<p class="hint">The nearest 400 of ${sites.length.toLocaleString()} sites: narrow the radius for the rest, or open Cell sites.</p>` : ""}${note(r)}`;
+    ${sites.length > 400 ? `<p class="hint">The ${rfSort.get("cellAllList") ? "first" : "nearest"} 400 of ${sites.length.toLocaleString()} sites: narrow the radius for the rest, or open Cell sites.</p>` : ""}${note(r)}`;
   // Spectrum: each carrier's licensed blocks here, by frequency, with a bar on one shared scale
   const specHtml = (r, sites) => { const seen = new Map();
     for (const s of sites) for (const b of s.licensed || []) { const k = `${s.operator}|${b.band}|${b.block}`; if (!seen.has(k)) seen.set(k, {op: s.operator, ...b, rf: (b.channels || []).map(c => c.band).join(", "), sites: 0}); seen.get(k).sites++; }
@@ -36,7 +39,7 @@
     const lo = Math.log(Math.min(...L.map(x => x.dl_mhz[0]))), hi = Math.log(Math.max(...L.map(x => x.dl_mhz[1]))), pos = f => ((Math.log(f) - lo) / Math.max(hi - lo, 1e-6)) * 100;
     return `${head(r, sites)}<div class="tw"><table id="cellAllSpec"><thead><tr><th>Carrier</th><th>Band</th><th>Block</th><th>Downlink MHz</th><th>Uplink MHz</th><th>3GPP band</th><th>Sites here</th><th style="min-width:220px">Where on the dial (downlink)</th></tr></thead><tbody>
       ${L.map(x => `<tr><td><b>${esc(x.op)}</b></td><td>${esc(x.band || "")}</td><td>${esc(x.block || "")}</td><td class="mono">${mhz(x.dl_mhz)}</td><td class="mono">${x.tdd ? "same (TDD)" : x.ul_mhz ? mhz(x.ul_mhz) : "none"}</td><td>${esc(x.rf)}</td><td class="n">${x.sites}</td>
-        <td><div style="position:relative;height:10px;background:var(--line);border-radius:5px"><span style="position:absolute;left:${pos(x.dl_mhz[0]).toFixed(1)}%;width:${Math.max(pos(x.dl_mhz[1]) - pos(x.dl_mhz[0]), 1).toFixed(1)}%;top:0;bottom:0;background:var(--accent);border-radius:5px"></span></div></td></tr>`).join("")}</tbody></table></div>
+        <td data-v="${x.dl_mhz[0]}"><div style="position:relative;height:10px;background:var(--line);border-radius:5px"><span style="position:absolute;left:${pos(x.dl_mhz[0]).toFixed(1)}%;width:${Math.max(pos(x.dl_mhz[1]) - pos(x.dl_mhz[0]), 1).toFixed(1)}%;top:0;bottom:0;background:var(--accent);border-radius:5px"></span></div></td></tr>`).join("")}</tbody></table></div>
       <p class="hint" style="margin:6px 0 0">Licensed, not measured: what each carrier may use in this county. Which block a site has on the air only a scan says.</p>`; };
   const topoHtml = (r, sites) => `${head(r, sites)}${typeof towersHtml === "function" ? towersHtml(r.towers || [], sites) : ""}${note(r)}`;
   async function mount(v, tab) {
@@ -56,6 +59,10 @@
     box.style.display = "";
     if (!sites.length) { box.innerHTML = `<h3>Cell sites in this area</h3><p class="hint" style="margin:0">None kept here yet. <button class="sm" data-cellgo>Open Cell sites</button> finds them for this area once (OpenCelliD's daily limit applies).</p>`; }
     else box.innerHTML = TABS[tab] === "spectrum" ? specHtml(r, sites) : TABS[tab] === "topology" ? topoHtml(r, sites) : listHtml(r, sites);
+    if (sites.length && TABS[tab] === "list") rfSort.own("cellAllList", () => { if (box !== me) return; box.innerHTML = listHtml(r, sites); wire(sites); });
+    wire(sites);
+  }
+  function wire(sites) {  // the panel's presses: Open Cell sites, a site's full record, a tower
     box.querySelectorAll("[data-cellgo]").forEach(b => b.onclick = () => setTab("cells"));
     box.querySelectorAll("tr[data-cs]").forEach(tr => tr.onclick = () => { const rec = box.querySelector(`tr[data-csrec="${tr.dataset.cs}"]`); if (rec) rec.hidden = !rec.hidden; });
     // Topology's tower table says "Click one for its sites, cells and channel numbers": a tower opens as it does on Cell sites (cells.js)

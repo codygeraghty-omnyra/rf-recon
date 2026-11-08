@@ -118,6 +118,12 @@ table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
 th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 6px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* a header sorts its table (rfsort.js): a finger-sized header (from the start: a tap is what makes it sortable, and it mustn't
+   move under the finger), ▲ / ▼ from aria-sort, a ring when reached by keyboard */
+.tw th { padding-top: 14px; padding-bottom: 14px; }
+th[data-srt] { cursor: pointer; }
+th[data-srt]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+th[aria-sort=ascending]::after { content: " ▲"; } th[aria-sort=descending]::after { content: " ▼"; }
 .bar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; background: var(--wash); margin-top: 4px; }
 details summary { cursor: pointer; padding: 10px 2px; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
 details summary::-webkit-details-marker { display: none; }
@@ -257,6 +263,7 @@ details + details { border-top: 1px solid var(--line); }
 <script src="tak.js"></script>
 <script src="notes.js"></script>
 <script src="boundaries.js"></script>
+<script src="rfsort.js"></script>
 <script src="app.js"></script>
 <script src="das.js"></script>
 <script src="geofix.js"></script>

@@ -2749,7 +2749,8 @@ class H(BaseHTTPRequestHandler):
                     das.sync_grant_parts(con)  # every Part 90 booster on the kept FCC grants, when they changed (11/4)
                     ids = [int(x) for x in fstr(qs, "ids").split(",") if x.strip().isdigit()] if fstr(qs, "ids") else None
                     return self.send(200, das.list_parts(con, fstr(qs, "q"), fstr(qs, "standard") == "1", ids, int(fnum(qs, "limit", 200)),
-                                                             grants=fstr(qs, "grants") == "1"))
+                                                             grants=fstr(qs, "grants") == "1", sort=fstr(qs, "sort") or None,
+                                                             desc=fstr(qs, "dir") == "desc"))
                 if p == "/api/das/parts/import":
                     return self.send(200, das.import_parts(con, fstr(qs, "name"), self.raw_body(), fstr(qs, "supplier"), fstr(qs, "as_of")))
                 if action == "delete":

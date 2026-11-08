@@ -213,10 +213,13 @@ function dasProspects() {  // read-only: the pack's prospect table (the columns 
   const tel = p => p.replace(/[^0-9+]/g, "");
   const ov = rows.some(r => /^overture/.test(r.source || ""));
   DAS.prows = rows;
+  // the list's Sort chips (app.js sortChips): nearest first as always, or by name, kind or town
+  const DASP_SORTS = label => [["", "Nearest"], ["name", "Name", r => r.name || "", 1], ["kind", "Kind", r => label[r.kind] || r.kind || "", 1], ["city", "Town", r => r.city || "", 1]];
   return `<div class="chips" style="margin:0 2px 12px">${here.map(k => `<button class="chip ${kinds.has(k) ? "on" : ""}" data-act="daspkind" data-k="${esc(k)}">${esc(label[k] || k)} <span class="hint">${by(k)}</span></button>`).join("")}</div>
     <div class="row" style="margin:0 2px 12px"><button class="btn small" data-act="daspcsv" ${rows.length ? "" : "disabled"}>Call list (CSV)</button>
-      <span class="hint">${rows.length} within ${S.radius} mi of the pin${rows.length > 200 ? ": the nearest 200 shown" : ""}</span></div>
-    <div class="card glass" style="--i:1">${rows.length ? rows.slice(0, 200).map(r => `<div class="item" style="cursor:default"><span class="dot" style="background:${DAS_PCOLOR[r.kind] || "#3ccf7a"};margin-top:6px"></span>
+      <span class="hint">${rows.length} within ${S.radius} mi of the pin${rows.length > 200 ? `: the ${S.sorts.dasp ? "first" : "nearest"} 200 shown` : ""}</span></div>
+    ${rows.length > 1 ? sortChips("dasp", DASP_SORTS(label)) : ""}
+    <div class="card glass" style="--i:1">${rows.length ? sortList("dasp", rows, DASP_SORTS(label)).slice(0, 200).map(r => `<div class="item" style="cursor:default"><span class="dot" style="background:${DAS_PCOLOR[r.kind] || "#3ccf7a"};margin-top:6px"></span>
         <div class="main"><div class="t" style="white-space:normal">${esc(r.name)}</div>
           <div class="s">${esc([label[r.kind] || r.kind, `${num(r.dist_mi, r.dist_mi < 10 ? 1 : 0)} mi ${compass(r.brg)}`, r.city].filter(Boolean).join(" · "))}${r.precision === "zip" ? " (placed at its ZIP)" : ""}</div>
           ${r.detail || r.size_label ? `<div class="s">${esc([r.size_label, r.detail].filter(Boolean).join(" · "))}</div>` : ""}

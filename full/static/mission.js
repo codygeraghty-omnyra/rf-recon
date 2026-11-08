@@ -163,13 +163,16 @@ S.views.mission = async (v) => {
       try{
         const c=await api(`/api/compare?a=${$("#cmpA").value}&b=${m.id}&delta=${$("#cmpD").value}`);
         const sig=s=>s.freq_mhz?`<span class="mono">${fmtF(s.freq_mhz)}</span> MHz`:`<span class="mono">${esc(s.ident||"")}</span>`;
-        const table=(rows,cols)=>rows.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>Signal</th><th>Type</th><th>Label / ID</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}<th>Seen</th></tr></thead><tbody>${rows.slice(0,150).map(s=>`<tr><td>${sig(s)}</td><td>${esc(s.sig_type||"")}</td><td>${esc(s.label||"")}</td>${cols.map(c=>`<td class="n">${c[1](s)}</td>`).join("")}<td class="mono hint">${esc((s.first||"").slice(0,16))}${s.last&&s.last!==s.first?` → ${esc(s.last.slice(11,16))}`:""}</td></tr>`).join("")}</tbody></table></div>${rows.length>150?`<p class="hint">First 150 of ${rows.length}.</p>`:""}`:'<p class="hint">None.</p>';
-        out.innerHTML=`<p><b>${esc(c.b.name)}</b> (${c.b.signals.toLocaleString()} signals) against <b>${esc(c.a.name)}</b> (${c.a.signals.toLocaleString()}):
+        // a header press sorts every signal in that list by its column (rfsort.js), then the first 150 show; cols[2]: a column's value
+        const sorted=(id,rows,cols)=>rfSort.data(id, rows, [s=>s.freq_mhz??s.ident??"", s=>s.sig_type||"", s=>s.label||"", ...cols.map(c=>c[2]), s=>s.first||""]);
+        const table=(rows,cols,id)=>rows.length?`<div class="tw" style="max-height:320px"><table id="${id}"><thead><tr><th>Signal</th><th>Type</th><th>Label / ID</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}<th>Seen</th></tr></thead><tbody>${sorted(id,rows,cols).slice(0,150).map(s=>`<tr><td>${sig(s)}</td><td>${esc(s.sig_type||"")}</td><td>${esc(s.label||"")}</td>${cols.map(c=>`<td class="n">${c[1](s)}</td>`).join("")}<td class="mono hint">${esc((s.first||"").slice(0,16))}${s.last&&s.last!==s.first?` → ${esc(s.last.slice(11,16))}`:""}</td></tr>`).join("")}</tbody></table></div>${rows.length>150?`<p class="hint">First 150 of ${rows.length}.</p>`:""}`:'<p class="hint">None.</p>';
+        const draw=()=>{ out.innerHTML=`<p><b>${esc(c.b.name)}</b> (${c.b.signals.toLocaleString()} signals) against <b>${esc(c.a.name)}</b> (${c.a.signals.toLocaleString()}):
           <b style="color:var(--bad)">${c.new.length} new</b>, <b>${c.gone.length} gone</b>, <b style="color:var(--warn)">${c.changed.length} changed by ${c.delta_db} dB or more</b>, ${c.same} the same.
           <span class="hint">Signals match by MAC or cell ID where there is one, else by 6.25 kHz channel and type.</span></p>
-          <h3>New since the baseline</h3>${table(c.new,[["Strongest dBm",s=>num(s.max_dbm,0)],["Readings",s=>s.n]])}
-          <h3>Gone (in the baseline, not now)</h3>${table(c.gone,[["Strongest dBm then",s=>num(s.max_dbm,0)],["Readings",s=>s.n]])}
-          <h3>Changed level</h3>${table(c.changed,[["Before",s=>num(s.before_dbm,0)],["Now",s=>num(s.max_dbm,0)],["Change dB",s=>`<b style="color:${s.delta_db>0?"var(--bad)":"var(--good)"}">${s.delta_db>0?"+":""}${s.delta_db}</b>`]])}`;
+          <h3>New since the baseline</h3>${table(c.new,[["Strongest dBm",s=>num(s.max_dbm,0),s=>s.max_dbm],["Readings",s=>s.n,s=>s.n]],"cmpNew")}
+          <h3>Gone (in the baseline, not now)</h3>${table(c.gone,[["Strongest dBm then",s=>num(s.max_dbm,0),s=>s.max_dbm],["Readings",s=>s.n,s=>s.n]],"cmpGone")}
+          <h3>Changed level</h3>${table(c.changed,[["Before",s=>num(s.before_dbm,0),s=>s.before_dbm],["Now",s=>num(s.max_dbm,0),s=>s.max_dbm],["Change dB",s=>`<b style="color:${s.delta_db>0?"var(--bad)":"var(--good)"}">${s.delta_db>0?"+":""}${s.delta_db}</b>`,s=>s.delta_db]],"cmpChanged")}`; };
+        draw(); for(const id of ["cmpNew","cmpGone","cmpChanged"]) rfSort.own(id, ()=>{ if(out.isConnected) draw(); });
       }catch(e){ out.innerHTML=`<p class="status err">${esc(e.message)}</p>`; }
     };
     if(window.missionHunt) window.missionHunt(v, m);  // Find a signal, at the top (hunt.js)
@@ -508,9 +511,12 @@ S.views.data = async (v) => {
     <div class="tw"><table><thead><tr><th>Source</th><th>Layer</th><th>Points</th><th>Last fetched</th></tr></thead><tbody>${layers.layers.map(l=>`<tr><td>${esc(l.source)}</td><td>${esc(l.layer)}</td><td class="n">${l.n.toLocaleString()}</td><td class="mono">${esc(l.fetched||"")}</td></tr>`).join("")||'<tr><td colspan="4" class="hint">None yet.</td></tr>'}</tbody></table></div>
     <p class="hint">The USGS maps and county lines you view are kept on this PC, so areas you looked at before a trip keep working with no signal. Street (OpenStreetMap) and Esri's hi-res satellite are for use with signal only (their terms don't allow keeping them for offline use): with no signal the map shows USGS Topo instead.</p></div>`;
   paintSources();
+  // a grantee on the FCC's prohibited-entity lists (prohibited.py): a Covered List maker plainly, a same-name match to check
+  const listsNote=L=>!L?"":(L.listed||[]).map(c=>`<span class="tag w" style="background:var(--bad);border-color:var(--bad)">FCC Covered List</span> ${esc(c.name)} since ${esc(c.since)}: ${esc(c.scope)}. `).join("")
+    +(L.same_name||[]).slice(0,2).map(e=>`<span class="tag w">Same name</span> as ${esc(e.name)} on the ${esc((e.lists||[]).join(" and "))}${e.country?` (${esc(e.country)})`:""}${e.added?`, added ${esc(e.added)}`:""}${e.cite?`, ${esc(e.cite)}`:""}: check it's the same company. `).join("");
   const fiRun=async()=>{ const q=$("#fiQ").value.trim(); if(!q) return; $("#fiMsg").textContent="Asking the FCC…"; $("#fiOut").innerHTML="";
     try{ const r=await api(`/api/fccid?q=${encodeURIComponent(q)}`), m=r.maker;
-      const maker=m?`<b>${esc(m.name||m.code)}</b>${[m.city,m.state,m.country].filter(Boolean).length?`, ${esc([m.city,m.state,m.country].filter(Boolean).join(", "))}`:""} (grantee code ${esc(m.code)}). `:"";
+      const maker=m?`<b>${esc(m.name||m.code)}</b>${[m.city,m.state,m.country].filter(Boolean).length?`, ${esc([m.city,m.state,m.country].filter(Boolean).join(", "))}`:""} (grantee code ${esc(m.code)}). ${listsNote(m.lists)}`:"";
       // the FCC's grant list refuses anything but a person's own browser (10/31: the PC's request and the web version's both
       // get 403), so when it won't answer, the grants open there: the FCC's own list, or fccid.io's readable copy of it
       const id=encodeURIComponent(r.query||q);
@@ -641,8 +647,8 @@ S.views.data = async (v) => {
     const parts=r.path?r.path.split("/"):[], join=n=>parts.slice(0,n).join("/"), kids=n=>r.path?`${r.path}/${n}`:n;
     $("#sfCrumb").innerHTML=[`<button class="sf-go" data-sfgo="">${esc(r.label)}</button>`,...parts.map((p,i)=>`<button class="sf-go" data-sfgo="${esc(join(i+1))}">${esc(p)}</button>`)].join(" › ");
     const items=n=>n==null?"":`${n>=r.count_to?`${n.toLocaleString()}+`:n.toLocaleString()} item${n===1?"":"s"}`;
-    $("#sfList").innerHTML=[...r.folders.map(f=>`<tr><td><button class="sf-go" data-sfgo="${esc(kids(f.name))}">${esc(f.name)}/</button></td><td>${items(f.items)}</td><td>${esc(f.changed)}</td><td></td></tr>`),
-      ...r.files.map(f=>`<tr><td>${esc(f.name)}</td><td>${sfSize(f.size)}</td><td>${esc(f.changed)}</td><td style="text-align:right">${r.download?`<a class="hbtn" title="Download a copy" aria-label="Download ${esc(f.name)}" download href="/api/remote/files/download?root=${encodeURIComponent(root)}&path=${encodeURIComponent(kids(f.name))}">⇩ Download</a>`:""}</td></tr>`)].join("")
+    $("#sfList").innerHTML=[...r.folders.map(f=>`<tr data-srt-group="folder"><td><button class="sf-go" data-sfgo="${esc(kids(f.name))}">${esc(f.name)}/</button></td><td>${items(f.items)}</td><td>${esc(f.changed)}</td><td></td></tr>`),
+      ...r.files.map(f=>`<tr data-srt-group="file"><td>${esc(f.name)}</td><td>${sfSize(f.size)}</td><td>${esc(f.changed)}</td><td style="text-align:right">${r.download?`<a class="hbtn" title="Download a copy" aria-label="Download ${esc(f.name)}" download href="/api/remote/files/download?root=${encodeURIComponent(root)}&path=${encodeURIComponent(kids(f.name))}">⇩ Download</a>`:""}</td></tr>`)].join("")
       ||'<tr><td colspan="4" class="hint">Nothing here yet.</td></tr>';
     $("#sfMsg").textContent=[r.download?"":"This folder lists sizes only.", r.more?`Showing the first ${(r.folders.length+r.files.length).toLocaleString()}; ${r.more.toLocaleString()} more aren't listed.`:""].filter(Boolean).join(" ");
     document.querySelectorAll("#sfCrumb [data-sfgo], #sfList [data-sfgo]").forEach(b=>b.onclick=()=>sfOpen(root,b.dataset.sfgo)); };

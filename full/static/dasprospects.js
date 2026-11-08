@@ -270,6 +270,10 @@ window.dasProspects = async el => {
     return `<button data-tg class="pr-tg" style="display:block;border-radius:8px;padding:4px 8px;min-height:32px;border:1px solid ${col};color:${col};background:transparent;text-align:left;white-space:normal;width:204px;line-height:1.3;font-size:12.5px" title="${t.near_m != null ? `Nearby, ${t.near_m} m away at ${esc(t.address)}: matched by distance only. ` : ""}${esc(t.why)} (click for the permit, the source and the rule)"><b style="font-weight:600">${t.near_m != null ? `Nearby (${t.near_m} m): ` : ""}${esc(main)}</b>${sub ? `<div style="opacity:.8;font-size:11.5px">${esc(sub)}</div>` : ""}</button>`;
   };
   const prDot = x => { const n = P.need[x.id]; return P.colour === "need" ? (n ? (PR_NEED[n.ps] || PR_NEED.unknown)[1] : "#bbb") : PR_STCOL[x.status] || "#3b82f6"; };
+  // a header press sorts every building shown by that column (rfsort.js); the Sort picker's choices take over again when picked
+  const prCols = rows => rfSort.data("prTab", rows, [x => x.name, x => PR_NEED_RANK[P.need[x.id]?.ps ?? "unknown"], x => x.trigger ? prTrigRank(x) : null,
+    x => PR_KIND[x.kind] || x.kind, x => x.dist_mi, x => x.email || x.phone || x.website || "", x => x.status || "new"]);
+  rfSort.own("prTab", () => paint());
   const prSort = rows => {
     if (P.sort === "priority") return rows;  // the server's order: priority, then distance
     const key = P.sort === "dist" ? x => [x.dnc0 ? 1 : 0, x.dist_mi || 0]
@@ -285,7 +289,7 @@ window.dasProspects = async el => {
   const paint = () => {
     if (!P.rules && !P.rulesAsked && window.dasStateRules) { P.rulesAsked = true; window.dasStateRules().then(r => { P.rules = r; if (body.isConnected) paint(); }); }
     P.areaState = prArea();
-    const rows = prSort((P.rows || []).filter(x => (!P.noLaw || prFlag(x)?.level !== "no_mandate") && (!P.status || x.status === P.status) && prTrigOk(x, P.trig) && (!P.q || `${x.name} ${x.city} ${x.detail || ""} ${x.trigger?.label || ""}`.toLowerCase().includes(P.q.toLowerCase()))));
+    const rows = prCols(prSort((P.rows || []).filter(x => (!P.noLaw || prFlag(x)?.level !== "no_mandate") && (!P.status || x.status === P.status) && prTrigOk(x, P.trig) && (!P.q || `${x.name} ${x.city} ${x.detail || ""} ${x.trigger?.label || ""}`.toLowerCase().includes(P.q.toLowerCase())))));
     const ntrig = f => (P.rows || []).filter(x => prTrigOk(x, f)).length;
     const by = s => (P.rows || []).filter(x => x.status === s).length;
     if (!P.rows) return;
@@ -305,7 +309,7 @@ window.dasProspects = async el => {
         ${window.rfMail ? `<button id="prQueue" title="Write a first email to each building shown that has an email and hasn't been written to: they wait in DAS › Mail › Ready to send for your click">✉ Queue first emails</button>` : ""}
       </div>
       <div class="row" style="flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px">
-        <label class="inl">Sort <select id="prSort">${[["need", "need first"], ["priority", "priority"], ["dist", "nearest"]].map(([k, l]) => `<option value="${k}" ${P.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="inl">Sort <select id="prSort">${rfSort.get("prTab") ? `<option value="" selected>by the column picked</option>` : ""}${[["need", "need first"], ["priority", "priority"], ["dist", "nearest"]].map(([k, l]) => `<option value="${k}" ${!rfSort.get("prTab") && P.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <label class="inl" title="The estimate's land type (Okumura-Hata): urban loses the most, open land the least">Land <select id="prEnv">${[["urban", "urban"], ["suburban", "suburban"], ["open", "open land"]].map(([k, l]) => `<option value="${k}" ${P.env === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <label class="inl">Map colour <select id="prCol"><option value="need" ${P.colour === "need" ? "selected" : ""}>need</option><option value="status" ${P.colour === "status" ? "selected" : ""}>status</option></select></label>
         <span class="hint" id="prNeedMsg">${P.needMsg || ""}</span>
@@ -315,7 +319,7 @@ window.dasProspects = async el => {
       <div id="prMap" style="height:340px;border-radius:12px;margin-bottom:4px"></div>
       <p class="hint" id="prLegend" style="margin:0 0 8px">${P.colour === "need" ? Object.values(PR_NEED).map(([l, c]) => `<span style="color:${c}">●</span> ${l}`).join(" &nbsp; ") + " &nbsp; (an estimate)"
         : Object.entries(PR_STCOL).filter(([s]) => s !== "meeting").map(([s, c]) => `<span style="color:${c}">●</span> ${s}`).join(" &nbsp; ")}</p>
-      <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th title="The building's strongest permit or certificate of occupancy from city and county open data (click one for the permit, its source and the rule)">Trigger<div class="hint">permits</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
+      <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab" id="prTab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th title="The building's strongest permit or certificate of occupancy from city and county open data (click one for the permit, its source and the rule)">Trigger<div class="hint">permits</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
       ${rows.slice(0, 400).map(x => `<tr data-pid="${esc(x.id)}" class="${x.status === "do not contact" ? "pr-dnc" : ""}">
         <td style="white-space:normal;min-width:200px;max-width:320px"><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${prLaw(x)}${x.detail ? `<div class="hint pr-desc" data-dt role="button" tabindex="0" title="Two lines here: the whole of it opens under the row">${esc(x.detail)}</div>` : ""}</td>
         <td data-need>${prNeedCell(x)}</td>
@@ -336,7 +340,7 @@ window.dasProspects = async el => {
     prMap(rows);
     $("#prQ").oninput = e => { P.q = e.target.value; clearTimeout(P.qt); P.qt = setTimeout(() => { const pos = e.target.selectionStart; paint(); const q = $("#prQ"); q.focus(); q.setSelectionRange(pos, pos); }, 250); };
     $("#prStatus").onchange = e => { P.status = e.target.value; paint(); };
-    $("#prSort").onchange = e => { P.sort = e.target.value; paint(); };
+    $("#prSort").onchange = e => { if (!e.target.value) return; rfSort.set("prTab", null); P.sort = e.target.value; paint(); };
     $("#prTrig").onchange = e => { P.trig = e.target.value; paint(); };
     $("#prNoLaw").onchange = e => { P.noLaw = e.target.checked; paint(); };
     $("#prEnv").onchange = e => { P.env = e.target.value; P.needMsg = ""; paint(); needRun(); };

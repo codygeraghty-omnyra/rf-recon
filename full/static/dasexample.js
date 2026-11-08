@@ -153,7 +153,7 @@ window.dasBoardGuide = (el, D) => {
     <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none">
       <h3 style="margin:0">How a DAS job moves <span class="hint">· stage by stage, and the steps that do it</span></h3>
       <span style="margin-left:auto" class="row"><button id="dxAdd" title="Four worked jobs to open and learn from: ${esc(four)}. Fictional buildings, people and companies.">＋ Add example jobs</button></span></summary>
-    <div class="tw wrap" style="margin-top:8px"><table><thead><tr><th>Stage</th><th>What happens</th><th>Where in the job</th></tr></thead><tbody>
+    <div class="tw wrap" style="margin-top:8px"><table data-nosort><thead><tr><th>Stage</th><th>What happens</th><th>Where in the job</th></tr></thead><tbody>
       ${DAS_FLOW.map(([s, what, where]) => `<tr><td><b>${esc(s)}</b></td><td>${esc(what)}</td><td class="hint">${esc(where)}</td></tr>`).join("")}</tbody></table></div>
     <p class="hint" id="dxMsg" style="margin:6px 0 0">${dasExRecent() ? esc(dasExRecent()) : hasEx ? "The example jobs are on the board: the two named “(example)” stop mid-way, to learn each step; the two named “(completed example)” are finished, to see the end result. Open one, and each step says what it's for, what you fill in and what to look at." + (own ? " " + esc(own) : "")
       : own ? `${esc(own)} They are ${esc(four)}.` : `Add example jobs puts four jobs on the board: ${esc(four)}. Each step in them explains itself. Fictional buildings, people and companies. Delete them when you're done; add them again any time.`}</p></details>`;

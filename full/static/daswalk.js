@@ -681,7 +681,7 @@ function wkMount(panel, j0, save, ctx){
         <label>Taken with<select id="wiInst">${ctx.instOpts?ctx.instOpts(sn.phone?"uncal":ctx.inst||"uncal", false):'<option value="uncal">Not calibrated</option>'}</select></label>
         <button class="primary" id="wiGo">Import</button><button id="wiNo">Cancel</button></div>
       <p class="hint" id="wiPrev" style="margin:6px 0"></p>
-      <div class="tw" style="max-height:200px"><table><thead><tr>${t.headers.slice(0,24).map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.slice(0,8).map(r=>`<tr>${t.headers.slice(0,24).map(h=>`<td>${esc(r[h]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+      <div class="tw" style="max-height:200px"><table data-nosort><thead><tr>${t.headers.slice(0,24).map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${t.rows.slice(0,8).map(r=>`<tr>${t.headers.slice(0,24).map(h=>`<td>${esc(r[h]??"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
       <p class="hint" style="margin:6px 0 0">${sn.lteOnly?"G-NetTrack's Level, Qual and SNR are read as RSRP, RSRQ and SINR on LTE and 5G rows; 2G / 3G rows are left out. ":""}A phone app has no calibration: its readings are mapped and kept as cellular survey data, never scored for public safety.</p></div>`;
     box.scrollIntoView({behavior:"smooth", block:"nearest"});
     const cur=()=>{ const mm={}; box.querySelectorAll("[data-wf]").forEach(s=>{ if(s.value) mm[s.dataset.wf]=s.value; }); return mm; };
@@ -760,7 +760,7 @@ function wkMount(panel, j0, save, ctx){
       <td>${x.n} pair${x.n===1?"":"s"}<div class="hint">${x.lo} to ${x.hi} dBm</div><div class="hint" style="color:${x.q==="good"?"#1a7f37":"#9a6700"}">${esc(Q[x.q])}</div></td></tr>`;
     const table=(ps, who)=>{ const ft=wkCalFit(ps), rows=Object.entries(ft.bands).sort(([a],[b])=>a.localeCompare(b, undefined, {numeric:true}));
       return rows.length?`<div class="tw"><table data-calmodel="${esc(who)}"><thead><tr><th>Band</th><th>${esc(who)}</th><th>Pairs and levels</th></tr></thead><tbody>
-        ${rows.map(([k, x])=>row(k, x)).join("")}${rows.length>1&&ft.all?row("all bands", ft.all):""}</tbody></table></div>`:""; };
+        ${rows.map(([k, x])=>row(k, x)).join("")}${rows.length>1&&ft.all?row("all bands", ft.all).replace("<tr>", "<tr data-srt-foot>"):""}</tbody></table></div>`:""; };
     const ownT=phone?table(own, "This phone"):"";
     el.innerHTML=`<div class="panel" style="margin-top:8px"><h3 style="margin:0 0 4px">Phone correction <span class="hint">· ${phone?`${esc(calModel)}, `:""}against a calibrated instrument</span></h3>
       ${phone?(ownT||`<p class="hint" style="margin:0">No pairs yet for this phone. Point › <b>Phone vs instrument</b>: at 5 or more spots, strong and weak signal, read this phone and a calibrated instrument side by side.</p>`):""}

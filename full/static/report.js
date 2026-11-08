@@ -84,12 +84,10 @@ S.views.report = (v, rows) => {
         <td class="no-print">${S.lib[t]?.url ? `<a href="${esc(S.lib[t].url)}" target="_blank" rel="noopener">Signal ID wiki</a>` : ""}</td></tr>`; }).join("")}</tbody></table></div>` : '<p class="hint">None.</p>'}</div>
 
   <div class="panel" id="rp_all" style="margin-top:10px"><h3>Every licensed frequency, by band</h3>
-    ${bands.map(b => { const g = groupItems(b.rs).sort((x, y) => x.freq_mhz - y.freq_mhz || (x.dist_mi ?? 0) - (y.dist_mi ?? 0));
+    ${bands.map(b => { const g = groupItems(b.rs).sort((x, y) => x.freq_mhz - y.freq_mhz || (x.dist_mi ?? 0) - (y.dist_mi ?? 0)); RP_BAND.set(b.band, g);
       return `<details><summary><b>${esc(b.band)}</b> <span class="hint">${b.freqs} frequencies · ${b.lics} licensees</span></summary>
-      <div class="tw" style="max-height:420px"><table><thead><tr><th>MHz</th><th>Licensee</th><th>Call sign</th><th>Technology</th><th>Emission</th><th>ERP W</th><th>Distance</th><th>Est. dBm</th></tr></thead><tbody>
-      ${g.slice(0, 60).map(r => `<tr><td class="mono">${fmtF(r.freq_mhz)}</td><td>${esc(r.ov_alpha_tag || r.licensee || "")}</td><td class="mono">${esc(r.call_sign || "")}</td>
-        <td>${esc(typeOf(r))}</td><td class="mono">${esc(r.emissions || "")}</td><td class="n">${num(r.erp_w, 0)}</td>
-        <td class="n">${num(r.dist_mi, 2)} ${esc(r.compass || "")}</td><td class="n">${num(r.est_rx_dbm, 0)}</td></tr>`).join("")}</tbody></table></div>
+      <div class="tw" style="max-height:420px"><table data-srt-key="rpBand" data-band="${esc(b.band)}"><thead><tr><th>MHz</th><th>Licensee</th><th>Call sign</th><th>Technology</th><th>Emission</th><th>ERP W</th><th>Distance</th><th>Est. dBm</th></tr></thead><tbody>
+      ${rpBandRows(g)}</tbody></table></div>
       ${g.length > 60 ? `<p class="hint">Showing 60 of ${g.length}. The Analyzer and Map table list them all, with the same filters.</p>` : ""}</details>`; }).join("") || '<p class="hint">None.</p>'}</div>
 
   <div class="panel" id="rp_sig" style="margin-top:10px"><h3>Signals not on the FCC licence list</h3>
@@ -144,21 +142,32 @@ function claimTag(r) {
     + (r.flags?.length ? `<br><span style="color:var(--bad)">⚑ ${r.flags.map(esc).join("; ")}</span>` : "");
 }
 
-async function loadSignals(gen) {
+// a header press: the findings sorted again from the answer in hand; a band's table filled again in place, its <details> left open
+rfSort.own("rpSig", () => loadSignals(S.reportGen, true));
+const RP_BAND = new Map();
+const rpBandRows = g => rfSort.data("rpBand", g, [r => r.freq_mhz, r => r.ov_alpha_tag || r.licensee || "", r => r.call_sign || "", r => typeOf(r), r => r.emissions || "",
+  r => r.erp_w, r => r.dist_mi, r => r.est_rx_dbm]).slice(0, 60).map(r => `<tr><td class="mono">${fmtF(r.freq_mhz)}</td><td>${esc(r.ov_alpha_tag || r.licensee || "")}</td><td class="mono">${esc(r.call_sign || "")}</td>
+        <td>${esc(typeOf(r))}</td><td class="mono">${esc(r.emissions || "")}</td><td class="n">${num(r.erp_w, 0)}</td>
+        <td class="n">${num(r.dist_mi, 2)} ${esc(r.compass || "")}</td><td class="n">${num(r.est_rx_dbm, 0)}</td></tr>`).join("");
+rfSort.own("rpBand", () => { for (const t of document.querySelectorAll('#rp_all table[data-srt-key="rpBand"]')) { const g = RP_BAND.get(t.dataset.band); if (g) t.tBodies[0].innerHTML = rpBandRows(g); } });
+async function loadSignals(gen, again) {  // again: a header press, drawn from the answer already here
   const body = $("#rp_sigbody");
   try {
     const layers = NON_FCC.filter(l => S.layerOn.has(l)).join(",");
-    const res = await api("/api/report/signals?" + params({layers, all_captures: 1}));
+    const res = again && S.rpSig?.gen === gen ? S.rpSig.res : await api("/api/report/signals?" + params({layers, all_captures: 1}));
     if (gen !== S.reportGen) return;
+    S.rpSig = {gen, res};
     const c = res.counts, n = res.rows.length, un = c["Unlisted"] || 0, lic = c["FCC licensed"] || 0;
     $("#rp_unlisted").textContent = un.toLocaleString();
     $("#rp_unlisted").style.color = un ? "var(--bad-ink)" : "";  // text in the skin's own red: the map colour was 3.4:1 on Haze
     const cats = Object.entries(c).sort((a, b) => (b[0] === "Unlisted") - (a[0] === "Unlisted") || b[1] - a[1]);
-    const shown = S.reportSigAll ? res.rows : res.rows.slice(0, 200);
+    const sorted = rfSort.data("rpSig", res.rows, [r => r.authority, r => r.claim_words || "", r => r.freq_mhz, r => r.sig_type || "", r => r.dbm, r => r.label || r.ident || "",
+      r => LAYERS[r.layer]?.label || r.layer, r => r.dist_mi, r => r.ts || "", r => r.authority_note || ""]);
+    const shown = S.reportSigAll ? sorted : sorted.slice(0, 200);
     body.innerHTML = `<p>${n.toLocaleString()} points: <b>${lic.toLocaleString()}</b> match an FCC licence, <b>${(n - lic - un - (c["No frequency"] || 0)).toLocaleString()}</b> sit in bands allowed without a site licence,
       <b style="color:${un ? "var(--bad-ink)" : "inherit"}">${un.toLocaleString()} unlisted</b>${c["No frequency"] ? `, ${c["No frequency"]} without a frequency` : ""}.</p>
       <div class="chips">${cats.map(([k, m]) => `<span class="chip"><span class="dot" style="background:${authColor(k)}"></span>${esc(k)} <b>${m.toLocaleString()}</b></span>`).join("")}</div>
-      <div class="tw" style="max-height:520px;margin-top:8px"><table><thead><tr><th>Finding</th><th title="How far to trust it: how many independent origins agree (words), and the source's own grade A-F">Claim</th><th>MHz</th><th>Type</th><th>dBm</th><th>Label / ID</th><th>Source</th><th>Distance</th><th>When</th><th>Why</th></tr></thead><tbody>
+      <div class="tw" style="max-height:520px;margin-top:8px"><table id="rpSig"><thead><tr><th>Finding</th><th title="How far to trust it: how many independent origins agree (words), and the source's own grade A-F">Claim</th><th>MHz</th><th>Type</th><th>dBm</th><th>Label / ID</th><th>Source</th><th>Distance</th><th>When</th><th>Why</th></tr></thead><tbody>
       ${shown.map(r => `<tr${r.stale ? ` style="opacity:.55" title="${r.age_days} days old: past its refresh age"` : ""}><td><span class="tag" style="border-color:${authColor(r.authority)};color:${authColor(r.authority)}">${esc(r.authority)}</span></td>
         <td>${claimTag(r)}</td>
         <td class="mono">${fmtF(r.freq_mhz)}</td><td>${esc(r.sig_type || "")}</td><td class="n">${num(r.dbm, 0)}</td>
@@ -180,7 +189,7 @@ async function loadSignals(gen) {
         ${Object.entries(res.track).map(([s, t]) => { const n = t.confirmed + t.contradicted; return `<tr><td>${esc(s === "uls" ? "FCC licences" : (LAYERS[s]?.label || s))}</td><td class="n">${t.confirmed}</td><td class="n">${t.contradicted}</td><td class="n">${n ? Math.round(100 * t.confirmed / n) + "%" : "–"}</td><td>${t.grade ? `<b>${esc(t.grade)}</b> earned` : `${esc(t.proposed)} proposed <span class="hint">(${n} of 20 outcomes)</span>`}</td></tr>`; }).join("")}</tbody></table></div>` : ""}
       <p class="hint" style="font-size:11px">Grades: ${esc(res.rules || "")}. "Confirmed" needs two independent origins agreeing on something diagnostic (a decoded call sign, or a level that fits the licensed site), one of them your own capture. Copies of one source count once.</p>`;
     const all = $("#rp_sigall"); if (all) all.onclick = () => { S.reportSigAll = true; loadSignals(gen); };
-    if (S.reportMap) for (const r of res.rows) if (r.lat != null)
+    if (S.reportMap && !again) for (const r of res.rows) if (r.lat != null)
       L.circleMarker([r.lat, r.lon], {radius: r.authority === "Unlisted" ? 6 : 4, color: authColor(r.authority), weight: 1.5, fillOpacity: .7})
         .bindPopup(`<b>${esc(r.authority)}</b><br>${fmtF(r.freq_mhz)} MHz ${esc(r.sig_type || "")} ${r.dbm != null ? num(r.dbm, 0) + " dBm" : ""}<br><span class="hint">${esc(r.authority_note || "")}</span>`).addTo(S.reportMap);
   } catch (e) { if (gen === S.reportGen) body.innerHTML = `<p class="status">Couldn't check survey data: ${esc(e.message)}</p>`; }

@@ -68,6 +68,18 @@
     "url": "https://www.fcc.gov/general/9-1-1-master-psap-registry"
    },
    "note": "fcc.gov refuses automated clients, so a person downloads the registry's CSV from that page (Cody did 11/8: masterpsapregistryv2.301, as of 2026-10-30) and tools/psap_registry.py reads it into reference/psap_registry.json. The FCC posts a new one every six weeks or so. US government data."
+  },
+  "fcc-prohibited-entities": {
+   "name": "FCC prohibited entities (47 CFR 2.902) and the Covered List",
+   "url": "https://www.fcc.gov/engineering-technology/prohibited-entities-list",
+   "route": "import",
+   "status": "In DAStastic from 2026-11-08: makers flagged on BOM lines, the parts catalogue, FCC ID lookups and boosters from FCC grants",
+   "terms": "US government public data",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.fcc.gov/engineering-technology/prohibited-entities-list"
+   },
+   "note": "fcc.gov refuses automated clients, so a person downloads the list's CSV from that page (Cody did 11/8: 3,735 entries) and tools/prohibited_list.py reads it into reference/prohibited_entities.json. The Covered List's wording and categories come from the FCC's public notice DA 26-1181 (30 Oct 2026, docs.fcc.gov, which answers DAStastic)."
   }
  }
 }

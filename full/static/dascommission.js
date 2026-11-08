@@ -162,7 +162,7 @@ window.dasCommission = (el, j0, save) => {
     const patch={commission:cur}; if(M.changed) patch.acceptance=M.acceptance;
     j=await save(patch)||j; refresh(); }).finally(()=>{ CM.busy--; }); return chain; };
   const table=(step, cols)=>{ const rows=(cur[step]||{}).rows||[];
-    return `<div class="tw"><table class="cm-t"><thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}${step==="noise"?"<th>Import</th>":""}<th>Result</th><th></th></tr></thead><tbody>
+    return `<div class="tw"><table class="cm-t" data-nosort><thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}${step==="noise"?"<th>Import</th>":""}<th>Result</th><th></th></tr></thead><tbody>
       ${rows.map((r,i)=>`<tr data-step="${step}" data-i="${i}">${cols.map(([k,,t,w])=>`<td>${
         t==="kind"?`<select data-f="${k}"><option value="talk-back" ${r[k]!=="near-far"?"selected":""}>Talk-back</option><option value="near-far" ${r[k]==="near-far"?"selected":""}>Near-far</option></select>`
         :t==="result"?`<select data-f="${k}"><option value="">—</option>${[["clear","Clear"],["not clear","Not clear"]].map(([v,l])=>`<option value="${v}" ${r[k]===v?"selected":""}>${l}</option>`).join("")}</select>`

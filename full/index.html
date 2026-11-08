@@ -159,6 +159,9 @@ th{position:sticky;top:0;background:var(--panel);font-weight:600;color:var(--mut
 /* a pointer only where a click does something: sortable headers and rows that open or select (11/3: every table
    in the app showed a pointer and most did nothing) */
 th[data-sort],tbody tr:is([data-fid],[data-i],[data-ll],[data-g]){cursor:pointer}
+/* every other table's headers sort it (rfsort.js): the Map table's ▲ / ▼, from aria-sort; a ring when reached by keyboard */
+th[data-srt]{cursor:pointer}th[data-srt]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+th[aria-sort=ascending]::after{content:" ▲"}th[aria-sort=descending]::after{content:" ▼"}
 tbody tr:hover{background:var(--chip)}
 tbody tr.sel{background:var(--sel)}
 td.f{font-family:var(--mono);font-weight:600}
@@ -838,6 +841,7 @@ body.rail-none #filters{display:none}
 <script src="static/zoombar.js"></script>
 <script src="static/vendor/cytoscape.min.js"></script>
 <script src="static/rfparse.js"></script>
+<script src="static/rfsort.js"></script>
 <script src="../vendor/sqljs/sql-wasm.js"></script>
 <script src="shim.js"></script>
 <script src="static/core.js"></script>

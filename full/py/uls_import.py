@@ -22,7 +22,6 @@ import os
 import re
 import shutil
 import sqlite3
-import subprocess
 import sys
 import time
 import urllib.error
@@ -654,12 +653,12 @@ def build_places(con):
 
 
 UA = {"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"}
-NO_WINDOW = 0x08000000 if os.name == "nt" else 0  # curl runs without flashing a console
 
 
 def http_get(url, path, log=print, timeout=1800):
-    """Download url to path. The FCC's servers refuse Python's downloader (403) but answer curl, which ships with
-    Windows 10 and later; on that refusal the same public file is fetched with curl, identifying as itself."""
+    """Download url to path with DAStastic's own downloader. A refusal (HTTP 403 and the like) stops here: no second try
+    by another client or route (Cody 11/5, no bot-check bypass; until 11/8 a 403 fell back to curl). The source's run
+    fails with the FCC's answer, and the Data desk files it for a person, who can download the file in a browser."""
     tmp = path + ".part"
     try:
         try:
@@ -675,11 +674,10 @@ def http_get(url, path, log=print, timeout=1800):
                     if total:
                         log(f"  {got/1e6:,.0f} / {total/1e6:,.0f} MB", end="\r")
         except urllib.error.HTTPError as e:
-            if e.code != 403 or not shutil.which("curl"):
-                raise
-            log("  the server refused this downloader; fetching with curl")
-            subprocess.run(["curl", "-fsSL", "--retry", "3", "-o", tmp, url], check=True, timeout=timeout,
-                           capture_output=True, creationflags=NO_WINDOW)
+            if e.code in (401, 403, 429, 451, 503):
+                raise RuntimeError(f"the FCC refused DAStastic's download of {url} (HTTP {e.code}): stopped, not tried "
+                                   "another way; a person can download it in a browser into the data folder") from e
+            raise
         os.replace(tmp, path)
         return path
     finally:
@@ -688,21 +686,14 @@ def http_get(url, path, log=print, timeout=1800):
 
 
 def last_modified(url):
-    """The server's Last-Modified date as 'YYYY-MM-DD HH:MM', or None if it can't be read."""
+    """The server's Last-Modified date as 'YYYY-MM-DD HH:MM', or None if it can't be read. Read from a one-byte GET by
+    DAStastic's own downloader: the FCC's servers refuse HEAD (403) and answer GET with the file's date (206). A refusal
+    is None, never a second try another way (until 11/8 a 403 fell back to curl)."""
     from email.utils import parsedate_to_datetime
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, method="HEAD", headers=UA), timeout=20) as r:
+        req = urllib.request.Request(url, headers={**UA, "Range": "bytes=0-0"})
+        with urllib.request.urlopen(req, timeout=20) as r:
             lm = r.headers.get("Last-Modified")
-    except urllib.error.HTTPError as e:
-        if e.code != 403 or not shutil.which("curl"):
-            return None
-        try:  # same fallback as http_get
-            out = subprocess.run(["curl", "-sIL", "-m", "20", url], capture_output=True, text=True, timeout=30,
-                                 creationflags=NO_WINDOW).stdout
-        except Exception:
-            return None
-        m = re.findall(r"(?im)^last-modified:\s*(.+?)\s*$", out)
-        lm = m[-1] if m else None
     except Exception:
         return None
     try:

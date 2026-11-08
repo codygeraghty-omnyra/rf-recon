@@ -243,7 +243,7 @@ def boosters_for(con, freqs, limit=40, bands=None, classes=None, min_watts=None)
         by = {k: d for k, d in by.items() if d.get("watts") and d["watts"][0] >= float(min_watts)}
     covers = lambda d, want: bool(want) and all(any(lo - 1e-6 <= f <= hi + 1e-6 for lo, hi in d["lines"]) for f in want)
     newest = lambda want: sorted((d for d in by.values() if covers(d, want)), key=lambda d: d["granted"], reverse=True)
-    shown = lambda d: {"fcc_id": d["fcc_id"], "maker": d["maker"], "granted": d["granted"], "bands": _bands(d["lines"]),
+    shown = lambda d: {"fcc_id": d["fcc_id"], "maker": d["maker"], "lists": lists_for(d["maker"]), "granted": d["granted"], "bands": _bands(d["lines"]),
                        "view": f"https://fccid.io/{urllib.parse.quote(d['fcc_id'])}", "eq_class": d.get("eq_class"),
                        "classes": d.get("classes") or [], "class_name": d.get("class_name"), "watts": d.get("watts"),
                        "watts_from": d.get("watts_from")}
@@ -567,7 +567,16 @@ def grantee(con, q):
     if not r:
         return None
     keys = ("code", "name", "address", "city", "state", "country", "zip", "received")
-    return dict(zip(keys, r))
+    out = dict(zip(keys, r))
+    out["lists"] = lists_for(out.get("name"))
+    return out
+
+
+def lists_for(name):
+    """What the FCC's prohibited-entity lists say about a grantee (prohibited.py), or None when nothing."""
+    import prohibited
+    got = prohibited.check(maker=name)
+    return got if got["listed"] or got["same_name"] else None
 
 
 def lookup(q, limit=300, con=None):
