@@ -156,6 +156,18 @@ def mail_loop():
                 print(f"mail check for {login}: {type(e).__name__}: {str(e)[:200]}", flush=True)
             finally:
                 con.close()
+        try:  # the replies to what DAStastic sent for people (sesmail.py): quiet until the server's SES settings are in
+            import sesmail
+            if sesmail.config(uls_import.DATA_DIR) and sesmail.people(uls_import.DATA_DIR):
+                con = db()
+                try:
+                    r = sesmail.check(con, uls_import.DATA_DIR)
+                    if r["error"]:
+                        print(f"reply bucket: {r['error']}", flush=True)
+                finally:
+                    con.close()
+        except Exception as e:
+            print(f"reply bucket: {type(e).__name__}: {str(e)[:200]}", flush=True)
 
 
 def init():
@@ -1830,11 +1842,18 @@ class H(BaseHTTPRequestHandler):
         login = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"  # the PC's own window: "local"
         if fnum(qs, "job") is not None:  # a job's mail, people or email text: only for a login the job is shared with
             self.job_gate(con, int(fnum(qs, "job")), "view")
+        import sesmail
         if p == "/api/mail/account":
             if method == "GET":
-                return self.send(200, {"available": True, "login": login, "account": dasmail.account(uls_import.DATA_DIR, login),
-                                       "state": dasmail.state(con, login)})
+                a = dasmail.account(uls_import.DATA_DIR, login)
+                return self.send(200, {"available": True, "login": login, "account": a, "dastastic": sesmail.public(uls_import.DATA_DIR),
+                                       "state": sesmail.state(con, uls_import.DATA_DIR) if a and a.get("via") == "dastastic" else dasmail.state(con, login)})
             d = self.body_json()
+            if d.get("via") == "dastastic":  # DAStastic sends for them (sesmail.py, Cody 11/8): no mailbox to test
+                if not sesmail.config(uls_import.DATA_DIR):
+                    raise ValueError("DAStastic's own sending isn't set up on this server yet: connect your own mailbox, or use Open in my mail.")
+                dasmail.save_account(uls_import.DATA_DIR, login, dasmail.account_from(d))
+                return self.send(200, {"ok": True, "account": dasmail.account(uls_import.DATA_DIR, login)})
             old = dasmail.account(uls_import.DATA_DIR, login, with_password=True)
             acct = dasmail.account_from(d, old)
             t = mailbox.test(acct)
@@ -1864,6 +1883,10 @@ class H(BaseHTTPRequestHandler):
                 vis = dashist.visible(con, *self.team())
                 its = mailqueue.items(con, login, firm, acct.get("name") or "", vis=vis)
                 its = [x for x in its if vis is None or not x.get("job_id") or x["job_id"] in vis]
+                if acct.get("via") == "dastastic" and not sesmail.public(uls_import.DATA_DIR)["prospects"]:  # cold email stays off it
+                    for x in its:
+                        if x.get("kind") == "prospect" and not x["blocked"]:
+                            x["blocked"] = "Prospect emails go from your own mailbox, not through DAStastic: Open in my mail."
                 return self.send(200, {"items": its, "ready": sum(1 for x in its if not x["blocked"]), "per_hour": mailqueue.SEND_PER_HOUR,
                                        "sent_last_hour": mailqueue.sent_last_hour(con, login)})
             if method != "POST":
@@ -1880,6 +1903,10 @@ class H(BaseHTTPRequestHandler):
             dasmail.delete_account(uls_import.DATA_DIR, login)
             return self.send(200, {"ok": True})
         if p == "/api/mail/check" and method == "POST":
+            if (dasmail.account(uls_import.DATA_DIR, login) or {}).get("via") == "dastastic":
+                r = sesmail.check(con, uls_import.DATA_DIR)  # the reply bucket holds every login's replies: only this login's are shown
+                return self.send(200, {**r, "filed": [x for x in r["filed"] if x.get("login") == login], "new": sum(1 for x in r["filed"] if x.get("login") == login),
+                                       "dropped": len(r["dropped"])})
             return self.send(200, dasmail.check(con, uls_import.DATA_DIR, login))
         if p == "/api/mail/threads":
             fi = lambda k: int(qs[k][0]) if qs.get(k) and qs[k][0].isdigit() else None  # noqa: E731
@@ -1948,9 +1975,21 @@ class H(BaseHTTPRequestHandler):
                 with open(das.file_path(int(jid), j["name"], name), "rb") as fh:
                     atts.append((name, fh.read(), mimetypes.guess_type(name)[0] or "application/octet-stream"))
         subject = dasmail.subject_with(tag, d.get("subject") or "")
-        msg = mailbox.build(acct, to, subject, d.get("body") or "", cc=(d.get("cc") or "").strip() or None, attachments=atts,
-                            in_reply_to=d.get("in_reply_to"))
-        r = mailbox.send(acct, msg)
+        if acct.get("via") == "dastastic":  # DAStastic sends for them through SES (sesmail.py)
+            import sesmail
+            c = sesmail.config(uls_import.DATA_DIR)
+            if not c:
+                raise ValueError("DAStastic's own sending isn't set up on this server: connect your own mailbox, or use Open in my mail.")
+            if kind == "prospect" and not c.get("prospects"):
+                raise ValueError("Prospect first emails go from your own mailbox, not through DAStastic: a run of bounces or complaints on "
+                                 "cold email would stop DAStastic's sending for everyone. Connect your own mailbox, or use Open in my mail.")
+            msg = sesmail.build(c, login, acct, to, subject, d.get("body") or "", cc=(d.get("cc") or "").strip() or None, attachments=atts,
+                                in_reply_to=d.get("in_reply_to"))
+            r = sesmail.send(c, msg)
+        else:
+            msg = mailbox.build(acct, to, subject, d.get("body") or "", cc=(d.get("cc") or "").strip() or None, attachments=atts,
+                                in_reply_to=d.get("in_reply_to"))
+            r = mailbox.send(acct, msg)
         refs["to"] = to
         dasmail.record_out(con, login, tag, to, subject, d.get("body") or "", r["message_id"], refs, [x[0] for x in atts])
         dasmail.after_send(con, tag, refs)

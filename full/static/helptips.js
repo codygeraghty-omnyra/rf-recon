@@ -1,10 +1,13 @@
 "use strict";
 /* DAStastic: the small "?" buttons and their windows (Cody 11/8, items 2 and 10). The texts are static/research/help_tips.json:
-   one per feature guide, and extra ones marked "extra" for Cody to pick from (docs/guides/tips-preview.html shows every window).
-   Only the tips marked "on": true get a "?" in the app: the eight guides Cody named. An extra goes live when he sets "on" on it.
+   one per feature guide, and extra ones marked "extra" for other tabs and windows (docs/guides/tips-preview.html shows every
+   window). Only the tips marked "on": true get a "?" in the app: the eight guides Cody named, and since 11/8 all 21 extras
+   (Cody: "turn all on").
    index.html loads this file with data-wire: wire() reads the texts and keeps each "on" tip's "?" beside its anchor (a CSS
-   selector in the tip; "place" says after it or inside it at its end). The tabs redraw their own HTML, so a watch on the page
-   puts a "?" back whenever its anchor is drawn again. No "?" goes in the header or the tab bar.
+   selector in the tip; "place" says after it or inside it at its end; "text", when a tip has it, keeps the "?" to the anchor
+   whose words start with it, for headings that share one selector). The tabs redraw their own HTML, so a watch on the page
+   puts a "?" back whenever its anchor is drawn again. No "?" goes in the header or the tab bar. The Note button floats in
+   the corner, so its "?" floats just above it.
    By hand: RFHelpTips.button(id) makes one, RFHelpTips.attach() adds one to every [data-tip] element.
    The window: role="dialog", named by its title; the "?" says whether it's open (aria-expanded). It opens beside the "?" on a
    wide screen and as a sheet from the bottom on a phone (600 px and under), where the "?" is 32 px to tap. Escape, the ✕, or a
@@ -17,7 +20,7 @@ window.RFHelpTips = (() => {
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const phone = () => matchMedia("(max-width: 600px)").matches;
   const HELP_OF = { Start: "start", Map: "map", Search: "find", "Area report": "report", Analyzer: "analyzer", Dashboard: "dashboard", Topology: "topology",
-    "Site profile": "profile", Agencies: "agencies", Spectrum: "spectrum", "Cell sites": "cells", Mission: "mission", "Data & updates": "data" };
+    "Site profile": "profile", Agencies: "agencies", Spectrum: "spectrum", "Cell sites": "cells", Mission: "mission", "Data & updates": "data", DAS: "das" };
 
   function css() {
     if (document.getElementById("htCss")) return;
@@ -29,6 +32,9 @@ window.RFHelpTips = (() => {
 .ht-q:hover,.ht-q[aria-expanded=true]{background:var(--accent,#2a6fdb);color:var(--on-accent,#fff);border-color:var(--accent,#2a6fdb)}
 .ht-q:focus-visible{outline:2px solid var(--accent,#2a6fdb);outline-offset:2px}
 @media (pointer:coarse),(max-width:600px){.ht-q{width:32px;height:32px;min-width:32px;min-height:32px;font-size:14px}}
+.rfn-fab+.ht-q{position:fixed;z-index:var(--rfn-z,900);right:18px;bottom:calc(var(--rfn-bottom,18px) + 54px);margin:0;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.rfn-fab[hidden]+.ht-q{display:none}
+@media (max-width:640px){.rfn-fab+.ht-q{right:18px;bottom:calc(var(--rfn-bottom,18px) + 52px)}}
 @media print{.ht-q{display:none!important}}
 .ht-pop{position:fixed;z-index:4000;width:min(360px,calc(100vw - 24px));max-height:min(70vh,560px);overflow:auto;box-sizing:border-box;
   padding:14px 16px 12px;border-radius:14px;border:1px solid var(--g-border,var(--line,#d8d2c8));background:var(--surface,var(--panel,#fffdf9));
@@ -72,8 +78,9 @@ window.RFHelpTips = (() => {
       ${ifs ? `<div class="ht-if">${ifs}</div>` : ""}
       <div class="ht-more"><span>${esc(t.more || "")}</span>${help ? `<button type="button" class="ht-all" data-help-go="${esc(help)}">All help</button>` : ""}</div>`;
   }
-  // a guide's tip opens its own entry in Help's Guides section; an extra opens its tab's section
-  const helpOf = t => t.extra ? HELP_OF[t.tab] : `guide-${t.id}`;
+  // a guide's tip opens its own entry in Help's Guides section; a DAS extra its own entry in Help's DAS section; another
+  // extra its tab's section, or the section its "help" names
+  const helpOf = t => t.help || (!t.extra ? `guide-${t.id}` : t.tab === "DAS" ? `das-${t.id}` : HELP_OF[t.tab]);
   function place() {
     if (!pop || !from || !from.isConnected) return;  // the tab redrew under it: the window stays where it is
     const sheet = phone();
@@ -163,13 +170,16 @@ window.RFHelpTips = (() => {
   const CONTROL = "button, input, select, textarea, a, .seg";
   const hasQ = (el, id, inside) => inside ? [...el.children].some(c => c.matches(`.ht-q[data-tip-for="${id}"]`))
     : !!(el.nextElementSibling && el.nextElementSibling.matches(`.ht-q[data-tip-for="${id}"]`));
+  // a tip's "text": the anchor's words start with it (case and spacing aside), so one heading of several gets the "?"
+  const said = el => (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const isIt = (el, t) => !t.text || said(el).startsWith(String(t.text).replace(/\s+/g, " ").trim().toLowerCase());
   function scan() {
     queued = false;
     for (const t of TIPS.values()) {
       if (!t.on || !t.anchor) continue;
       let els; try { els = document.querySelectorAll(t.anchor); } catch (e) { continue; }  // a bad selector in the texts: that tip only
       for (const el of els) {
-        if (el.closest("header, #tabs")) continue;  // never in the top bar or the tab bar: they'd crowd
+        if (el.closest("header, #tabs") || !isIt(el, t)) continue;  // never in the top bar or the tab bar: they'd crowd
         const inside = t.place ? t.place === "inside" : !el.matches(CONTROL);
         if (hasQ(el, t.id, inside)) continue;
         const b = button(t.id);

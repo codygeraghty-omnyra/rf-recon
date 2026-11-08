@@ -114,7 +114,7 @@ const viewsSave = v => { try { localStorage.setItem(VIEWS_KEY, JSON.stringify(v)
 // what's on now, without where: a view works at any pin
 function viewLink() {
   const h = new URLSearchParams(location.hash.slice(1));
-  for (const k of ["lat", "lon", "r", "place", "state", "county", "mode"]) h.delete(k);
+  for (const k of ["lat", "lon", "r", "place", "state", "county", "mode", ...JOB_KEYS]) h.delete(k);  // a view is filters, not a job
   return h.toString();
 }
 function viewApply(link, then) {
@@ -216,9 +216,27 @@ $("#locWrap").addEventListener("keydown", async e => {
 }, true);
 
 /* ---------- the view as a link ---------- */
-window.writeUrlState = () => {
+// the open DAS job and its section, and the Start job and its step (UX review 11/8 #2: a reload or a phone dropping the tab put
+// Andy back on the board; Back left the DAS tab from a job's section)
+const JOB_KEYS = ["job", "sec", "sjob", "step"];
+// a link's job onto the DAS tab's and Start's own state: true when it changed what's open
+function urlJob(h) {
+  let moved = false;
+  if (h.get("tab") === "das") {
+    const D = S.das = S.das || {view: "board", q: "", job: null, sub: "overview"}, id = +h.get("job") || null, sec = id ? h.get("sec") || "overview" : D.sub;
+    if (D.job !== id || D.sub !== sec) { if (D.job !== id) D.rview = null; D.job = id; D.sub = sec; moved = true; }
+  }
+  if (h.get("tab") === "start" && S.start) {
+    const G = S.start, id = +h.get("sjob") || null, step = id ? window.startStepId?.(+h.get("step")) || null : null;
+    if (G.job !== id || (step && G.step !== step)) { G.job = id; G.step = step; G.sig = null; moved = true; }
+  }
+  return moved;
+}
+window.writeUrlState = replace => {
   const h = new URLSearchParams();
   h.set("tab", S.tab);
+  if (S.tab === "das" && S.das && S.das.job) { h.set("job", S.das.job); h.set("sec", S.das.sub || "overview"); }
+  if (S.tab === "start" && S.start && S.start.job) { h.set("sjob", S.start.job); const n = window.startStepNo?.(S.start.step); if (n) h.set("step", n); }
   if (S.mode === "point") { const ll = parseLoc($("#loc").value); if (ll) { h.set("lat", ll[0]); h.set("lon", ll[1]); h.set("r", $("#radius").value); } }
   else if (S.mode === "county") { if ($("#state").value) h.set("state", $("#state").value); if ($("#county").value) h.set("county", $("#county").value); }
   else h.set("mode", "nationwide");
@@ -238,21 +256,27 @@ window.writeUrlState = () => {
   if (S.placeLabel) h.set("place", S.placeLabel);
   const next = "#" + h.toString();
   if (location.hash === next) return;
-  // a new tab is a step Back can return to; a new pin or filter replaces the step it's on. (11/3: every change replaced
-  // it, so Back left DAStastic, and in the app window it stayed greyed out.)
-  const was = new URLSearchParams(location.hash.slice(1)).get("tab");
-  if (was && was !== S.tab) { history.pushState(null, "", next); window.dispatchEvent(new Event("hashchange")); }  // the kit's Back button rechecks on hashchange
+  // a new tab, job, section or Start step is a step Back can return to; a new pin or filter replaces the step it's on. (11/3:
+  // every change replaced it, so Back left DAStastic, and in the app window it stayed greyed out.) A step first written once the
+  // job has loaded fills in the step it's on
+  const was = new URLSearchParams(location.hash.slice(1)), moved = k => (was.get(k) || "") !== (h.get(k) || "");
+  const step = moved("tab") || moved("job") || moved("sjob") || (was.has("sec") && moved("sec")) || (was.has("step") && moved("step"));
+  if (!replace && was.get("tab") && step) { history.pushState(null, "", next); window.dispatchEvent(new Event("hashchange")); }  // the kit's Back button rechecks on hashchange
   else history.replaceState(null, "", next);
 };
-// Back and Forward move between tabs
+// Back and Forward move between tabs, a DAS job's sections and Start's steps
 window.addEventListener("popstate", () => {
-  const t = new URLSearchParams(location.hash.slice(1)).get("tab");
-  if (t && t !== S.tab) { S.tab = t; render(); }
+  const h = new URLSearchParams(location.hash.slice(1)), t = h.get("tab");
+  let moved = false;
+  if (t && t !== S.tab) { S.tab = t; moved = true; }
+  if (urlJob(h)) moved = true;
+  if (moved) render();
 });
 window.applyUrlState = () => {
   const h = new URLSearchParams(location.hash.slice(1));
   if (!h.toString()) return false;
   if (h.get("tab")) S.tab = h.get("tab");
+  urlJob(h);
   for (const [id, k] of [["#q", "q"], ["#fmin", "fmin"], ["#fmax", "fmax"], ...ADV]) if (h.has(k)) $(id).value = h.get(k);
   if (h.get("rf")) { $("#rf").value = h.get("rf"); rfRead(); }  // older links carry only fmin and fmax
   else if (h.get("fmin") && h.get("fmax")) $("#rf").value = `${h.get("fmin")}-${h.get("fmax")}`;

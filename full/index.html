@@ -102,6 +102,17 @@ h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;c
 .ap-next{margin:8px 0;padding:10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
 .ap-next ol{margin:4px 0;padding-left:20px}.ap-next .hint{margin:4px 0 8px}
 .pr-tab td{vertical-align:top}.pr-tab td .hint{font-size:11.5px}.pr-dnc{opacity:.55}
+/* Prospects (UX review 11/8 #6): a permit's description is two lines, the rest on the row's Why; + Job beside the Status picker */
+.pr-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.pr-st{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
+.pr-st button{flex:none;white-space:nowrap}
+.pr-tab td.pr-contact{max-width:230px;white-space:normal}
+/* the board's Needs you: each line's buttons on its own line (UX review 11/8 #15) */
+#dsNeed>.need-row{flex-wrap:nowrap;gap:6px 12px}
+#dsNeed>.need-row>span:first-child{flex:1 1 auto;min-width:0}
+#dsNeed>.need-row>:last-child{flex:none}
+/* a phone's Grid test square: its number, dBm and pass colour; the rest is in its tap panel (UX review 11/8 #3) */
+@media (max-width:600px){#dgCells .dg-x{display:none}}
 .pr-tab tr.pr-hit td{background:color-mix(in srgb,var(--accent,#3b82f6) 22%,transparent);transition:background .3s}
 .status.pr-warn{color:var(--warn);border-color:var(--warn)}
 /* DAS Pitch (daspitch.js): slides on screen, one landscape page each in print */
@@ -449,8 +460,9 @@ body.remote nav [data-t="data"], body.remote:not(.tak-net) #takPush{display:none
 #searchPanel{position:relative;z-index:5}
 #map{isolation:isolate}
 .bar-slide{min-width:140px}
-/* Start: one job, step by step (start.js). It has no search bar: the questions are the page */
-body.tab-start #searchPanel,body.tab-start #status,body.tab-start .filter-line{display:none}
+/* Start: one job, step by step (start.js). It has no search bar: the questions are the page. PIM, Parts and Data & updates
+   never read the pin either (UX review 11/8 #1: on a phone its search form filled their first screen). core.js sets no-pin */
+body.no-pin #searchPanel,body.no-pin #status,body.no-pin .filter-line{display:none}
 .st{max-width:980px;margin:0 auto}
 .st-hero h2,.st-top h2{margin:0;font-size:24px;font-weight:700}
 .st-hero{margin:10px 2px 14px}.st-hero p{margin:6px 0 0;max-width:640px;color:var(--ink-2)}
@@ -461,6 +473,14 @@ body.tab-start #searchPanel,body.tab-start #status,body.tab-start .filter-line{d
 .st-q label{font-size:13.5px;font-weight:600;color:var(--ink)}
 .st-q input,.st-q select{width:100%;min-width:0;max-width:100%}
 .st-q.left label{color:var(--bad)}
+/* the survey walk: Yes / No / N/A, a press each (UX review 11/8 #12: 13 drop-downs were two taps each on a phone) */
+.st-q .st-ql{font-size:13.5px;font-weight:600;color:var(--ink)}
+.st-seg{align-self:flex-start;max-width:100%}
+.st-seg button{min-width:58px}
+/* a range of floors asks once for the exact number (UX review 11/8 #5) */
+.st-exact{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.st-exact[hidden]{display:none!important}
+.st-exact label{font-size:12.5px!important;font-weight:500!important;color:var(--ink-2)!important}
 .st-q.left input,.st-q.left select{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
 .st-next{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
 .st-next .btn{display:inline-block;white-space:nowrap}
@@ -537,7 +557,9 @@ body.rail-none .filter-line{display:none}
   #searchPanel>.row{display:contents}
   #searchPanel .lb{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   #searchPanel label{flex-direction:row;align-items:center;gap:5px}
-  #searchPanel .grow{flex:1 1 130px;min-width:120px}
+  /* Show what's here is 10 letters longer than Search was (UX review 11/8 #16): the two text boxes, the frequency box and the
+     slider give that room back, so the bar is one line at every width it was one line before (1366 folded, 1600 up open) */
+  #searchPanel .grow{flex:1 1 130px;min-width:90px}
   #searchPanel .grow input{width:100%;min-width:0}
   /* a picked place reads in the box, one line; a click shows the coordinates to edit */
   #locWrap{position:relative}
@@ -548,9 +570,9 @@ body.rail-none .filter-line{display:none}
   #searchPanel input:not([type=checkbox]):not([type=range]){padding:6px 8px;font-size:12.5px}
   #searchPanel label.inl{font-size:12.5px;white-space:nowrap}
   #radius{width:52px!important}
-  #rf{width:150px}
-  .bar-slide{min-width:84px}
-  #radiusSlider{width:84px}
+  #rf{width:140px}
+  .bar-slide{min-width:72px}
+  #radiusSlider{width:72px}
   #heatKind{max-width:210px}
   .bar-mi{display:inline;font-size:12px;color:var(--muted)}
   #advSearch{margin-top:0!important}
@@ -795,11 +817,11 @@ body.rail-none #filters{display:none}
       <span id="rfFields"><label><span class="lb">Freq from MHz</span><input id="fmin" type="number" step="any" style="width:100px" placeholder="From MHz"></label>
       <label><span class="lb">to</span><input id="fmax" type="number" step="any" style="width:100px" placeholder="To MHz"></label></span>
       <label class="inl"><input type="checkbox" id="hideMobile" checked> Fixed sites only</label>
-      <button class="primary" id="go">Search</button>
+      <button class="primary" id="go" title="Everything licensed, every tower and every survey point inside the circle">Show what's here</button>
     </div>
   </section>
 
-  <div class="status" id="status">Drop a pin (or pick a county) and Search.</div>
+  <div class="status" id="status"></div>
   <div class="filter-line no-print" id="filterLine">
     <span class="fl-count" id="flCount"></span><span class="fl-pills" id="flPills"></span>
     <button id="flClear" hidden>Clear all</button><button id="flUndo" hidden>Undo</button>
@@ -894,7 +916,11 @@ body.rail-none #filters{display:none}
     else if (t === "dark" && DashSkin.get() === "day") DashSkin.set(DashSkin.lastDark());
   }
   new MutationObserver(fromTheme).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  // Back and Close only in the PC's app window: the launcher opens a Chrome --app window, which reads standalone and has no
+  // browser Back. A browser tab or a phone has its own, and a page can't close a tab (UX review 11/8 #14). The kit is shared:
+  // its nav option, not an edit to theme/look.js
   DashLook.mount(document.getElementById("lookSlot"), {
+    nav: matchMedia("(display-mode: standalone)").matches,
     onChange: function (kind, value) {
       if (kind !== "skin") return;
       var t = value === "day" ? "light" : "dark";

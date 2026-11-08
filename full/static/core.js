@@ -152,6 +152,11 @@ const facetParams = () => ({types:heatList("type").join("|"), bands:heatList("ba
 function renderFacets(rows){ if(window.railRender) window.railRender(rows); }
 
 /* ---------- render dispatch ---------- */
+// the tabs that never read the pin (Start, PIM, Parts, Data & updates) lose the pin bar and its status line, and the tabs that
+// list what a search found say what to do before one has run (UX review 11/8 #1 and #11: on a phone the pin search filled
+// their first screen, and an empty tab blamed the filters before anyone had searched)
+const NO_PIN_TABS=new Set(["start","pim","parts","data"]), PIN_TABS=new Set(["report","analyzer","dashboard","topology","profile","agencies","spectrum","cells"]);
+const pinFirst=pad=>`<p class="status pin-first"${pad?' style="padding:10px"':""}>Type an address or drop a pin, then press <b>Show what's here</b>.</p>`;
 function setTab(t){ S.tab=t; render(); }
 function getFile(url){ location.href=url; }  // a file the server makes (the web version fetches it through the page instead)
 function render(){
@@ -161,6 +166,7 @@ function render(){
   renderFacets(rows);  // before the view: the rail shows or goes for this tab, so the view draws at its own width
   $$("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===S.tab));
   document.body.classList.toggle("tab-start", S.tab==="start");
+  document.body.classList.toggle("no-pin", NO_PIN_TABS.has(S.tab));
   const tb=$("#tabs"), on=$("#tabs button.on");  // on a phone the tab bar scrolls sideways: keep the open tab on screen
   if(on && tb.scrollWidth>tb.clientWidth){ const l=on.offsetLeft-tb.offsetLeft, r=l+on.offsetWidth;
     if(l<tb.scrollLeft || r>tb.scrollLeft+tb.clientWidth) tb.scrollLeft=l-(tb.clientWidth-on.offsetWidth)/2; }
@@ -169,7 +175,8 @@ function render(){
   if(S.tab!=="dashboard" && S.dashMap){ S.dashMap.remove(); S.dashMap=null; }
   const fn = S.views[S.tab];
   S.viewGen=(S.viewGen||0)+1;  // a tab that waits for data checks this after the wait: a newer draw since means stop
-  if(fn) fn(v, rows); else v.innerHTML="";
+  if(fn && !S.searched && PIN_TABS.has(S.tab)) v.innerHTML=pinFirst();
+  else if(fn) fn(v, rows); else v.innerHTML="";
   if(window.writeUrlState) window.writeUrlState();
 }
 $("#tabs").addEventListener("click", e => { const b=e.target.closest("button"); if(b) setTab(b.dataset.t); });
@@ -222,7 +229,7 @@ S.views.map = (v, rows) => {
   if($("#heatFilesAll")) $("#heatFilesAll").onclick=()=>{ S.heat.files=new Set(); render(); loadHeat(); };
   if($("#heatSigClear")) $("#heatSigClear").onclick=e=>{ e.preventDefault(); S.heat.ident=S.heat.freq=S.heat.signal=""; render(); loadHeat(); };
   $("#heatOp").oninput=e=>{ S.heat.opacity=+e.target.value; if(S.heatLayer) S.heatLayer.setOpacity(S.heat.opacity); };
-  $("#heatExport").onclick=()=>{ if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
+  $("#heatExport").onclick=()=>{ if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county, then press Show what's here."; return; } const k=S.heat.kind==="off"?"predicted":S.heat.kind;
     getFile("/api/heatmap.zip?"+params(heatParams(k))); };
   top.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
   drawMap(rows);
@@ -233,7 +240,7 @@ S.views.map = (v, rows) => {
 
 function drawSideList(items){
   const side=$("#side"); if(!side) return;
-  if(!items.length){ side.innerHTML='<p class="status" style="padding:10px">Nothing here with the current layers and filters.</p>'; return; }
+  if(!items.length){ side.innerHTML=S.searched?'<p class="status" style="padding:10px">Nothing here with the current layers and filters.</p>':pinFirst(true); return; }
   const step = S.center ? niceStep(S.radius) : null;
   let html="", ring=-1, n=0;
   for(const r of items.slice(0, S.shown)){
@@ -469,7 +476,7 @@ async function loadHeat(){
   if(S.heatLayer && S.map){ S.map.removeLayer(S.heatLayer); } S.heatLayer=null; S.heatImg=null;
   if(S.heatLegend && S.map){ S.map.removeControl(S.heatLegend); S.heatLegend=null; }
   if(S.heat.kind==="off") return;
-  if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county and Search."; return; }
+  if(!heatArea()){ $("#status").textContent="Heatmaps need a pin or a county: drop a pin, or pick a county, then press Show what's here."; return; }
   // no carrier to draw: say so instead of asking the server (11/3: it answered HTTP 500 and a raw "ValueError")
   if(S.heat.kind==="carrier" && !S.heat.carrier){ $("#status").textContent="No carrier coverage is loaded for this area yet (Data & updates, FCC carrier coverage)."; return; }
   $("#status").textContent="Building heatmap…";
@@ -617,7 +624,7 @@ let dirtyT;
 function searchDirty(){
   const stale=S.lastQuery!=null && params().toString()!==S.lastQuery, auto=autoRuns(), go=$("#go");
   clearTimeout(dirtyT);
-  go.classList.toggle("stale",stale&&!auto); go.textContent=stale&&!auto?"Search to apply":"Search";
+  go.classList.toggle("stale",stale&&!auto); go.textContent=stale&&!auto?"Apply: show what's here":"Show what's here";  // not "Search": the Search tab is the search over everything (UX review 11/8 #16)
   if(stale&&auto&&$("#q").value.trim().length!==1) dirtyT=setTimeout(runSearch,AUTO_MS);
 }
 for(const id of ["#q","#fmin","#fmax"]) $(id).addEventListener("input",searchDirty);

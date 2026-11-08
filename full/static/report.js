@@ -18,7 +18,7 @@ const cellBar = (n, max) => `style="background:linear-gradient(90deg,color-mix(i
 S.views.report = (v, rows) => {
   if (S.reportMap) { S.reportMap.remove(); S.reportMap = null; }
   if (!S.center) {
-    v.innerHTML = '<p class="status">The area report needs a pin: click the map, type coordinates or paste a Maps link above, set a radius, then Search.</p>';
+    v.innerHTML = '<p class="status">The area report needs a pin: click the map, type coordinates or paste a Maps link above, set a radius, then press Show what\'s here.</p>';
     return;
   }
   const gen = S.reportGen = (S.reportGen || 0) + 1;  // a newer render wins over late fetches

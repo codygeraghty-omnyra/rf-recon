@@ -354,6 +354,8 @@ S.views.data = async (v) => {
   try{ [settings, layers]=await Promise.all([api("/api/settings"), api("/api/layers")]); UPD=await api("/api/update/status"); }catch(e){ /* a view login or offline: the panels below say what they couldn't read */ }
   let pull=null; try{ pull=await api("/api/crowd/pull/status"); }catch(e){ /* a copy without the PC fetcher's queue: no line for it */ }
   let people=null; try{ people=await api("/api/remote"); }catch(e){ /* not the admin, or no remote door: no sign-in news */ }
+  // where each DAS job's files are kept: here since 11/8, not across the top of the DAS board (UX review 11/8 #15)
+  let dasDir=S.das?.folder??null; if(dasDir==null) try{ dasDir=(await api("/api/das/jobs")).folder??null; }catch(e){ /* no DAS jobs on this copy: the panel says it couldn't read the folder */ }
   if(gen!==S.viewGen) return;  // you moved on while it loaded
   const c=navigator.connection||{};
   v.innerHTML=`${needsYou(pull, people)}
@@ -385,6 +387,9 @@ S.views.data = async (v) => {
     <p class="hint">DAStastic lives on the 24/7 server (AWS Lightsail, since 11/2): the FCC database and its downloads, the crowd data, the keys it uses and the team's DAS jobs are there. Team logins get the sold build (no WiGLE, Signal ID Wiki, Artemis, ships, RepeaterBook or WSPR).
       Cody's PC keeps its own copy for work with no signal. The two don't sync: a DAS job made on one isn't on the other.</p></div>
   <div class="panel"><h3>This copy of DAStastic</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
+  <div class="panel" id="dasDirPanel"><h3>DAS job files</h3><p class="hint" style="margin:0">${(dasDir||"").startsWith("/rfr/") ? "Each DAS job's files are kept in this browser."  /* the web version (web/webhost.py) */
+    : S.me ? "Each DAS job's files are kept on the DAStastic server: open them from the job's Files."  /* a signed-in login never sees the server's folders (11/3) */
+    : dasDir ? `Each DAS job's files are kept in <span class="mono">${esc(dasDir)}</span>, a folder per job, found by its number if the job is renamed.` : "The DAS jobs folder couldn't be read on this copy."}</p></div>
   <div class="panel"><h3>Phone app: field packs</h3>
     <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for DAStastic lite (beta), the phone app, which works with no signal.
       ${S.me?`Packs made here are saved on the DAStastic server, not in Google Drive<span id="fpDir" hidden></span>: download one (⇩ below) to load it on a phone or share it.`  /* a signed-in copy (the 24/7 server): no Drive folder, and no server paths shown (11/3) */

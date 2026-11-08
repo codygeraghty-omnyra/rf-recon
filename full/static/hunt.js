@@ -207,7 +207,7 @@ window.missionHunt = (v, m) => {
         ${best && drop ? `<p class="hint" style="margin:0 0 4px">${esc(drop)}</p>` : ""}
         ${trend != null ? `<p style="margin:0 0 4px;color:${trend >= 3 ? "var(--good)" : trend <= -3 ? "var(--warn)" : "inherit"}">${trend >= 3 ? `Warmer: ${num(trend, 0)} dB stronger than the stop before.` : trend <= -3 ? `Colder: ${num(-trend, 0)} dB weaker than the stop before. Turn back toward the stronger stop.` : "About the same as the stop before."}</p>` : ""}
         ${r.level ? `<p class="hint" style="margin:0">Strongest so far: ${num(r.level.strongest.dbm, 0)} dBm. The readings fit a signal falling off as distance to the power ${r.level.n_exp} (${r.level.n_exp <= 2.5 ? "open ground" : r.level.n_exp >= 3.5 ? "built up" : "mixed"}).</p>` : ""}
-        ${best ? `<div class="row" style="gap:8px;margin-top:6px"><button id="hnPin">Put the pin there</button><span class="hint">then Search shows what's licensed there and the buildings nearby</span></div>` : ""}`;
+        ${best ? `<div class="row" style="gap:8px;margin-top:6px"><button id="hnPin">Put the pin there</button><span class="hint">then Show what's here lists what's licensed there and the buildings nearby</span></div>` : ""}`;
     if ($("#hnPin")) $("#hnPin").onclick = () => { $("#loc").value = `${best.lat.toFixed(6)}, ${best.lon.toFixed(6)}`; window.setMode?.("point"); window.runSearch?.(); huntSay("Pin moved to the best guess."); };
     if (typeof L === "undefined") return;
     if (!map || !document.body.contains(map.getContainer())) { map = L.map("hnMap", { preferCanvas: true }); addMapLayers(map); layer = L.layerGroup().addTo(map);

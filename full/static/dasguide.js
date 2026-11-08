@@ -151,8 +151,8 @@
   }
   function draw() {
     if (!G.job || !G.j) { document.getElementById("dgPanel")?.remove(); return; }
-    const el = box(); el.classList.toggle("fold", !!G.fold); el.setAttribute("role", "region"); el.setAttribute("aria-label", "Walk me through");
-    const title = { where: "Where this job stands", run: "Running it for you", after: "Done. Check this" }[G.view] || "Walk me through";
+    const el = box(); el.classList.toggle("fold", !!G.fold); el.setAttribute("role", "region"); el.setAttribute("aria-label", "What's next on this job");
+    const title = { where: "Where this job stands", run: "Running it for you", after: "Done. Check this" }[G.view] || "What's next on this job";  // the button's name (Cody 11/8, UX review #13)
     el.innerHTML = head(title) + (G.fold ? (G.view === "step" ? `<p class="dg-small">${esc(node()?.t || "")}</p>` : "") : `<div class="dg-body">${({ where: whereHtml, run: runHtml, after: afterHtml }[G.view] || stepHtml)()}</div>`);
     el.onclick = onClick;
   }

@@ -147,8 +147,9 @@ window.dasProspects = async el => {
   const prWatchLoad = async () => { try { prWatchDraw(await api("/api/das/leads")); } catch (e) { /* a copy with no watch: the list still works */ } };
   prWatchLoad();
   // RF need: a click on the verdict opens its reasons under the row; "Check the building" asks the NSI (need.py keeps it)
+  body.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("[data-dt]")) { e.preventDefault(); e.target.click(); } });
   body.addEventListener("click", async e => {
-    const nd = e.target.closest("[data-nd],[data-tg]"), ns = e.target.closest("[data-nsi]");
+    const nd = e.target.closest("[data-nd],[data-tg],[data-dt]"), ns = e.target.closest("[data-nsi]");
     if (!nd && !ns) return;
     const tr = e.target.closest("tr"), pid = tr.dataset.pid || tr.dataset.why, x = (P.rows || []).find(r => r.id === pid);
     if (!x) return;
@@ -253,9 +254,10 @@ window.dasProspects = async el => {
   };
   const prWhy = x => {
     const n = P.need[x.id];
-    if (!n && !x.trigger) return "";
-    // the reasons stay in view while a wide table scrolls sideways (a phone): pinned to the visible left edge
-    return `<tr class="pr-why" data-why="${esc(x.id)}"><td colspan="8" style="white-space:normal"><div style="position:sticky;left:8px;width:min(900px,calc(100vw - 64px))">${prTrigWhy(x)}
+    if (!n && !x.trigger && !x.detail) return "";
+    // the reasons stay in view while a wide table scrolls sideways (a phone): pinned to the visible left edge. The row's description
+    // first, whole: the row shows two lines of it (UX review 11/8 #6)
+    return `<tr class="pr-why" data-why="${esc(x.id)}"><td colspan="8" style="white-space:normal"><div style="position:sticky;left:8px;width:min(900px,calc(100vw - 64px))">${x.detail ? `<div class="hint pr-dtfull" style="max-width:900px;margin-top:6px"><b>Description:</b> ${esc(x.detail)}</div>` : ""}${prTrigWhy(x)}
       ${n ? `<div class="hint" style="max-width:900px;margin-top:6px">${esc(n.ps_why || "")}</div>${n.cell_why ? `<div class="hint" style="max-width:900px;margin-top:4px">${esc(n.cell_why)}</div>` : ""}
       <div style="margin-top:6px">${n.nsi ? `<span class="hint">From the USACE National Structure Inventory (modelled): ${esc(prNsiLine(n.nsi))}.</span>`
         : `<button data-nsi title="The USACE National Structure Inventory's record of this building (one small look-up): year built, stories, floor area and basement, so the building loss uses them">Check the building (NSI)</button>`}</div>` : ""}</div></td></tr>`;
@@ -315,21 +317,20 @@ window.dasProspects = async el => {
         : Object.entries(PR_STCOL).filter(([s]) => s !== "meeting").map(([s, c]) => `<span style="color:${c}">●</span> ${s}`).join(" &nbsp; ")}</p>
       <div class="tw" style="max-height:560px;overflow:auto"><table class="pr-tab"><thead><tr><th>Building</th><th title="An estimate from public data, not a measurement: whether agency radio, and the carriers where loaded, likely fall short inside">RF need<div class="hint">estimate</div></th><th title="The building's strongest permit or certificate of occupancy from city and county open data (click one for the permit, its source and the rule)">Trigger<div class="hint">permits</div></th><th>Kind</th><th>mi</th><th>Contact</th><th>Status</th><th></th></tr></thead><tbody>
       ${rows.slice(0, 400).map(x => `<tr data-pid="${esc(x.id)}" class="${x.status === "do not contact" ? "pr-dnc" : ""}">
-        <td style="white-space:normal;min-width:200px;max-width:320px"><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${prLaw(x)}${x.detail ? `<div class="hint">${esc(x.detail)}</div>` : ""}</td>
+        <td style="white-space:normal;min-width:200px;max-width:320px"><b>${esc(x.name)}</b><div class="hint">${esc([x.address, x.city, x.state].filter(Boolean).join(", "))}${x.precision === "zip" ? " (placed at its ZIP)" : ""}</div>${prLaw(x)}${x.detail ? `<div class="hint pr-desc" data-dt role="button" tabindex="0" title="Two lines here: the whole of it opens under the row">${esc(x.detail)}</div>` : ""}</td>
         <td data-need>${prNeedCell(x)}</td>
         <td data-trig>${prTrigCell(x)}</td>
         <td>${esc(PR_KIND[x.kind] || x.kind)}${x.priority ? `<div><span class="tag" title="${esc(x.why)}">${esc(x.priority)}</span></div>` : ""}${x.size_label ? `<div class="hint">${esc(x.size_label)}</div>` : ""}</td>
         <td>${x.dist_mi < 10 ? x.dist_mi.toFixed(1) : Math.round(x.dist_mi)}</td>
-        <td>${x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phone)}</a>` : ""}${x.website ? `<div><a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">website</a></div>` : ""}
+        <td class="pr-contact">${x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phone)}</a>` : ""}${x.website ? `<div><a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">website</a></div>` : ""}
           ${x.email ? `<div><a href="mailto:${esc(x.email)}">${esc(x.email)}</a>${x.email_source ? ` <span class="hint" title="${esc(x.email_source)}">(from their site)</span>` : ""}</div>`
             : x.fe_tried === "refused" ? `<div class="hint" title="Their site refused to be read, so it isn't asked again">Their site said no: call</div>`
             : x.fe_tried === "none" ? `<div class="hint">None published: call</div>`
             : x.status !== "do not contact" && x.website ? `<div><button data-fe title="Reads their own website's home and contact pages for the address they publish">Find email</button></div>`
             : x.status !== "do not contact" ? `<div class="hint">No website or email listed: call first.</div>` : ""}
           <div class="hint" title="Who the research says to approach">${esc(x.approach || "")}</div></td>
-        <td><select data-st>${PR_STATUS.map(s => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("")}</select>${x.contacted_at ? `<div class="hint">contacted ${esc(x.contacted_at.slice(0, 10))}</div>` : ""}</td>
-        <td style="white-space:nowrap">${x.status === "do not contact" ? `<span class="hint">opted out</span>` : `<button data-em title="A first email to read before it goes: send it from your connected mailbox or open it in your own mail. Nothing goes without your press.">Email</button>`}
-          ${x.job_id ? `<button data-open="${x.job_id}">Job</button>` : `<button data-job title="Put it on the DAS board as a Lead">+ Job</button>`}</td></tr>${P.open.has(x.id) ? prWhy(x) : ""}`).join("")}
+        <td><div class="pr-st"><select data-st>${PR_STATUS.map(s => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("")}</select>${x.job_id ? `<button data-open="${x.job_id}">Job</button>` : `<button data-job title="Put it on the DAS board as a Lead">+ Job</button>`}</div>${x.contacted_at ? `<div class="hint">contacted ${esc(x.contacted_at.slice(0, 10))}</div>` : ""}</td>
+        <td style="white-space:nowrap">${x.status === "do not contact" ? `<span class="hint">opted out</span>` : `<button data-em title="A first email to read before it goes: send it from your connected mailbox or open it in your own mail. Nothing goes without your press.">Email</button>`}</td></tr>${P.open.has(x.id) ? prWhy(x) : ""}`).join("")}
       </tbody></table>${rows.length > 400 ? `<p class="hint">Showing the first 400 of ${rows.length.toLocaleString()}: filter or narrow the radius.</p>` : ""}</div>
       <div id="prMail"></div>`;
     prMap(rows);

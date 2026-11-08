@@ -17,6 +17,9 @@ window.rfMail = (() => {
     infoAt = Date.now(); return info;
   }
   const ready = async () => { const a = await account(); return !!(a.available && a.account); };
+  // DAStastic sends for this login (sesmail.py): "<name> via DAStastic" from the server's address, not their own mailbox
+  const viaDt = a => !!(a && a.account && a.account.via === "dastastic");
+  const fromLine = a => viaDt(a) ? `“${a.account.name} via DAStastic” <${(a.dastastic || {}).from || ""}>` : a.account.address;
   const when = t => t ? String(t).slice(5, 16).replace("T", " ") : "";
   const badge = s => ({ applied: ["filed", "good"], proposal: ["prices to apply", "warn"], offer: ["on Needs you", "warn"], reply: ["read it", "warn"], held: ["held: check it", "warn"],
     error: ["couldn't file", "bad"], sent: ["sent", ""] }[s] || [s || "", ""]);
@@ -32,9 +35,12 @@ window.rfMail = (() => {
     if (!a.available) { el.innerHTML = `<div class="panel"><h3 style="margin-top:0">Email from your own mailbox</h3>
       <p>Sending from your mailbox and filing the replies into jobs, quotes and prospects works on the DAStastic server and in the PC app: a web page can't sign in to a mailbox itself.</p>
       <p class="hint" style="margin-bottom:0">Here, each email button (quote requests, prospects, plans, consent letters, the AHJ report) opens the email in your own mail app, ready to send; replies stay in your mail.</p></div>`; return; }
-    const ac = a.account || {}, st = a.state || {};
+    const ac = a.account || {}, st = a.state || {}, dt = a.dastastic || {};
+    // DAStastic sends for them (sesmail.py): when it's on, or when they picked it here
+    if (dt.ready && (viaDt(a) || el.dataset.mode === "dastastic")) return dtPanel(el, a, done);
     const q = s => el.querySelector(s);
     el.innerHTML = `<div class="panel" id="mlAcct"><h3 style="margin-top:0">Your mailbox <span class="hint">· ${esc(a.login === "local" ? "this PC" : a.login)}: DAStastic sends from it when you press Send, and files tagged replies</span></h3>
+      ${dt.ready && !ac.address ? `<p class="hint" style="margin:0 0 6px">No app password, or on Microsoft 365 or Outlook? <button class="sm" id="mlDt">Let DAStastic send for me</button></p>` : ""}
       ${ac.address ? `<p>Connected: <b>${esc(ac.address)}</b> <span class="hint">(${esc(ac.provider || "")}, folder ${esc(ac.folder || "INBOX")}${st.last_check ? `, checked ${esc(when(st.last_check))}` : ""})</span>
         ${st.last_error ? `<span class="status err">${esc(st.last_error)}</span>` : ""}</p>` : `<p class="hint">Not connected. DAStastic reads only emails with "[RFR" in the subject, never marks anything read, and keeps your password sealed on ${a.login === "local" ? "this PC" : "the server"}, never shown again.</p>`}
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
@@ -56,7 +62,7 @@ window.rfMail = (() => {
     hostIds.forEach(id => { const x = q(id); x.dataset.guessed = ac.imap_host ? "" : "1"; x.addEventListener("input", () => { x.dataset.guessed = ""; }); });
     const guess = async () => { const v = cleanAddr(q("#mlAddr").value); if (v !== q("#mlAddr").value) q("#mlAddr").value = v; if (!/@[^@.]+\.[^@]+$/.test(v)) return;
       try { const g = await api(`/api/mail/guess?address=${encodeURIComponent(v)}`); if (q("#mlAddr").value.trim() !== v) return;
-        q("#mlHow").textContent = g.how || "";
+        q("#mlHow").textContent = (g.how || "") + (g.provider === "microsoft" && dt.ready ? " Press Let DAStastic send for me: it needs no password." : "");
         if (g.imap_host) [["#mlIh", g.imap_host], ["#mlIp", g.imap_port], ["#mlSh", g.smtp_host], ["#mlSp", g.smtp_port], ["#mlSm", g.smtp_mode]]
           .forEach(([id, val]) => { const x = q(id); if (!x.value || x.dataset.guessed) { x.value = val; x.dataset.guessed = "1"; } });
       } catch (e) { /* the guess is a help only */ } };
@@ -70,6 +76,34 @@ window.rfMail = (() => {
       say(r.error ? `Mail: ${r.error}` : r.new ? `${r.new} new: ${r.filed.map(f => `${f.from} (${f.result})`).join("; ")}` : "No new tagged mail."); await connectPanel(el, done); done && done(); });
     q("#mlDel") && (q("#mlDel").onclick = async () => { if (!confirm("Disconnect your mailbox? DAStastic forgets the app password; sent emails and filed replies stay.")) return;
       await post("/api/mail/account/delete"); info = null; await connectPanel(el, done); done && done(); });
+    q("#mlDt") && (q("#mlDt").onclick = () => { el.dataset.mode = "dastastic"; connectPanel(el, done); });
+  }
+
+  // ---- DAStastic sends for you (sesmail.py, Cody 11/8): no mailbox to connect. Emails go from "<name> via DAStastic";
+  // replies go to the person's own address and to DAStastic, which files them; a copy of each email sent comes to them
+  async function dtPanel(el, a, done) {
+    const ac = a.account || {}, st = a.state || {}, dt = a.dastastic, on = viaDt(a);
+    const q = s => el.querySelector(s);
+    el.innerHTML = `<div class="panel" id="mlAcct"><h3 style="margin-top:0">DAStastic sends for you <span class="hint">· ${esc(a.login === "local" ? "this PC" : a.login)}: no mailbox to connect</span></h3>
+      <p>${on ? `On: your emails go from <b>“${esc(ac.name)} via DAStastic” &lt;${esc(dt.from)}&gt;</b>. Replies come to <b>${esc(ac.address)}</b> and DAStastic files them${st.last_check ? ` <span class="hint">(checked ${esc(when(st.last_check))})</span>` : ""}.`
+        : `Your emails go from “<i>your name</i> via DAStastic” &lt;${esc(dt.from)}&gt;. A reply comes to your own address and to DAStastic, which files it where it belongs, and a copy of every email you send comes to you.`}</p>
+      ${on && st.last_error ? `<p class="status err">${esc(st.last_error)}</p>` : ""}
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
+        <label>Your email (copies and replies)<input id="mlAddr" type="email" value="${esc(ac.address || "")}" style="width:230px" autocomplete="email"></label>
+        <label>Your name (on emails)<input id="mlName" autocomplete="name" value="${esc(ac.name || S.me?.name || "")}" style="width:170px"></label>
+        <button class="primary" id="mlSave">${on ? "Save" : "Turn on"}</button>
+        ${on ? `<button id="mlCheck">⟳ Check now</button><button id="mlDel">Stop</button>` : `<button id="mlOwn">Use my own mailbox</button>`}</div>
+      ${dt.prospects ? "" : `<p class="hint" style="margin:6px 0 0">Prospect first emails still go from your own mailbox, or Open in my mail: cold email through DAStastic could stop its sending for everyone.</p>`}
+      <p id="mlMsg" class="hint" style="margin:6px 0 0"></p></div>`;
+    q("#mlSave").onclick = async e => { const b = e.currentTarget; q("#mlAddr").value = cleanAddr(q("#mlAddr").value); b.disabled = true;
+      try { const r = await post("/api/mail/account", { via: "dastastic", address: q("#mlAddr").value, name: q("#mlName").value });
+        info = null; delete el.dataset.mode; say(`DAStastic sends for you; replies come to ${r.account.address}.`); await connectPanel(el, done); done && done(); }
+      catch (err) { q("#mlMsg").className = "status err"; q("#mlMsg").textContent = err.message; b.disabled = false; } };
+    q("#mlCheck") && (q("#mlCheck").onclick = async e => { e.currentTarget.disabled = true; const r = await post("/api/mail/check").catch(x => ({ error: x.message }));
+      say(r.error ? `Mail: ${r.error}` : r.new ? `${r.new} new: ${r.filed.map(f => `${f.from} (${f.result})`).join("; ")}` : "No new replies."); await connectPanel(el, done); done && done(); });
+    q("#mlDel") && (q("#mlDel").onclick = async () => { if (!confirm("Stop DAStastic sending for you? Sent emails and filed replies stay.")) return;
+      await post("/api/mail/account/delete"); info = null; delete el.dataset.mode; await connectPanel(el, done); done && done(); });
+    q("#mlOwn") && (q("#mlOwn").onclick = () => { el.dataset.mode = "own"; connectPanel(el, done); });
   }
 
   // ---- compose and send (inline, in the tab you're on)
@@ -88,6 +122,12 @@ window.rfMail = (() => {
       const c = el.querySelector("[data-mconn]"); if (c) connectPanel(c, () => compose(el, o));
       return;
     }
+    if (viaDt(a) && o.kind === "prospect" && !(a.dastastic || {}).prospects) {  // cold email stays off DAStastic's own sending
+      el.innerHTML = `<div class="panel" style="margin-top:10px"><div class="row" style="justify-content:space-between"><b>${esc(o.title || "Email")}</b><button class="sm" data-mx>✕</button></div>
+        <p class="hint">Prospect first emails go from your own mailbox, not through DAStastic: a run of bounces or complaints on cold email would stop DAStastic's sending for everyone. <a href="${esc(mailto())}">Open in my mail</a>.</p></div>`;
+      el.querySelector("[data-mx]").onclick = () => { el.innerHTML = ""; };
+      return;
+    }
     const jid = o.refs?.job_id;
     let ppl = [];
     const loadPeople = async () => { try { ppl = (await api(`/api/mail/people${jid != null ? `?job=${jid}` : ""}`)).people || []; } catch (e) { ppl = []; } };
@@ -100,7 +140,7 @@ window.rfMail = (() => {
     if (st.to) st.body = greet(st.body, who(st.to));
     const uid = "m" + Math.random().toString(36).slice(2, 8);
     el.innerHTML = `<div class="panel" style="margin-top:10px"><div class="row" style="justify-content:space-between"><b>${esc(o.title || "Email")}</b><button class="sm" data-mx title="Close">✕</button></div>
-      <p class="hint" style="margin:2px 0 6px">From ${esc(a.account.address)}. DAStastic adds a tag to the subject so the reply files itself; nothing goes until you press Send.</p>
+      <p class="hint" style="margin:2px 0 6px">From ${esc(fromLine(a))}${viaDt(a) ? `; replies come to ${esc(a.account.address)}` : ""}. DAStastic adds a tag to the subject so the reply files itself; nothing goes until you press Send.</p>
       ${o.templates && jid != null ? `<label style="max-width:420px">Kind of email<select data-mtpl></select></label>` : ""}
       <div data-mpeople class="row" style="gap:6px;flex-wrap:wrap;margin:0 0 6px"></div>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
@@ -312,7 +352,7 @@ window.rfMail = (() => {
     const sel = () => [...P.querySelectorAll("[data-mj]:checked")].map(c => +c.dataset.mj);
     const upd = () => { const n = sel().length, ready = list.filter((x, i) => toOf(i) && !held(x)).length, b = q("#mjSend");
       q("#mjSum").textContent = !list.length ? "" : `· ${ready} ready${list.length > ready ? `, ${list.length - ready} need something first` : ""}`;
-      if (b) { b.disabled = !n; b.textContent = n ? `✉ Send ${n === 1 ? "this one" : `these ${n}`} from ${a.account.address}` : "✉ Send"; } };
+      if (b) { b.disabled = !n; b.textContent = n ? `✉ Send ${n === 1 ? "this one" : `these ${n}`} ${viaDt(a) ? "through DAStastic" : `from ${a.account.address}`}` : "✉ Send"; } };
     P.addEventListener("change", upd); upd();
     P.querySelectorAll("[data-mjto]").forEach(t => t.oninput = () => { const i = +t.dataset.mjto, c = q(`[data-mj="${i}"]`), good = MJ_ADDR.test(typed(i)) && !held(list[i]);
       if (c) { c.disabled = !good; c.checked = good; } upd(); });

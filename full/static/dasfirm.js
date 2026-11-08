@@ -140,13 +140,28 @@
     const list = P.book || [], c = P.check || {}, b = c.book, ok = P.status === "confirmed";
     const used = b && !ok ? `<div class="cc-level cc-warn" id="ccBookUsed"><b>Filled in from the AHJ book, not confirmed.</b> Those answers came from ${esc(b.job)}, confirmed by ${esc(b.by)} on ${esc(b.on)}. The AHJ has the final say on this building: ask them, then put who said so and the date under Confirmed by.
       <div style="margin-top:6px"><button class="sm" id="ccBookUndo">Take those answers back out</button></div></div>` : "";
-    const rows = list.map(e => `<div class="fr-offer" data-book="${e.id}">
+    const row1 = e => `<div class="fr-offer" data-book="${e.id}">
         <div class="fr-head"><b>${e.match === "place" ? "Same place" : "Same AHJ"}: ${esc(bookWhere(e))}</b> ${ageChip(e)}</div>
         ${answersHtml(e.answers)}<p class="hint fr-who">${whoLine(e)}.</p>${oldLine(e)}
-        ${ok || b ? "" : `<button class="sm" data-book-use="${e.id}">Use these answers</button>`}</div>`).join("");
-    el.innerHTML = used + (list.length ? `<details class="fr-book" id="ccBook" ${ok ? "" : "open"}><summary><b>From the AHJ book</b> <span class="hint">· ${list.length} ${list.length === 1 ? "entry" : "entries"} from other jobs</span></summary>
-      ${ok ? "" : '<p class="hint">Another job already asked here. It saves the research, not the call: nothing here counts for this job until someone at the AHJ confirms it for this building.</p>'}${rows}</details>` : "");
-    el.querySelectorAll("[data-book-use]").forEach(x => x.onclick = async () => { try { await post(`/api/das/x/book/${j.id}`, { id: +x.dataset.bookUse }); render(); } catch (e) { dasSay("Not saved: " + e.message); } });
+        ${ok || b ? "" : `<button class="sm" data-book-use="${e.id}">Use these answers</button>`}</div>`;
+    // closed, with one line: how many, for which AHJ, the newest, and the newest's answers a press away. Open, the entries go by
+    // AHJ and the person who answered, newest first (UX review 11/8 #4: it opened on every new job and listed each entry on its
+    // own, 7 of them from one person on one day). The server sends them newest first, so each group's first is its newest
+    const groups = [];
+    for (const e of list) { const k = `${e.ahj || e.where}|${e.confirmed_by}`; let g = groups.find(x => x.k === k); if (!g) groups.push(g = { k, es: [] }); g.es.push(e); }
+    const ahjs = [...new Set(list.map(e => e.ahj || e.where).filter(Boolean))], top = list[0];
+    const line = list.length ? `${list.length} answer${list.length === 1 ? "" : "s"} on file for ${esc(ahjs[0] || "this place")}${ahjs.length > 1 ? ` and ${ahjs.length - 1} more` : ""}, newest ${esc(top.confirmed_on)}` : "";
+    const group = g => { const e = g.es[0];
+      return `<div class="fr-group"><div class="fr-ghead"><b>${esc(e.ahj || e.where || "Somewhere")}</b> · ${esc(e.confirmed_by || "no name")} <span class="hint">· ${g.es.length} answer${g.es.length === 1 ? "" : "s"}, newest ${esc(e.confirmed_on)}</span></div>${g.es.map(row1).join("")}</div>`; };
+    el.innerHTML = used + (list.length ? `<details class="fr-book" id="ccBook"><summary><b>From the AHJ book</b> <span class="hint">· ${line}</span>
+        <span class="fr-book-acts">${ok || b ? "" : `<button class="sm" data-book-use="${top.id}" title="Fills the empty answers from the newest entry. It confirms nothing">Use the newest</button>`}<button class="sm" data-book-all aria-expanded="false">Show all</button></span></summary>
+      ${ok ? "" : '<p class="hint">Another job already asked here. It saves the research, not the call: nothing here counts for this job until someone at the AHJ confirms it for this building.</p>'}${groups.map(group).join("")}</details>` : "");
+    const det = el.querySelector("#ccBook"), all = el.querySelector("[data-book-all]");
+    if (det && all) {
+      all.onclick = e => { e.preventDefault(); det.open = !det.open; };
+      det.addEventListener("toggle", () => { all.textContent = det.open ? "Show less" : "Show all"; all.setAttribute("aria-expanded", String(det.open)); });
+    }
+    el.querySelectorAll("[data-book-use]").forEach(x => x.onclick = async ev => { ev.preventDefault(); try { await post(`/api/das/x/book/${j.id}`, { id: +x.dataset.bookUse }); render(); } catch (e) { dasSay("Not saved: " + e.message); } });
     const u = el.querySelector("#ccBookUndo"); if (u) u.onclick = async () => { try { await post(`/api/das/x/book/${j.id}/undo`); render(); } catch (e) { dasSay("Not saved: " + e.message); } };
   };
 

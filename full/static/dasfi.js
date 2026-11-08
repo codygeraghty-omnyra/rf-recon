@@ -81,7 +81,7 @@
   const KEY = `<div class="fi-key"><span style="--c:var(--fk-test)"><i></i>Check</span><span style="--c:var(--fk-do)"><i></i>Do this</span><span style="--c:var(--fk-fix)"><i></i>Fix</span><span style="--c:var(--fk-stop)"><i></i>Stop: call someone</span><span style="--c:var(--fk-done)"><i></i>Done</span><span>Dashed: another chart. It brings you back when it's fixed.</span></div>`;
   function pageRun() { const f = F(), here = f.stage;
     return `<p class="hint" style="margin:0 0 10px;max-width:90ch">Pick the stage. Each one walks you through it a step at a time, and sends you to the right fault chart when something fails.</p>
-    ${JOB && window.dasWalkOpen ? `<button class="primary" id="fiGuide" style="margin-bottom:10px" title="Checks what's on file, picks up where the job stands, and moves you to each place">Walk me through this job</button>` : ""}
+    ${JOB && window.dasWalkOpen ? `<button class="primary" id="fiGuide" style="margin-bottom:10px" title="Checks what's on file, picks up where the job stands, and moves you to each place">What's next on this job</button>` : ""}
     <div class="fi-stages">${STAGES.map((s, i) => `<button class="fi-stage${here === i + 1 ? " here" : ""}" data-stage="${i + 1}"><span class="fi-num">${i + 1}</span><b>${s}</b><p>${STAGE_LINE[i]}</p></button>`).join("")}</div>
     ${runFor(here).map(t => `<div class="panel"><h3>${esc(t.title)}</h3><p style="margin:0 0 8px">${gloss(t.goal)}</p>
       <dl class="fi-dl"><dt>Who</dt><dd>${gloss(t.who)}</dd><dt>Tools</dt><dd>${gloss(t.tools)}</dd><dt>Done when</dt><dd>${gloss(t.gate)}</dd></dl>

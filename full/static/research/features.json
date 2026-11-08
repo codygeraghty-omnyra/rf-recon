@@ -171,7 +171,7 @@
     },
     {
      "name": "Guides and files from Start",
-     "text": "A job on Start has buttons for Walk me through and for dropping files already in hand, and shows the job's Emails this job needs list under each step.",
+     "text": "A job on Start has buttons for What's next on this job and for dropping files already in hand, and shows the job's Emails this job needs list under each step.",
      "src": [
       "d-2026-11-06-0100",
       "static/start.js"
@@ -1479,7 +1479,7 @@
     },
     {
      "name": "Job steps",
-     "text": "A job's steps run in work order: Overview, Fault chart, Pre-survey, Plans, Requirements, Existing system, Design, Materials, Commissioning, Grid test, Screening, PIM / sweeps / fiber, Files, Log and Report. Step by step opens the job on Start.",
+     "text": "A job's steps run in work order: Overview, Fault chart, Pre-survey, Plans, Requirements, Existing system, Design, Materials, Commissioning, Grid test, Screening, PIM / sweeps / fiber, Files, Log and Report. Open in Start's 4 steps opens the job on Start.",
      "group": "jobs board",
      "src": [
       "d-2026-11-06-2200",
@@ -1496,12 +1496,13 @@
      ]
     },
     {
-     "name": "Walk me through",
+     "name": "What's next on this job",
      "text": "It reads the job, shows by stage what's on file and what's missing, and opens each place from the first gap. Step waits for Next; Auto moves on when the record shows a step done; physical checks wait for a person.",
      "group": "jobs board",
      "src": [
       "d-2026-11-06-0100",
-      "static/dasguide.js"
+      "static/dasguide.js",
+      "d-2026-11-08-0836"
      ]
     },
     {
@@ -1516,7 +1517,7 @@
     },
     {
      "name": "Next step from the file",
-     "text": "The board, the job, the gates and Walk me through read one next step from the job's record; a typed Next step wins. A move the file supports shows as a Move button, and In service shows the date the system owes.",
+     "text": "The board, the job, the gates and What's next on this job read one next step from the job's record; a typed Next step wins. A move the file supports shows as a Move button, and In service shows the date the system owes.",
      "group": "jobs board",
      "src": [
       "d-2026-11-06-1130",
@@ -3877,12 +3878,13 @@
      ]
     },
     {
-     "name": "28 sections",
-     "text": "Quick start, Guides, Searching, Filters, Map, Area report, Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, Mission, Search, Cell sites, Find a signal, Replay, Compare, Receivers, Data & updates, Notes, keys, walls, sources, credits, glossary, Android and files. DAS, PIM, Parts and Start have none.",
+     "name": "29 sections",
+     "text": "Quick start, Guides, Searching, Filters, Map, Area report, Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, Mission, Search, Cell sites, Find a signal, Replay, Compare, Receivers, Data & updates, Notes, keys, DAS, walls, sources, credits, glossary, Android and files. PIM, Parts and Start have none.",
      "src": [
       "d-2026-11-04-late",
       "static/help.js",
-      "d-2026-11-08-0610"
+      "d-2026-11-08-0610",
+      "d-2026-11-08-0836"
      ]
     },
     {
@@ -3895,13 +3897,14 @@
     },
     {
      "name": "Feature guides",
-     "text": "A small \"?\" beside eight features (Start, Walk me through, Prospects, the drop spot, Emails this job needs, Cell sites, Find a signal, Push to ATAK) opens a short window: what it's for, three steps, and what to check when you see something else; on a phone it opens from the bottom. Help's Guides section has the same eight, and names the full PDF guide with a screenshot of every step. A check walks every guide step and every text against the app.",
+     "text": "A small \"?\" beside eight features (Start, What's next on this job, Prospects, the drop spot, Emails this job needs, Cell sites, Find a signal, Push to ATAK) and 21 more parts (the filter rail, Area report, Analyzer, Spectrum, the Prep sheet, the DAS board, the Fault chart, Ready to send, a job's Code check, Pre-survey, Grid test, Design, Report and seal and BDA alarms, Pitch, Equipment & people, Stop all downloads, Field packs, People and logins, Your API keys and Notes) opens a short window: what it's for, three steps, and what to check when you see something else; on a phone it opens from the bottom. Help's Guides section has the eight, its DAS section the DAS tab's parts, and Guides names the full PDF guide with a screenshot of every step. A check walks every guide step and every text against the app.",
      "src": [
       "d-2026-11-08-0610",
       "static/helptips.js",
       "static/help.js",
       "static/research/help_tips.json",
-      "tests/guides_check.mjs"
+      "tests/guides_check.mjs",
+      "d-2026-11-08-0836"
      ]
     },
     {

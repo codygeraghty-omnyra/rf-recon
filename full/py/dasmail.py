@@ -88,6 +88,10 @@ def account(data_dir, login, with_password=False):
 def save_account(data_dir, login, a):
     every = keystore.load(data_dir, "mail") or {}
     old = every.get(login or "local") or {}
+    if a.get("via") == "dastastic":  # DAStastic sends for them (sesmail.py): no mailbox, no password
+        every[login or "local"] = {k: a[k] for k in ("via", "address", "name", "provider") if k in a}
+        keystore.save(data_dir, every, "mail")
+        return
     if not a.get("password"):
         a["password"] = old.get("password")
     if not a.get("password"):
@@ -113,6 +117,11 @@ def account_from(d, old=None):
         raise ValueError("Enter your email address.")
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,24}", addr):
         raise ValueError(f"“{addr}” isn't an email address DAStastic can use: check it, or type it in rather than paste it.")
+    if d.get("via") == "dastastic":  # DAStastic sends for them (Cody 11/8): their address takes the copies and the replies
+        name = (d.get("name") or "").strip()[:80]
+        if not name:
+            raise ValueError("Enter your name: emails go out as “<your name> via DAStastic”.")
+        return {"via": "dastastic", "address": addr, "name": name, "provider": "dastastic"}
     g = mailbox.guess(addr)
     if g["provider"] == "microsoft" and not d.get("imap_host"):
         raise ValueError(g["how"])
@@ -583,6 +592,8 @@ def check(con, data_dir, login, imap_factory=None):
     a = account(data_dir, login, with_password=True)
     if not a:
         return {"new": 0, "filed": [], "error": "no mailbox connected"}
+    if a.get("via") == "dastastic":  # no mailbox to read: their replies come through the reply bucket (sesmail.check)
+        return {"new": 0, "filed": [], "error": None, "via": "dastastic"}
     folder = a.get("folder") or "INBOX"
     st = con.execute("SELECT * FROM das_mail_state WHERE login=? AND folder=?", (login, folder)).fetchone()
     try:

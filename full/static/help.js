@@ -8,12 +8,12 @@ const HELP = [
     <p><b>New to this?</b> The <i>Start</i> tab takes one job from an address to the AHJ package, a question at a time. It's the same job the DAS tab shows, and every other tab stays where it is.</p>
     <ol><li><b>Pick a place.</b> Type an address, town or county in the Pin box and choose a suggestion, paste a Google Maps link,
       type <span class="mono">lat, lon</span>, use ◎ GPS, or click the map. Set the radius.</li>
-    <li><b>Search.</b> Everything licensed, every tower and every survey point inside the circle loads, nearest first.</li>
+    <li><b>Show what's here.</b> Everything licensed, every tower and every survey point inside the circle loads, nearest first.</li>
     <li><b>Narrow it.</b> The filter rail beside the results (on a phone, the <i>Filters</i> bar): switch sources, signal types,
       bands, categories and station types off, or press <i>only</i>. Filters apply on the tabs that list the rows: the rail shows on those and leaves the others.</li>
     <li><b>Read it.</b> <i>Area report</i> is the one-page answer; <i>Spectrum</i> and <i>Analyzer</i> go deep.</li>
     <li><b>Go there.</b> Make a mission, import what you collect, and the app tells you what's licensed, what's allowed and what's unexplained.</li></ol>
-    <p>The address bar always holds the current view, so a bookmark or a copied link reopens exactly this.</p>`],
+    <p>The address bar always holds the current view, a DAS job and its section or a Start job and its step too, so a bookmark, a copied link or a reload reopens exactly this, and Back walks back through them.</p>`],
   ["guides", "Guides", () => helpGuides()],
   ["search", "Searching", `
     <ul><li><b>Pin + radius</b>: address, place, county, coordinates or Maps link. Counties and towns resolve offline from the FCC data;
@@ -211,6 +211,7 @@ const HELP = [
     <tr><td><b>Ctrl + Z</b></td><td>DAS walk test: undo the last change</td></tr>
     <tr><td><b>Alt + click</b> / <b>Alt + Shift + click</b></td><td>Analyzer: keep only / drop a cell's value</td></tr>
     <tr><td colspan="2">On a DAS floor plan (Design, Antennas and coverage): see <i>Walls on floor plans</i> below.</td></tr></tbody></table>`],
+  ["das", "DAS", () => helpDas()],
   ["walls", "Walls on floor plans", `
     <p>DAS › a job › Design › <i>Antennas and coverage</i>. Walls change the predicted coverage by their measured loss.</p>
     <ul><li><b>Draw walls</b> (<b>W</b>): drag along a wall, or click its start and then its end. The pointer snaps to drawn walls' ends,
@@ -312,6 +313,17 @@ function helpGuides() {
   return `<p>The eight features, one at a time: what each is for, the steps, and what to check when you see something else. The same text opens from the small <b>?</b> beside each feature.</p>
     <p class="hint">The full guide, with a screenshot of every step, is <i>DAStastic - feature guides (2026-11-08).pdf</i> in the DAStastic folder in Google Drive, under docs, guides. Ask Cody for a copy if that folder isn't shared with you.</p>
     ${tips.map(t => `<details class="help-guide" id="help-guide-${esc(t.id)}"><summary><b>${esc(t.title)}</b> <span class="hint">· ${esc(t.tab)}</span></summary>
+      <p>${esc(t.short)}</p>${(t.steps || []).length ? `<ol>${t.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+      ${(t.if_you_see || []).map(x => `<p class="hint" style="margin:2px 0">If you see <b>${esc(x.see)}</b>: ${esc(x.check)}</p>`).join("")}</details>`).join("")}`;
+}
+
+// DAS (Cody 11/8, the extra "?" texts on): the DAS tab's parts, each one's short text and steps, from the same texts the "?"
+// beside each part opens. The "?" window's All help opens that part here; Help opens on this section from the DAS tab
+function helpDas() {
+  const T = window.RFHelpTips, tips = T && T.ready() ? T.list().filter(t => t.extra && t.tab === "DAS") : [];
+  if (!tips.length) return `<p class="hint">This section didn't load on this page. Reload it to see it.</p>`;
+  return `<p>The DAS tab holds every job, from Lead to Closed, and what the firm needs to run them. Each part below is the same text the small <b>?</b> beside it opens.</p>
+    ${tips.map(t => `<details class="help-guide" id="help-das-${esc(t.id)}"><summary><b>${esc(t.title)}</b></summary>
       <p>${esc(t.short)}</p>${(t.steps || []).length ? `<ol>${t.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
       ${(t.if_you_see || []).map(x => `<p class="hint" style="margin:2px 0">If you see <b>${esc(x.see)}</b>: ${esc(x.check)}</p>`).join("")}</details>`).join("")}`;
 }

@@ -15,16 +15,29 @@ const STEPS = [
   {id: "design", label: "Design", goal: "Plan the system and list the parts.", out: "Design package"},
   {id: "ahj", label: "AHJ package", goal: "Hand the AHJ what it asks for.", out: "AHJ package"}];
 const stepOf = id => STEPS.findIndex(s => s.id === id);
+// a step in the address bar is its number, 1 to 4 (UX review 11/8 #2): search.js writes it and reads it back
+window.startStepNo = id => stepOf(id) + 1;
+window.startStepId = n => (STEPS[n - 1] || {}).id || null;
 const YES_NO = ["Yes", "No", "Not applicable"];
-// to: the full tool's own field for the same answer
+// Start's own words for the loss table's presets (UX review 11/8 #17: Start is for someone with no RF background, and it
+// offered "NIST TN 1552 medians"). The job keeps DAS.loss's key, which the DAS tab shows as it always has
+const BUILT = {"Traditional build, typical (14 dB)": "Ordinary walls and windows (most older buildings)",
+  "Traditional build, worst 5% (28 dB)": "Ordinary, but heavy: thick walls, few windows",
+  "Thermally efficient (low-E glass, foil insulation), typical (31 dB)": "Mostly glass, newer than about 2000 (energy-saving windows)",
+  "Thermally efficient, worst 5% (51 dB)": "Newer and heavy: tinted glass, foil-backed walls",
+  "Deep interior or below grade (50 dB)": "Rooms far from outside walls, or below ground",
+  "Large building, deep interior (NIST TN 1552 medians, 750 MHz: 25-98 dB; use 70 dB)": "Big building, rooms far from windows",
+  "Subterranean / garage below grade (NIST TN 1552 upper medians: 90 dB)": "Underground garage or tunnel"};
+const builtOf = k => BUILT[k] || k;
+// to: the full tool's own field for the same answer. exact: a range ("7 to 12") asks once for the number, kept under that key
 const BUILDING = [
   {k: "client", to: "client", s: "the name", q: "What's the building or client called?", type: "text"},
   {k: "address", to: "address", s: "the address", q: "What's the address?", type: "address", why: "A number and street is enough. Pick it from the list so the job lands on the right building."},
-  {k: "building_type", s: "the kind of building", q: "What kind of building is it?", opts: ["Office", "Apartments or condos", "School", "College", "Hospital or medical", "Hotel", "Retail or mall", "Warehouse or industrial", "Parking garage", "Government", "Stadium or arena", "Something else"]},
-  {k: "floors_up", s: "floors above ground", q: "How many floors above ground?", opts: ["1", "2", "3", "4 to 6", "7 to 12", "13 to 25", "26 or more"]},
-  {k: "floors_down", s: "floors below ground", q: "How many floors below ground?", opts: ["None", "1", "2", "3 or more"], why: "Basements and garages are where radios fail first."},
+  {k: "building_type", to: "building_type", s: "the kind of building", q: "What kind of building is it?", opts: () => DAS_BUILDING_TYPES},
+  {k: "floors_up", s: "floors above ground", q: "How many floors above ground?", opts: ["1", "2", "3", "4 to 6", "7 to 12", "13 to 25", "26 or more"], exact: "floors_up_n", ask: "Exactly how many above ground?"},
+  {k: "floors_down", s: "floors below ground", q: "How many floors below ground?", opts: ["None", "1", "2", "3 or more"], why: "Basements and garages are where radios fail first.", exact: "floors_down_n", ask: "Exactly how many below ground?"},
   {k: "area", to: "area_sqft", s: "the square feet", q: "About how many square feet?", type: "number", why: "A rough number is fine."},
-  {k: "construction", to: "construction", s: "what it's built from", q: "What's it built from?", opts: () => Object.keys(DAS.loss), why: "This sets how much signal the walls take out."},
+  {k: "construction", to: "construction", s: "what it's built from", q: "What's it built from?", opts: () => Object.keys(DAS.loss).map(k => [k, builtOf(k)]), why: "This sets how much signal the walls take out."},
   {k: "why", s: "why it's coming up", q: "Why is this coming up now?", opts: ["The fire marshal asked for it", "New construction", "A renovation", "It failed a radio test", "The owner wants better coverage", "Not sure yet"]},
   {k: "scope", s: "what the job covers", q: "What does the job cover?", opts: ["Public safety radio", "Cellular", "Both"]}];
 const WALK = [
@@ -142,13 +155,28 @@ async function saveJob(j, patch) {
 function guidedPatch(d, more) { return {...gOf(d), ...more}; }
 
 /* ---------- the questions ---------- */
-function field(q, val) {
+// a range of floors asks once for the exact number, which fills the job's floor list when the report is built (UX review 11/8 #5)
+const RANGE = /\bto\b|or more/;
+function field(q, val, all) {
   const id = `st_${q.k}`, opts = typeof q.opts === "function" ? q.opts() : q.opts;
   let ctl;
-  if (opts) ctl = `<select id="${id}" data-q="${q.k}"><option value="">Choose…</option>${opts.map(o => `<option ${o === val ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  // a choice is its value, with Start's plainer words where it has them ([value, label]: the loss presets)
+  if (opts) ctl = `<select id="${id}" data-q="${q.k}"><option value="">Choose…</option>${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o];
+    return `<option value="${esc(v)}" ${v === val ? "selected" : ""}>${esc(l)}</option>`; }).join("")}</select>`;
   else ctl = `<input id="${id}" data-q="${q.k}" ${q.type === "address" ? 'data-k="address" autocomplete="off"' : ""} type="${q.type === "number" ? "number" : "text"}" value="${esc(val ?? "")}">`;
-  return `<div class="st-q" data-for="${q.k}"><label for="${id}">${esc(q.q)}</label>${ctl}${q.why ? `<span class="hint">${esc(q.why)}</span>` : ""}</div>`;
+  const ex = q.exact ? `<div class="st-exact" data-for="${q.exact}" ${RANGE.test(val || "") ? "" : "hidden"}><label for="st_${q.exact}">${esc(q.ask)} <span class="st-range">${val ? `It said ${esc(val)}.` : ""}</span></label>
+    <input id="st_${q.exact}" data-q="${q.exact}" type="number" min="1" max="200" inputmode="numeric" value="${esc((all || {})[q.exact] ?? "")}"><span class="hint">It fills the job's floor list.</span></div>` : "";
+  return `<div class="st-q" data-for="${q.k}"><label for="${id}">${esc(q.q)}</label>${ctl}${ex}${q.why ? `<span class="hint">${esc(q.why)}</span>` : ""}</div>`;
 }
+// the floor list the answers make: B2, B1, then 1 to N. None while the floors above aren't known or a range has no number yet
+function floorsFrom(a) {
+  const n = (pick, exact) => !pick || pick === "None" ? 0 : /^\d+$/.test(pick) ? +pick : +exact >= 1 ? Math.round(+exact) : null;
+  const up = a.floors_up ? n(a.floors_up, a.floors_up_n) : null, down = n(a.floors_down, a.floors_down_n);
+  if (!up || down == null) return null;
+  const below = Math.min(down, 20), above = Math.min(up, 200);
+  return [...Array.from({length: below}, (_, i) => `B${below - i}`), ...Array.from({length: above}, (_, i) => String(i + 1))].map(name => ({name, grids: DAS.grids}));
+}
+const floorsSaid = (pick, exact) => RANGE.test(pick || "") && +exact >= 1 ? String(Math.round(+exact)) : pick;
 const buildingAnswers = el => Object.fromEntries([...el.querySelectorAll("[data-q]")].map(x => [x.dataset.q, x.value.trim()]));
 const missingOf = a => BUILDING.filter(q => !a[q.k]);
 const FORM_NOTE = `<p class="hint" id="stHave">Fill in what you have. Anything left blank can be added later, and the report says what's missing.</p>`;
@@ -160,7 +188,7 @@ async function landing(v) {
   const mine = jobs.filter(j => stand(j).guided);
   const landOn = (() => { try { return localStorage.getItem("rfr.landing") === "start"; } catch (e) { return false; } })();
   v.innerHTML = `<div class="st"><div class="st-hero"><h2>Start a job</h2><p>Answer a few questions about the building. DAStastic works out what it needs, then takes you through it one step at a time, to the package the AHJ signs off.</p></div>
-    <div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, G.draft[q.k])).join("")}</div>
+    <div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, G.draft[q.k], G.draft)).join("")}</div>
       <p class="status err" id="stLeft" hidden></p>
       <div class="st-next"><button class="primary" id="stGo">Build the Discovery report</button></div></div>
     <p class="hint st-foot">Got files already? <button class="sm" id="stIntake">Drop them here</button> Plans, contacts, letters, old emails: each one is checked and put where it goes.</p>
@@ -176,6 +204,9 @@ function wireForm(v, j) {
   const form = v.querySelector("#stForm"), addr = form.querySelector('[data-q="address"]');
   addr.addEventListener("rf-addr", e => { G.took = e.detail; });
   addr.addEventListener("input", e => { if (e.isTrusted) G.took = null; });  // the list's own pick fires input too, and mustn't clear itself
+  // a range opens its one question; another pick takes it away, with the number given for the old range
+  form.querySelectorAll("select[data-q]").forEach(s => s.addEventListener("change", () => { const box = form.querySelector(`.st-exact[data-for="${s.dataset.q}_n"]`); if (!box) return;
+    const r = RANGE.test(s.value); box.hidden = !r; box.querySelector(".st-range").textContent = r ? `It said ${s.value}.` : ""; box.querySelector("input").value = ""; }));
   v.querySelector("#stGo").onclick = async () => {
     const a = buildingAnswers(form), msg = v.querySelector("#stLeft");
     G.draft = {...G.draft, ...a}; msg.hidden = true;
@@ -183,8 +214,12 @@ function wireForm(v, j) {
     try {
       const place = a.address ? await locate(a.address, j, {rough: true}) : null, keep = j && !a.address;  // an emptied box leaves a pin set on the Overview alone
       const data = {client: a.client, address: (place && place.full) || a.address, lat: place ? place.lat : keep ? j.data.lat : null, lon: place ? place.lon : keep ? j.data.lon : null,
-        area_sqft: a.area ? +a.area : null, construction: a.construction};
+        area_sqft: a.area ? +a.area : null, construction: a.construction, building_type: a.building_type};
       const rough = place && place.rough ? {at: place.rough, lat: place.lat, lon: place.lon} : null;
+      // the floors Start asked about fill an empty floor list, so the Grid test opens on them (UX review 11/8 #5). A list already
+      // there is the job's own: never written over from here
+      const fl = floorsFrom(a);
+      if (fl && !(j && Array.isArray(j.data.floors) && j.data.floors.length)) data.floors = fl;
       if (j) data.guided = guidedPatch(j.data, {answers: {...(gOf(j.data).answers || {}), ...a}, discovery: null, rough});
       else { data.guided = {answers: a, rough}; for (const k of Object.keys(data)) if (data[k] == null || data[k] === "") delete data[k]; }
       const name = a.client || (j ? j.name : data.address || `New job ${today()}`);
@@ -300,8 +335,10 @@ function discoveryHtml(j, R) {
   const [head, line] = verdictOf(R, !ps), bands = bandsLine(R);
   const suggest = (R.ahj.suggestions || []).slice(0, 3), near = {};
   for (const s of R.cells.sites || []) { const k = carrierName(s.operator); if (!near[k] || s.dist_mi < near[k].dist_mi) near[k] = s; }
+  // the state's FCC coverage isn't on this copy (or couldn't be read): said once, not "None reported" for every carrier (UX review 11/8 #7)
+  const covOff = !!R.bdc && (R.bdc.loaded === false || !!R.bdc._error);
   const held = (R.spec && R.spec.carriers) || [], cov = (R.bdc && R.bdc.carriers) || [], names = [...new Set([...cov.map(c => carrierName(c.brand)), ...held.map(c => carrierName(c.brand)), ...Object.keys(near)])].filter(n => CELL_CARRIERS.map(carrierName).includes(n));
-  const rows = [["Building", [a.building_type, a.floors_up && `${a.floors_up} floors up`, a.floors_down && a.floors_down !== "None" && `${a.floors_down} below ground`, a.area && `${fmt(a.area)} sq ft`, a.construction].filter(Boolean).join(" · ")], ["Why now", a.why], ["Covers", sc]];
+  const rows = [["Building", [a.building_type, a.floors_up && `${floorsSaid(a.floors_up, a.floors_up_n)} floors up`, a.floors_down && a.floors_down !== "None" && `${floorsSaid(a.floors_down, a.floors_down_n)} below ground`, a.area && `${fmt(a.area)} sq ft`, a.construction && builtOf(a.construction)].filter(Boolean).join(" · ")], ["Why now", a.why], ["Covers", sc]];
   return `${printHead(j, "Discovery report")}
     <div class="st-verdict"><h2>${esc(head)}</h2><p>${esc(line)}</p></div>
     ${blanksHtml(j)}
@@ -316,9 +353,9 @@ function discoveryHtml(j, R) {
         return `<tr><td>${esc(s.licensee)}${s === R.deciding ? ' <b class="st-main">main system</b>' : ""}${s.trunked ? ' <span class="hint">trunked</span>' : ""}${shop ? `<div class="hint">Radio shop: ${esc(shop)}</div>` : ""}</td><td class="mono">${esc(s.call_sign)}</td><td>${esc(b)}</td><td>${esc((s.tech || []).join(" / "))}</td>
           <td>${s.real ? `${s.real.margin_db < 0 ? "Too weak" : "Looks OK"}` : '<span class="hint">no power on file</span>'}</td></tr>`; }).join("")}</tbody></table>
         <p class="hint">${fmt(R.systems.length)} systems within 15 miles. The first ones are the agencies a building usually has to carry. The radio shop is the FCC's contact on the licence: it can be a consulting engineer.</p>` : ""}` : ""}
-    ${cell && !R.noPin ? `<h4>Cellular</h4>${names.length ? `<table><thead><tr><th>Carrier</th><th>Coverage here (FCC map)</th><th>Closest known site</th><th>Bands it holds here</th></tr></thead><tbody>${names.map(n => {
+    ${cell && !R.noPin ? `<h4>Cellular</h4>${names.length ? `${covOff ? `<p id="stCovOff"><b>${R.bdc._error ? "FCC coverage couldn't be read here." : "FCC coverage not loaded for this state."}</b><span class="hint no-print"> Carrier coverage states are set under Data &amp; updates.</span></p>` : ""}<table><thead><tr><th>Carrier</th>${covOff ? "" : "<th>Coverage here (FCC map)</th>"}<th>Closest known site</th><th>Bands it holds here</th></tr></thead><tbody>${names.map(n => {
       const s = near[n], c = cov.filter(x => carrierName(x.brand) === n).map(x => x.tech), h = held.filter(x => carrierName(x.brand) === n).flatMap(x => (x.bands || []).map(b => b.band));
-      return `<tr><td>${esc(n)}</td><td>${esc([...new Set(c)].join(", ") || "None reported")}</td><td>${s ? `${num(s.dist_mi, 2)} mi${s.compass ? ` ${esc(s.compass)}` : ""}` : '<span class="hint">None known yet</span>'}</td><td>${esc([...new Set(h)].join(", "))}</td></tr>`; }).join("")}</tbody></table>
+      return `<tr><td>${esc(n)}</td>${covOff ? "" : `<td>${esc([...new Set(c)].join(", ") || "None reported")}</td>`}<td>${s ? `${num(s.dist_mi, 2)} mi${s.compass ? ` ${esc(s.compass)}` : ""}` : '<span class="hint">None known yet</span>'}</td><td>${esc([...new Set(h)].join(", "))}</td></tr>`; }).join("")}</tbody></table>
       <p class="hint">Sites are crowd-mapped, and a licence doesn't prove a block is on the air. Each carrier has to approve its own signal in the building.</p>` : '<p class="hint">No carrier data here yet.</p>'}` : ""}
     <h4>What still takes a phone call</h4><ul>${STILL_TO_CALL.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
     <p class="hint">Estimates only: free public records, read ${esc(today())}. The details behind every line are on the job's Pre-survey tab.</p>`;
@@ -354,8 +391,8 @@ async function stepDiscovery(el, j) {
   window.rfMail?.jobAll(document.getElementById("stMail"), j);  // here, not with the other steps: the save above names the main system
 }
 function editBuilding(el, j) {
-  const a = {...(gOf(j.data).answers || {}), address: j.data.address || ""};
-  el.innerHTML = `<div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, a[q.k])).join("")}</div>
+  const ans = gOf(j.data).answers || {}, a = {...ans, address: j.data.address || "", building_type: ans.building_type || j.data.building_type || ""};  // a type set on the Overview shows here
+  el.innerHTML = `<div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, a[q.k], a)).join("")}</div>
     <p class="status err" id="stLeft" hidden></p><div class="st-next"><button class="primary" id="stGo">Build the Discovery report</button></div></div>`;
   wireForm(el, j);
 }
@@ -363,8 +400,10 @@ function editBuilding(el, j) {
 /* ---------- step 2: the walk, enforced, and the grid test ---------- */
 function stepSurvey(el, j) {
   const d = j.data, a = gOf(d).answers || {}, grid = gridRead(d), left = walkLeft(d), {fails, uncounted} = gridFails(d);
-  const box = ([k, q]) => { const v = a[k] || ""; return `<div class="st-q${v ? "" : " open"}" data-for="${k}"><label for="st_${k}">${esc(q)}</label>
-    <select id="st_${k}" data-walk="${k}"><option value="">Choose…</option>${YES_NO.map(o => `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>
+  // Yes / No / N/A, one press each (UX review 11/8 #12: 13 drop-downs, two taps each on a phone). The answer saved is the same word
+  // the drop-down saved ("Not applicable"); the pressed one again takes the answer back
+  const box = ([k, q]) => { const v = a[k] || ""; return `<div class="st-q${v ? "" : " open"}" data-for="${k}"><span class="st-ql" id="st_${k}">${esc(q)}</span>
+    <div class="seg st-seg" role="group" aria-labelledby="st_${k}">${YES_NO.map(o => `<button type="button" data-walk="${k}" data-v="${o}" class="${o === v ? "on" : ""}" aria-pressed="${o === v}"${o === "Not applicable" ? ' title="Not applicable"' : ""}>${o === "Not applicable" ? "N/A" : o}</button>`).join("")}</div>
     ${v === "No" ? `<input data-note="${k}" placeholder="What's the plan? This goes on the summary." value="${esc(a[`${k}_note`] || "")}">` : ""}</div>`; };
   el.innerHTML = `<div class="panel"><h3>Walk the building <span class="hint">· ${WALK_KEYS.length - left.length} of ${WALK_KEYS.length} done</span></h3>
       ${WALK.map(([t, qs]) => `<h4>${esc(t)}</h4><div class="st-form">${qs.map(box).join("")}</div>`).join("")}</div>
@@ -382,7 +421,7 @@ function stepSurvey(el, j) {
     <div id="stPrintBox" hidden>${surveySummary(j)}</div>`;
   let cur = j;
   const keep = async patchA => { const got = await saveJob(cur, {guided: guidedPatch(cur.data, {answers: {...(gOf(cur.data).answers || {}), ...patchA}})}); if (got) { cur = got; stepSurvey(el, cur); } };
-  el.querySelectorAll("[data-walk]").forEach(s => s.onchange = () => keep({[s.dataset.walk]: s.value}));
+  el.querySelectorAll("[data-walk]").forEach(b => b.onclick = () => keep({[b.dataset.walk]: b.getAttribute("aria-pressed") === "true" ? "" : b.dataset.v}));
   el.querySelectorAll("[data-note]").forEach(s => s.onchange = () => keep({[`${s.dataset.note}_note`]: s.value.trim()}));
   wireCommon(el, cur, "survey");
   gateNote(el, cur, "Design", "Design");
@@ -469,11 +508,12 @@ window.startBackBar = (el, j) => {
 S.views.start = async v => {
   if (G.sig && G.sig === `${G.job}|${G.step}` && v.querySelector(".st")) return;
   if (!G.job) { G.sig = `${G.job}|${G.step}`; return landing(v); }
-  let j; try { j = await api(`/api/das/jobs/${G.job}`); } catch (e) { G.job = null; return landing(v); }
+  let j; try { j = await api(`/api/das/jobs/${G.job}`); } catch (e) { G.job = null; window.writeUrlState?.(true); return landing(v); }
   const d = j.data || {}, step = G.step || stand(j).step || "discovery", n = stepOf(step);
   G.step = step; G.sig = `${G.job}|${G.step}`;
+  window.writeUrlState?.();  // the step it opened on, now that the job says which
   v.innerHTML = `<div class="st"><div class="st-top"><button id="stAll">← All jobs</button><div><h2>${esc(j.name)}</h2><p class="hint">${esc([d.address, `Stage: ${j.stage}`].filter(Boolean).join(" · "))}</p></div>
-      <button id="stWalk" title="Checks what's on file, picks up where the job stands, and moves you to each place">Walk me through</button><button id="stGot" title="Plans, contacts, letters, old emails: each one is checked and put where it goes">Got files already?</button><button id="stFull" title="This job on the DAS tab, with every tool">Open in the full tool</button></div>
+      <button id="stWalk" title="Checks what's on file, picks up where the job stands, and moves you to each place">What's next on this job</button><button id="stGot" title="Plans, contacts, letters, old emails: each one is checked and put where it goes">Got files already?</button><button id="stFull" title="This job on the DAS tab, with every tool">Open in the full tool</button></div>
     <ol class="st-steps">${STEPS.map((s, i) => { const done = stepDone(j, s.id), skip = !!skipped(d, s.id);
       return `<li><button data-step="${s.id}" class="${s.id === step ? "on" : ""} ${done ? "done" : ""}" aria-current="${s.id === step ? "step" : "false"}"><span class="st-n">${done ? "✓" : i + 1}</span><span>${esc(s.label)}${skip ? " (skipped)" : ""}</span></button></li>`; }).join("")}</ol>
     <p class="st-goal">${esc(STEPS[n].goal)}</p><div id="stBody"></div><div id="stMail" class="no-print" style="margin-top:12px"></div></div>`;

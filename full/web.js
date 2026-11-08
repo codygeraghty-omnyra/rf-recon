@@ -11,6 +11,9 @@ chip.className = "hbtn"; chip.id = "packChip"; chip.title = "Data pack"; chip.te
 $("#missionChip").after(chip);
 chip.onclick = () => setTab("data");
 $('#tabs [data-t="data"]').textContent = "Packs";
+// Packs reads the pin: a first visit types its place in the pin bar there and the state's pack comes for it. So the bar
+// stays on it here, where the PC's Data & updates hides it (core.js NO_PIN_TABS, UX review 11/8 #1)
+NO_PIN_TABS.delete("data");
 const run = fn => { try { fn(); } catch (e) { $("#status").textContent = e.message; } };
 // with work saved in this browser the PC's own export (captures and labels included); before that, the pack's rows
 $("#csvBtn").onclick = () => RFPack.hasWork() ? getFile("/api/export.csv?" + exportParams()) : run(() => RFPack.exportFile("csv", exportParams()));

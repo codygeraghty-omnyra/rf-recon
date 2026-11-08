@@ -25,6 +25,11 @@
 .fr-later>span{flex:1 1 280px;min-width:0}
 .fr-book{margin:8px 0;padding:8px 12px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:0 12px 12px 0}
 .fr-book summary{cursor:pointer}
+/* the book's one line and its two buttons; open, a group per AHJ and person (UX review 11/8 #4) */
+.fr-book-acts{display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:8px;vertical-align:middle}
+.fr-group{margin-top:8px}
+.fr-ghead{padding:6px 0 2px;border-top:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}
+.fr-group .fr-offer{margin-left:10px}
 .fr-offer{padding:8px 0;border-top:1px solid var(--line)}
 .fr-offer .cc-facts{margin:6px 0}
 .fr-who{margin:4px 0}

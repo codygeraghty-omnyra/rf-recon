@@ -142,7 +142,11 @@ async function dasAddExamples(msg){
 // the board, list and Data & links: how a job moves, and the button that adds the examples
 window.dasBoardGuide = (el, D) => {
   if(!el || ["contacts","register","prospects","pitch","fault"].includes(D.view)) return;  // the board's guide, not the outreach views or the lists
-  const open = dasExPref("rfr.dasFlow", "1") === "1", hasEx = (D.jobs || []).some(j => DAS_EX_NAME.test(j.name));
+  // closed once the board holds a job that isn't an example (UX review 11/8 #15: open, it pushed the first job a screen down);
+  // open while there are only examples to learn from. A person's own open or close is kept (rfr.dasFlowPick). The older key
+  // counts only as a close: every draw wrote it, open or not, so its "1" says nothing
+  const pick = dasExPref("rfr.dasFlowPick", null) ?? (dasExPref("rfr.dasFlow", null) === "0" ? "0" : null);
+  const open = pick != null ? pick === "1" : !(D.jobs || []).some(j => !DAS_EX_NAME.test(j.name)), hasEx = (D.jobs || []).some(j => DAS_EX_NAME.test(j.name));
   const four = "two mid-way, to learn each step (a public safety ERCES office at Acceptance, a carrier cellular warehouse at Design), and two finished, to see the end result (the same office and warehouse, In service)";
   const who = dasExWho(), own = who ? `Add example jobs makes your own copy of all four, named “${who}'s copy”. Only you and the admin can open them, so change anything you like; the team's stay as they are. Delete yours when you're done; add them again any time.` : "";
   el.innerHTML = `<details class="panel" id="dxFlow" ${open ? "open" : ""} style="margin-bottom:10px">
@@ -154,7 +158,8 @@ window.dasBoardGuide = (el, D) => {
     <p class="hint" id="dxMsg" style="margin:6px 0 0">${dasExRecent() ? esc(dasExRecent()) : hasEx ? "The example jobs are on the board: the two named “(example)” stop mid-way, to learn each step; the two named “(completed example)” are finished, to see the end result. Open one, and each step says what it's for, what you fill in and what to look at." + (own ? " " + esc(own) : "")
       : own ? `${esc(own)} They are ${esc(four)}.` : `Add example jobs puts four jobs on the board: ${esc(four)}. Each step in them explains itself. Fictional buildings, people and companies. Delete them when you're done; add them again any time.`}</p></details>`;
   // found inside el, not the page: a board drawn after the view moved on (a slow redraw) is detached, and $ would miss it
-  el.querySelector("#dxFlow").addEventListener("toggle", e => dasExKeep("rfr.dasFlow", e.target.open ? "1" : "0"));
+  let was = open;  // a details drawn open fires toggle too: only a change is a person's pick
+  el.querySelector("#dxFlow").addEventListener("toggle", e => { if (e.target.open === was) return; was = e.target.open; dasExKeep("rfr.dasFlowPick", was ? "1" : "0"); });
   el.querySelector("#dxAdd").onclick = async e => { e.preventDefault(); const b = e.currentTarget, m = t => { const x = el.querySelector("#dxMsg"); if(x) x.textContent = t; };
     b.disabled = true;
     try{ const r = await dasAddExamples(m);
