@@ -182,6 +182,12 @@ def fetch(names, folder, log=print, opener=None, resolve=None):
 
 # ---------------------------------------------------------------- licences
 
+def _empty(zf):
+    """A day with nothing in it: the FCC still publishes the zip, holding only its counts file (l_cl_sat.zip on 11/7:
+    50 bytes). Any other member with data in it isn't an empty day."""
+    return all(os.path.basename(i.filename).lower() == "counts" or i.file_size == 0 for i in zf.infolist())
+
+
 def _drop_temp(con):
     for t in list(uls_import.RAW_TABLES) + ["tx_daily"]:
         con.execute(f"DROP TABLE IF EXISTS temp.{t}")
@@ -196,6 +202,13 @@ def apply_licences(con, path, states, weekly, asof=None, sha=None, log=print):
     pairs, files = {}, set()
     with zipfile.ZipFile(path) as zf:
         m = find_member(zf, "HD")
+        if not m and _empty(zf):  # no licence changed that day: on the ledger as read, so the newer days still go on
+            now = time.strftime("%Y-%m-%d %H:%M:%S")
+            con.execute("INSERT OR REPLACE INTO main.uls_daily_log VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (src, asof, "licences", sha or _sha(path), weekly or "", now, 0, 0, 0, "no changes that day"))
+            con.commit()
+            log(f"{src}: no changes that day")
+            return {"file": src, "asof": asof, "licences": 0, "here": 0, "rows_in": 0, "rows_out": 0, "pending_granted": 0}
         if not m:
             raise ValueError(f"{src}: no licence headers (HD records): not a ULS licence file")
         for f in iter_records(zf, m, "HD"):
@@ -265,6 +278,8 @@ def parse_applications(path, states):
     apps, rows = {}, []
     with zipfile.ZipFile(path) as zf:
         m = find_member(zf, "AD")
+        if not m and _empty(zf):  # no application filed or changed that day
+            return {}, []
         if not m:
             raise ValueError(f"{os.path.basename(path)}: no application records (AD): not a ULS application file")
         for f in iter_records(zf, m, "AD"):
