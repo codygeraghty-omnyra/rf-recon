@@ -403,7 +403,7 @@
    "cost": "Free",
    "terms": "US government data",
    "area": "Bulk",
-   "status": "In DAStastic: rows last updated 2017-10-10; placed at town or county centres (no addresses in the registry)",
+   "status": "In DAStastic: the FCC's registry as of 2026-10-30 (8,933 PSAPs, orphaned and secondary ones marked), downloaded by a person from https://www.fcc.gov/general/9-1-1-master-psap-registry (fcc.gov refuses automated clients) and read by tools/psap_registry.py; the opendata copy (rows to 2017-10-10) only without it. Placed at town or county centres (no addresses in the registry)",
    "updater": [
     "psap"
    ]
@@ -437,7 +437,7 @@
   {
    "name": "FCC ULS daily change files",
    "url": "https://www.fcc.gov/uls/transactions/daily-weekly",
-   "what": "Each day's new, changed, cancelled and expired land mobile (private l_lp, commercial l_lc, broadcast auxiliary l_lb), paging (l_pg), coast and aviation ground (l_cg) and 800 MHz cellular (l_cl) licences, each where its weekly file is loaded, and the land mobile applications filed (a_lp), every day of the week",
+   "what": "Each day's new, changed, cancelled and expired land mobile (private l_lp, commercial l_lc, broadcast auxiliary l_lb), paging (l_pg), coast and aviation ground (l_cg) and 800 MHz cellular (l_cl) licences and antenna structure registrations (r_tow, towers), each where its weekly file is loaded, and the land mobile applications filed (a_lp), every day of the week",
    "key": "none",
    "cost": "Free",
    "terms": "US government public data",

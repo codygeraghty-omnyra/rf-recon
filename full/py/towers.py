@@ -122,6 +122,43 @@ def parse_ra(f):
                 overall_agl_m=num(g(k + 5)), overall_amsl_m=num(g(k + 6)), struct_type=g(k + 7), faa_study=g(k + 9))
 
 
+TOWER_COLS = ("reg", "usi", "lat", "lon", "struct_type", "height_m", "overall_agl_m", "overall_amsl_m", "ground_elev_m",
+              "street", "city", "state", "owner", "status", "constructed", "faa_study", "county")
+INSERT = f"INSERT OR REPLACE INTO tower({','.join(TOWER_COLS)}) VALUES({','.join('?' * len(TOWER_COLS))})"
+
+
+def coords_of(z):
+    """Registration number -> (lat, lon), from an ASR zip's CO records (the first for each)."""
+    coords = {}
+    for f in records(z, "CO.DAT", "CO"):
+        reg = find_reg(f)
+        if reg and reg not in coords:
+            c = find_coords(f)
+            if c:
+                coords[reg] = c
+    return coords
+
+
+def owners_of(z):
+    """Registration number -> owner name, from an ASR zip's EN records."""
+    owners = {}
+    for f in records(z, "EN.DAT", "EN"):
+        reg = find_reg(f)
+        if reg and (len(f) > 12) and reg not in owners and f[5].strip() in ("O", "", "Owner"):
+            # 9 entity name; individuals: 10 first, 12 last (8 is the FCC licensee ID, not a name)
+            owners[reg] = f[9].strip() or " ".join(x.strip() for x in (f[10], f[12]) if x.strip())
+    return owners
+
+
+def row_of(reg, f, ra, lat, lon, owner, counties):
+    """One tower row (TOWER_COLS order) from a registration's RA record: the weekly import's and the daily files'
+    (ulsdaily.py), so a tower reads the same whichever file brought it."""
+    usi = int(num(f[4]) or 0) if len(f) > 4 else 0
+    return (reg, usi, lat, lon, ra["struct_type"], ra["height_m"], ra["overall_agl_m"], ra["overall_amsl_m"],
+            ra["ground_elev_m"], ra["street"], ra["city"], ra["state"], owner, ra["status"],
+            ra["constructed"], ra["faa_study"], counties.get(ra["county_fips"].zfill(5)))
+
+
 def run(db_path, refresh=False, states=(), log=print, path=None):
     import uls_import
     states = {s.upper() for s in states}
@@ -131,20 +168,9 @@ def run(db_path, refresh=False, states=(), log=print, path=None):
             raise RuntimeError("could not download r_tower.zip from the FCC")
     t0 = time.time()
     z = zipfile.ZipFile(path)
-    coords = {}
-    for f in records(z, "CO.DAT", "CO"):
-        reg = find_reg(f)
-        if reg and reg not in coords:
-            c = find_coords(f)
-            if c:
-                coords[reg] = c
+    coords = coords_of(z)
     log(f"  towers: {len(coords):,} coordinates")
-    owners = {}
-    for f in records(z, "EN.DAT", "EN"):
-        reg = find_reg(f)
-        if reg and (len(f) > 12) and reg not in owners and f[5].strip() in ("O", "", "Owner"):
-            # 9 entity name; individuals: 10 first, 12 last (8 is the FCC licensee ID, not a name)
-            owners[reg] = f[9].strip() or " ".join(x.strip() for x in (f[10], f[12]) if x.strip())
+    owners = owners_of(z)
     counties = county_names()
     rows, bad = [], 0
     for f in records(z, "RA.DAT", "RA"):
@@ -158,17 +184,14 @@ def run(db_path, refresh=False, states=(), log=print, path=None):
         if states and ra["state"] not in states:
             continue
         lat, lon = coords[reg]
-        usi = int(num(f[4]) or 0) if len(f) > 4 else 0
-        rows.append((reg, usi, lat, lon, ra["struct_type"], ra["height_m"], ra["overall_agl_m"], ra["overall_amsl_m"],
-                     ra["ground_elev_m"], ra["street"], ra["city"], ra["state"], owners.get(reg), ra["status"],
-                     ra["constructed"], ra["faa_study"], counties.get(ra["county_fips"].zfill(5))))
+        rows.append(row_of(reg, f, ra, lat, lon, owners.get(reg), counties))
     con = sqlite3.connect(db_path, timeout=60)
     ensure_schema(con)
     con.execute("DELETE FROM tower")
-    con.executemany("INSERT OR REPLACE INTO tower(reg,usi,lat,lon,struct_type,height_m,overall_agl_m,overall_amsl_m,"
-                    "ground_elev_m,street,city,state,owner,status,constructed,faa_study,county) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    con.executemany(INSERT, rows)
     con.execute("INSERT OR REPLACE INTO meta VALUES('towers_built_at', ?)", (time.strftime("%Y-%m-%d %H:%M"),))
+    # the FCC's own date for this file: a daily tower file made before it is already in it (ulsdaily.py)
+    con.execute("INSERT OR REPLACE INTO meta VALUES('uls_asof:r_tower.zip', ?)", (uls_import.file_created(path) or "",))
     con.execute("INSERT OR REPLACE INTO meta VALUES('towers_rows', ?)", (str(len(rows)),))
     con.commit()
     con.close()

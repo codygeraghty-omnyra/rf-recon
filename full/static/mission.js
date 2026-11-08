@@ -283,7 +283,7 @@ const keySaved=(settings,k)=>k.fields.every(([f])=>settings.creds[f]);
 // (cells.py), carrier coverage (bdc.at), donor terrain and building outlines.
 const DAS_USES={"uls:LMpriv":"the pre-survey's public safety, business and government systems",
   "uls:LMcomm":"the pre-survey's commercial and SMR trunked systems",
-  "uls_daily":"the pre-survey's licences the day after they change, and its pending public safety applications",
+  "uls_daily":"the pre-survey's licences and donor towers the day after they change, and its pending public safety applications",
   "asr":"donor site heights and owners, and the tower each cell site sits on",
   "bdc":"the cellular pre-survey's carriers at the building",
   "opencellid":"the cell sites near the building (cellular pre-survey)",

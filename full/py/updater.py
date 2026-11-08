@@ -33,7 +33,7 @@ SOURCES = {
     "uls:coast": ("FCC ULS: Marine & aviation ground", "fcc", 168, "Coast and ground stations"),
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
     "uls:cell": ("FCC ULS: Cellular 800 MHz sites", "fcc", 168, "Each carrier's licensed 800 MHz sites: where, which tower, frequencies each way, power (about 24 MB)"),
-    "uls_daily": ("FCC ULS: daily changes (land mobile, paging, coast, cellular)", "fcc", 24, "The FCC's change files, one for each day of the week: a new or changed land mobile (private, commercial, broadcast auxiliary), paging or coast and aviation ground licence (and 800 MHz cellular site), for each of those loaded here, shows the next day instead of after Sunday's full file, and applications filed but not yet granted show apart, marked pending. A few hundred KB a day"),
+    "uls_daily": ("FCC ULS: daily changes (land mobile, paging, coast, cellular, towers)", "fcc", 24, "The FCC's change files, one for each day of the week: a new or changed antenna structure (tower) registration, where the tower file is loaded, and a new or changed land mobile (private, commercial, broadcast auxiliary), paging or coast and aviation ground licence (and 800 MHz cellular site), for each of those loaded here, shows the next day instead of after Sunday's full file, and applications filed but not yet granted show apart, marked pending. A few hundred KB a day"),
     "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
     "spectrum": ("FCC carrier spectrum (market licences)", "fcc", 168, "Who holds which block in each market: cellular, PCS, AWS, 600, 700, 3.45 GHz, C-band, CBRS (about 115 MB)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
@@ -46,7 +46,7 @@ SOURCES = {
     "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs a RepeaterBook token, which Your API keys doesn't take (RepeaterBook's policy discourages tools that mix sources)"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
-    "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,600 call centres at town level; the FCC last updated its rows in 2017"),
+    "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,900 call centres at town level, from the FCC's registry of 30 Oct 2026 (a person downloads it from fcc.gov: tools/psap_registry.py)"),
     "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the DAStastic site (FCC open data of March 2021 if the site can't be reached)"),
     "artemis": ("Artemis signal database (waterfalls and audio)", "reference", 720, "A waterfall picture and an audio clip for each Signal ID Wiki signal, shown beside its matches (Ares Valley; about 300 MB; checked monthly, downloaded only when there's a new release)"),
     "bdc": ("FCC carrier coverage (Broadband Map)", "fcc", 720, "Each carrier's modelled 3G / 4G / 5G coverage and signal, for the carrier-coverage states; new release twice a year"),
@@ -66,8 +66,9 @@ SOURCES = {
 DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:cell", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
                    "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic", "uls_daily"}
 # psap: placed at town centres from the place list the licence import builds; uls_daily: the day's changes go over the
-# weekly licences, so after a rebuild in the same batch
+# weekly licences and towers, so after either rebuild in the same batch
 AFTER_ULS = {"psap", "uls_daily"}
+WEEKLY_UNDER_DAILY = "asr"  # the towers' weekly rebuild (towers.py): the daily tower changes go over it
 LINKS = ("wifi", "ethernet", "cellular")
 LINK_NAMES = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "cellular": "cellular / phone tether"}
 # what each source needs, costs and allows, and the open / crowd sources DAStastic doesn't use (checked 2026-10-28)
@@ -361,14 +362,17 @@ class Updater:
     RETRY_H = 2  # a source whose last run failed tries again after this, however long its interval
 
     def _weekly_built(self):
+        """What uls_daily's changes go over: the licences' and the towers' weekly loads (ulsdaily.weekly_marker)."""
+        import ulsdaily
         try:
             con = sqlite3.connect(self.db, timeout=5)
             try:
-                return (con.execute("SELECT v FROM meta WHERE k='built_at'").fetchone() or [None])[0]
+                got = dict(con.execute("SELECT k, v FROM meta WHERE k IN ('built_at', 'towers_built_at')").fetchall())
             finally:
                 con.close()
         except sqlite3.Error:
             return None
+        return ulsdaily.weekly_marker(got.get("built_at"), got.get("towers_built_at")) if got else None
 
     def _due(self, sid, c):
         last = self.status[sid].get("last_checked")
@@ -412,7 +416,7 @@ class Updater:
 
     def _run_batch(self, ids, force):
         uls_ids = [i for i in ids if i.startswith("uls:")]
-        later = [i for i in ids if i in AFTER_ULS] if uls_ids else []
+        later = [i for i in ids if i in AFTER_ULS] if (uls_ids or WEEKLY_UNDER_DAILY in ids) else []
         others = [i for i in ids if not i.startswith("uls:") and i not in later]
         jobs = ([("uls", uls_ids)] if uls_ids else []) + [(i, [i]) for i in others]
         try:
@@ -494,9 +498,9 @@ class Updater:
                 import ulsdaily
                 from datadesk import clean, fetchkit
                 with self.lock:
-                    rebuilding = sorted(i for i in self.running if i.startswith("uls:"))
+                    rebuilding = sorted(i for i in self.running if i.startswith("uls:") or i == WEEKLY_UNDER_DAILY)
                 if rebuilding:  # another batch is rebuilding the licences: the changes go on after it (next tick), not under it
-                    self._mark(ids, state="idle", message="waiting for the weekly licence rebuild to finish; the daily changes go on after it")
+                    self._mark(ids, state="idle", message="waiting for the weekly licence or tower rebuild to finish; the daily changes go on after it")
                     return
                 try:
                     r = ulsdaily.run(self.db, uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=str(m)[:200]), force=force)

@@ -4491,13 +4491,14 @@
     },
     {
      "name": "FCC ULS daily changes",
-     "text": "The FCC's daily change files, one for each day of the week: new and changed land mobile (private, commercial, broadcast auxiliary), paging, coast and aviation ground and 800 MHz cellular licences, each where its weekly file is loaded, the day after, cancelled ones to History, over Sunday's full file, which still wins. Applications filed and not granted kept apart as pending. Every day, on by default, conditional requests; no key.",
+     "text": "The FCC's daily change files, one for each day of the week: new and changed land mobile (private, commercial, broadcast auxiliary), paging, coast and aviation ground and 800 MHz cellular licences, and tower registrations (heights, owners, status), each where its weekly file is loaded, the day after, cancelled ones to History, over Sunday's full file, which still wins. Applications filed and not granted kept apart as pending. Every day, on by default, conditional requests; no key.",
      "where": "server, pc",
      "src": [
       "d-2026-11-08-1039",
       "ulsdaily.py",
       "updater.py",
-      "d-2026-11-08-1346"
+      "d-2026-11-08-1346",
+      "d-2026-11-08-1410"
      ]
     },
     {
@@ -4580,10 +4581,11 @@
     },
     {
      "name": "911 call centres",
-     "text": "About 8,600 call centres from the FCC's PSAP registry, placed at town level; the FCC last updated the rows in 2017. Monthly, on by default, no key.",
+     "text": "About 8,900 call centres from the FCC's Master PSAP Registry as of 30 Oct 2026, placed at town level; orphaned and secondary ones carry the FCC's note. The FCC posts a new registry every six weeks or so on fcc.gov, which a person downloads. On by default, no key.",
      "src": [
       "d-2026-10-28",
-      "updater.py"
+      "updater.py",
+      "d-2026-11-08-1410"
      ]
     },
     {

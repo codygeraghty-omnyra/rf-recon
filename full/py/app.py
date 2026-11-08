@@ -670,7 +670,8 @@ def query_area(qs):
             f.update(layer="psap", fid=f"psap:{f['psap_id']}", label=f["name"], category="911 call centre (PSAP)", sig_type=None, freq_mhz=None,
                      details=json.dumps({"PSAP ID": f["psap_id"], "City": f["city"], "County": f["county"], "State": f["state"],
                                          "Position": f"approximate: {f['located']} (the registry has no addresses)",
-                                         "Registry": f"FCC 911 Master PSAP Registry, rows last updated {psap.SOURCE_DATE}"}))
+                                         **({"FCC note": f["change"]} if "Orphaned" in (f.get("change") or "") or "Secondary" in (f.get("change") or "") else {}),
+                                         "Registry": f"FCC 911 Master PSAP Registry as of {psap.SOURCE_DATE}"}))
             if keep(f):
                 if freq_on and not keep_nofreq:
                     set_aside["psap"] = set_aside.get("psap", 0) + 1

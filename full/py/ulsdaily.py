@@ -116,15 +116,15 @@ def states_of(m):
     return set() if s in ("", "ALL") else {x for x in s.split(",") if x}
 
 
-def weekly_asof(con, service, data_dir, m=None):
+def weekly_asof(con, service, data_dir, m=None, name=None, built_key="built_at"):
     """The FCC's own date (UTC) of the weekly l_<service>.zip loaded here: the import notes it; for data loaded before it
     did, the saved copy's counts when that copy is no newer than the load; else the time of the load, which is never
     earlier than the FCC's date, so nothing older than the load is ever put back over it."""
     m = m if m is not None else _meta(con)
-    name = f"l_{service}.zip"
+    name = name or f"l_{service}.zip"  # the towers' weekly file is r_tower.zip, its load towers_built_at
     if m.get("uls_asof:" + name):
         return m["uls_asof:" + name]
-    built = m.get("built_at")
+    built = m.get(built_key)
     p = os.path.join(data_dir, name)
     if built and os.path.exists(p) and time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(p))) <= built:
         got = uls_import.file_created(p)
@@ -275,6 +275,70 @@ def apply_licences(con, path, states, weekly, asof=None, sha=None, log=print):
             "pending_granted": granted}
 
 
+# ---------------------------------------------------------------- towers
+
+def apply_towers(con, path, states, weekly, asof=None, sha=None, log=print):
+    """One r_tow daily file (antenna structure registrations) over the tower table, in one transaction: each registration
+    in it replaced by its record here, read by the weekly import's own parser (towers.py); one that now sits outside the
+    states loaded here goes; one whose record can't be read stays as it was. A registration whose position or owner
+    didn't change comes without them: the ones here are kept. Returns {"file", "asof", "registrations", "new",
+    "rows_in", "rows_out", "kept"}."""
+    import towers
+    src = os.path.basename(path)
+    asof = asof or uls_import.file_created(path) or ""
+    states = {x.upper() for x in states}
+    with zipfile.ZipFile(path) as z:
+        if _empty(z):
+            ras, coords, owners = [], {}, {}
+        else:
+            coords, owners = towers.coords_of(z), towers.owners_of(z)
+            ras = [(towers.find_reg(f), f) for f in towers.records(z, "RA.DAT", "RA")]
+    towers.ensure_schema(con)
+    regs = sorted({r for r, _ in ras if r})
+    prior = {}
+    for i in range(0, len(regs), 500):
+        ch = regs[i:i + 500]
+        for reg, lat, lon, owner in con.execute(f"SELECT reg, lat, lon, owner FROM main.tower WHERE reg IN ({','.join('?' * len(ch))})", ch):
+            prior[reg] = (lat, lon, owner)
+    counties = towers.county_names() if ras else {}
+    rows, gone, kept = {}, set(), 0
+    for reg, f in ras:  # in file order: a registration's last record has the last word
+        if not reg:
+            continue
+        ra = towers.parse_ra(f)
+        if not ra:
+            kept += 1
+            continue
+        if states and ra["state"] not in states:
+            gone.add(reg)
+            rows.pop(reg, None)
+            continue
+        was = prior.get(reg)
+        c = coords.get(reg) or (was[:2] if was and was[0] is not None else None)
+        if not c:
+            kept += 1
+            continue
+        rows[reg] = towers.row_of(reg, f, ra, c[0], c[1], owners.get(reg) or (was[2] if was else None), counties)
+        gone.discard(reg)
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    note = "no changes that day" if not ras else (f"{kept} kept as they were (record unreadable or no position)" if kept else "")
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        out = sum(con.execute("DELETE FROM main.tower WHERE reg=?", (r,)).rowcount for r in sorted(gone))
+        con.executemany(towers.INSERT.replace("INTO tower(", "INTO main.tower("), list(rows.values()))
+        n = con.execute("SELECT COUNT(*) FROM main.tower").fetchone()[0]
+        con.executemany("INSERT OR REPLACE INTO main.meta(k, v) VALUES(?, ?)", [("towers_rows", str(n)), ("uls_daily_at", now)])
+        con.execute("INSERT OR REPLACE INTO main.uls_daily_log VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (src, asof, "towers", sha or _sha(path), weekly or "", now, len(regs), out, len(rows), note))
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
+    new = sum(1 for r in rows if r not in prior)
+    log(f"{src}: {len(regs):,} tower registrations, {len(rows):,} here ({new:,} new), {out:,} gone")
+    return {"file": src, "asof": asof, "registrations": len(regs), "new": new, "rows_in": len(rows), "rows_out": out, "kept": kept}
+
+
 # ---------------------------------------------------------------- applications
 
 def parse_applications(path, states):
@@ -371,6 +435,12 @@ def apply_applications(con, path, states, asof=None, sha=None, log=print):
 
 # ---------------------------------------------------------------- one run
 
+def weekly_marker(built, towers_built):
+    """What the day's changes went over: the licences' weekly load and the towers'. The updater runs the source again
+    when either moves (updater._due)."""
+    return f"{built or ''}|{towers_built or ''}"
+
+
 def _from(files, done, force):
     """files: [(asof, path, sha)] oldest first. The first not yet applied, and every one after it (a file that arrives
     late goes on before the newer ones again, so the newest always has the last word)."""
@@ -391,10 +461,12 @@ def run(db_path, data_dir, log=print, force=False, opener=None, resolve=None):
         have = set(filter(None, (m.get("sources") or "").split(",")))
         lic = [c for c, svc in LICENCES.items() if f"l_{svc}.zip" in have]
         app = [c for c, svc in APPLICATIONS.items() if f"l_{svc}.zip" in have]
-        if not lic and not app:
+        tw = bool(m.get("towers_built_at")) and _has(con, "tower")  # the weekly tower file (towers.py) is loaded here
+        if not lic and not app and not tw:
             return {"skipped": "nothing to change yet: the daily files change the private land mobile and cellular licences, "
                                "and neither weekly file is loaded here"}
         names = [f"l_{c}_{d}.zip" for c in lic for d in DAYS] + [f"a_{c}_{d}.zip" for c in app for d in DAYS]
+        names += [f"r_tow_{d}.zip" for d in DAYS] if tw else []
         log(f"checking {len(names)} FCC daily files")
         got = fetch(names, folder, log, opener, resolve)
         states, built = states_of(m), m.get("built_at") or ""
@@ -417,6 +489,17 @@ def run(db_path, data_dir, log=print, force=False, opener=None, resolve=None):
                 dlstop.check()
                 log(f"applying {os.path.basename(p)}")
                 lic_done.append(apply_licences(con, p, states, built, a, s, log))
+        tow_done, tbuilt = [], m.get("towers_built_at") or ""
+        if tw:  # antenna structures, over the weekly r_tower.zip: the same rules as the licences
+            wk = weekly_asof(con, None, data_dir, m, name="r_tower.zip", built_key="towers_built_at")
+            files = on_disk("r_tow")
+            older += [os.path.basename(p) for a, p, s in files if not wk or not a or a <= wk]
+            newer = [x for x in files if wk and x[0] and x[0] > wk]
+            done = {tuple(r) for r in con.execute("SELECT file, asof, sha FROM uls_daily_log WHERE kind='towers' AND weekly=?", (tbuilt,))}
+            for a, p, s in _from(newer, done, force):
+                dlstop.check()
+                log(f"applying {os.path.basename(p)}")
+                tow_done.append(apply_towers(con, p, states, tbuilt, a, s, log))
         for c in app:
             files = [x for x in on_disk(f"a_{c}") if x[0]]
             done = {tuple(r) for r in con.execute("SELECT file, asof, sha FROM uls_daily_log WHERE kind='applications'")}
@@ -440,13 +523,20 @@ def run(db_path, data_dir, log=print, force=False, opener=None, resolve=None):
                      f"to the FCC's file of {lic_done[-1]['asof'][:10]}")
     elif lic:
         parts.append("licences: nothing newer than what's applied" + (f" (FCC daily files to {newest[:10]})" if newest else ""))
+    if tow_done:
+        t_in, t_new, t_out = (sum(x[k] for x in tow_done) for k in ("rows_in", "new", "rows_out"))
+        parts.append(f"{len(tow_done)} tower file{'s' if len(tow_done) != 1 else ''} applied: {t_in:,} tower{'s' if t_in != 1 else ''} "
+                     f"here updated ({t_new:,} new), {t_out:,} gone")
+    elif tw:
+        parts.append("towers: nothing newer than what's applied")
     if older:
         parts.append(f"{len(older)} older than the weekly load, skipped")
     if app:
         parts.append(f"{pending:,} pending application{'s' if pending != 1 else ''} kept" +
                      (f" ({len(apps_done)} file{'s' if len(apps_done) != 1 else ''} read)" if apps_done else ""))
-    return {"message": "; ".join(parts), "rows": rows_in + sum(x["pending"] for x in apps_done), "weekly": built,
-            "fetched": got, "licences": lic_done, "applications": apps_done, "skipped_older": older, "pending": pending,
+    return {"message": "; ".join(parts), "rows": rows_in + sum(x["pending"] for x in apps_done) + sum(x["rows_in"] for x in tow_done),
+            "weekly": weekly_marker(built, tbuilt), "fetched": got, "licences": lic_done, "towers": tow_done,
+            "applications": apps_done, "skipped_older": older, "pending": pending,
             "asof": newest}
 
 
