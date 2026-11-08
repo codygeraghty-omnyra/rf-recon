@@ -134,7 +134,7 @@ def parse_proto(data):
         ms = lambda v: v / 1000 if isinstance(v, int) else None
         return _item(s(ev, 5), s(ev, 1), s(ev, 9), ms(num(ev, 6)), ms(num(ev, 8)), _f(num(ev, 10)), _f(num(ev, 11)), _f(num(ev, 12)),
                      _f(num(ev, 13)), s(con, 2), s(grp, 1), s(grp, 2), "")
-    except (ValueError, IndexError, struct.error):
+    except (ValueError, IndexError, TypeError, struct.error):  # TypeError: a field that should be a message is a number
         return None
 
 

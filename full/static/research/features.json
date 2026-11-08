@@ -3837,7 +3837,7 @@
     },
     {
      "name": "Android app download",
-     "text": "Help › Android app downloads DAStastic for Android 1.1 without signing in, and walks through installing it outside the Play Store, reading the phone in the walk test and correcting it against a calibrated instrument.",
+     "text": "Help › Android app downloads DAStastic for Android 1.2 without signing in, and walks through installing it outside the Play Store, reading the phone in the walk test and correcting it against a calibrated instrument.",
      "src": [
       "d-2026-11-04-late",
       "static/help.js",
@@ -4146,7 +4146,7 @@
     },
     {
      "name": "Live push from the server",
-     "text": "The server's admin login pushes the same live markers to a TAK Server set in Data & updates. Team logins don't get the button.",
+     "text": "The server's admin login pushes the same live markers to a TAK Server set in Data & updates. Team logins get the button only in the Android app, which pushes from the phone.",
      "where": "server",
      "src": [
       "static/mission.js",
@@ -4175,6 +4175,28 @@
       "takwatch.py",
       "static/takwatch.js",
       "app.py"
+     ]
+    },
+    {
+     "name": "Live push from the Android app",
+     "text": "In DAStastic for Android on Wi-Fi, 📡 Push to ATAK sends the same live markers from the phone over its Wi-Fi: to ATAK on the phone itself and to every ATAK, iTAK and WinTAK on that Wi-Fi, for team logins too, in the server and the web version alike. Off Wi-Fi it saves the package as before.",
+     "where": "android",
+     "src": [
+      "android/src/ai/omnyra/rfrecon/TakBridge.java",
+      "static/tak.js",
+      "tests/tak_bridge_check.mjs",
+      "d-2026-11-08-0030"
+     ]
+    },
+    {
+     "name": "TAK team in the Android app",
+     "text": "In DAStastic for Android, the TAK team (this network) layer listens on the Wi-Fi the phone is on for ATAK, iTAK and WinTAK users on other devices and shows them by callsign, with their markers, in the server and the web version alike. The phone's own ATAK doesn't show in it: on Cody's phone the layer heard nothing from it while ATAK sent its position every 30 seconds. Positions stay in memory; it stops when the layer is off, the app is in the background, or nobody has looked for two minutes.",
+     "where": "android",
+     "src": [
+      "android/src/ai/omnyra/rfrecon/TakBridge.java",
+      "static/takwatch.js",
+      "tests/tak_bridge_check.mjs",
+      "d-2026-11-08-0030"
      ]
     },
     {
@@ -4852,13 +4874,14 @@
     },
     {
      "name": "DAStastic for Android",
-     "text": "Version 1.1, for Android 10 and up, opens the server full-screen and keeps the sign-in. Back on the first page offers the server, the web version, reload or exit, and downloads land in Downloads/DAStastic.",
+     "text": "Version 1.2, for Android 10 and up, opens the server full-screen and keeps the sign-in. Back on the first page offers the server, the web version, reload or exit, and downloads land in Downloads/DAStastic.",
      "where": "android",
      "src": [
       "d-2026-11-04-late",
       "android/README.md",
       "android/AndroidManifest.xml",
-      "d-2026-11-07-2159"
+      "d-2026-11-07-2159",
+      "d-2026-11-08-0030"
      ]
     },
     {

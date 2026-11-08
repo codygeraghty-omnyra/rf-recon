@@ -391,8 +391,9 @@ select{max-width:100%}  /* a menu with a long option (Parts' cables) never runs 
   .seg button{flex:none;white-space:nowrap}
 }
 @media print{#backdrop{display:none}html{background:#fff}}
-/* signed in through the remote link: view and search only, so the parts that change things or stay on the PC go */
-body.remote :is(nav [data-t="data"], #takPush){display:none!important}
+/* signed in through the remote link: view and search only, so the parts that change things or stay on the PC go. In
+   DAStastic for Android (tak-net, set by tak.js) Push to ATAK stays: the phone sends it over its own Wi-Fi */
+body.remote nav [data-t="data"], body.remote:not(.tak-net) #takPush{display:none!important}
 /* Daylight (and its tints): warning and pass text dark enough to read on light glass. The kit leaves --serious at the
    dark skins' orange (2.2-2.5:1 here) and --good at 2.8-3.1:1; these are 5.3-5.9:1 on both light surfaces (11/3). */
 :root[data-skin="day"]{--warn:#9a4a00;--good:#087008}

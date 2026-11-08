@@ -715,7 +715,7 @@ def query_area(qs):
 # ---------------------------------------------------------------- field packs for the phone app
 
 PHONE_URL = "https://codygeraghty-omnyra.github.io/rf-recon/"
-ANDROID_VERSION = "1.1"  # DAStastic for Android (android/, built outside this repo): the one version not readable from a file here
+ANDROID_VERSION = "1.2"  # DAStastic for Android (android/, built outside this repo): the one version not readable from a file here
 FP_JOB = {"running": False, "log": [], "result": None, "error": None}
 
 
@@ -3371,6 +3371,8 @@ class H(BaseHTTPRequestHandler):
                     n = crowdpull.accept(cc, d.get("id"), d.get("source", ""), d.get("rows") or [], d.get("lat"), d.get("lon"),
                                          d.get("radius_mi"), d.get("message") or "ok")
                     return self.send(200, {"ok": True, "rows": n})
+                except ValueError as e:  # rows that aren't crowd points, or no area: the PC's mistake, said back to it
+                    return self.send(400, {"error": str(e)})
                 finally:
                     cc.close()
             if p == "/api/crowd/fetch":

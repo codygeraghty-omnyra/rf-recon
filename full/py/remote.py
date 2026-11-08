@@ -273,11 +273,13 @@ def writer(role):
 
 
 def reads_body(method, path, role):
-    """Whether the handler reads what was sent: a note (anyone signed in), a review (checked per job), and every change
-    a full or admin login makes that isn't refused."""
+    """Whether the handler reads what was sent: a note (anyone signed in), a review (checked per job), the PC fetcher's rows
+    (its one route that takes a body), and every change a full or admin login makes that isn't refused."""
     if refused(method, path, role):
         return False
-    return note_write(method, path) and role != "ahj" or bool(REVIEW_WRITE.match(path)) and method == "POST" or method == "POST" and path == COURSE_SAVE or writer(role)
+    # the fetcher: 11/7 its first post arrived empty (the door drained it), so the server saw no source and answered 500
+    return note_write(method, path) and role != "ahj" or bool(REVIEW_WRITE.match(path)) and method == "POST" or method == "POST" and path == COURSE_SAVE \
+        or role == "fetcher" and method == "POST" or writer(role)
 
 
 def refused(method, path, role="view"):

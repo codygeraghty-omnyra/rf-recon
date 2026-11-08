@@ -1,6 +1,6 @@
 /* DAStastic (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "055877a648";
+const VERSION = "1ac95a1934";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 // the full version's Python engine (Pyodide, full/pyodide/, served from this site since 11/4): kept apart from the app
 // files, by the engine's version (publish.py writes it), so a new build doesn't download it again

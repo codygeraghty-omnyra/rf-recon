@@ -223,14 +223,32 @@ if (btn && typeof filtered === "function") btn.onclick = async () => {
 };
 
 /* Push to ATAK: on the PC, the markers go live into every TAK app on this network (and a TAK Server, if set) and
-   WinTAK opens; on a phone or in the web version, the share sheet hands ATAK the package and ATAK opens on import
-   (on Android it downloads instead, with the steps card: see save()) */
+   WinTAK opens; in DAStastic for Android on Wi-Fi (window.RFTakNet, Cody 11/7: "move both to the phone app") the phone
+   sends the same live markers over its own Wi-Fi, to ATAK on the phone itself and every TAK app on that Wi-Fi; elsewhere
+   on a phone or in the web version, the share sheet hands ATAK the package and ATAK opens on import (on Android it
+   downloads instead, with the steps card: see save()) */
 const push = document.getElementById("takPush");
+const takNet = () => { const n = window.RFTakNet; try { return n && typeof n.available === "function" && n.available() ? n : null; } catch (e) { return null; } };
+if (window.RFTakNet) document.body.classList.add("tak-net");  // the Android app: Push to ATAK shows for team logins too (index.html)
 if (push && typeof filtered === "function") push.onclick = async () => {
   const rows = filtered(), st = document.getElementById("status");
   if (!rows.length) { st.textContent = "Nothing to push to ATAK: search an area first."; return; }
   const fcc = (/FCC data ([\d-]+ [\d:]+)/.exec(document.getElementById("meta")?.textContent || "") || [])[1];
   const o = {rows, colorOf, typeOf, fccDate: fcc};
+  let why = "";
+  const net = takNet();
+  if (net) {
+    st.textContent = "Pushing to ATAK over this phone's Wi-Fi…";
+    await new Promise(ok => setTimeout(ok, 30));  // the line shows before the send holds the page
+    let r;
+    try { r = JSON.parse(net.push(JSON.stringify(events(o)))); } catch (e) { r = {sent: 0, via: [], errors: [e.message]}; }
+    if (r.sent) {
+      st.textContent = `Pushed ${r.sent.toLocaleString()} markers live into ATAK over this phone's Wi-Fi: ATAK on this phone and every ATAK, iTAK`
+        + ` and WinTAK on the same Wi-Fi show them now.${r.errors?.length ? " " + r.errors.join(" ") : ""}`;
+      return;
+    }
+    why = `Not pushed live: ${(r.errors || []).join(" ") || "nothing went out"} `;
+  } else if (window.RFTakNet) why = "This phone isn't on Wi-Fi, so no live push. ";
   if (!matchMedia("(pointer: coarse)").matches) {
     st.textContent = "Pushing to ATAK…";
     try {
@@ -246,9 +264,9 @@ if (push && typeof filtered === "function") push.onclick = async () => {
   const area = S.center ? `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi` : "area";
   const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `DAStastic - ${S.mission?.name || area}`,
     colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
-  st.textContent = pkg.how === "cancelled" ? "Not sent to ATAK."
+  st.textContent = why + (pkg.how === "cancelled" ? "Not sent to ATAK."
     : pkg.how === "shared" ? `Sent ${pkg.sites.toLocaleString()} sites to the app you picked: ATAK and iTAK import them as they open.`
     : pkg.steps ? `Saved ${pkg.name} to Downloads: the steps to open it in ATAK are on screen.`
-    : `Saved ${pkg.name}. Open it with ATAK or WinTAK (drag it onto the map); live push runs from DAStastic on the PC.`;
+    : `Saved ${pkg.name}. Open it with ATAK or WinTAK (drag it onto the map); live push runs from DAStastic on the PC.`);
 };
 })();
