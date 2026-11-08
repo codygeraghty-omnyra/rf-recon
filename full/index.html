@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RF Recon (beta)</title>
+<title>DAStastic (beta)</title>
 <link rel="icon" type="image/png" href="static/app/icons/icon-192.png">
 <script>
 // Opened straight from the folder (file://) there is no server behind the page: go to the running app, or say how to start it
@@ -11,9 +11,9 @@ if (location.protocol === "file:") {
   var rfApp = "http://localhost:8765/", rfHelp = function () {
     var show = function () { document.body.style.cssText = "margin:0;min-height:100vh;padding:1px 16px;background:#12110f";
       document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:28px;border-radius:22px;background:#1f1b17;color:#f4efe8;font:16px/1.5 Segoe UI,system-ui,sans-serif">'
-      + '<h1 style="margin:0 0 10px;font-size:26px">RF Recon (beta)</h1><p>This page runs from RF Recon\'s own small server on this PC, so it can\'t work opened from the folder.</p>'
-      + '<p><a href="' + rfApp + '" style="color:#f0a07a;font-weight:700;font-size:19px">Open RF Recon (beta)</a> (when it\'s running)</p>'
-      + '<p style="color:#c4bbaf">To start it, double-click <b>RF Recon (beta)</b> on the Desktop or in the Start menu (from an install kit: <b>Start RF Recon</b> in its folder). From Google Drive in the browser, open <b>START HERE - RF Recon (beta)</b> in the RF Recon folder.</p></div>'; };
+      + '<h1 style="margin:0 0 10px;font-size:26px">DAStastic (beta)</h1><p>This page runs from DAStastic\'s own small server on this PC, so it can\'t work opened from the folder.</p>'
+      + '<p><a href="' + rfApp + '" style="color:#f0a07a;font-weight:700;font-size:19px">Open DAStastic (beta)</a> (when it\'s running)</p>'
+      + '<p style="color:#c4bbaf">To start it, double-click <b>RF Recon (beta)</b> on the Desktop or in the Start menu (from an install kit: <b>Start DAStastic</b> in its folder). From Google Drive in the browser, open <b>START HERE - RF Recon (beta)</b> in the RF Recon folder.</p></div>'; };
     if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
   };
   fetch(rfApp + "api/meta", {mode: "no-cors"}).then(function () { location.replace(rfApp); }, rfHelp);
@@ -32,7 +32,7 @@ try { var t = localStorage.getItem("theme");
   document.documentElement.dataset.theme = t || (DashSkin.get() === "day" ? "light" : "dark"); } catch (e) {}
 </script>
 <style>
-/* colours come from the glass theme (static/theme/glass.css); these map RF Recon's names onto it */
+/* colours come from the glass theme (static/theme/glass.css); these map DAStastic's names onto it */
 :root, :root[data-skin]{
   --panel: var(--g-strong); --chip: var(--wash); --sel: var(--accent-wash); --muted: var(--ink-2);
   --accent-ink: var(--on-accent); --warn: var(--serious); --bad: var(--bad-ink);
@@ -344,7 +344,7 @@ svg text{fill:var(--ink-2);font-family:var(--font)}
 :root:not([data-skin="day"]) :is(.leaflet-tile[src*="/tiles/osm/"], .leaflet-tile[src^="/tiles/0"], .leaflet-tile[src^="/tiles/1"], .leaflet-tile[src^="/tiles/2"], .leaflet-tile[src^="/tiles/3"], .leaflet-tile[src^="/tiles/4"], .leaflet-tile[src^="/tiles/5"], .leaflet-tile[src^="/tiles/6"], .leaflet-tile[src^="/tiles/7"], .leaflet-tile[src^="/tiles/8"], .leaflet-tile[src^="/tiles/9"]){filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.86) saturate(.55)}
 /* phones (Cody, 10/31: "make the web version work/scale to mobile"): one column; the header scrolls away so the tab
    bar can stick to the top; tabs and segment rows scroll sideways instead of squeezing; menus and fields stay on the
-   screen. The phone app (RF Recon lite) is a separate page and isn't touched by this. */
+   screen. The phone app (DAStastic lite) is a separate page and isn't touched by this. */
 select{max-width:100%}  /* a menu with a long option (Parts' cables) never runs off the screen, */
 .row>label{min-width:0}  /* nor the label around it */
 /* a phone upright, or on its side (short): the header scrolls away and the tab bar sticks to the top */
@@ -413,7 +413,7 @@ body.remote :is(nav [data-t="data"], #takPush){display:none!important}
 </style>
 <style id="rail">
 /* the filter rail (rail.js). Cody 11/4, "best one wins": a layer rail docked beside the view it filters, as SDR++, SDR#,
-   QGIS and Google Earth do; a bar and a bottom sheet on a phone, as ATAK does upright. RF Recon's own glass and skins. */
+   QGIS and Google Earth do; a bar and a bottom sheet on a phone, as ATAK does upright. DAStastic's own glass and skins. */
 :root{--rail-w:288px;--rail-top:136px;--rail-max:calc(100vh - var(--rail-top) - 14px)}
 @supports (height:1dvh){ :root{--rail-max:calc(100dvh - var(--rail-top) - 14px)} }
 #work{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);gap:14px;align-items:start;transition:grid-template-columns var(--t-panel) var(--ease)}
@@ -697,7 +697,7 @@ body.rail-none #filters{display:none}
   <div class="photo"></div><div class="shade"></div>
 </div>
 <header>
-  <h1>RF<span>/</span>RECON <small class="tag" style="font-size:10px;vertical-align:middle">BETA</small></h1>
+  <h1>DAStastic <small class="tag" style="font-size:10px;vertical-align:middle">BETA</small></h1>
   <button class="hbtn" id="missionChip" title="Mission">◎ <span id="missionName">No mission</span></button>
   <button class="hbtn" id="inChip" title="Intake: drop files, folders, zips or old emails anywhere, on any tab" aria-haspopup="dialog" hidden>Intake <b id="inCount" class="in-count" hidden></b></button>
   <button class="hbtn" id="netChip" title="Connection &amp; data updates"><span class="led" id="netLed"></span><span id="netText">checking…</span></button>
@@ -711,7 +711,7 @@ body.rail-none #filters{display:none}
   <nav class="tabs no-print" id="tabs">
     <button data-t="start" title="One job, step by step: no RF background needed">Start</button>
     <button data-t="map" class="on">Map</button>
-    <button data-t="find" title="Search everything RF Recon holds (Ctrl+K)">Search</button>
+    <button data-t="find" title="Search everything DAStastic holds (Ctrl+K)">Search</button>
     <button data-t="report">Area report</button>
     <button data-t="analyzer">Analyzer</button>
     <button data-t="dashboard">Dashboard</button>

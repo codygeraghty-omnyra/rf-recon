@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — first run. A new copy (the install kit) has no data: pick the states to keep and what to download.
+/* DAStastic — first run. A new copy (the install kit) has no data: pick the states to keep and what to download.
    The files come straight from the FCC (and NOAA, FAA) to this PC through the updater; progress shows here until
    the map has data. The FCC publishes whole-country files only, so the download is the same for any states. */
 
@@ -16,7 +16,7 @@ const wcSize = mb => mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`;
 
 window.welcome = () => {
   const el = $("#welcome"); el.hidden = false;
-  el.innerHTML = `<h3 style="margin:0 0 4px">Welcome to RF Recon (beta)</h3>
+  el.innerHTML = `<h3 style="margin:0 0 4px">Welcome to DAStastic (beta)</h3>
     <p class="hint" style="margin:0 0 12px">This copy has no data yet. Pick the states to keep and what to download: it comes straight from the FCC to this PC.
       The FCC only publishes whole-country files, so the download is the same for any states; only the states you pick are kept.</p>
     <label>States to keep (blank keeps the whole US: about 10 GB on disk)<input id="wcStates" placeholder="e.g. VA,MD,DC" style="max-width:280px" autocomplete="off"></label>

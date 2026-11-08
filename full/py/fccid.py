@@ -6,7 +6,7 @@ take a search form rather than a link, so each result links to that form and to 
 the same public records).
 
 The FCC publishes its grants one device at a time only, but it publishes every grantee code in bulk (FCC open data,
-last updated March 2021): RF Recon keeps that list (fcc_grantee), so the maker behind any FCC ID is known offline and
+last updated March 2021): DAStastic keeps that list (fcc_grantee), so the maker behind any FCC ID is known offline and
 makers turn up in Search. No key: opendata.fcc.gov serves it without one. The FCC's own current list is a download on
 its Grantee Search page, which answers a person's browser only: import_grantee_file reads that file (one person does it,
 on the PC the site's packs are made from), the site's grantee pack carries it, and every other copy's update job takes it
@@ -323,7 +323,7 @@ SITE_GRANTEE = (os.environ.get("RF_RECON_SITE") or "https://codygeraghty-omnyra.
 
 
 def import_site_grantees(con, log=None):
-    """The FCC's own list as the RF Recon site carries it (its grantee pack, made from the PC that imported the FCC's
+    """The FCC's own list as the DAStastic site carries it (its grantee pack, made from the PC that imported the FCC's
     download), so every other copy gets it without the download. Returns the codes kept, or None when the site's list
     isn't the FCC's own or isn't newer than this copy's."""
     req = urllib.request.Request(SITE_GRANTEE, headers={"User-Agent": UA["User-Agent"]})
@@ -350,7 +350,8 @@ def import_site_grantees(con, log=None):
     if len(rows) < GRANTEE_MIN:
         return None
     if log:
-        log(f"{len(rows):,} grantee codes from the RF Recon site")
+        log(f"{len(rows):,} grantee codes from the DAStastic site")
+    # "the RF Recon site" is the stored marker updater.py and mission.js match on (kept through the rename to DAStastic)
     return _keep_grantees(con, rows, "fcc-download", "the RF Recon site", theirs["at"], keep_old=True)
 
 
@@ -369,11 +370,11 @@ def _take_site_grants(con, site, log=None):
             pass
     con.commit()
     if log:
-        log(f"{theirs['devices']:,} DAS and booster grants from the RF Recon site")
+        log(f"{theirs['devices']:,} DAS and booster grants from the DAStastic site")
 
 
 def import_grantees(con, log=None, page=10000):
-    """Every FCC grantee code with its company. First the FCC's own list from the RF Recon site when it's newer than this
+    """Every FCC grantee code with its company. First the FCC's own list from the DAStastic site when it's newer than this
     copy's; otherwise FCC open data (last updated March 2021), in pages (a slow link still finishes), which replaces the
     list unless the FCC's own list is already here. Returns codes."""
     try:
@@ -382,7 +383,7 @@ def import_grantees(con, log=None, page=10000):
             return n
     except Exception as e:  # offline, or the site has no grantee pack: the list kept here or open data
         if log:
-            log(f"RF Recon site: {e}")
+            log(f"DAStastic site: {e}")
     src = grantee_source(con)
     if src["source"] == "fcc-download":
         if log:

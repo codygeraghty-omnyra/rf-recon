@@ -2,7 +2,7 @@
 911 call centres: the FCC's 911 Master PSAP Registry (opendata.fcc.gov, dataset dpq5-ta9j, public domain). Its rows
 were last updated 2017-10-10, so centres opened, merged or closed since then aren't reflected. It gives each PSAP's
 name, city, county and state but no coordinates, so each is placed at its town's centre (else its county's) from
-RF Recon's own place list: a town-level position, not the building.
+DAStastic's own place list: a town-level position, not the building.
 """
 import json
 import time

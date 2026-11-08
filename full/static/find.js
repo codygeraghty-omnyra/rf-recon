@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — Search: one box over everything RF Recon holds (Ctrl+K from anywhere). Results come grouped by kind,
+/* DAStastic — Search: one box over everything DAStastic holds (Ctrl+K from anywhere). Results come grouped by kind,
    nearest to the pin first, the matching words marked, each with a way to go there: the map (and the emitter's
    network or coverage), the DAS job and the field that matched, the mission, the file. The DAS tab's Find box uses
    the same results for its own data (findRender). */

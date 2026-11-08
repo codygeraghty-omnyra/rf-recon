@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: Run it for me (Cody 11/5: "can we do the walk me through - just auto? so the user can just check after?"). One press does
+/* DAStastic: Run it for me (Cody 11/5: "can we do the walk me through - just auto? so the user can just check after?"). One press does
    every desk step it can on the job, the free look-ups a person would otherwise press one at a time, then hands over a list to check.
    It only fills what's empty. Each step's own button stays where it is, and these are the same routes.
    A fact it chose for someone (the AHJ, the channel plan) stays open until a person says it looks right: data.auto.open. An open fact

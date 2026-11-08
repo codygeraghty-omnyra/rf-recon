@@ -1,6 +1,6 @@
 """
 Artemis (Ares Valley, github.com/AresValley/Artemis-Database): the Signal Identification Wiki's signals with a waterfall
-picture and an audio clip for each. RF Recon shows them beside its Signal ID Wiki "could be" matches, matched by the
+picture and an audio clip for each. DAStastic shows them beside its Signal ID Wiki "could be" matches, matched by the
 wiki page address both carry. The database is Signal ID Wiki content: read on this PC only, never exported, never
 in a pack, never through the remote door (remote.py blocks /api/artemis/).
 

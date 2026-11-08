@@ -1,9 +1,9 @@
 """
 Updates for copies installed from the install kit. Each kit build stamps app/VERSION and publishes the same facts as
-kit.json on the RF Recon GitHub site (version and date only, no code), so a copy can say when a newer kit is out.
+kit.json on the DAStastic GitHub site (version and date only, no code), so a copy can say when a newer kit is out.
 The person downloads the new zip from the Drive install-kit folder and picks it in Data & updates: the app's files
 are written over the old ones (data, DAS jobs and field packs are never in the zip, so they stay), then the kit's
-launcher restarts the server. A kit that brings a different Python needs unzipping by hand, with RF Recon stopped.
+launcher restarts the server. A kit that brings a different Python needs unzipping by hand, with DAStastic stopped.
 """
 import io
 import json
@@ -16,7 +16,7 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-NAME = "RF Recon (beta)"
+NAME = "RF Recon (beta)"  # the kit zip's top folder, kept through the rename to DAStastic: every installed copy looks for it
 LATEST_URL = os.environ.get("RF_RECON_KIT_URL") or "https://codygeraghty-omnyra.github.io/rf-recon/kit.json"  # a test can point elsewhere
 GET_URL = "https://drive.google.com/drive/folders/1GalaifA2obOjmBGzm9aD-t_Zr6JxNbLB"
 _LATEST = {"at": 0, "data": None}
@@ -44,12 +44,12 @@ def latest():
     return _LATEST["data"]
 
 
-SITE_SW = LATEST_URL.rsplit("/", 1)[0] + "/sw.js"  # the web version and RF Recon lite: publish.py stamps one build id into it
+SITE_SW = LATEST_URL.rsplit("/", 1)[0] + "/sw.js"  # the web version and DAStastic lite: publish.py stamps one build id into it
 _SITE = {"at": 0, "data": None}
 
 
 def site_build():
-    """The published web version's and RF Recon lite's build id (phone/publish.py writes it into sw.js as VERSION) and
+    """The published web version's and DAStastic lite's build id (phone/publish.py writes it into sw.js as VERSION) and
     when GitHub last served a new one; asked at most every ten minutes; None when offline."""
     import re
     if time.time() - _SITE["at"] < 600:
@@ -91,10 +91,10 @@ def apply(data, app_dir=HERE, root=ROOT):
     prefix = NAME + "/"
     names = set(zf.namelist())
     if prefix + "app/app.py" not in names or prefix + "app/VERSION" not in names:
-        raise ValueError("That zip isn't an RF Recon install kit.")
+        raise ValueError("That zip isn't a DAStastic install kit.")
     new = json.loads(zf.read(prefix + "app/VERSION"))
     if new.get("python") != cur.get("python"):
-        raise ValueError(f"This kit brings Python {new.get('python')} (this copy has {cur.get('python')}): stop RF Recon, "
+        raise ValueError(f"This kit brings Python {new.get('python')} (this copy has {cur.get('python')}): stop DAStastic, "
                          f"then unzip the new kit over this folder by hand.")
     root = os.path.abspath(root)
     n = 0

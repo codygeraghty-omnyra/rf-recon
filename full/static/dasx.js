@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — a DAS job's licence and site checks (served by dasx.py):
+/* DAStastic — a DAS job's licence and site checks (served by dasx.py):
    - the licence watch: the job's licences snapshotted, then compared with each FCC data build (daswatch.py)
    - consent letters and emails addressed from each licence's own FCC contact record (ulscontacts.py)
    - the licensees inside each booster passband, with consent per licensee (47 CFR 90.219(b)(1))

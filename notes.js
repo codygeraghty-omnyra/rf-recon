@@ -1,10 +1,10 @@
 "use strict";
-/* RF Recon (beta): the Note button, on every screen of the PC version, the web version and RF Recon lite.
+/* DAStastic (beta): the Note button, on every screen of the PC version, the web version and DAStastic lite.
    Five ways to leave a note: a voice note; the screen recorded while you talk and point; a photo with a voice note;
    a photo with words; just words. Each note carries when, which screen, the pin or GPS position and the mission.
    Where notes go: on a PC (and from the PC's remote link) to the server (notes.py: a folder per note, in Drive);
    in the web version and lite, this browser's storage, with Share to send one to Cody.
-   Standalone (no other RF Recon script needed), so the phone app loads it too.
+   Standalone (no other DAStastic script needed), so the phone app loads it too.
      RFNotes.mount({store: "server" | "browser", context: () => ({screen, lat, lon, mission, mission_id}), bottom, z}) */
 (() => {
 const h = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -23,7 +23,7 @@ const TILES = [
   ["text", ["pen"], "Written note", "Just type."]];
 const KIND_LABEL = {voice: "Voice note", screen: "Screen recording", "photo-voice": "Photo + voice note", "photo-text": "Photo + written note",
   text: "Written note"};  // a saved note's kind, as notes.py KINDS names it
-// Send email now: the note goes to RF Recon's note mailer (app/mail/notes_mailer.gs, a Google Apps Script under Cody's
+// Send email now: the note goes to DAStastic's note mailer (app/mail/notes_mailer.gs, a Google Apps Script under Cody's
 // account), which numbers it, has Claude name it, and emails Cody. Each person's send code comes in their link (?send=)
 // and is kept in this browser; the mailer checks it.
 const MAIL_URL = window.RFR_MAIL_URL  // tests point this at a stand-in mailer
@@ -213,8 +213,8 @@ function listen() {
   return {stop: async () => { on = false; try { rec.stop(); } catch (e) { ended(); }
     await Promise.race([done, new Promise(ok => setTimeout(ok, 1500))]); return text.trim(); }};
 }
-const micWords = e => e?.name === "NotAllowedError" ? "RF Recon can't use the microphone. Allow it for this page (the icon at the left of the address bar, or the phone's browser settings), then try again."
-  : e?.name === "NotFoundError" ? "This device has no microphone RF Recon can use." : `The microphone didn't start: ${e?.message || e}`;
+const micWords = e => e?.name === "NotAllowedError" ? "DAStastic can't use the microphone. Allow it for this page (the icon at the left of the address bar, or the phone's browser settings), then try again."
+  : e?.name === "NotFoundError" ? "This device has no microphone DAStastic can use." : `The microphone didn't start: ${e?.message || e}`;
 
 function recorder(stream, types, onLevel) {
   const type = pick(types), rec = new MediaRecorder(stream, type ? {mimeType: type} : undefined), chunks = [];
@@ -300,7 +300,7 @@ function show(title, body, back) {
   if (!dlg.open) dlg.showModal();
 }
 const whereText = () => opts.store !== "server" ? "Kept in this browser on this device until you delete it. Share with Cody emails a note to him."
-  : opts.remote ? "Goes straight to Cody's RF Recon. Only you and Cody see it." : "Saved on this PC, a folder each in RF Recon › notes in Drive.";
+  : opts.remote ? "Goes straight to Cody's DAStastic. Only you and Cody see it." : "Saved on this PC, a folder each in RF Recon › notes in Drive.";
 function context() {
   let c = {};
   try { c = opts.context?.() || {}; } catch (e) { /* the page isn't ready: a note without context */ }
@@ -409,7 +409,7 @@ function phoneScreen() {
   show("Record the screen", `<ol style="margin:0 0 4px;padding-left:20px;line-height:1.6">
       <li>${ios ? "Open Control Center (swipe down from the top-right corner). Press and hold the Screen Recording button, turn the Microphone on so your voice is in it, then tap Start Recording. If the button isn't there, add it to Control Center first."
         : "Swipe down twice from the top of the screen and tap Screen record (Screen recorder on Samsung; if it isn't there, add it with the pencil). Choose to record sound from the microphone, then start."}</li>
-      <li>Come back to RF Recon, show what you mean and talk about it.</li>
+      <li>Come back to DAStastic, show what you mean and talk about it.</li>
       <li>Stop the recording, then tap below and pick it.</li></ol>
     <div class="rfn-btns"><button class="rfn-btn primary" data-act="pick">Pick the video</button></div>`, () => open());
   dlg.querySelector("[data-act=pick]").onclick = async () => {
@@ -517,7 +517,7 @@ function sendBox(n) {
     <button class="rfn-btn quiet" data-act="other" ${s ? "" : "hidden"}>${s ? "Share again another way" : "Share another way"}</button></div><div class="rfn-sendmsg"></div></div>`;
 }
 const b64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1] || ""); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
-const appName = () => `${opts.store === "browser" ? (/\/full\//.test(location.pathname) ? "the web version" : "RF Recon lite") : "the PC version"} on ${
+const appName = () => `${opts.store === "browser" ? (/\/full\//.test(location.pathname) ? "the web version" : "DAStastic lite") : "the PC version"} on ${
   /iPhone|iPad/.test(navigator.userAgent) ? "an iPhone or iPad" : /Android/.test(navigator.userAgent) ? "Android" : /Windows/.test(navigator.userAgent) ? "Windows" : /Mac/.test(navigator.userAgent) ? "a Mac" : "a computer"}`;
 function wireSend(box, n) {
   const btn = box.querySelector("[data-act=send]"), other = box.querySelector("[data-act=other]"), msg = box.querySelector(".rfn-sendmsg");
@@ -531,7 +531,7 @@ function wireSend(box, n) {
     if (!code) {
       // asked once per browser: a home-screen app on an iPhone keeps its own storage, so a code a link set in Safari
       // doesn't reach it, and the person types it here
-      say(`<label style="display:block">Type your send code. Cody gave it to you with your RF Recon link; it looks like NAME-AB123.
+      say(`<label style="display:block">Type your send code. Cody gave it to you with your DAStastic link; it looks like NAME-AB123.
         <input class="rfn-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NAME-AB123"
           style="display:block;width:100%;margin-top:4px;height:44px;border-radius:10px;padding:0 10px"></label>
         <div class="rfn-btns" style="margin-top:6px"><button class="rfn-btn primary" data-act="code">Use it and send</button>
@@ -560,7 +560,7 @@ function wireSend(box, n) {
       if (files.reduce((s, f) => s + (f.blob?.size || 0), 0) > MAIL_MAX) throw new Error("This note is too big to email (over 20 MB). Use Share another way.");
       const body = JSON.stringify({code, label: n.label || KIND_LABEL[n.kind] || "Note", kind: n.kind, ts: n.ts, screen: n.screen || "", lat: n.lat, lon: n.lon,
         mission: n.mission || "", text: n.text || "", transcript: n.transcript || "", app: appName(),
-        files: await Promise.all(files.map(async f => ({name: `RF Recon note ${n.ts.replace(/:/g, "-")} ${f.name}`, type: f.type, b64: await b64(f.blob)})))});
+        files: await Promise.all(files.map(async f => ({name: `DAStastic note ${n.ts.replace(/:/g, "-")} ${f.name}`, type: f.type, b64: await b64(f.blob)})))});
       const r = await (await fetch(MAIL_URL, {method: "POST", body})).json();
       if (!r.ok) throw new Error(r.error || "It didn't send.");
       const s = {report: r.report, subject: r.subject, at: new Date().toISOString()};
@@ -576,17 +576,17 @@ function wireSend(box, n) {
 }
 
 function noteTxt(n) {
-  return [`RF Recon (beta): ${(n.label || KIND_LABEL[n.kind] || "note").toLowerCase()}`, `When: ${n.ts}`, n.screen && `Screen: ${n.screen}`,
+  return [`DAStastic (beta): ${(n.label || KIND_LABEL[n.kind] || "note").toLowerCase()}`, `When: ${n.ts}`, n.screen && `Screen: ${n.screen}`,
     n.lat != null && n.lon != null && `Place: ${(+n.lat).toFixed(5)}, ${(+n.lon).toFixed(5)}  https://maps.google.com/?q=${(+n.lat).toFixed(5)},${(+n.lon).toFixed(5)}`,
     n.mission && `Mission: ${n.mission}`, "", n.text || "(no words)",
     ...(n.transcript ? ["", "What was said (the browser's own transcript, may have mistakes):", n.transcript] : [])].filter(x => x !== false && x != null).join("\n");
 }
 async function share(n) {  // the phone's share sheet (Messages, Gmail, Drive, ...); where there's none, the files are saved
   const stamp = n.ts.replace(/:/g, "-");
-  const files = [new File([noteTxt(n)], `RF Recon note ${stamp}.txt`, {type: "text/plain"}),
-    ...n.files.map(f => new File([f.blob], `RF Recon note ${stamp} ${f.name}`, {type: f.type}))];
+  const files = [new File([noteTxt(n)], `DAStastic note ${stamp}.txt`, {type: "text/plain"}),
+    ...n.files.map(f => new File([f.blob], `DAStastic note ${stamp} ${f.name}`, {type: f.type}))];
   try {
-    if (navigator.canShare?.({files})) { await navigator.share({files, title: `RF Recon note ${n.ts}`, text: n.text || ""}); return; }
+    if (navigator.canShare?.({files})) { await navigator.share({files, title: `DAStastic note ${n.ts}`, text: n.text || ""}); return; }
   } catch (e) { if (e.name === "AbortError") return; }
   for (const f of files) {
     const a = document.createElement("a");
@@ -619,7 +619,7 @@ async function list() {
 
 window.RFNotes = {mount, open};
 
-// the PC version and the full web version (both from app/static): mounted here; RF Recon lite mounts it itself
+// the PC version and the full web version (both from app/static): mounted here; DAStastic lite mounts it itself
 if (document.getElementById("missionChip") && typeof S === "object") {
   mount({store: window.RFPack ? "browser" : "server", context: () => {
     const tab = document.querySelector(`#tabs [data-t="${S.tab}"]`)?.textContent?.trim();

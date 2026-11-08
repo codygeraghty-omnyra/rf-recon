@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — address completion on every address box (Cody 11/4: "make sure the address bar finishes the address for
+/* DAStastic — address completion on every address box (Cody 11/4: "make sure the address bar finishes the address for
    you"). Type three letters or more and the full address comes up underneath: street, city, state and ZIP (Photon /
    OpenStreetMap, the same lookup as the Pin box; towns and counties from the FCC data work with no signal). A house number
    and street are enough, misspelled or not: the Census knows the rest, nearby states at once and every state if you pause

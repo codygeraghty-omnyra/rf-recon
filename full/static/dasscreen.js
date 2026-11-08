@@ -1,9 +1,9 @@
 "use strict";
-/* RF Recon — DAS Screening: each public safety reading in the Grid test judged with its instrument's published accuracy,
+/* DAStastic — DAS Screening: each public safety reading in the Grid test judged with its instrument's published accuracy,
    as likely pass, too close to call or likely fail. It changes nothing in the Grid test's score or the Report. It answers
    two questions: which squares a pre-test walk says to fix, and which passing squares sit inside the instrument's accuracy
    and could flip on the AHJ's witnessed walk. Only market instruments approved for DAS work are listed (Cody, 11/2); the
-   SDR version is a preview outside RF Recon (its own folder on the PC, screening-SDR-version-2026-11-02).
+   SDR version is a preview outside DAStastic (its own folder on the PC, screening-SDR-version-2026-11-02).
    Needs das.js (has, gridPass, calOf, readingsOf, isCell, instKey, instName, boxCss, jobFileSrc, daqEq, csvOf, dasDl). */
 
 // published accuracy in dB. lvl: level (RSSI, received power), both directions. sinr: null when the instrument doesn't

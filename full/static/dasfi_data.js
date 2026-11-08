@@ -1,9 +1,9 @@
 "use strict";
-/* The DAS fault isolation chart's content (dasfi.js draws it). Every number traces to RF Recon's code or research, tagged on the step. */
+/* The DAS fault isolation chart's content (dasfi.js draws it). Every number traces to DAStastic's code or research, tagged on the step. */
 (() => {
 /* DAS fault isolation chart: the stage runbooks. PREVIEW ONLY (Cody 2026-11-05: "Preview first").
    Every number here comes from das-fi-facts.md: the app's own constants, its research files, or a rule as cited there.
-   Tags: A = RF Recon checks this. R = a code, FCC rule or AHJ document, read second-hand. E = research or vendor document.
+   Tags: A = DAStastic checks this. R = a code, FCC rule or AHJ document, read second-hand. E = research or vendor document.
    P = field practice with no source in our research: confirm it. Steps run quickest safe check first, never a claim about
    what is most likely. Ids: a tree is R1, F4; a step inside one is lower case. */
 const FI = { trees: [] };
@@ -15,15 +15,15 @@ const tree = (id, o, nodes) => FI.trees.push({ id, ...o, nodes, start: nodes[0].
 
 /* ---------------------------------------------------------------- 1 LEAD */
 tree("R1", { kind: "run", stage: 1, scope: "both", title: "Lead", goal: "Know the building, the AHJ and what the job is.",
-  who: "Owner or client, the AHJ (fire marshal), the licensee", tools: "Phone, RF Recon", call: "the fire marshal's office",
+  who: "Owner or client, the AHJ (fire marshal), the licensee", tools: "Phone, DAStastic", call: "the fire marshal's office",
   gate: "The job has a pin on the building, a named AHJ, and a scope." }, [
   q("a", "Do you have the address, occupancy, floors, square footage and build schedule?", { how: "Ask the customer. Get the AHJ contact while you are there. Occupancy and schedule have no field of their own: put them in Notes.",
     good: "All five, in the job's Overview.", at: "DAS > New job, or + Job from Prospects", src: [E("Market research, lead qualification")], yes: "b", no: "a1" }),
   d("a1", "Get what is missing from the customer.", { how: "Occupancy, floors above and below grade, square footage, construction schedule, AHJ contact.", next: "a" }),
-  q("b", "Is the job's pin on the building?", { how: "Type the address on Overview, then open Pre-survey. Every step runs from the pin, so a wrong pin quietly gives wrong systems. RF Recon warns only at 1 mile or more, and only for a numbered address it can find.",
+  q("b", "Is the job's pin on the building?", { how: "Type the address on Overview, then open Pre-survey. Every step runs from the pin, so a wrong pin quietly gives wrong systems. DAStastic warns only at 1 mile or more, and only for a numbered address it can find.",
     good: "Click Show on map: the pin sits on this building.", at: "Job > Overview", src: [A("Pin against address check")], yes: "c", no: "b1" }),
   x("b1", "Move the pin to the address.", { how: "Use the page's move button, or Use current pin to take the pin from the search panel.", at: "Job > Overview", next: "b" }),
-  q("c", "Do you know the AHJ, the code edition and the local amendment?", { how: "RF Recon guesses the AHJ from the US fire department registry. That is a suggestion. The AHJ has the final say: what's in the adopted code they enforce, and what isn't they can still ask for.",
+  q("c", "Do you know the AHJ, the code edition and the local amendment?", { how: "DAStastic guesses the AHJ from the US fire department registry. That is a suggestion. The AHJ has the final say: what's in the adopted code they enforce, and what isn't they can still ask for.",
     good: "A named person, the edition enforced, and any local amendment.", at: "Job > Overview, AHJ", tool: "Phone", src: [A("AHJ guess"), E("Market research")], yes: "e", no: "F24" }),
   q("e", "Does this building need a public safety system?", { how: "Model IFC requires approved coverage in all new buildings, with exceptions. IFC 2024 adds an exception for one-story buildings up to 12,000 sq ft with no below-ground area. States differ a lot. Indiana: from July 1, 2026 no state agency or local government may require one in a Class 1 structure, new or being renovated (IC 22-13-2-3.7). An owner can still choose one. Minnesota deletes IFC 510, so it's required only where a city adopts the appendix. Texas, Missouri, Colorado, Illinois, Kansas and Arizona leave it to local code. Read your state's row in the Code check. Florida FFPC 9th edition, from 12/31/2026: no ERCES where exterior coverage is below DAQ 3.4. Existing buildings: when a wired system can't be repaired or is replaced, or within a time the adopting authority sets.",
     good: "A clear answer from the AHJ.", at: "Job > Overview, Code check", src: [R("IFC 510, as cited in the market research"), R("State rules, read 11/5"), R("Indiana HEA 1001: a person still confirms the wording")],
@@ -32,7 +32,7 @@ tree("R1", { kind: "run", stage: 1, scope: "both", title: "Lead", goal: "Know th
   q("e2", "Will the AHJ accept proof of coverage instead of a system?", { how: "San Diego accepts a Proof of Acceptable Coverage grid test instead of a system. Ask yours.", src: [R("San Diego, as cited in the market research")], yes: "e3", no: "f" }),
   q("e3", "Did the proof of coverage pass?", { how: "Run the Grid test with a calibrated instrument. If it fails, the building needs a system.", at: "Job > Grid test", src: [R("San Diego, as cited in the market research")], yes: "e4", no: "f" }),
   ok("e4", "No system needed. Close it, and say why in the Log.", { stage: 8 }),
-  q("f", "Is the scope settled?", { how: "Public safety ERCES, carrier cellular, or both. RF Recon works this out from what is in the job, so a job can be both.",
+  q("f", "Is the scope settled?", { how: "Public safety ERCES, carrier cellular, or both. DAStastic works this out from what is in the job, so a job can be both.",
     good: "You and the customer agree which it is.", at: "Top of this page: job type", src: [A("Job scope")], yes: "z", no: "f1" }),
   d("f1", "Agree the scope with the customer.", { how: "Set the job type at the top of this page. The chart follows it.", next: "f" }),
   ok("z", "Lead is done. Go to Pre-survey.", { stage: 2 }),
@@ -40,7 +40,7 @@ tree("R1", { kind: "run", stage: 1, scope: "both", title: "Lead", goal: "Know th
 
 /* ---------------------------------------------------------------- 2 PRE-SURVEY */
 tree("R2e", { kind: "run", stage: 2, scope: "e", title: "Pre-survey: public safety", goal: "Know which systems serve the building and how strong they are inside.",
-  who: "Owner, AHJ, licensee (radio shop), GC, sub, our technician", tools: "RF Recon, calibrated receiver for the walk and the roof", call: "the licensee's radio shop",
+  who: "Owner, AHJ, licensee (radio shop), GC, sub, our technician", tools: "DAStastic, calibrated receiver for the walk and the roof", call: "the licensee's radio shop",
   gate: "Channel plan saved, consent requests sent, AHJ profile picked, benchmark walk done, critical areas ticked." }, [
   d("a", "Look up the building so the loss estimate is right.", { how: "On Overview, click the NSI building lookup for stories and year built. Leave Construction unset to use the model: 14 dB traditional, 31 dB if built 2000 or later, +10 dB deep interior (floor plate 40,000 sq ft or more), +5 dB core at 7 floors or 23 m and taller. Picking Construction replaces the model.", at: "Job > Overview", src: [A("Building entry loss")], next: "b" }),
   d("b", "Run the Pre-survey.", { how: "Default radius is 15 mi. It lists base and fixed public safety stations from the FCC data. Level inside is outside minus building loss. Margin under 0 is red, under 10 is amber.", at: "Job > Pre-survey", src: [A("FCC systems around the pin")], next: "c" }),
@@ -58,13 +58,13 @@ tree("R2e", { kind: "run", stage: 2, scope: "e", title: "Pre-survey: public safe
 ]);
 
 tree("R2c", { kind: "run", stage: 2, scope: "c", title: "Pre-survey: cellular", goal: "Know each carrier's signal at the roof and how each will approve the job.",
-  who: "Owner, integrator, each carrier's account team and RF engineering, neutral host if used", tools: "Calibrated scanner, RF Recon", call: "the carrier's account team",
+  who: "Owner, integrator, each carrier's account team and RF engineering, neutral host if used", tools: "Calibrated scanner, DAStastic", call: "the carrier's account team",
   gate: "Rooftop reading per carrier, approval path per carrier, consent requests out, benchmark walk done, funding model agreed." }, [
   d("a", "Read the carrier panel at the bottom of Pre-survey.", { how: "It shows FCC Broadband Map coverage (modelled), the closest cell site within 5 mi, and the spectrum each carrier holds in the county.", at: "Job > Pre-survey, carriers", src: [A("Carriers at the building")], next: "b" }),
   q("b", "What does each carrier read on the roof?", { how: "Log RSRP, SINR, RSRQ, band, equipment, date and time, antenna height, azimuth and tilt.", good: "Target: RSRP −85 dBm or better and SINR 5 dB or better. Minimum: RSRP −95 dBm and SINR 0 dB.", tool: "Calibrated scanner", at: "Job > Pre-survey, rooftop donor", warn: "Nothing may be ordered until the donor is confirmed.", src: [A("Rooftop donor verdict"), R("Providence RFP 3.9, the only published figure")],
     opts: [{ l: "All at target", to: "c" }, { l: "Some at minimum only", to: "b1" }, { l: "Any below minimum", to: "F3" }] }),
   d("b1", "Note which carriers are minimum only, and carry on.", { how: "Tell the owner now. Booster gain can't fix a weak, noisy donor.", src: [E("Example job, fictional")], next: "c" }),
-  q("c", "Is any band one a consumer booster may not carry?", { how: "600 MHz (B71), WCS (B30), 2.5 GHz (B41, n41), CBRS (B48, n48), C-band and 3.45 GHz (n77, n78), AWS-4 (B70). On B66 a consumer booster may carry only the AWS-1 part. RF Recon flags these only after the walk, so check your roof bands by hand.", at: "Job > Pre-survey, carrier table", src: [A("Consumer band check"), R("47 CFR 20.21(e)(3), FCC KDB 935210 D02")], yes: "c1", no: "e" }),
+  q("c", "Is any band one a consumer booster may not carry?", { how: "600 MHz (B71), WCS (B30), 2.5 GHz (B41, n41), CBRS (B48, n48), C-band and 3.45 GHz (n77, n78), AWS-4 (B70). On B66 a consumer booster may carry only the AWS-1 part. DAStastic flags these only after the walk, so check your roof bands by hand.", at: "Job > Pre-survey, carrier table", src: [A("Consumer band check"), R("47 CFR 20.21(e)(3), FCC KDB 935210 D02")], yes: "c1", no: "e" }),
   d("c1", "Plan an industrial booster with each carrier's express consent.", { how: "Or a carrier-fed source, or the carrier's small cell.", src: [A("Consumer band check")], next: "e" }),
   d("e", "Pick an approval path for each carrier.", { how: "Industrial or off-air: the carrier's express consent. Consumer: register with the carrier. Carrier-fed: carrier agreement, design review, carrier acceptance test.", at: "Job > Pre-survey, approvals", src: [A("Approval paths"), R("47 CFR 20.21(c), (a)(2), (h)")], next: "f" }),
   q("f", "Have the consent requests gone out?", { how: "Print the consent letter from the job. It lists location, county and FIPS, bands, EARFCN, booster make, model and FCC ID, gain, EIRP, donor azimuth and height. T-Mobile has an In-Building Telecommunications Agreement. AT&T and Verizon have no public form. FirstNet: makers route a Band 14 request form, and the address is in a maker's manual.", at: "Job > Pre-survey, approvals", src: [A("Consent letter"), E("Cellular research")], yes: "g", no: "f1" }),
@@ -77,27 +77,27 @@ tree("R2c", { kind: "run", stage: 2, scope: "c", title: "Pre-survey: cellular", 
 
 /* ---------------------------------------------------------------- 3 DESIGN */
 tree("R3e", { kind: "run", stage: 3, scope: "e", title: "Design: public safety", goal: "Prove on paper that it will work, then get it approved.",
-  who: "Designer, AHJ, licensee, owner or architect for plans", tools: "RF Recon, floor plans", call: "the designer",
+  who: "Designer, AHJ, licensee, owner or architect for plans", tools: "DAStastic, floor plans", call: "the designer",
   gate: "Design approved and AHJ permit dates set." }, [
   q("a", "Do you have a plan for every floor?", { how: "Add the builder's PDF set and give each floor its page. CAD files: ask for a PDF export.", good: "Each floor has its image.", at: "Job > Plans", src: [A("Plans step")], yes: "b", no: "a1" }),
   d("a1", "Send the plan request letter.", { how: "Check the AHJ's plan format too. San Diego wants PDF Arch D (24x36) with graduated scale, compass and legend. Santa Clara wants at least 1/8 inch to 1 foot with a graphic scale.", at: "Job > Plans", src: [E("Plans research")], next: "a" }),
-  d("b", "Draw walls and place antennas on each floor.", { how: "Rule of thumb from makers: 100 to 150 ft apart, the first within 50 ft of the perimeter. No US vendor radius table for 700 and 800 MHz was found.", at: "Job > Design", warn: "RF Recon's concrete model reads about a third of what NIST measured. Calibrate to a measured wall where you can.", src: [A("Design plan"), E("Link budget and plans research")], next: "c" }),
+  d("b", "Draw walls and place antennas on each floor.", { how: "Rule of thumb from makers: 100 to 150 ft apart, the first within 50 ft of the perimeter. No US vendor radius table for 700 and 800 MHz was found.", at: "Job > Design", warn: "DAStastic's concrete model reads about a third of what NIST measured. Calibrate to a measured wall where you can.", src: [A("Design plan"), E("Link budget and plans research")], next: "c" }),
   q("c", "Does every link budget check show pass?", { how: "Fill in every band. A blank roof level leaves checks open, and open never counts as a pass.", good: "Every row says pass. Amber is not a pass.", at: "Job > Design, Link budget", src: [A("Link budget checks")], yes: "e", no: "F19" }),
   q("e", "Does the prediction agree with the walk?", { how: "Compare predicted and measured at each walk point.", good: "Within 3 dB is green, within 6 dB is amber, beyond that is red. Green or amber is Yes. Red is No.", at: "Job > Design, Prediction vs walk", src: [A("Prediction vs walk")], yes: "f", no: "e1" }),
   x("e1", "Tune the model to the walk.", { how: "Fit adjusts N, wall loss and floor loss to the walk. Draw the walls that are really there.", at: "Job > Design", src: [A("Fit to walk")], next: "e" }),
   d("f", "Size the battery.", { how: "Amp-hours = load x hours x 1.2, at 24 V by default. NFPA 1225, IFC 2021 and IFC 2024: 12 hours at 100%, or 2 hours of battery plus a generator. Low battery signal at 70% used. OCSD, LA County, McKinney, Santa Clara and FDNY want 24 hours.", at: "Job > Design, Battery", src: [A("Battery"), R("NFPA 1225 18.13.2, 18.14.1.2, as cited")], next: "g" }),
   d("g", "Build the bill of materials and tick the material rules.", { how: "UL 2524 listing, NEMA 4 or 4X electronics, NEMA 3R batteries, 2-hour pathway. Many AHJs allow Class A boosters only, including San Diego, Durham and Douglas County: read the profile's note before you pick a booster.", at: "Job > Materials", src: [A("Material rules")], next: "h" }),
   d("h", "Build the submittal.", { how: "Sheets ER-0 to ER-14. The packet index checks the AHJ's own list item by item.", at: "Job > Report, Design submittal", src: [A("Submittal sheets, AHJ packet index")], next: "i" }),
-  q("i", "Have the licensee and the AHJ approved it, and is the permit issued?", { how: "One AHJ's order (Fairfax): radio shop approval, then building permit, low-voltage permit, fire alarm permit. Some AHJs want a PE seal or designer certification on the plans. Durham County design submittals: sealed by an NC PE or licensed fire sprinkler contractor. RF Recon's seal is a verify code, not a PE seal.", good: "Design approved and AHJ permit dates are set on Overview.", at: "Job > Overview, Compliance", warn: "One source says an ERCES design can't be finalised until the building is substantially complete. Ask.", src: [A("Compliance dates"), E("Market research")], yes: "z", no: "i1" }),
+  q("i", "Have the licensee and the AHJ approved it, and is the permit issued?", { how: "One AHJ's order (Fairfax): radio shop approval, then building permit, low-voltage permit, fire alarm permit. Some AHJs want a PE seal or designer certification on the plans. Durham County design submittals: sealed by an NC PE or licensed fire sprinkler contractor. DAStastic's seal is a verify code, not a PE seal.", good: "Design approved and AHJ permit dates are set on Overview.", at: "Job > Overview, Compliance", warn: "One source says an ERCES design can't be finalised until the building is substantially complete. Ask.", src: [A("Compliance dates"), E("Market research")], yes: "z", no: "i1" }),
   s("i1", "Stop. Answer the review comments, then resubmit.", { how: "Do not order or install against an unapproved design.", who: "AHJ and licensee", src: [P()], next: "i" }),
   ok("z", "Design is done. Go to Install.", { stage: 4 }),
 ]);
 
 tree("R3c", { kind: "run", stage: 3, scope: "c", title: "Design: cellular", goal: "Prove each band works on paper and get each carrier's approval.",
-  who: "Designer, each carrier's RF engineering, owner", tools: "RF Recon, floor plans, usually an iBwave file for the carrier", call: "the carrier's RF engineering contact",
+  who: "Designer, each carrier's RF engineering, owner", tools: "DAStastic, floor plans, usually an iBwave file for the carrier", call: "the carrier's RF engineering contact",
   gate: "Each carrier's design review passed, permit date set." }, [
   q("a", "Does each band reach the target at the far edge?", { how: "RSRP must meet the cellular target plus margin. RSRP is one subcarrier, so the booster's per-carrier cap is cut by 10 log10 of the subcarriers: 20 MHz LTE is 1200.", at: "Job > Design, Link budget", src: [A("Cellular link budget")], yes: "b", no: "F19" }),
-  q("b", "Does the booster stay inside consumer limits?", { how: "Downlink composite 17 dBm (0.05 W) or less, uplink 30 dBm (1 W) or less. Over that, RF Recon warns: you need an industrial booster with each carrier's express consent.", at: "Job > Design, Link budget", src: [A("Consumer cap check"), R("47 CFR 20.21(c)")], yes: "c", no: "b1" }),
+  q("b", "Does the booster stay inside consumer limits?", { how: "Downlink composite 17 dBm (0.05 W) or less, uplink 30 dBm (1 W) or less. Over that, DAStastic warns: you need an industrial booster with each carrier's express consent.", at: "Job > Design, Link budget", src: [A("Consumer cap check"), R("47 CFR 20.21(c)")], yes: "c", no: "b1" }),
   d("b1", "Confirm this is an industrial booster with consent.", { next: "c" }),
   q("c", "Does isolation pass?", { how: "Needed = highest gain + 20 dB, same as ERCES. From +15 dB up to +20 dB is a warning.", at: "Job > Design, Link budget", src: [A("Isolation check")], yes: "e", no: "F19" }),
   q("e", "Does every band meet its own target?", { how: "Read each band's row. These are calculated: no booster is on yet.", at: "Job > Design, Link budget", src: [A("Cellular link budget")], yes: "f", no: "F19" }),
@@ -113,7 +113,7 @@ tree("R4e", { kind: "run", stage: 4, scope: "e", title: "Install: public safety"
   gate: "Every sweep and PIM run passes, checklists done, monitoring wired." }, [
   q("a", "Is the AHJ permit on file?", { how: "Firestop systems must be on the permit plans. Fairfax wants the ERCES to fire alarm connection on the fire alarm permit.", at: "Job > Overview, Compliance", src: [E("Plans research")], yes: "b", no: "a1" }),
   s("a1", "Stop. No permit, no install.", { how: "Go back to Design and get it issued.", src: [P()], next: "R3e" }),
-  q("b", "Do the parts pass RF Recon's code check?", { how: "Booster: UL 2524 3rd edition, NEMA 4 or 4X, FCC ID, class. Batteries: NEMA 3R or better. Cable: 2-hour rating where the building isn't fully sprinklered and its frame is rated 2 hours.", at: "Parts, job Materials", warn: "UL 2524 listings not updated by 2026-03-22 are withdrawn.", src: [A("Parts code checks"), R("NFPA 1225 18.12, as cited")], yes: "b2", no: "F20" }),
+  q("b", "Do the parts pass DAStastic's code check?", { how: "Booster: UL 2524 3rd edition, NEMA 4 or 4X, FCC ID, class. Batteries: NEMA 3R or better. Cable: 2-hour rating where the building isn't fully sprinklered and its frame is rated 2 hours.", at: "Parts, job Materials", warn: "UL 2524 listings not updated by 2026-03-22 are withdrawn.", src: [A("Parts code checks"), R("NFPA 1225 18.12, as cited")], yes: "b2", no: "F20" }),
   q("b2", "Will any test radiate?", { how: "A test into low-PIM loads doesn't. A temporary antenna or a connected antenna does.", src: [E("PIM research")], yes: "b3", no: "c" }),
   q("b3", "Do you have advance permission from affected licensees, in writing?", { how: "One integrator's rule: in writing before any rebroadcast, including for testing.", who: "Each affected licensee", warn: "Nothing radiates until you have it.", src: [E("PIM research"), E("Cellular research")], yes: "c", no: "b4" }),
   s("b4", "Stop. Get permission first, or test into low-PIM loads.", { who: "Each affected licensee", next: "b2" }),
@@ -122,7 +122,7 @@ tree("R4e", { kind: "run", stage: 4, scope: "e", title: "Install: public safety"
   q("f", "Does anyone require a PIM test on this job?", { how: "NFPA 1225 (2022) chapter 18 asks for no PIM test and no sweep. Run PIM when the AHJ, owner or carrier asks.", src: [A("Report wording"), E("PIM research")], yes: "g", no: "i" }),
   q("g", "Do you have advance permission from affected licensees to radiate test tones?", { how: "Get it before you radiate.", warn: "Do not inject tones into BDA ports. No source describes PIM testing through an amplifier.", src: [E("PIM research")], yes: "h", no: "g1" }),
   s("g1", "Stop. Get permission first.", { who: "Each affected licensee", next: "g" }),
-  q("h", "Does every PIM run pass?", { how: "Check antenna and divider power ratings first. PIM dBc = result dBm minus tone dBm. RF Recon's default limit is −140 dBc at 2 x 43 dBm tones. The job may change it.", good: "At or below the limit: −149 passes, −135 fails.", tool: "PIM analyzer, low-PIM load", at: "PIM", src: [A("PIM runs")], yes: "i", no: "F4" }),
+  q("h", "Does every PIM run pass?", { how: "Check antenna and divider power ratings first. PIM dBc = result dBm minus tone dBm. DAStastic's default limit is −140 dBc at 2 x 43 dBm tones. The job may change it.", good: "At or below the limit: −149 passes, −135 fails.", tool: "PIM analyzer, low-PIM load", at: "PIM", src: [A("PIM runs")], yes: "i", no: "F4" }),
   d("i", "Wire monitoring to the fire alarm panel.", { how: "All eight supervisory signals. The fire alarm contractor does the panel side.", who: "Fire alarm contractor", warn: "Where the AHJ says so, the system stays off except for testing until final approval. OCSD: business hours only.", src: [R("NFPA 1225 18.14, as cited"), R("OCSD, as cited in the codes research")], next: "j" }),
   q("j", "Are the install checklists done?", { how: "Pre-test, set-up, close-out and DAS PIM checklists. Skip the PIM lists if no PIM ran.", at: "PIM", src: [A("PIM checklists")], yes: "z", no: "j1" }),
   d("j1", "Finish the checklists.", { next: "j" }),
@@ -133,13 +133,13 @@ tree("R4c", { kind: "run", stage: 4, scope: "c", title: "Install: cellular", goa
   who: "GC, electrical sub, our technician, the carrier for its own source", tools: "Line analyzer, PIM analyzer, fiber test set if there is fiber", call: "the GC",
   gate: "Sweeps, PIM and fiber results recorded. Nothing radiates on carrier spectrum until carrier acceptance and a retransmission agreement." }, [
   q("a", "Is the carrier's design approval in hand?", { how: "Consent received or in process.", src: [E("Cellular research")], yes: "b", no: "F18" }),
-  q("b", "Do the parts pass?", { how: "Ignore RF Recon's UL 2524, NEMA and Class lines on a cell-only job: what matters is consumer or industrial, and the FCC ID. A CBRS booster or DAS above 23 dBm per 10 MHz counts as a CBSD and must register with a SAS.", at: "Parts, job Materials", src: [R("47 CFR Part 96, KDB 935210 D02"), A("Parts code checks")], yes: "b2", no: "F20" }),
+  q("b", "Do the parts pass?", { how: "Ignore DAStastic's UL 2524, NEMA and Class lines on a cell-only job: what matters is consumer or industrial, and the FCC ID. A CBRS booster or DAS above 23 dBm per 10 MHz counts as a CBSD and must register with a SAS.", at: "Parts, job Materials", src: [R("47 CFR Part 96, KDB 935210 D02"), A("Parts code checks")], yes: "b2", no: "F20" }),
   q("b2", "Will any test radiate?", { how: "A test into low-PIM loads doesn't. A temporary antenna or a connected antenna does.", src: [E("PIM research")], yes: "b3", no: "c" }),
   q("b3", "Do you have advance permission from each carrier, in writing?", { how: "One integrator's rule: in writing before any rebroadcast, including for testing.", who: "Each carrier", warn: "Nothing radiates until you have it.", src: [E("PIM research"), E("Cellular research")], yes: "c", no: "b4" }),
   s("b4", "Stop. Get permission first, or test into low-PIM loads.", { who: "Each carrier", next: "b2" }),
   d("c", "Build in sections, and test each section as you go.", { how: "Test into low-PIM loads unless you have permission. Test antenna locations, cables, each floor, riser, then the full system from the DAS input. The carrier installs its own RF source.", src: [E("PIM and cellular research")], next: "e" }),
   q("e", "Does every sweep pass?", { how: "Return loss 14 dB is common practice. Looking into an antenna, 9.5 dB.", tool: "Line analyzer", at: "PIM > Sweeps", src: [A("Sweeps")], yes: "f", no: "F5" }),
-  q("f", "Does every PIM run pass?", { how: "RF Recon defaults to −140 dBc. The example cellular job uses −150 dBc. AT&T's method is not public; Verizon and T-Mobile have no public PIM spec. Use the number the carrier gives you.", tool: "PIM analyzer", at: "PIM", warn: "Do not inject tones into BDA ports.", src: [A("PIM runs"), E("PIM research")], yes: "g", no: "F4" }),
+  q("f", "Does every PIM run pass?", { how: "DAStastic defaults to −140 dBc. The example cellular job uses −150 dBc. AT&T's method is not public; Verizon and T-Mobile have no public PIM spec. Use the number the carrier gives you.", tool: "PIM analyzer", at: "PIM", warn: "Do not inject tones into BDA ports.", src: [A("PIM runs"), E("PIM research")], yes: "g", no: "F4" }),
   q("g", "Is there fiber or a remote unit in this design?", { how: "Fiber and OTDR results are a close-out item.", src: [E("Cellular research")], yes: "F22", no: "z", then: "z" }),
   ok("z", "Install is done. Go to Commission.", { stage: 5 }),
 ]);
@@ -170,9 +170,9 @@ tree("R5c", { kind: "run", stage: 5, scope: "c", title: "Commission: cellular", 
   gate: "Settings match the consents, NOC noise read, isolation, donor levels and test calls on every carrier." }, [
   q("a", "Is each carrier's consent letter or agreement on file?", { how: "47 CFR 20.21(c): a letter, email or other record naming the bands. It can be withdrawn. You must shut the booster off at the carrier's request.", warn: "Do not switch on without it.", src: [R("47 CFR 20.21(c), (d), (h)")], yes: "c", no: "F18" }),
   q("c", "Does isolation pass on every band?", { how: "Measured is at least the higher of UL and DL gain + 20 dB.", tool: "Signal generator and analyzer", warn: "Booster stays off until this passes.", at: "Job > Commissioning, step 1", src: [A("Isolation step")], yes: "e", no: "F1" }),
-  q("e", "Do the gains and filters match the consents?", { how: "AGC on. Settings as the letter says. RF Recon doesn't compare these for you.", at: "Job > Commissioning, step 2", src: [E("Example job, fictional")], yes: "b", no: "e1" }),
+  q("e", "Do the gains and filters match the consents?", { how: "AGC on. Settings as the letter says. DAStastic doesn't compare these for you.", at: "Job > Commissioning, step 2", src: [E("Example job, fictional")], yes: "b", no: "e1" }),
   x("e1", "Set them to match the consent.", { next: "e" }),
-  q("b", "Did each carrier's NOC read under 1 dB of uplink noise rise?", { how: "First switch-on: coordinate with the NOC. Booster off, then on, read from the carrier's own counters. RF Recon borrows NFPA's method because no carrier uplink noise spec is public. Use the carrier's number if it gives one.", who: "Carrier NOC", at: "Job > Commissioning, step 3", src: [A("Noise step")], yes: "f", no: "F2" }),
+  q("b", "Did each carrier's NOC read under 1 dB of uplink noise rise?", { how: "First switch-on: coordinate with the NOC. Booster off, then on, read from the carrier's own counters. DAStastic borrows NFPA's method because no carrier uplink noise spec is public. Use the carrier's number if it gives one.", who: "Carrier NOC", at: "Job > Commissioning, step 3", src: [A("Noise step")], yes: "f", no: "F2" }),
   q("f", "Is it free of oscillation, with the alarm working?", { how: "Analyzer on both passbands.", tool: "Spectrum analyzer", at: "Job > Commissioning, step 4", src: [A("Oscillation step")], yes: "g", no: "F1" }),
   q("g", "Are the donor levels recorded and usable?", { at: "Job > Commissioning, step 5", how: "Compare with the rooftop reading.", good: "RSRP −95 dBm, SINR 0 dB or better.", src: [A("Donor step")], yes: "h", no: "F3" }),
   q("h", "Did test calls come through clear on every carrier?", { tool: "A phone on each carrier", at: "Job > Commissioning, step 6", src: [E("Example job, fictional")], yes: "z", no: "F6" }),
@@ -184,7 +184,7 @@ tree("R6e", { kind: "run", stage: 6, scope: "e", title: "Acceptance: public safe
   who: "AHJ or fire marshal, tester (FCC GROL, training, NICET where asked), licensee, owner", tools: "Calibrated receiver, agency radios", call: "the AHJ",
   gate: "Report shows PASS, accepted date set, acceptance baseline saved." }, [
   q("a", "Is every instrument calibrated for the test dates?", { how: "Within 12 months of the reading, or the certificate's own expiry date.", at: "Job > Overview, Testing", src: [A("Calibration rule")], yes: "b", no: "F9" }),
-  q("b", "Does the AHJ need an independent tester or a certain tool?", { how: "San Diego and Santa Clara want a third party and an independence statement. Douglas County accepts only DCSORS or a PCTel-certified vendor with a calibrated IBflex uploaded to SeeHawk Central: RF Recon's results alone won't be accepted.", at: "Job > Requirements", src: [A("AHJ profiles")], yes: "b1", no: "c" }),
+  q("b", "Does the AHJ need an independent tester or a certain tool?", { how: "San Diego and Santa Clara want a third party and an independence statement. Douglas County accepts only DCSORS or a PCTel-certified vendor with a calibrated IBflex uploaded to SeeHawk Central: DAStastic's results alone won't be accepted.", at: "Job > Requirements", src: [A("AHJ profiles")], yes: "b1", no: "c" }),
   d("b1", "Line up that tester or tool before you book the walk.", { next: "c" }),
   d("c", "Book the witness and the radios.", { how: "OCSD loans radios. Santa Clara loaner radios come from the County Radio Shop. Osceola needs authorization before any walk test.", who: "AHJ, licensee", src: [R("AHJ profiles, codes research")], next: "e" }),
   d("e", "Walk the grid.", { how: "Pick Taken with, then a spot at each square's centre and a continuous walk by time. 20 areas per floor, each 20 to 80 ft. Over 128,000 sq ft, split into sectors. Follow the AHJ's method: Charlotte averages over several seconds; Miami-Dade averages max and min hold over at least 30 s and says do not test or connect uplink.", tool: "Calibrated receiver", at: "Job > Grid test", src: [A("Grid test"), R("IFC 510.5.4 and AHJ documents, as cited")], next: "f" }),
@@ -193,10 +193,10 @@ tree("R6e", { kind: "run", stage: 6, scope: "e", title: "Acceptance: public safe
   q("h", "How do the squares look?", { how: "Worst channel decides each square.", at: "Job > Grid test", src: [A("Worst channel decides")],
     opts: [{ l: "All pass", to: "i" }, { l: "Fails the level", to: "F6" }, { l: "Level good, DAQ fails", to: "F7" }, { l: "Some fail, floor might pass", to: "F8" }, { l: "Some fail, floor passed on count", to: "i" }] }),
   q("i", "Is every named critical area tested and passing?", { how: "Each one on its own. Default 99% critical, 95% general.", at: "Job > Grid test", src: [A("Named critical areas")], yes: "j", no: "F6" }),
-  q("j", "Is every test that applies to this AHJ entered and passing?", { how: "Includes filters and AGC, battery load test, EPO for San Diego, supervisory signals, exterior leakage and BDA identity. Leakage: 15 dB below donor at OCSD, San Diego and Santa Clara, 20 dB at LA County. RF Recon records leakage and doesn't grade it.", at: "Job > Grid test, acceptance tests", src: [A("Acceptance tests"), R("AHJ documents, as cited")], yes: "k", no: "j1" }),
+  q("j", "Is every test that applies to this AHJ entered and passing?", { how: "Includes filters and AGC, battery load test, EPO for San Diego, supervisory signals, exterior leakage and BDA identity. Leakage: 15 dB below donor at OCSD, San Diego and Santa Clara, 20 dB at LA County. DAStastic records leakage and doesn't grade it.", at: "Job > Grid test, acceptance tests", src: [A("Acceptance tests"), R("AHJ documents, as cited")], yes: "k", no: "j1" }),
   d("j1", "Run what is missing, then come back.", { how: "A failed test sends you to its fault chart from Commission.", next: "j" }),
   q("k", "Does the report say PASS, and is the packet complete?", { how: "The packet index shows each item on the AHJ's list.", at: "Job > Report", src: [A("Report, packet index")], yes: "k2", no: "F21" }),
-  q("k2", "Has the AHJ accepted it, witnessed where asked?", { how: "RF Recon's PASS isn't acceptance. The AHJ's word is.", who: "AHJ", src: [R("Codes research")], yes: "l", no: "F21" }),
+  q("k2", "Has the AHJ accepted it, witnessed where asked?", { how: "DAStastic's PASS isn't acceptance. The AHJ's word is.", who: "AHJ", src: [R("Codes research")], yes: "l", no: "F21" }),
   d("l", "Set the accepted date and save the baseline.", { how: "The accepted date sets the annual retest date. Save as acceptance baseline keeps these results for later retests.", at: "Job > Overview, Grid test", src: [A("Accepted date, baseline")], next: "l2" }),
   d("l2", "Sign the report, then Print as final.", { how: "This seals it. Do it after the date and baseline: any later change makes the report read 'job changed since'.", at: "Job > Report", src: [A("Sealed report")], next: "m" }),
   q("m", "Is the report filed inside the AHJ's window?", { how: "OCSD 30 calendar days after the test. Charleston 30 days. Seattle: into The Compliance Engine 24 hours before the inspection. Broward: reports go through The Compliance Engine from 11/1/2026.", at: "Job > Overview, Lifecycle", src: [A("AHJ deadlines")], yes: "z", no: "F21" }),
@@ -219,7 +219,7 @@ tree("R6c", { kind: "run", stage: 6, scope: "c", title: "Acceptance: cellular", 
 tree("R7e", { kind: "run", stage: 7, scope: "e", title: "In service: public safety", goal: "Keep it passing, and keep the paperwork current.",
   who: "Owner, integrator, AHJ, licensee", tools: "Calibrated receiver, spectrum analyzer, load test kit", call: "the owner",
   gate: "No open alarms, annual test current, licensee authorisation current." }, [
-  q("a", "What brought you here?", { how: "RF Recon's Needs you list shows most of these.", at: "DAS > Board, Needs you", src: [A("Needs you")],
+  q("a", "What brought you here?", { how: "DAStastic's Needs you list shows most of these.", at: "DAS > Board, Needs you", src: [A("Needs you")],
     opts: [{ l: "Annual test due", to: "b" }, { l: "Five-year retest", to: "c" }, { l: "An alarm", to: "F11" }, { l: "BDA gone quiet", to: "F12" }, { l: "Licence finding", to: "F14" }, { l: "FCC notice", to: "F15" }, { l: "Remodel or addition", to: "e" }, { l: "Licensee authorisation renewal", to: "r" }, { l: "Nothing else", to: "z" }] }),
   d("b", "Run the annual test.", { how: "Due 12 months after the accepted date or the last annual test, and 'due soon' from 60 days out. Repeat the grid test, compare gain with acceptance, 1-hour battery load test, check active components, oscillation check, report to the fire code official. Filing windows: OCSD 30 calendar days, Seattle 7 days.", at: "Job > Overview, Lifecycle", src: [A("Lifecycle dates"), R("IFC 510.6.1, NFPA 20.3.10, as cited")], next: "b1" }),
   q("b1", "Did it pass against the baseline?", { good: "Grid passes the profile and gains match acceptance.", at: "Job > Grid test, Report", src: [A("Baseline")], yes: "z", no: "b2" }),
@@ -243,13 +243,13 @@ tree("R7c", { kind: "run", stage: 7, scope: "c", title: "In service: cellular", 
 
 /* ---------------------------------------------------------------- 8 CLOSED */
 tree("R8", { kind: "run", stage: 8, scope: "both", title: "Closed", goal: "Hand over, or record why it ended.",
-  who: "Owner, AHJ", tools: "RF Recon's packet zip", call: "the owner",
+  who: "Owner, AHJ", tools: "DAStastic's packet zip", call: "the owner",
   gate: "The owner has the package. The AHJ has the report." }, [
   q("a", "Did the job finish, or was it lost?", { src: [A("Stage text")], opts: [{ l: "Finished", to: "b" }, { l: "Lost", to: "e" }] }),
   q("b", "Public safety: is the full package ready?", { how: "Equipment list and datasheets, as-builts, measurements at all locations, secondary power calculations, assigned frequencies, isolation results, signal source levels and type, every channel, gain, filter bandwidth and AGC setting. Leave a document holder at the BDA.", at: "Job > Report, packet zip", src: [R("NFPA 20.3.10.1.3, as cited"), A("Packet zip")], opts: [{ l: "Yes", to: "c" }, { l: "No", to: "b1" }, { l: "Not this job", to: "c" }] }),
   d("b1", "Gather what is missing.", { next: "b" }),
   q("c", "Cellular: is the package ready?", { how: "As-builts, sweep and PIM results, fiber and OTDR results, walk plots, equipment settings, carrier contacts. Providence adds FCC registration numbers if any, carrier registration confirmations and final band settings.", src: [E("Cellular research")], opts: [{ l: "Yes", to: "z" }, { l: "No", to: "b1" }, { l: "Not this job", to: "z" }] }),
-  d("e", "Write why it ended in the Log.", { how: "RF Recon has no field for this. Use a note.", at: "Job > Log", src: [P("No app field")], next: "z" }),
+  d("e", "Write why it ended in the Log.", { how: "DAStastic has no field for this. Use a note.", at: "Job > Log", src: [P("No app field")], next: "z" }),
   ok("z", "Closed. Closed jobs drop out of Needs you, licence watch and the audit.", {}),
 ]);
 
@@ -259,7 +259,7 @@ tree("R8", { kind: "run", stage: 8, scope: "both", title: "Closed", goal: "Hand 
 tree("F1", { kind: "fault", scope: "both", title: "Isolation fails, or the booster oscillates", group: "Booster",
   see: "Booster alarms or shuts down. A spurious signal on the analyzer. The agency reports interference. More gain makes coverage worse.",
   who: "Our technician, designer", tools: "Spectrum analyzer, signal generator, BDA software", call: "the designer, then the booster's maker" }, [
-  q("a", "Is isolation at least the highest gain + 20 dB?", { how: "Inject a tone into a server antenna path and read it at the donor, or run the BDA's isolation test. Use the higher of UL and DL gain.", good: "Pass at gain + 20 dB. In Design, RF Recon also warns from +15 dB up to +20 dB. McKinney uses a 15 dB margin (search excerpt).", tool: "Signal generator and analyzer, or BDA software", warn: "Booster off for this test. Get permission before radiating any test tone.", at: "Job > Commissioning, step 1", src: [A("Isolation check"), R("IFC 510.4.2.4(4), NFPA 18.10, as cited"), E("NPSTC 2007: the most frequent problem is inadequate isolation")], yes: "b", no: "c" }),
+  q("a", "Is isolation at least the highest gain + 20 dB?", { how: "Inject a tone into a server antenna path and read it at the donor, or run the BDA's isolation test. Use the higher of UL and DL gain.", good: "Pass at gain + 20 dB. In Design, DAStastic also warns from +15 dB up to +20 dB. McKinney uses a 15 dB margin (search excerpt).", tool: "Signal generator and analyzer, or BDA software", warn: "Booster off for this test. Get permission before radiating any test tone.", at: "Job > Commissioning, step 1", src: [A("Isolation check"), R("IFC 510.4.2.4(4), NFPA 18.10, as cited"), E("NPSTC 2007: the most frequent problem is inadequate isolation")], yes: "b", no: "c" }),
   q("b", "With the BDA on, are both passbands clean on the analyzer?", { how: "Sweep DL and UL passbands.", good: "No oscillation in either direction.", tool: "Spectrum analyzer", at: "Job > Commissioning, step 4", src: [A("Oscillation step")], yes: "z", no: "b1" }),
   s("b1", "Stop. Isolation passes but it still oscillates. Call the maker.", { how: "Our sources don't cover this case. Note the frequency, gain and level you saw.", who: "Booster's maker", src: [P("No source")] }),
   q("c", "Can you lower gain and still pass the link budget?", { how: "Comba's method caps gain at isolation minus 20 dB. Try that number in the job's link budget. OCSD and Sacramento use maximum rated gain, and Douglas the BDA's maximum gain: lowering the set gain won't clear those, so answer No.", at: "Job > Design, Link budget", src: [E("Comba CriticalPoint, in the codes research")], yes: "c1", no: "e" }),
@@ -271,10 +271,10 @@ tree("F1", { kind: "fault", scope: "both", title: "Isolation fails, or the boost
 tree("F2", { kind: "fault", scope: "both", title: "Uplink noise rise at the site", group: "Booster",
   see: "The radio shop or carrier sees a raised noise floor with the booster on. A noisy booster can draw an FCC notice.",
   who: "Licensee's radio shop or carrier NOC, our technician", tools: "Spectrum analyzer, the licensee's own counters", call: "the licensee's radio shop or the carrier's NOC" }, [
-  q("a", "Was the test done to the method?", { how: "RBW 10 kHz, idle uplink channel, 5-minute average, booster off then on, averaged as power. Otherwise RF Recon marks it 'not done: not to the method'.", tool: "Spectrum analyzer", at: "Job > Commissioning, step 3", src: [A("Noise step"), R("NFPA A.18.9.3, as cited")], yes: "b", no: "a1" }),
+  q("a", "Was the test done to the method?", { how: "RBW 10 kHz, idle uplink channel, 5-minute average, booster off then on, averaged as power. Otherwise DAStastic marks it 'not done: not to the method'.", tool: "Spectrum analyzer", at: "Job > Commissioning, step 3", src: [A("Noise step"), R("NFPA A.18.9.3, as cited")], yes: "b", no: "a1" }),
   d("a1", "Redo it to the method.", { next: "a" }),
   q("b", "Is the rise 1 dB or more?", { how: "A site noise limit such as −150 dBm (OCSD, San Diego, LA, Santa Clara), −153 dBm (Durham) or −145 dBm per 10 kHz (Douglas) is a calculated figure: it belongs on the link budget. Thermal noise in 10 kHz is −134 dBm, so no analyzer reading can meet it.", good: "Under 1 dB passes.", src: [A("Noise step")], yes: "c", no: "z" }),
-  x("c", "Cut uplink gain until the rise is gone, then 3 dB more.", { how: "Enter only the cut that cleared it, and the new reading. RF Recon adds the 3 dB itself.", at: "Job > Commissioning, step 3", src: [A("Noise step"), R("NFPA A.18.9.3, as cited")], next: "e" }),
+  x("c", "Cut uplink gain until the rise is gone, then 3 dB more.", { how: "Enter only the cut that cleared it, and the new reading. DAStastic adds the 3 dB itself.", at: "Job > Commissioning, step 3", src: [A("Noise step"), R("NFPA A.18.9.3, as cited")], next: "e" }),
   q("e", "Is the cleared rise under 1 dB?", { at: "Job > Commissioning, step 3", src: [A("Noise step")], yes: "f", no: "e1" }),
   s("e1", "Stop. Gain is down and noise stayed. Check the booster.", { how: "Noise figure can get worse at reduced gain on some BDAs. Comba: UL under 5 dB at 90 dB gain, under 9 dB at 67 dB. Broadband boosters can also desense other services whose sites sit in the donor beam. Take the numbers to the maker and the radio shop.", who: "Booster's maker, radio shop", src: [E("Link budget research")] }),
   q("f", "After the cut, does the link budget still pass?", { how: "Check uplink level at the agency receiver and uplink over sensitivity.", at: "Job > Design, Link budget", src: [A("Link budget checks")], yes: "z", no: "F19" }),
@@ -288,13 +288,13 @@ tree("F3", { kind: "fault", scope: "both", title: "Donor too weak or too hot", g
   q("b", "Is the reading good at the antenna but poor at the booster?", { how: "Read at the donor port after the cable, then compare with the roof reading and the cable's expected loss.", tool: "Calibrated receiver", warn: "Lock off the BDA before you disconnect anything. In service: book the outage with the radio shop and owner first. Seattle: tell the fire code official if it's out over 8 hours.", src: [P("Half-split the donor line")], yes: "F5", no: "c" }),
   q("c", "Is the donor aimed as the aiming sheet says?", { how: "True and magnetic bearing and elevation angle from the sheet (NOAA WMM2025).", tool: "Compass, inclinometer", at: "Job > Pre-survey, donor aiming sheet", src: [A("Donor aiming sheet")], yes: "e", no: "c1" }),
   x("c1", "Re-aim the donor, then read again.", { next: "y" }),
-  q("e", "Does another site or azimuth read better?", { how: "Scan each azimuth. Log the level, band, azimuth, tilt and height. Check Terrain paths: RF Recon gives no pass number for clearance. In the worked example, T-Mobile read −97 dBm with SINR 1 dB at 300°; a second donor at 20° read −84 dBm with SINR 7 dB.", tool: "Calibrated scanner", at: "Job > Pre-survey, Terrain paths", src: [A("Rooftop donor, Terrain paths"), E("Example job, fictional")], yes: "e1", no: "f" }),
+  q("e", "Does another site or azimuth read better?", { how: "Scan each azimuth. Log the level, band, azimuth, tilt and height. Check Terrain paths: DAStastic gives no pass number for clearance. In the worked example, T-Mobile read −97 dBm with SINR 1 dB at 300°; a second donor at 20° read −84 dBm with SINR 7 dB.", tool: "Calibrated scanner", at: "Job > Pre-survey, Terrain paths", src: [A("Rooftop donor, Terrain paths"), E("Example job, fictional")], yes: "e1", no: "f" }),
   x("e1", "Re-aim, change site, or add a second donor.", { how: "Then update the link budget. Gain can't fix a weak, noisy donor.", who: "Radio shop or carrier", warn: "Public safety: only a site the radio shop names, and one site on simulcast. Update the consent if the azimuth changes.", at: "Job > Design, Link budget", src: [E("Example job, fictional")], next: "y" }),
   q("y", "Is the donor level usable now?", { how: "Read it again at the donor port.", good: "Cellular: RSRP −95 dBm, SINR 0 dB or better. Public safety: inside any AHJ window, and the link budget's downlink row passes.", tool: "Calibrated receiver or scanner", src: [A("Rooftop donor, Commissioning step 5")], yes: "z", no: "e" }),
   s("f", "Stop. Ask the radio shop or carrier for another source.", { how: "Public safety: a different donor site. Cellular: a carrier-fed source or the carrier's small cell.", who: "Radio shop or carrier", src: [P()] }),
   q("h", "Is uplink at the site above the window?", { how: "Research default top −75 dBm: OCSD −95 to −75 dBm, Douglas −100 to −80 dBm, Durham −80 dBm top.", at: "Job > Design, Link budget", src: [A("Uplink check"), R("AHJ documents, as cited")], yes: "h1", no: "i" }),
   x("h1", "Lower the uplink gain.", { how: "Then recheck uplink over sensitivity and noise rise.", at: "Job > Design, Link budget", src: [A("Too hot; lower the uplink gain")], next: "z" }),
-  s("i", "Stop. Check the booster's maximum input on its datasheet.", { how: "No source gives an overdrive limit, and RF Recon has no check for it. Compare the donor level with the maker's number.", who: "Booster's maker", src: [P("No source: gap")] }),
+  s("i", "Stop. Check the booster's maximum input on its datasheet.", { how: "No source gives an overdrive limit, and DAStastic has no check for it. Compare the donor level with the maker's number.", who: "Booster's maker", src: [P("No source: gap")] }),
   ok("z", "Donor level is usable.", {}),
 ]);
 
@@ -328,14 +328,14 @@ tree("F5", { kind: "fault", scope: "both", title: "Sweep fails: return loss or i
   x("e2", "Replace that length of cable.", { how: "Solid-outer-conductor cable only: no braided cable, no joiners, no inter-series adapters (MCF).", src: [E("PIM research")], next: "f" }),
   x("e3", "Replace the antenna, or check its jumper.", { src: [P()], next: "f" }),
   q("f", "Does it pass the sweep now?", { tool: "Line analyzer", at: "PIM > Sweeps", src: [A("Sweeps")], yes: "z", no: "c" }),
-  q("g", "Is the cable length and type in RF Recon right?", { how: "Limit = datasheet loss per 100 ft x length + 0.1 dB per connector + 0.5 dB tolerance, scaled by the square root of frequency past the datasheet. Radiating cable: sweep from both ends on runs over 400 ft.", at: "PIM > Sweeps", src: [A("Insertion loss limit"), E("PIM research")], yes: "c", no: "g1" }),
+  q("g", "Is the cable length and type in DAStastic right?", { how: "Limit = datasheet loss per 100 ft x length + 0.1 dB per connector + 0.5 dB tolerance, scaled by the square root of frequency past the datasheet. Radiating cable: sweep from both ends on runs over 400 ft.", at: "PIM > Sweeps", src: [A("Insertion loss limit"), E("PIM research")], yes: "c", no: "g1" }),
   x("g1", "Correct it, and re-grade.", { next: "f" }),
   ok("z", "Sweep passes.", {}),
 ]);
 
 tree("F6", { kind: "fault", scope: "both", title: "Square fails: not enough signal", group: "Coverage",
   see: "A square fails the level, or a pocket fails: elevator lobbies, cores, stairs, behind low-E glass or concrete, deep interior, basements.",
-  who: "Our technician, designer", tools: "Calibrated receiver or scanner, RF Recon", call: "the designer" }, [
+  who: "Our technician, designer", tools: "Calibrated receiver or scanner, DAStastic", call: "the designer" }, [
   q("a", "Does it still fail at the square's centre with a calibrated instrument?", { how: "One test point near each area's centre. For cellular, each carrier and layer on its own.", tool: "Calibrated receiver or scanner", at: "Job > Grid test", src: [A("Grid test"), R("IFC 510.5.4, as cited")], yes: "b", no: "z" }),
   q("b", "How wide is the failure?", { how: "Half-split: if everything is down, look at the booster and donor. If one branch is down, look at the cable. If one pocket is down, look at the building.", src: [P("Half-split")], opts: [{ l: "Whole building", to: "c" }, { l: "One branch or floor", to: "e" }, { l: "One pocket", to: "f" }] }),
   q("c", "Do donor level and booster gain match the commissioning record?", { tool: "Analyzer, BDA software", at: "Job > Commissioning", src: [A("Commissioning record")], yes: "f", no: "c1" }),
@@ -350,7 +350,7 @@ tree("F6", { kind: "fault", scope: "both", title: "Square fails: not enough sign
 tree("F7", { kind: "fault", scope: "e", title: "Good level, bad audio", group: "Coverage",
   see: "Garbled or dropped audio with full bars. The level passes and DAQ, SINR or BER fails. A talk-back call isn't clear.",
   who: "Our technician, radio shop", tools: "IBflex, S412E or similar, agency radios", call: "the radio shop" }, [
-  q("a", "Have you measured SINR, BER or DAQ on that channel?", { how: "DAQ 3.0 equals SINR 18 dB and BER 2.5%. DAQ 3.4 equals SINR 18 dB and BER 2% in RF Recon. The AHJ's figure wins: San Diego and LA County 20 dB and 2%, Durham 17.7 dB and 2.0%.", tool: "IBflex or S412E (the S412E measures BER, not SINR)", at: "Job > Grid test", src: [A("Equivalent defaults"), R("NFPA A.20.3.10, as cited")], yes: "b", no: "a1" }),
+  q("a", "Have you measured SINR, BER or DAQ on that channel?", { how: "DAQ 3.0 equals SINR 18 dB and BER 2.5%. DAQ 3.4 equals SINR 18 dB and BER 2% in DAStastic. The AHJ's figure wins: San Diego and LA County 20 dB and 2%, Durham 17.7 dB and 2.0%.", tool: "IBflex or S412E (the S412E measures BER, not SINR)", at: "Job > Grid test", src: [A("Equivalent defaults"), R("NFPA A.20.3.10, as cited")], yes: "b", no: "a1" }),
   d("a1", "Measure it at the failing point.", { next: "a" }),
   q("b", "Is this a simulcast channel?", { how: "Look for the simulcast mark in Pre-survey.", at: "Job > Pre-survey", src: [A("Simulcast flag")], yes: "F17", no: "c", then: "r" }),
   q("c", "Does it improve with the booster off?", { how: "Only with the radio shop's say-so. This is a weak test: turning the booster off drops indoor signal too, so it separates little. A spur on the analyzer points at oscillation.", src: [P("Weak test")], then: "r", opts: [{ l: "Better, spur on the analyzer", to: "F1" }, { l: "Better, no spur", to: "F4" }, { l: "No better", to: "e" }] }),
@@ -362,7 +362,7 @@ tree("F7", { kind: "fault", scope: "e", title: "Good level, bad audio", group: "
 
 tree("F8", { kind: "fault", scope: "e", title: "Floor fails on count", group: "Coverage",
   see: "Some squares failed and you need to know whether the floor passes.",
-  who: "Our technician, AHJ", tools: "RF Recon", call: "the AHJ" }, [
+  who: "Our technician, AHJ", tools: "DAStastic", call: "the AHJ" }, [
   q("a", "Are any squares untested?", { how: "A floor can't pass with untested squares. The report says Not complete.", at: "Job > Grid test", src: [A("Floor result")], yes: "a1", no: "b" }),
   d("a1", "Test them.", { next: "a" }),
   q("b", "Which rule is this job on?", { how: "Any count but 20 or 40 squares: pick Percent.", at: "Job > Requirements", src: [A("Grid rule")], opts: [{ l: "IFC 20 areas", to: "c" }, { l: "Percent", to: "g" }] }),
@@ -399,9 +399,9 @@ tree("F10", { kind: "fault", scope: "e", title: "Square is too close to call", g
 ]);
 
 tree("F11", { kind: "fault", scope: "e", title: "Supervisory alarm", group: "Power and monitoring",
-  see: "An alarm is open on the BDA, on the panel, or in RF Recon's Monitoring list.",
+  see: "An alarm is open on the BDA, on the panel, or in DAStastic's Monitoring list.",
   who: "Fire alarm technician, our technician", tools: "Panel access, multimeter, BDA software", call: "the fire alarm contractor" }, [
-  q("a", "Which signal is it?", { how: "The eight signals in NFPA 1225 18.14.1.2 and IFC 510.4.2.5. RF Recon reads traps only and never sends SNMP to a BDA. OCSD: this panel is an extra, not the monitoring it approves.", at: "Job > Overview, Monitoring", src: [A("Supervisory signals")],
+  q("a", "Which signal is it?", { how: "The eight signals in NFPA 1225 18.14.1.2 and IFC 510.4.2.5. DAStastic reads traps only and never sends SNMP to a BDA. OCSD: this panel is an extra, not the monitoring it approves.", at: "Job > Overview, Monitoring", src: [A("Supervisory signals")],
     opts: [{ l: "Signal source", to: "F3" }, { l: "Oscillation", to: "F1" }, { l: "Low battery", to: "F13" }, { l: "Charger", to: "F13" }, { l: "AC loss", to: "b" }, { l: "Active RF device or component", to: "c" }, { l: "FACU link", to: "e" }, { l: "It doesn't reach the panel", to: "e" }], then: "z" }),
   x("b", "Find the power fault.", { how: "Check the dedicated circuit and breaker. Battery time is running while you do.", tool: "Multimeter", src: [P()], next: "z" }),
   s("c", "Stop. Call the booster's maker.", { how: "No source gives a fault procedure. Read the alarm text and note it.", who: "Booster's maker", src: [P("No source")] }),
@@ -410,7 +410,7 @@ tree("F11", { kind: "fault", scope: "e", title: "Supervisory alarm", group: "Pow
 ]);
 
 tree("F12", { kind: "fault", scope: "e", title: "BDA has gone quiet", group: "Power and monitoring",
-  see: "RF Recon says a BDA hasn't been heard from.",
+  see: "DAStastic says a BDA hasn't been heard from.",
   who: "Owner's site contact, our technician", tools: "Site access, BDA software", call: "the owner's site contact" }, [
   q("a", "Is the BDA powered up on site?", { how: "Default quiet limit 24 hours. A BDA that goes quiet may have lost power, its network or its monitor.", tool: "Site visit, or the owner's contact", at: "Job > Overview, Monitoring", src: [A("Quiet timer")], yes: "b", no: "F11" }),
   q("b", "Can you reach it on its network?", { how: "Traps come in on SNMP v1 or v2c, UDP port 1162 by default, matched to a job by source address or community.", src: [A("Monitoring")], yes: "c", no: "b1" }),
@@ -431,8 +431,8 @@ tree("F13", { kind: "fault", scope: "e", title: "Battery or charger", group: "Po
 ]);
 
 tree("F14", { kind: "fault", scope: "e", title: "Licence changed under the job", group: "Paperwork",
-  see: "RF Recon's licence watch raised a finding after an FCC data refresh.",
-  who: "Licensee's radio shop", tools: "RF Recon", call: "the radio shop" }, [
+  see: "DAStastic's licence watch raised a finding after an FCC data refresh.",
+  who: "Licensee's radio shop", tools: "DAStastic", call: "the radio shop" }, [
   q("a", "What is the finding?", { how: "Findings: licence gone, status no longer Active, downlink channels dropped, donor site gone, new licensee on a job channel (all high), new licensee in the passband (medium). Expiry within 90 days also shows.", at: "DAS > Board, Needs you", src: [A("Licence watch")],
     opts: [{ l: "Channels or donor changed", to: "b" }, { l: "New licensee", to: "c" }, { l: "Licence ending", to: "e" }, { l: "Licence gone or not Active", to: "b" }] }),
   d("b", "Confirm with the radio shop, then retune and retest.", { how: "Don't change anything from the FCC data alone.", who: "Radio shop", src: [A("Retune and retest")], next: "z" }),
@@ -444,7 +444,7 @@ tree("F14", { kind: "fault", scope: "e", title: "Licence changed under the job",
 
 tree("F15", { kind: "fault", scope: "both", title: "FCC interference notice", group: "Paperwork",
   see: "The owner or integrator receives a notice from the FCC.",
-  who: "Owner, radio shop, Omnyra's lawyer", tools: "RF Recon, spectrum analyzer", call: "the owner and a lawyer" }, [
+  who: "Owner, radio shop, Omnyra's lawyer", tools: "DAStastic, spectrum analyzer", call: "the owner and a lawyer" }, [
   s("a", "Stop. Do not answer it yourself.", { how: "No source gives a response procedure. Tell the owner today. The FCC finds noisy old boosters by direction finding. Example: Hallandale FL, 13 May 2025, a Class A booster at 799 to 805 MHz.", who: "Owner, lawyer", src: [A("Existing-system audit")], next: "b" }),
   d("b", "Run the existing-system audit.", { how: "14 items, including in-band noise cap −43 dBm ERP per 10 kHz, Class B registration, consent, channels outside passbands, age, and the last annual test.", at: "Job > Existing system", src: [A("Existing-system audit"), R("47 CFR 90.219, as cited")], next: "c" }),
   q("c", "Did the audit find a noise or oscillation problem?", { src: [A("Existing-system audit")], then: "z", opts: [{ l: "Noise", to: "F2" }, { l: "Oscillation", to: "F1" }, { l: "Neither", to: "z" }] }),
@@ -475,9 +475,9 @@ tree("F17", { kind: "fault", scope: "e", title: "Simulcast delay (TDI)", group: 
 
 tree("F18", { kind: "fault", scope: "both", title: "Consent or approval is stuck", group: "Paperwork",
   see: "A licensee or carrier hasn't answered, said no, or the radio shop won't allow the noise test.",
-  who: "Owner, licensee or carrier", tools: "RF Recon's letters", call: "the licensee or carrier contact" }, [
+  who: "Owner, licensee or carrier", tools: "DAStastic's letters", call: "the licensee or carrier contact" }, [
   q("a", "Which is it?", { src: [A("Consent statuses")], opts: [{ l: "Public safety licensee", to: "b" }, { l: "Carrier", to: "e" }, { l: "Noise test blocked", to: "h" }] }),
-  q("b", "Is there a known process for this licensee?", { how: "RF Recon lists Michigan MPSCS, Ohio MARCS, California CRIS, Maryland MD FiRST, Broward ORCAT, Douglas County, Fairfax, PSERN and the FirstNet Authority. Some are linked but not marked read. There is no published turnaround.", at: "Job > Overview, Compliance", src: [A("Licensee processes")], yes: "b1", no: "c" }),
+  q("b", "Is there a known process for this licensee?", { how: "DAStastic lists Michigan MPSCS, Ohio MARCS, California CRIS, Maryland MD FiRST, Broward ORCAT, Douglas County, Fairfax, PSERN and the FirstNet Authority. Some are linked but not marked read. There is no published turnaround.", at: "Job > Overview, Compliance", src: [A("Licensee processes")], yes: "b1", no: "c" }),
   d("b1", "Use that process.", { at: "Job > Overview, Compliance", next: "c" }),
   s("c", "Stop. Do not activate. Keep asking, and tell the owner.", { how: "47 CFR 90.219(b)(1) and NFPA 1225 18.7.2 both need consent before activation. The AHJ has no authority to permit rebroadcast on someone else's licence.", who: "Licensee, owner", src: [R("90.219, NFPA 18.7.2, as cited"), E("Cellular research")] }),
   q("e", "Is there a public form?", { how: "T-Mobile: In-Building Telecommunications Agreement. AT&T, Verizon: no public form. FirstNet: makers route a Band 14 request form, and the address is in a maker's manual. A buyer expects a technical submission and written acknowledgment before activation.", src: [E("Cellular research")], yes: "e1", no: "f" }),
@@ -490,7 +490,7 @@ tree("F18", { kind: "fault", scope: "both", title: "Consent or approval is stuck
 
 tree("F19", { kind: "fault", scope: "both", title: "Link budget check is open or red", group: "Booster",
   see: "A row in the job's link budget isn't a pass.",
-  who: "Designer", tools: "RF Recon", call: "the designer" }, [
+  who: "Designer", tools: "DAStastic", call: "the designer" }, [
   q("a", "Which row?", { how: "Open never counts as a pass.", at: "Job > Design, Link budget", src: [A("Link budget checks")],
     opts: [{ l: "Open: needs a number", to: "b" }, { l: "Downlink at far edge", to: "c" }, { l: "Uplink too hot", to: "e" }, { l: "Uplink too low", to: "f" }, { l: "ERP over 37 dBm", to: "g" }, { l: "Noise ERP or noise rise", to: "n" }, { l: "Isolation", to: "i" }, { l: "Headroom", to: "h" }], then: "z" }),
   x("b", "Enter what's missing.", { how: "Roof level, site distance and ERP, receiver sensitivity, or isolation.", at: "Job > Design, Link budget", src: [A("Open checks")], next: "z" }),
@@ -506,7 +506,7 @@ tree("F19", { kind: "fault", scope: "both", title: "Link budget check is open or
 ]);
 
 tree("F20", { kind: "fault", scope: "both", title: "Wrong or unlisted part", group: "Paperwork",
-  see: "RF Recon's parts check shows missing or problem.",
+  see: "DAStastic's parts check shows missing or problem.",
   who: "Our technician, supplier", tools: "Spec sheets", call: "the supplier" }, [
   q("a", "Is the problem only that the field is blank?", { how: "Booster, batteries and annunciators need a UL 2524 listing recorded. Boosters need NEMA 4 or 4X, an FCC ID and a class.", at: "Parts, job Materials", src: [A("Parts code checks")], yes: "a1", no: "b" }),
   x("a1", "Record it from the spec sheet.", { at: "Parts", next: "z" }),
@@ -518,7 +518,7 @@ tree("F20", { kind: "fault", scope: "both", title: "Wrong or unlisted part", gro
 
 tree("F21", { kind: "fault", scope: "both", title: "Report incomplete, late or rejected", group: "Paperwork",
   see: "The report says FAIL or Not complete, the packet has gaps, the AHJ sent it back, or a deadline is close.",
-  who: "Tester, AHJ", tools: "RF Recon", call: "the AHJ" }, [
+  who: "Tester, AHJ", tools: "DAStastic", call: "the AHJ" }, [
   q("a", "Does the report say PASS?", { how: "Not complete means untested squares or carriers.", at: "Job > Report", src: [A("Report")], opts: [{ l: "Yes", to: "b" }, { l: "No, public safety", to: "F8" }, { l: "No, cellular", to: "F6" }] }),
   q("b", "Does the packet index show every item?", { at: "Job > Report, packet index", src: [A("Packet index")], yes: "c", no: "b1" }),
   x("b1", "Fill each gap the index names.", { next: "b" }),
@@ -537,7 +537,7 @@ tree("F22", { kind: "fault", scope: "both", title: "Fiber or remote unit", group
 
 tree("F23", { kind: "fault", scope: "e", title: "A flag on the Pre-survey list", group: "Paperwork",
   see: "Uplink says ask licensee, or the list shows ESMR, Band 14 or simulcast.",
-  who: "Licensee, FirstNet Authority", tools: "RF Recon", call: "the licensee" }, [
+  who: "Licensee, FirstNet Authority", tools: "DAStastic", call: "the licensee" }, [
   q("a", "Which flag?", { at: "Job > Pre-survey", src: [A("Pre-survey flags")], opts: [{ l: "Ask licensee", to: "b" }, { l: "ESMR", to: "c" }, { l: "Band 14", to: "e" }, { l: "Simulcast", to: "F17" }], then: "z" }),
   d("b", "Get the uplink list from the licensee.", { who: "Licensee", src: [A("Uplink column"), R("OCSD intake, as cited")], next: "z" }),
   x("c", "Keep ESMR 862 to 869 MHz out of the booster.", { src: [A("ESMR flag")], next: "z" }),
@@ -549,7 +549,7 @@ tree("F23", { kind: "fault", scope: "e", title: "A flag on the Pre-survey list",
 
 tree("F24", { kind: "fault", scope: "both", title: "AHJ, code edition or amendment unknown", group: "Paperwork",
   see: "You don't know who signs off, which code edition they enforce, or whether they've amended it.",
-  who: "Fire marshal's office, state fire marshal", tools: "RF Recon, a browser, a phone", call: "the state fire marshal's office" }, [
+  who: "Fire marshal's office, state fire marshal", tools: "DAStastic, a browser, a phone", call: "the state fire marshal's office" }, [
   d("a", "Run the AHJ lookup.", { how: "It suggests fire departments from the Census place and county the pin is in. It's a lead, not an answer: the registry names departments, not fire marshal offices, and took no updates after June 2026. In the 11/5 trial it named the wrong office at 2 of 4 places.", at: "Job > Overview, AHJ", src: [A("AHJ guess")], next: "b" }),
   q("b", "Where does the building sit?", { how: "The lookup shows the Census place. Ask the owner if the land is state, federal or tribal.", src: [P()], opts: [{ l: "Inside a city", to: "c" }, { l: "Outside any city", to: "c1" }, { l: "State, federal or tribal", to: "c2" }] }),
   d("c", "Start with the city's fire marshal.", { src: [P()], next: "e" }),
@@ -591,7 +591,7 @@ FI.limits = [
     ["Cellular", "RSRP −95 dBm, SINR 5 dB, 95%", "Common profile. −100 dBm at 3.3 GHz and up. No US carrier publishes a spec."],
   ] },
   { h: "Booster", rows: [
-    ["Isolation", "Gain + 20 dB", "RF Recon warns from +15 to +20 dB. McKinney 15 dB."],
+    ["Isolation", "Gain + 20 dB", "DAStastic warns from +15 to +20 dB. McKinney 15 dB."],
     ["ERP per channel", "37 dBm (5 W)", "47 CFR 90.219(d)(3)(i)."],
     ["Noise ERP", "−43 dBm per 10 kHz", "47 CFR 90.219(d)(6)(ii). Noise figure 9 dB assumed."],
     ["Noise rise at site", "Under 1 dB", "1 dB or more: cut until gone, then 3 dB more. −150 dBm OCSD, San Diego, LA, Santa Clara, −153 dBm Durham and −145 dBm Douglas are calculated limits, on the link budget: thermal noise in 10 kHz is −134 dBm."],
@@ -627,12 +627,12 @@ FI.people = [["Owner", "Pays, gives access and plans, signs."], ["AHJ or fire ma
 FI.gaps = [
   ["Fiber and remote units", "No optical power, OTDR or remote alarm numbers."],
   ["Simulcast delay", "A few AHJ limits, and no way to measure it."],
-  ["Donor too hot", "No overdrive limit, and RF Recon has no check."],
+  ["Donor too hot", "No overdrive limit, and DAStastic has no check."],
   ["Carrier acceptance", "No US carrier publishes in-building numbers, PIM limits or uplink noise limits."],
   ["VHF PIM", "No published test practice or field analyzer. P.1238 has no VHF indoor values."],
   ["Elevators and metal deck", "No measured loss values."],
   ["Turnaround", "No published times from licensees or carriers. Only vendor and press claims."],
-  ["Exterior leakage", "AHJ-specific, and RF Recon doesn't grade it."],
+  ["Exterior leakage", "AHJ-specific, and DAStastic doesn't grade it."],
   ["Fire panel fault finding", "No source covers panel wiring or supervisory troubleshooting."],
   ["Local adoption", "No reliable national list of fire code editions or amendments exists. Trackers disagree. The AHJ's word is the only proof."],
   ["Primary standards", "NFPA 1225 and TSB-88 are paywalled. Every code number here is second-hand, from a named document."],

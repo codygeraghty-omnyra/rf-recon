@@ -9,7 +9,7 @@ The bill of materials past a plain equipment list (11/5, from what a 30-year DAS
   import       an iBwave equipment list, columns found by name
   issue        a dated revision of the list, and what changed since
 
-Sources: a rule cites a row of RF Recon's own research (static/research/rf_parts.json), its code section copied from
+Sources: a rule cites a row of DAStastic's own research (static/research/rf_parts.json), its code section copied from
 there and never typed here. A rule with no such row says so: "Rule of thumb". tests/test_dasbom.py checks every cited row exists.
 """
 import csv

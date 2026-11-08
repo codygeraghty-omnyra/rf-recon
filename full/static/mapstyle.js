@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — the map's look. Standard (the usual map), ATAK style (MIL-STD-2525 style frames for emitters, satellite
+/* DAStastic — the map's look. Standard (the usual map), ATAK style (MIL-STD-2525 style frames for emitters, satellite
    imagery, cyan rings and an MGRS position readout, so it reads like ATAK), or a map you imported: an ATAK / WinTAK
    map source (.xml), a tile address, or an MBTiles offline map. Any map with a tile address goes out to ATAK as a map
    source, so both show the same ground. ATAK itself can't run inside a web page; Send to ATAK takes the data there. */
@@ -68,7 +68,7 @@ function msDialog(){
         <span><b>${esc(m.name)}</b> <span class="hint">${m.kind==="mbtiles"?"MBTiles on this PC":"tile address"} · zoom ${m.min}–${m.max}</span></span>
         <span><button data-use="${esc(msName(m))}">Use</button> ${m.url?`<button data-xml="${esc(m.id)}">⇩ ATAK map source</button> `:""}<button data-rm="${esc(m.id)}">Remove</button></span></div>`).join("")
       : '<p class="hint">None yet.</p>'}</div>
-    <div class="sec"><h3>Send RF Recon's maps to ATAK</h3><p class="hint" style="margin-top:0">A map source file for ATAK / WinTAK / iTAK (Import, then the file), so ATAK shows the same ground as RF Recon.
+    <div class="sec"><h3>Send DAStastic's maps to ATAK</h3><p class="hint" style="margin-top:0">A map source file for ATAK / WinTAK / iTAK (Import, then the file), so ATAK shows the same ground as DAStastic.
       OpenStreetMap's tile servers are for light use: in ATAK, prefer the USGS or Esri maps.</p>
       ${Object.entries(MS_BUILTIN).map(([n])=>`<button data-bxml="${esc(n)}" style="margin:2px">⇩ ${esc(n)}</button>`).join("")}</div>`;
   $("#dlg").showModal();
@@ -82,7 +82,7 @@ function msDialog(){
   $$("#dlgBody [data-rm]").forEach(b => b.onclick = async () => { const r = await post(`/api/basemaps/delete?id=${encodeURIComponent(b.dataset.rm)}`);
     if(BASEMAPS[mapPrefs().base]?.own) mapPrefs().base = "Street (OpenStreetMap)"; msRegister(r.maps); msSave(); msDialog(); });
   $$("#dlgBody [data-xml]").forEach(b => b.onclick = () => { const m = own.find(x=>x.id===b.dataset.xml); msDl(m.name, msXml(m.name, m.url, m.min, m.max)); });
-  $$("#dlgBody [data-bxml]").forEach(b => b.onclick = () => msDl(`RF Recon - ${b.dataset.bxml}`, msXml(`RF Recon - ${b.dataset.bxml}`, MS_BUILTIN[b.dataset.bxml])));
+  $$("#dlgBody [data-bxml]").forEach(b => b.onclick = () => msDl(`DAStastic - ${b.dataset.bxml}`, msXml(`DAStastic - ${b.dataset.bxml}`, MS_BUILTIN[b.dataset.bxml])));
 }
 
 /* ---------- ATAK style: symbol frames (MIL-STD-2525 affiliation shapes) ---------- */

@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: one Intake (Cody 11/5: "dump all forms/files/pdfs/plans/contacts/folder/etc in one location and have it auto scan them to make
+/* DAStastic: one Intake (Cody 11/5: "dump all forms/files/pdfs/plans/contacts/folder/etc in one location and have it auto scan them to make
    sure they're good, then auto distribute them", "for the whole RF Recon app"). Drop anywhere, on any tab: the window takes files, folders,
    zips and old emails; the chip in the header opens the same list. intake.py does the scanning and the filing. This page does two things
    the server can't: it reads each PDF with pdf.js, and it builds a job's checklist, since the AHJ's list and Start's checks live here.
@@ -224,7 +224,7 @@
     return `${line(`Serial ${esc(f.serial)} isn't on your Equipment & people list.${dates ? ` This certificate says ${esc(dates)}.` : ""}`)}<div class="in-firm-acts"><label>What instrument is it?<input data-firm-model value="${esc(f.model || "")}" placeholder="Maker and model" aria-label="What instrument is it"></label><button class="sm primary" data-a="register">Add to the list</button></div></div>`;
   }
   function itemHtml(x) {
-    const where = x.status === "refused" ? "Refused. It's in no job's Files and can't be opened from here. RF Recon clears it after 30 days." : x.dest || (x.job_name ? `For ${x.job_name}` : "");
+    const where = x.status === "refused" ? "Refused. It's in no job's Files and can't be opened from here. DAStastic clears it after 30 days." : x.dest || (x.job_name ? `For ${x.job_name}` : "");
     const top = x.mark ? `<p class="in-mark ${x.status === "refused" ? "bad" : ""}">${esc(x.mark)}</p>` : "";
     return `<article class="in-item in-${esc(x.status)}" data-id="${x.id}" data-batch="${x.batch}" data-name="${esc(x.name)}">
       <div class="in-head"><b class="in-name">${esc(x.name)}</b>${x.kind_label ? `<span class="tag">${esc(x.kind_label)}</span>` : ""}<span class="hint">${kb(x.size)}</span></div>

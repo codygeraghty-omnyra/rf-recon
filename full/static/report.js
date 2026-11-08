@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — Area report: everything licensed around a pin, predicted coverage per band,
+/* DAStastic — Area report: everything licensed around a pin, predicted coverage per band,
    and survey / crowd signals that no FCC licence or allocation explains. */
 
 const NON_FCC = ["captures", "wigle", "opencellid", "repeaterbook", "custom"];

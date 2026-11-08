@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon (beta), full web version: the PC app's own Python server, run in this browser (Pyodide) for the work you
+/* DAStastic (beta), full web version: the PC app's own Python server, run in this browser (Pyodide) for the work you
    keep: missions, captures, the field log, labels, DAS jobs and their files, talk groups, your own layers. shim.js
    starts it the first time one is used, so a plain search never waits for it. Your work is kept in this browser
    (IndexedDB, /rfr) and never sent anywhere; the FCC data is the pack in use. web/webhost.py does the Python side. */
@@ -56,6 +56,6 @@ onmessage = async ({data: m}) => {
     postMessage({id: m.id, ok: true, status, headers, body: buf}, [buf]);
   } catch (e) {
     const lines = String(e && e.message || e).split("\n").filter(l => l.trim() && !l.startsWith("See https://"));
-    postMessage({id: m.id, ok: false, error: lines.slice(-1)[0] || "RF Recon's engine stopped"});
+    postMessage({id: m.id, ok: false, error: lines.slice(-1)[0] || "DAStastic's engine stopped"});
   }
 };

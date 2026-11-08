@@ -1,12 +1,12 @@
 "use strict";
-/* RF Recon: the spec sheet and certificate readers on screen. readers.js does the reading, in the browser, from pdf.js's words (plans.js
+/* DAStastic: the spec sheet and certificate readers on screen. readers.js does the reading, in the browser, from pdf.js's words (plans.js
    pdfRead). Here: each proposal with the words it came from, and the press. Nothing fills without a press, a press fills only an empty field,
    and the value someone typed stays, saved or not. What's been read lives on S.das, so a redraw (render() runs whenever a search lands) keeps it.
    The certificate reader fills the job's own fields (data.testing), and nothing else: the firm register joins at merge.
    Needs core.js, das.js, plans.js (pdfRead), readers.js, fieldref.js (PC_LAB). */
 const RD_PAGES = 12;
 const rdQuote = s => `<q class="rd-src">${esc(s)}</q>`;
-const rdFail = got => got.locked ? "This PDF is locked with a password. RF Recon needs an unlocked copy." : got.broken ? "This PDF is damaged and won't open." : "";
+const rdFail = got => got.locked ? "This PDF is locked with a password. DAStastic needs an unlocked copy." : got.broken ? "This PDF is damaged and won't open." : "";
 async function rdBytes(url) { const r = await fetch(url); if (!r.ok) throw new Error(`That file didn't load (${r.status}).`); return r.arrayBuffer(); }
 
 /* ---------- a spec sheet ---------- */
@@ -24,7 +24,7 @@ window.specReadBox = (box, p, on = {}) => {
         ${p.spec_file ? '<button class="sm" data-rd-kept>Read the sheet kept on this part</button>' : ""}
         <label class="in-up rd-file">${p.spec_file ? "Or read another PDF" : "Read a PDF"}<input type="file" data-rd-file accept=".pdf,application/pdf" hidden></label>
         <span class="hint">Proposes its code fields from its own words. Nothing fills until you press. Reading a PDF here doesn't keep it.</span></div>`}
-      ${!R ? "" : R.fail ? `<p class="status err">${esc(R.fail)}</p>` : R.read.scan ? `<div class="rd" data-rd="scan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">${esc(R.name)} has no words RF Recon can read, so it proposes nothing. Type the fields from the sheet.</p></div>`
+      ${!R ? "" : R.fail ? `<p class="status err">${esc(R.fail)}</p>` : R.read.scan ? `<div class="rd" data-rd="scan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">${esc(R.name)} has no words DAStastic can read, so it proposes nothing. Type the fields from the sheet.</p></div>`
         : `<div class="rd" data-rd="spec"><div class="rd-head"><h5>What ${esc(R.name)} says</h5>${free.length ? `<button class="primary sm" data-rd-all>Fill ${free.length} empty field${free.length === 1 ? "" : "s"}</button>` : ""}</div>
           ${R.read.namesPart === false ? `<p class="rd-w">This sheet never names ${esc(p.part)}. Check it's the right sheet before you use anything from it.</p>` : ""}
           ${keys.length ? keys.map(row).join("") : '<p class="hint" style="margin:4px 0 0">No code field found in its words. Makers lay sheets out differently, so a blank here means it wasn\'t found, not that it isn\'t so.</p>'}</div>`}
@@ -124,7 +124,7 @@ window.dasCertReader = async (el, j, keep) => {
       ${x ? row(f || "expires", f ? RD_TC[f] : "Expires", x, f ? T[f] || document.querySelector(`[data-tc="${f}"]`)?.value?.trim() || "" : "", f ? true : "Pick what it is first.", x.monthOnly ? '<br><span class="hint">It gives a month, so the first of the month is used.</span>' : "") : ""}`; };
   const draw = () => { const c = cur(), out = $("#crOut"); if (!out) return;
     if (!c) { out.innerHTML = ""; return; }
-    out.innerHTML = c.fail ? `<p class="status err">${esc(c.fail)}</p>` : c.read.scan ? `<div class="rd" data-rd="scan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">${esc(c.name)} has no words RF Recon can read, so it proposes nothing.</p></div>`
+    out.innerHTML = c.fail ? `<p class="status err">${esc(c.fail)}</p>` : c.read.scan ? `<div class="rd" data-rd="scan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">${esc(c.name)} has no words DAStastic can read, so it proposes nothing.</p></div>`
       : `<div class="rd" data-rd="cert">${c.read.kind === "cal" ? calView(c) : c.read.kind === "credential" || c.read.expires ? credView(c) : `<p class="rd-say"><b>${esc(c.name)}</b>: no calibration or credential words in it, so it proposes nothing.</p>`}${c.msg ? `<p class="hint" role="status">${esc(c.msg)}</p>` : ""}</div>`; };
   const fillInst = async (c, names) => { const R = c.read, now = (await api(`/api/das/jobs/${j.id}`)).data || {}, T = now.testing || {}, list = [...(T.instruments || [])], k0 = target(c), put = [], at = k0 === "new" ? list.length : k0;
     const vals = {serial: R.serial?.v, cal: R.cal?.v, expires: R.expires?.v, cert: c.name};

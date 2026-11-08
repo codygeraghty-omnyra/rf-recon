@@ -5,7 +5,7 @@ Code check answers, for a job's address: which fire code applies, can an ERCES b
 hold on this jurisdiction, and who at the AHJ confirmed it and when. Nothing here decides for the AHJ: the state table
 (static/research/state_rules.json) is a lead with each row's reading level, and a job isn't checked until a person records
 who confirmed it. No national list of local adoptions exists, and the municipal code sites don't allow robots (ICC's terms
-cover General Code and American Legal), so RF Recon fetches none of them: links() prepares searches a person clicks.
+cover General Code and American Legal), so DAStastic fetches none of them: links() prepares searches a person clicks.
 
 Stage gates: Joe 11/5, "the only way a checklist works it is it's enforced". A move forward is refused until what the stage
 needs is on file. A person can move anyway by giving a reason, which goes in the job's log, because a real job can arrive
@@ -75,7 +75,7 @@ def _slug(s):
 
 
 def links(place, county, state, website=""):
-    """Searches and places to look. A person clicks these: RF Recon doesn't fetch them. A platform link is a guess at the
+    """Searches and places to look. A person clicks these: DAStastic doesn't fetch them. A platform link is a guess at the
     address, and many cities aren't on that platform, so it can come up empty."""
     r = state_row(state) or {}
     name, st = r.get("name") or state or "", (state or "").lower()
@@ -180,7 +180,7 @@ def _open(d, key):
 
 
 def stage_needs(d, stage):
-    """What must be on file to leave a stage. Only what RF Recon can see: a stage's other work is in the fault chart."""
+    """What must be on file to leave a stage. Only what DAStastic can see: a stage's other work is in the fault chart."""
     d = d or {}
     ck, scope = d.get("checks") or {}, das.job_scope(d)
     ps, cell = scope["ps"], scope["cell"]
@@ -191,7 +191,7 @@ def stage_needs(d, stage):
         if not (d.get("ahj") or "").strip():
             out.append(_need("ahj", "The AHJ named", "overview"))
         elif _open(d, "ahj"):
-            out.append(_need("ahj", "The AHJ RF Recon filled in: check it", "overview"))
+            out.append(_need("ahj", "The AHJ DAStastic filled in: check it", "overview"))
         if status(d) != "confirmed":
             out.append(_need("code", "Code check: who at the AHJ confirmed the code, and when", "overview"))
     elif stage == "Pre-survey":
@@ -199,7 +199,7 @@ def stage_needs(d, stage):
             if not (d.get("presurvey") or {}).get("plan"):
                 out.append(_need("plan", "A saved channel plan", "presurvey"))
             elif _open(d, "plan"):
-                out.append(_need("plan", "The channel plan RF Recon filled in: check it", "presurvey"))
+                out.append(_need("plan", "The channel plan DAStastic filled in: check it", "presurvey"))
             if not d.get("profile"):
                 out.append(_need("profile", "The AHJ's requirements picked", "require"))
             if not any((c or {}).get("status") not in (None, "", "not asked") for c in (d.get("consents") or {}).values()):

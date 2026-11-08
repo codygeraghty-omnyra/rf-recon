@@ -1,10 +1,10 @@
 "use strict";
-/* RF Recon — fiber links (job › PIM / sweeps / fiber; Cody 11/6, the mock-up he approved). Each link's loss budget and the
+/* DAStastic — fiber links (job › PIM / sweeps / fiber; Cody 11/6, the mock-up he approved). Each link's loss budget and the
    loss measured with a light source and power meter (OLTS) at 1310 and 1550 nm, graded against the budget and, where given,
    the DAS maker's optical budget. The numbers are the DAS course's (lesson 7.8): a mated connector pair 0.75 dB and a splice
    0.3 dB at most (TIA-568.3-D, via Corning and FOA); the MCF 2023 draft's link loss at 1310 nm, 0.35L + 0.1N + 0.3 dB; a DAS
    maker's own budget (Corning MobileAccess HX: 3 dB; CommScope ION-B: 3 dB remote link); on an analog link 1 dB optical is
-   2 dB RF. An OTDR trace (.sor, Telcordia SR-4731) is kept with its link and goes in the carrier closeout; RF Recon doesn't
+   2 dB RF. An OTDR trace (.sor, Telcordia SR-4731) is kept with its link and goes in the carrier closeout; DAStastic doesn't
    read the trace yet: the reader waits on a real file to be built against.
    Saved as data.fiber = {method: "tia"|"mcf", db_km, links: [{id, name, length_m, pairs, splices, l1310, l1550, maker_db, sor: [file]}]} */
 
@@ -44,7 +44,7 @@ window.dasFiber = (el, j0, save) => {
         <label>Fiber dB/km<input id="fbDk" type="number" step="any" value="${esc(F.db_km??"")}" placeholder="${FB_DEF.db_km}" style="width:80px" title="0.35 dB/km at 1310 nm, as the MCF 2023 draft's formula uses: set the cable's datasheet value"></label><span class="hint" id="fbSum"></span></div>
       <div class="tw"><table class="cm-t" id="fbTable"><thead><tr>${cols.map(([,l])=>`<th>${esc(l)}</th>`).join("")}<th>OTDR trace</th><th>Budget and result</th><th></th></tr></thead><tbody>
       ${F.links.map((l,i)=>`<tr data-link="${i}">${cols.map(([k,,t,w])=>`<td><input data-f="${k}" ${t==="num"?'type="number" step="any" inputmode="decimal"':""} value="${esc(l[k]??"")}" style="width:${w}px"></td>`).join("")}
-        <td style="white-space:normal;min-width:130px">${(l.sor||[]).map(f=>`<div class="hint" style="font-size:11px">${esc(f)}</div>`).join("")}<label class="cm-up" title="An OTDR trace (.sor): kept with this link and in the carrier closeout. RF Recon doesn't read the trace yet.">⇪ .sor<input type="file" data-sor accept=".sor,.SOR" hidden></label></td>
+        <td style="white-space:normal;min-width:130px">${(l.sor||[]).map(f=>`<div class="hint" style="font-size:11px">${esc(f)}</div>`).join("")}<label class="cm-up" title="An OTDR trace (.sor): kept with this link and in the carrier closeout. DAStastic doesn't read the trace yet.">⇪ .sor<input type="file" data-sor accept=".sor,.SOR" hidden></label></td>
         <td data-res class="hint" style="white-space:normal;min-width:200px"></td><td><button data-rm aria-label="Remove this link">✕</button></td></tr>`).join("")}</tbody></table></div>
       <button id="fbAdd" style="margin-top:6px">+ Add a link</button><p class="status" id="fbMsg" style="margin:6px 0 0"></p></div>`;
     wire(); refresh(); };
@@ -60,7 +60,7 @@ window.dasFiber = (el, j0, save) => {
     el.querySelectorAll("tr[data-link] [data-rm]").forEach(b=>b.onclick=()=>{ F.links.splice(+b.closest("tr").dataset.link, 1); draw(); keep(); });
     el.querySelectorAll("tr[data-link] [data-sor]").forEach(inp=>inp.onchange=async()=>{ const f=inp.files[0]; inp.value=""; if(!f) return; const l=F.links[+inp.closest("tr").dataset.link], say=t=>{ const m=el.querySelector("#fbMsg"); if(m) m.textContent=t; };  // after a redraw: the panel's own line
       try{ const r=await api(`/api/das/jobs/${j.id}/files?name=${encodeURIComponent(f.name)}`, {method:"POST", body:await f.arrayBuffer()}), name=(r&&r.name)||f.name;
-        l.sor=[...new Set([...(l.sor||[]), name])]; await keep(); draw(); say(`${name}: kept with ${l.name||"this link"} and in Files. RF Recon doesn't read the trace yet.`); }
+        l.sor=[...new Set([...(l.sor||[]), name])]; await keep(); draw(); say(`${name}: kept with ${l.name||"this link"} and in Files. DAStastic doesn't read the trace yet.`); }
       catch(e){ say(`${f.name}: not saved: ${e.message}`); } }); };
   draw();
 };

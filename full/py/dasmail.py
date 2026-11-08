@@ -1,5 +1,5 @@
 """
-RF Recon mail threads (Cody 11/4): every email RF Recon sends carries a tag in its subject, so the reply files itself:
+DAStastic mail threads (Cody 11/4): every email DAStastic sends carries a tag in its subject, so the reply files itself:
 
   [RFR Q12.2]               request for quote 12, supplier 2      → the quote is read in (sheet or typed prices)
   [RFR P-1a2b3c4d]          a DAS prospect                         → replied / do not contact (CAN-SPAM)
@@ -112,7 +112,7 @@ def account_from(d, old=None):
     if not addr:
         raise ValueError("Enter your email address.")
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,24}", addr):
-        raise ValueError(f"“{addr}” isn't an email address RF Recon can use: check it, or type it in rather than paste it.")
+        raise ValueError(f"“{addr}” isn't an email address DAStastic can use: check it, or type it in rather than paste it.")
     g = mailbox.guess(addr)
     if g["provider"] == "microsoft" and not d.get("imap_host"):
         raise ValueError(g["how"])
@@ -616,7 +616,7 @@ ROLE_LABEL = {"ahj": "AHJ / fire marshal", "owner": "Building owner", "agency": 
 
 
 def people(con, login, job_id=None):
-    """Who can be picked as a recipient (Cody 11/4: pick from RF Recon's contacts, not type addresses): the job's people
+    """Who can be picked as a recipient (Cody 11/4: pick from DAStastic's contacts, not type addresses): the job's people
     by role first, then every contact and supplier with an email, then anyone who replied by mail and isn't saved yet."""
     out, seen = [], set()
 

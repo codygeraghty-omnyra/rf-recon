@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — lists of checkboxes (Cody 11/4): one All / None box on each list (a dash when only some are ticked), the
+/* DAStastic — lists of checkboxes (Cody 11/4): one All / None box on each list (a dash when only some are ticked), the
    count beside it ("3 of 12 done"), and long lists that fold like the map's filters: folded at first, each list
    remembering that you opened it.
      rfChecks(panel, {key, sel, commit, word, fold, head})

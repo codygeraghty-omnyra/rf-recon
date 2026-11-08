@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — a floor plan's own lines, for the DAS wall tools (dswalls.js). Pure: no page needed, so node runs it too
+/* DAStastic — a floor plan's own lines, for the DAS wall tools (dswalls.js). Pure: no page needed, so node runs it too
    (tests/planlines_check.mjs scores it against drawn truth).
    Where the lines come from, best first:
      1. the PDF's vectors (opsToSegments over pdf.js's operator list, with the words from its text layer): exact lines,

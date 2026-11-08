@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon phone app: where a signal probably is, worked out on the phone with no signal. A faithful port of the PC
+/* DAStastic phone app: where a signal probably is, worked out on the phone with no signal. A faithful port of the PC
    app's geo.py: level_fix (levels alone: a grid search over spots and path loss exponents 2-4, SHADOW_DB, the
    chi-square 95% region), bearing_fix with its error_ellipse, combine_fixes, and app.py's mission_hunt (the readings
    on one frequency, the estimate, and which way and how far it is from you). Keep it in step with geo.py:

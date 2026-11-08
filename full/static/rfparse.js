@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — what the frequency box reads. 852.3625 typed in From alone returned 806 rows starting at 10,935 MHz, and 806-824 on
+/* DAStastic — what the frequency box reads. 852.3625 typed in From alone returned 806 rows starting at 10,935 MHz, and 806-824 on
    the default returned nothing because uplinks sit on mobile rows (filter research, 11/5). One box now takes what an RF person
    types: 852.3625 (that channel), 851-869, 851 to 869, 852.3625 ±12.5k, 2.4G, B13, n77, VHF, NPSPAC, or a pasted list of any of
    them. "up", "down" or "both" picks a paired band's side. A land mobile uplink also brings its paired downlink, because that's

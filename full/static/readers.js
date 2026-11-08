@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: what a PDF's own words propose. Three readers: a plan set (its floors, which page is which floor, the scale and the critical
+/* DAStastic: what a PDF's own words propose. Three readers: a plan set (its floors, which page is which floor, the scale and the critical
    areas), a spec sheet (a part's code fields) and a certificate (a calibration certificate's serial and dates, or a credential's expiry).
    Pure: no page needed, so node runs it too (tests/readers_check.mjs reads generated PDFs through the same pdf.js the app ships).
    Rules for everything here:

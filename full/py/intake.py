@@ -81,12 +81,12 @@ KINDS = {
     "plan_set": {"label": "Floor plans", "act": "file"}, "spec_sheet": {"label": "Spec sheet", "act": "file"}, "cal_cert": {"label": "Calibration certificate", "act": "file"},
     "consent": {"label": "Consent letter", "act": "file"}, "rebroadcast": {"label": "Rebroadcast agreement", "act": "file"}, "permit": {"label": "Permit", "act": "file"},
     "ahj_policy": {"label": "AHJ policy or checklist", "act": "file"}, "test_report": {"label": "Test report", "act": "file"},
-    "sealed_report": {"label": "Sealed report from RF Recon", "act": "file"}, "as_built": {"label": "As-built drawings", "act": "file"},
+    "sealed_report": {"label": "Sealed report from DAStastic", "act": "file"}, "as_built": {"label": "As-built drawings", "act": "file"},
     "sealed_drawings": {"label": "Sealed drawings", "act": "file"}, "sequence": {"label": "Sequence of operations", "act": "file"},
     "maintenance": {"label": "Maintenance agreement", "act": "file"}, "b03": {"label": "B-03 certificate", "act": "file"}, "operator_cert": {"label": "Operator certificate", "act": "file"},
     "pass_through": {"label": "Radio shop pass-through document", "act": "file"}, "survey_info": {"label": "RF survey information", "act": "file"},
     "design_approval": {"label": "Design approval", "act": "file"}, "photo": {"label": "Photo", "act": "file"}, "audio": {"label": "Audio", "act": "file"},
-    "email": {"label": "Email", "act": "file"}, "drawing": {"label": "Drawing RF Recon can't read", "act": "file"}, "dxf": {"label": "DXF drawing", "act": "file"},
+    "email": {"label": "Email", "act": "file"}, "drawing": {"label": "Drawing DAStastic can't read", "act": "file"}, "dxf": {"label": "DXF drawing", "act": "file"},
     "equipment": {"label": "Equipment list", "act": "file"}, "document": {"label": "Document", "act": "file"}, "scan": {"label": "Scanned PDF", "act": "file"},
     "contacts": {"label": "Contacts", "act": "fill"},
     "grid": {"label": "Grid test results", "act": "press"}, "sweep": {"label": "Sweep", "act": "press"}, "price_list": {"label": "Price list", "act": "press"},
@@ -95,15 +95,15 @@ KINDS = {
     # these can't be placed from the file alone: the press keeps a copy in Files, and the job's own tab places the readings
     "walk": {"label": "Walk log", "act": "press", "tab": "grid"}, "compass": {"label": "COMPASS report", "act": "press", "tab": "grid"},
     "noise": {"label": "Noise log", "act": "press", "tab": "commission"}, "gain": {"label": "BDA gain table", "act": "press", "tab": "commission"},
-    "job_json": {"label": "RF Recon job", "act": "own", "tab": "das", "home": "DAS, Import jobs"},
+    "job_json": {"label": "DAStastic job", "act": "own", "tab": "das", "home": "DAS, Import jobs"},
     "talkgroups": {"label": "Talk groups", "act": "own", "tab": "map", "home": "the emitter's page: the file doesn't say whose they are"},
     "labels": {"label": "Frequency labels", "act": "own", "tab": "data", "home": "Data & updates, Labels"},
     "opencellid": {"label": "Cell sites (OpenCelliD)", "act": "own", "tab": "cells", "home": "Cell sites, Import"},
     "fcc_grantee": {"label": "FCC grantee list", "act": "own", "tab": "data", "home": "Data & updates, FCC ID"},
     "fcc_grants": {"label": "FCC grant search", "act": "own", "tab": "data", "home": "Data & updates, FCC ID: the file doesn't say what the search was by"},
     "basemap": {"label": "Base map", "act": "own", "tab": "map", "home": "Map style, Add a base map"},
-    "kit": {"label": "RF Recon install kit", "act": "own", "tab": "data", "home": "Data & updates: Intake never installs anything"},
-    "fieldpack": {"label": "Field pack", "act": "own", "tab": "data", "home": "the web version or RF Recon lite, on the device it's for"},
+    "kit": {"label": "DAStastic install kit", "act": "own", "tab": "data", "home": "Data & updates: Intake never installs anything"},
+    "fieldpack": {"label": "Field pack", "act": "own", "tab": "data", "home": "the web version or DAStastic lite, on the device it's for"},
 }
 PRESS_TO_TAB = {k: v["tab"] for k, v in KINDS.items() if v["act"] == "press" and v.get("tab")}
 FIRM_KINDS = {"contacts", "price_list", "pattern", "capture", "layer"}  # need no job
@@ -233,7 +233,7 @@ def sniff(head):
     return "text"
 
 
-PROGRAM = "This is a program. RF Recon doesn't keep programs: they can run on the computer of whoever opens them."
+PROGRAM = "This is a program. DAStastic doesn't keep programs: they can run on the computer of whoever opens them."
 WEB_PAGE = "This is a web page. A web page saved in a job's Files would run as whoever opens it, so it can't go there. Save it as a PDF."
 SVG_PIC = "This is an SVG picture. SVGs can carry code that runs when they're opened, so they can't go in Files. Export it as a PNG or a PDF."
 MACROS = "This Office file carries macros, which are programs inside the document. Save it without them, as .xlsx, .docx or a PDF."
@@ -314,9 +314,9 @@ def _pdf_flags(path, size, out):
     if code is None and re.search(rb"/JS[\s(<\[/]", all_):
         code = b"/JavaScript"
     if code in (b"/JavaScript", b"/RichMedia"):
-        out["refused"] = "This PDF carries code (JavaScript or a media player). RF Recon doesn't keep PDFs with code in them. Ask for a flat copy, or print it to a new PDF."
+        out["refused"] = "This PDF carries code (JavaScript or a media player). DAStastic doesn't keep PDFs with code in them. Ask for a flat copy, or print it to a new PDF."
     elif code:
-        out["refused"] = "This PDF can start another program or pull in data when it's opened. RF Recon doesn't keep those. Ask for a flat copy, or print it to a new PDF."
+        out["refused"] = "This PDF can start another program or pull in data when it's opened. DAStastic doesn't keep those. Ask for a flat copy, or print it to a new PDF."
     m = re.search(rb"/OpenAction\s*(<<.{0,600}?>>|\[.{0,120}?\]|(\d+)\s+(\d+)\s+R)", all_, re.S)
     if m and not out["refused"]:
         body = m.group(1)
@@ -325,7 +325,7 @@ def _pdf_flags(path, size, out):
             body = o.group(1) if o else b""
         act = re.search(rb"/S\s*/([A-Za-z]+)", body)
         if act and act.group(1) not in (b"GoTo",):  # a plain "open at this page" is every other PDF: anything else does something by itself
-            out["refused"] = "This PDF does something by itself when it's opened. RF Recon doesn't keep those. Ask for a flat copy, or print it to a new PDF."
+            out["refused"] = "This PDF does something by itself when it's opened. DAStastic doesn't keep those. Ask for a flat copy, or print it to a new PDF."
     out["pdf_encrypted"] = b"/Encrypt" in plain
     if b"/EmbeddedFile" in all_:
         out["hold"] = "This PDF has another file packed inside it. Open it in a PDF reader and check what that is before it goes on a job."
@@ -352,7 +352,7 @@ def _zip_flags(path, ext, size, out):
     with z:
         infos = z.infolist()
         if len(infos) > ZIP_MEMBERS:
-            out["refused"] = f"This zip holds {len(infos):,} files, over the {ZIP_MEMBERS:,} RF Recon opens. Files packed like that are usually built to swamp whatever opens them."
+            out["refused"] = f"This zip holds {len(infos):,} files, over the {ZIP_MEMBERS:,} DAStastic opens. Files packed like that are usually built to swamp whatever opens them."
             return
         total = sum(i.file_size for i in infos)
         if total > ZIP_TOTAL or (total > 64 * MB and total / max(1, sum(i.compress_size for i in infos)) > ZIP_RATIO):
@@ -373,7 +373,7 @@ def _zip_flags(path, ext, size, out):
             return
         if sub or ext == "kmz":
             if any(i.flag_bits & 1 for i in infos):
-                out["locked"] = "This file is locked with a password. RF Recon needs an unlocked copy."
+                out["locked"] = "This file is locked with a password. DAStastic needs an unlocked copy."
                 return
         out["sub"] = sub or ("kmz" if ext == "kmz" or "doc.kml" in low else "kit" if "kit.json" in low else "archive")
         if sub == "xlsx":
@@ -385,7 +385,7 @@ def _zip_flags(path, ext, size, out):
                 out["corrupt"] = "This workbook is damaged and won't open."
                 return
         if out["sub"] == "archive" and any(i.flag_bits & 1 for i in infos):
-            out["locked"] = "This zip is locked with a password. RF Recon needs an unlocked copy."
+            out["locked"] = "This zip is locked with a password. DAStastic needs an unlocked copy."
 
 
 def _ole(raw):
@@ -470,7 +470,7 @@ def _ole_flags(path, ext, size, out):
     if names & {"_vba_project", "vba", "macros"} or any(k.lower().startswith(("macros/", "_vba_project_cur/", "vba/")) for k in tree):
         out["refused"] = MACROS
     elif "encryptedpackage" in names or "encryptioninfo" in names:
-        out["locked"] = "This Office file is locked with a password. RF Recon needs an unlocked copy."
+        out["locked"] = "This Office file is locked with a password. DAStastic needs an unlocked copy."
     elif ext in ("msi", "msp", "mst"):
         out["refused"] = PROGRAM
 
@@ -519,7 +519,7 @@ def scan_file(name, path, size):
     elif typ == "xml" and re.search(rb"<!DOCTYPE|<!ENTITY", head, re.I):
         out["refused"] = "This file defines its own XML entities, which is how an XML bomb works. It wasn't opened."
     elif typ == "archive":
-        out["hold"] = "This is a RAR or 7z archive, which RF Recon can't open. Save it as a zip."
+        out["hold"] = "This is a RAR or 7z archive, which DAStastic can't open. Save it as a zip."
     return out
 
 
@@ -854,11 +854,11 @@ def recognise(name, path, sc):
     if typ == "mp4":
         return out("document", .6, "It's a video")
     if typ == "dwg" or ext in ("rvt", "ifc") or typ == "ifc":
-        return out("drawing", .95, "A DWG, Revit or IFC drawing", note="RF Recon can't read this format. Keep a PDF of it too, or export a DXF for the Design tab.")
+        return out("drawing", .95, "A DWG, Revit or IFC drawing", note="DAStastic can't read this format. Keep a PDF of it too, or export a DXF for the Design tab.")
     if typ == "sqlite" or ext == "mbtiles":
         return out("basemap" if ext == "mbtiles" else None, .9, "A map tile database" if ext == "mbtiles" else "")
     if ext == "rfpack" or (typ == "gz" and ext == "rfpack"):
-        return out("fieldpack", .95, "An RF Recon field pack")
+        return out("fieldpack", .95, "A DAStastic field pack")
     if typ == "gz":
         return out("opencellid" if re.search(r"cell|mcc|\d{3}", name, re.I) else None, .7, "A gzip file, the way OpenCelliD ships its lists")
     if typ == "zip":
@@ -914,7 +914,7 @@ def recognise(name, path, sc):
                 except ValueError:
                     j = None
                 if isinstance(j, dict) and ("rfrecon_das_job" in j or "rfrecon_das_jobs" in j):
-                    return out("job_json", .98, "An RF Recon job export", note="Files aren't in a job export.")
+                    return out("job_json", .98, "A DAStastic job export", note="Files aren't in a job export.")
                 if isinstance(j, dict) and j.get("type") == "FeatureCollection":
                     return out("layer", .9, "A GeoJSON map layer", points=len(j.get("features") or []))
             if re.search(r"^\s*0\s*\r?\n\s*SECTION", text[:400]) or ext == "dxf":
@@ -936,10 +936,10 @@ def recognise(name, path, sc):
         if sub == "xlsx":
             return out(by_name or "document", .6, "A workbook, its columns not recognised", columns=f.get("columns"), read_error=f.get("read_error"))
         k2, _, why2, _s = word_kind(text[:TEXT_MAX] + " " + name)
-        r = out(k2 or "document", .7 if k2 else .6, f"Words in it: {why2}" if why2 else "Text, not a table RF Recon knows", columns=f.get("columns"))
+        r = out(k2 or "document", .7 if k2 else .6, f"Words in it: {why2}" if why2 else "Text, not a table DAStastic knows", columns=f.get("columns"))
         r["body"] = text[:TEXT_MAX]
         return r
-    return out(None, 0, "", note="RF Recon can't tell what this is.")
+    return out(None, 0, "", note="DAStastic can't tell what this is.")
 
 
 # ---------------------------------------------------------------- the ledger
@@ -1085,7 +1085,7 @@ def _take(con, b, name, rel, tmp, size, sha, ctx, parent=None, grp=None, depth=0
     try:
         sc = scan_file(str(name or base), path, size)
     except Exception as e:
-        sc = {"type": "binary", "sub": "", "refused": None, "locked": None, "problems": [], "virus": NOT_SCANNED, "hold": None, "corrupt": f"RF Recon couldn't read this file ({type(e).__name__})."}
+        sc = {"type": "binary", "sub": "", "refused": None, "locked": None, "problems": [], "virus": NOT_SCANNED, "hold": None, "corrupt": f"DAStastic couldn't read this file ({type(e).__name__})."}
     made = [iid]
     if sc["refused"] or sc["corrupt"] or sc["locked"]:
         return _scanned(con, iid, sc, None, it, b, made)
@@ -1104,7 +1104,7 @@ def _take(con, b, name, rel, tmp, size, sha, ctx, parent=None, grp=None, depth=0
     try:
         r = recognise(base, path, sc)
     except Exception as e:  # damaged in a way no reader expected: said, and on the pile
-        sc["corrupt"] = f"RF Recon couldn't read this file ({type(e).__name__}). It may be damaged."
+        sc["corrupt"] = f"DAStastic couldn't read this file ({type(e).__name__}). It may be damaged."
         r = None
     return _scanned(con, iid, sc, r, it, b, made)
 
@@ -1128,7 +1128,7 @@ def _unzip(con, b, it, path, sc, budget, depth, ctx):
             if i.is_dir() or JUNK.match(base) or "__MACOSX/" in nm:
                 continue
             if budget["files"] <= 0 or budget["bytes"] < i.file_size:
-                sc["problems"].append({"level": "bad", "text": "This zip held too much, so RF Recon stopped unpacking it part way."})
+                sc["problems"].append({"level": "bad", "text": "This zip held too much, so DAStastic stopped unpacking it part way."})
                 break
             budget["files"] -= 1
             budget["bytes"] -= i.file_size
@@ -1200,12 +1200,12 @@ def read_pdf(con, iid, info, ctx):
     f.update(pages=pages, sizes=sizes[:6])
     kind, conf, why, body = None, 0, "", text
     if info.get("locked"):
-        sc["locked"] = "This PDF is locked with a password. RF Recon needs an unlocked copy."
+        sc["locked"] = "This PDF is locked with a password. DAStastic needs an unlocked copy."
     elif info.get("broken"):
         sc["corrupt"] = "This PDF is damaged and won't open."
     else:
         if sc.get("pdf_encrypted"):
-            sc["problems"].append({"level": "info", "text": "This PDF is copy-protected. It opens, but RF Recon couldn't look inside its packed parts for code."})
+            sc["problems"].append({"level": "info", "text": "This PDF is copy-protected. It opens, but DAStastic couldn't look inside its packed parts for code."})
         wide = bool(sizes) and max(max(s) for s in sizes[:12]) >= 1200   # 17 x 11 in and up: drawing sizes, not letters
         letter = bool(sizes) and max(max(s) for s in sizes[:12]) <= 800
         f.update(wide=wide)
@@ -1302,15 +1302,15 @@ def signals(con, it, jobs):
     add = lambda jid, s, why: out.append((jid, s, why)) if jid in by else None  # noqa: E731
     names = " ".join(str(x) for x in (it["name"], it.get("path"), f.get("subject"), f.get("tag")) if x)
     for m in re.finditer(r"\[RFR J(\d+)\b", names):
-        add(int(m.group(1)), CERTAIN, f"Its RF Recon tag: J{m.group(1)}")
+        add(int(m.group(1)), CERTAIN, f"Its DAStastic tag: J{m.group(1)}")
     m = re.match(r"J(\d+)\b", str(f.get("tag") or ""))
     if m:
-        add(int(m.group(1)), CERTAIN, f"Its RF Recon tag: J{m.group(1)}")
+        add(int(m.group(1)), CERTAIN, f"Its DAStastic tag: J{m.group(1)}")
     tag = re.search(r"\bQ(\d+)\.(\d+)\b", str(f.get("tag") or ""))
     if tag:
         r = con.execute("SELECT job_id FROM das_rfq WHERE id=?", (int(tag.group(1)),)).fetchone()
         if r and r["job_id"]:
-            add(r["job_id"], CERTAIN, f"Its RF Recon tag: quote request {tag.group(1)}")
+            add(r["job_id"], CERTAIN, f"Its DAStastic tag: quote request {tag.group(1)}")
     if f.get("seal"):
         add(_seal_job(con, f["seal"]), CERTAIN, f"Verify code {f['seal']} is this job's sealed report")
     for seg in str(it.get("path") or "").replace("\\", "/").split("/") + [it["name"], it.get("grp") or ""]:
@@ -1426,10 +1426,10 @@ def _assess(con, it, job):
         if re.search(r"ul\s*2524.{0,60}(2nd|second)\s+ed", it.get("body") or "", re.I | re.S):
             warn("This sheet cites UL 2524 2nd edition. Listings not updated to the 3rd edition by 2026-03-22 are withdrawn: check the listing.")
     elif k == "consent":
-        C["complete"] = [None, "RF Recon can't tell if it says yes or no"]
-        info("Read it: RF Recon can't tell whether this says yes or no, or whether it's signed.")
+        C["complete"] = [None, "DAStastic can't tell if it says yes or no"]
+        info("Read it: DAStastic can't tell whether this says yes or no, or whether it's signed.")
     elif k in ("permit", "maintenance", "rebroadcast", "sealed_drawings", "design_approval"):
-        info("RF Recon can't tell whether this is signed.")
+        info("DAStastic can't tell whether this is signed.")
     elif k == "photo":
         if job and f.get("lat") is not None and d.get("lat") is not None:
             try:
@@ -1667,7 +1667,7 @@ def _settle(con, it, jobs, sig, drop_job, group_job, ctx, force_job=None):
         _put(con, iid, status="pile", mark=sc["hold"], checks={}, problems=it["problems"], facts=facts)
         return
     if not kind:
-        return pile(facts.get("note") or facts.get("read_error") and f"Couldn't read it: {facts['read_error']}" or "RF Recon can't tell what this is.")
+        return pile(facts.get("note") or facts.get("read_error") and f"Couldn't read it: {facts['read_error']}" or "DAStastic can't tell what this is.")
     info = KINDS[kind]
     if info["act"] == "own":
         return pile(f"{info['label']}: this has its own place. Bring it in on {info['home']}.")

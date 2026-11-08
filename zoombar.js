@@ -1,14 +1,14 @@
 "use strict";
-/* RF Recon — the zoom bar every map gets (Cody 11/4: "next to the + and − zoom buttons at the top of every map, a
+/* DAStastic — the zoom bar every map gets (Cody 11/4: "next to the + and − zoom buttons at the top of every map, a
    button that locks zooming with the mouse wheel, so you can only use + and − when it's locked"; later: "keep mouse
    scroll locked on login by default - but left click hold and scroll works always - have the layers and zoom buttons
    switch sides"). − and + zoom; the lock turns mouse-wheel zoom off on every map at once (the wheel then scrolls the
-   page). It is locked whenever RF Recon opens; unlocking lasts until it's opened again. Locked, holding the left mouse
+   page). It is locked whenever DAStastic opens; unlocking lasts until it's opened again. Locked, holding the left mouse
    button (or Ctrl) while scrolling still zooms, and the click that ends a held zoom doesn't move the pin. Pinch and
    double-tap still zoom. The bar sits top right (the layers button top left). Used by the PC/server/web pages
    (core.js addMapLayers) and the phone app (app.js, hunt.js). Needs Leaflet. */
 (() => {
-  let on = false;  // locked as RF Recon opens (Cody 11/4); nothing remembered, so every sign-in starts locked
+  let on = false;  // locked as DAStastic opens (Cody 11/4); nothing remembered, so every sign-in starts locked
   const maps = new Set(), paints = new Set();
   const apply = m => { if (m.scrollWheelZoom) on || m._rfHeld ? m.scrollWheelZoom.enable() : m.scrollWheelZoom.disable(); };
   function set(v) {
@@ -56,8 +56,8 @@
       paint = () => {
         lock.textContent = on ? "🖱" : "🔒";
         lock.setAttribute("aria-pressed", on ? "false" : "true");
-        const t = on ? "Mouse-wheel zoom is on until RF Recon is opened again. Click to lock it: the wheel then scrolls the page."
-                     : "Mouse-wheel zoom is locked (it always is when RF Recon opens): the wheel scrolls the page. Hold the left mouse button (or Ctrl) and scroll to zoom, or use − and +. Click to let the wheel zoom.";
+        const t = on ? "Mouse-wheel zoom is on until DAStastic is opened again. Click to lock it: the wheel then scrolls the page."
+                     : "Mouse-wheel zoom is locked (it always is when DAStastic opens): the wheel scrolls the page. Hold the left mouse button (or Ctrl) and scroll to zoom, or use − and +. Click to let the wheel zoom.";
         lock.title = t; lock.setAttribute("aria-label", t);
       };
       paint(); paints.add(paint);

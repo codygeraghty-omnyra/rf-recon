@@ -43,7 +43,7 @@ NOTE_WRITE = re.compile(r"^/api/notes(/\d+/(file|sent))?$")  # a new note, its r
 
 SERVER_URL = (os.environ.get("RF_RECON_PUBLIC_URL") or "").rstrip("/")  # set on the 24/7 server: always on, no Tailscale
 # ahj (11/4): an AHJ or radio shop reviewer. It sees only the jobs shared with it by name (dashist.py access lists), in
-# the review page, and can Accept or Return the report with a comment; nothing else in RF Recon answers it.
+# the review page, and can Accept or Return the report with a comment; nothing else in DAStastic answers it.
 ROLES = ("view", "full", "admin", "ahj")
 REVIEW_WRITE = re.compile(r"^/api/das/jobs/\d+/review$")  # a review decision or comment: checked per job (dashist.level)
 AHJ_READ = re.compile(r"^(/review|/api/das/jobs|/api/das/jobs/\d+/(review|file))$")  # all an ahj login reaches, besides /static/
@@ -294,7 +294,7 @@ def refused(method, path, role="view"):
     if method != "GET" and not note_write(method, path) and not writer(role):
         return "Your login is view only." if SERVER_URL else "View only: changes are made on Cody's PC."
     if path.startswith(BLOCKED):
-        return "That part of RF Recon is for the admin." if SERVER_URL else "That part of RF Recon stays on Cody's PC."
+        return "That part of DAStastic is for the admin." if SERVER_URL else "That part of DAStastic stays on Cody's PC."
     return None
 
 
@@ -309,7 +309,7 @@ APP_HEAD = ('<link rel="manifest" href="/static/app/manifest.webmanifest"><meta 
 def login_page(msg="", name=""):
     err = f'<p class="err">{html.escape(msg)}</p>' if msg else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in · RF Recon (beta)</title>{APP_HEAD}
+<title>Sign in · DAStastic (beta)</title>{APP_HEAD}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{{color-scheme:dark;--ink:#f3ece6;--dim:#b9aea6;--accent:#f0a37a;--line:rgba(255,255,255,.14)}}
@@ -329,7 +329,7 @@ button:hover{{filter:brightness(1.08)}}
 .err{{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:rgba(220,80,60,.18);border:1px solid rgba(220,80,60,.4)}}
 .foot{{margin:16px 0 0;color:var(--dim);font-size:13px}}
 </style></head><body><main>
-<h1>RF / RECON <b>BETA</b></h1><p class="sub">{"Sign in to RF Recon." if SERVER_URL else "Cody's RF Recon, view and search only."}</p>
+<h1>DAStastic <b>BETA</b></h1><p class="sub">{"Sign in to DAStastic." if SERVER_URL else "Cody's DAStastic, view and search only."}</p>
 <form method="post" action="/remote/login">
 <label for="n">Name</label><input id="n" name="name" autocomplete="username" required value="{html.escape(name)}" {'' if name else 'autofocus'}>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required {'autofocus' if name else ''}>
@@ -340,7 +340,7 @@ button:hover{{filter:brightness(1.08)}}
 if __name__ == "__main__":  # on the server: make or reset a login without the web page (the first admin)
     import argparse
     import uls_import
-    ap = argparse.ArgumentParser(description="RF Recon logins")
+    ap = argparse.ArgumentParser(description="DAStastic logins")
     ap.add_argument("action", choices=("add", "list", "role", "remove"))
     ap.add_argument("name", nargs="?")
     ap.add_argument("--role", choices=ROLES)

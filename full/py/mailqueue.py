@@ -1,5 +1,5 @@
 """
-Ready to send (Cody 11/4, "Ready-to-send queue"): emails RF Recon writes on its own and lines up for one click each:
+Ready to send (Cody 11/4, "Ready-to-send queue"): emails DAStastic writes on its own and lines up for one click each:
 follow-ups when a tagged email got no reply, retest reminders to the owner, plans requests for jobs with no plans,
 and first emails to prospects queued from the Prospects list. Nothing leaves without the person's click (Send, or
 Send all for a batch). Also the written emails for a job (status to the customer, access to the GC, scope to a
@@ -25,7 +25,7 @@ import dasmail
 FOLLOW_DAYS = 5          # no reply this many days after the last email on a tag: a follow-up
 FOLLOW_MAX = 1           # follow-ups per conversation (prospects: CAN-SPAM-polite, one)
 PROSPECT_BATCH = 50      # first emails queued from the Prospects list at one go
-SEND_PER_HOUR = 150      # Gmail and Workspace limit a mailbox to about 2,000 a day: RF Recon keeps well under
+SEND_PER_HOUR = 150      # Gmail and Workspace limit a mailbox to about 2,000 a day: DAStastic keeps well under
 REMIND_DAYS = (90, 30)   # retest and lifecycle reminders this many days before an item is due, then on the day
 RETEST_DAYS = REMIND_DAYS[0]  # (the annual retest's first reminder; one at 30 days until 11/4)
 OVERDUE_EVERY = 30       # and again every this many days while it's overdue

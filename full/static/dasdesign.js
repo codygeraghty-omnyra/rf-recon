@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — a DAS job's design: the link budget per band (downlink and uplink, with the code and FCC checks), server
+/* DAStastic — a DAS job's design: the link budget per band (downlink and uplink, with the code and FCC checks), server
    antennas and walls on the floor plans with predicted coverage, and battery sizing. The submittal packet (das.js
    Report) prints them with the plans, the bill of materials and the consent letters. Defaults come from the cited
    research (static/research/link_budget.json and the DAS research); every default shows where it came from and can be
@@ -13,7 +13,7 @@ const LB = {
   kTB: bHz => -174 + 10*Math.log10(bHz),
   ft2m: ft => ft*0.3048,
 };
-// built-in defaults that come straight from rules already in RF Recon's research (the DAS research and 47 CFR 90.219);
+// built-in defaults that come straight from rules already in DAStastic's research (the DAS research and 47 CFR 90.219);
 // the link-budget research adds the rest (portable power, body loss, sensitivity, component losses, P.1238 N)
 const LB_BASE = {
   dl_min_dbm: {v: -95, src: "IFC 2021 510.4.1.1 (−95 dBm; IFC 2024 and NFPA 1225 use DAQ 3.0)"},

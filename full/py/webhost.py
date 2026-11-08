@@ -1,4 +1,4 @@
-"""RF Recon (beta), full web version: the PC app's own server (app.py) answering the page's /api/ requests inside the
+"""DAStastic (beta), full web version: the PC app's own server (app.py) answering the page's /api/ requests inside the
 browser (Pyodide, started by pyworker.js), so missions, captures, the field log, labels, DAS jobs, talk groups and your
 own layers work as they do on the PC.
 
@@ -60,7 +60,7 @@ class _Answer(io.BytesIO):
         self.close()
 
 
-def _site(path):  # a file on the RF Recon site, beside the web version (this runs in full/pyworker.js)
+def _site(path):  # a file on the DAStastic site, beside the web version (this runs in full/pyworker.js)
     import js
     return urllib.parse.urljoin(str(js.location.href), path)
 
@@ -80,7 +80,7 @@ def _pskreporter(url):
 
 
 def _urlopen_web(req, *a, **k):
-    """urllib in the browser: PSKReporter through its script reply, SatNOGS from the copy on the RF Recon site (neither lets
+    """urllib in the browser: PSKReporter through its script reply, SatNOGS from the copy on the DAStastic site (neither lets
     a web page read it directly), the rest through the browser; a site that refuses the browser reads as being offline."""
     url = req.full_url if isinstance(req, urllib.request.Request) else str(req)
     host = urllib.parse.urlsplit(url).hostname or ""
@@ -222,7 +222,7 @@ prospects.connect = _prospects_refresh  # every writer to the lists (a refresh, 
 
 
 def _highrises_web(*a, **k):
-    raise ValueError("Find high-rises runs on the PC or server (it reads Overture's building heights with RF Recon's own tools). "
+    raise ValueError("Find high-rises runs on the PC or server (it reads Overture's building heights with DAStastic's own tools). "
                      "Here the high-rises found there come in the next pack made of this area.")
 
 
@@ -249,7 +249,7 @@ def _get_web(url):
     except urllib.error.HTTPError as e:  # it answered, with an error: the link is wrong or gone, not the browser's rules
         raise OSError(f"{u.hostname} answered {e.code}: check the link") from None
     except Exception:
-        raise OSError(f"{u.hostname} doesn't let a web page fetch its files: RF Recon on the PC or server fetches it. "
+        raise OSError(f"{u.hostname} doesn't let a web page fetch its files: DAStastic on the PC or server fetches it. "
                       "Here, open the link, save the file and upload it") from None
     if len(data) > das.SPEC_MAX:
         raise ValueError("the file is over 30 MB")
@@ -277,7 +277,7 @@ try:  # DAS Prospects' "Find email" (contactfind.py, 11/4): it reads the buildin
         out = _contact_find(website, f, max_pages)
         if not out.get("emails") and out.get("pages") and set(out["pages"]) <= set(refused):
             host = urllib.parse.urlsplit(out["pages"][0]).hostname or "The building's website"
-            raise ValueError(f"{host} doesn't let a web page read it, so Find email works from RF Recon on the PC or server. "
+            raise ValueError(f"{host} doesn't let a web page read it, so Find email works from DAStastic on the PC or server. "
                              "Here, open their website and look for a contact address, or call the number shown.")
         return out
     contactfind.find = _contact_find_web

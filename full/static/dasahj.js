@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — the AHJ side of a DAS job's report (lane A, 11/4): the acceptance tests beyond the grid (entered on the Grid
+/* DAStastic — the AHJ side of a DAS job's report (lane A, 11/4): the acceptance tests beyond the grid (entered on the Grid
    test, printed on the report), the AHJ's own packet list checked against the job (static/research/ahj_packets.json,
    printed as the packet index), the tester's statement and signature with the independence statement, the calibration
    certificate register (Overview), and the sealed report: printed as final, the server keeps a SHA-256 of what printed
@@ -229,7 +229,7 @@ function ahjSealList(box, j){
   return api(`/api/das/seal?job=${j.id}`).then(r => { if (!box || !box.isConnected) return; const s = r.seals || [], wait = s[0] && !s[0].file && !s[0].changed ? s[0] : null;
     const where = x => x.packet ? " · PDF in Files and the packet" : x.file && x.changed ? " · PDF left out of the packet" : x.file ? " · PDF in Files" : "";
     box.innerHTML = `${wait ? `<div class="ap-next" id="apNext"><b>Next: file the PDF</b><ol><li>In the print window, pick <b>Save as PDF</b>. The name is filled in for you.</li><li>Drop the saved PDF anywhere on this page, or press Choose the PDF.</li></ol>
-        <p class="hint">RF Recon checks its verify code, <span class="mono">${esc(wait.code)}</span>, then files it on this job, adds it to the AHJ packet and ticks it in the email box. Nothing is sent.</p>${window.intakePick ? `<button class="primary" id="apPdf">Choose the PDF</button>` : ""}</div>` : ""}
+        <p class="hint">DAStastic checks its verify code, <span class="mono">${esc(wait.code)}</span>, then files it on this job, adds it to the AHJ packet and ticks it in the email box. Nothing is sent.</p>${window.intakePick ? `<button class="primary" id="apPdf">Choose the PDF</button>` : ""}</div>` : ""}
       ${s.length ? `<div class="hint" style="margin:6px 2px">Sealed: ${s.slice(0, 6).map(x => `<span class="mono">${esc(x.code)}</span> ${esc(x.at.slice(0, 16))}${where(x)}${x.changed ? ' <b style="color:var(--warn)">job changed since</b>' : ""}`).join(" · ")}${s.length > 6 ? ` · ${s.length - 6} earlier` : ""}</div>` : ""}`;
     const b = box.querySelector("#apPdf"); if (b) b.onclick = () => window.intakePick(j.id); }).catch(() => {});
 }

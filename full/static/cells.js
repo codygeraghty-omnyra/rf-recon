@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — Cell sites: the cells around the pin from the crowd (OpenCelliD, WiGLE) and your own captures, grouped
+/* DAStastic — Cell sites: the cells around the pin from the crowd (OpenCelliD, WiGLE) and your own captures, grouped
    into sites (one eNB / gNB each) with their global cell IDs and sectors, and the FCC-registered tower each most
    likely sits on: its owner, height and the licensees on it. Click a site for its sectors, coverage and tower. */
 
@@ -128,11 +128,11 @@ S.views.cells = async v => {
     cell_lat:c.lat, cell_lon:c.lon, azimuth_est:c.az_est??"", range_m:c.range_m??"", samples:c.samples, last_seen:c.last||"", sources:c.sources.join("; "),
     site_lat:s.lat, site_lon:s.lon, tower_reg:s.tower?.reg||"", tower_owner:s.tower?.owner||"", tower_agl_m:s.tower?.overall_agl_m??"", tower_match_m:s.tower?.match_m??"",
     pci_psc:c.pci??"", bands_licensed_here:(s.bands||[]).join(" ")})));
-  $("#csCsv").onclick=()=>dasDl("RF Recon cell sites.csv", csvOf(flat()), "text/csv");
+  $("#csCsv").onclick=()=>dasDl("DAStastic cell sites.csv", csvOf(flat()), "text/csv");
   $("#csKml").onclick=()=>{ const x=s=>String(s??"").replace(/[<>&'"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
-    dasDl("RF Recon cell sites.kml", `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Cell sites</name>${list.map(s=>
+    dasDl("DAStastic cell sites.kml", `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Cell sites</name>${list.map(s=>
       `<Placemark><name>${x(`${s.operator} ${s.radio} ${s.site_id}`)}</name><description>${x(`${s.cells.map(c=>c.gci).join(", ")}${s.tower?` · tower ${s.tower.reg} ${s.tower.owner||""}`:""}`)}</description><Point><coordinates>${s.lon},${s.lat},0</coordinates></Point></Placemark>`).join("")}</Document></kml>`,
       "application/vnd.google-earth.kml+xml"); };
   $("#csTak").onclick=()=>RFTak.save({rows:list.map(s=>({layer:"opencellid", lat:s.lat, lon:s.lon, label:`${s.operator} ${s.radio} ${s.site_id}`, licensee:s.operator, call_sign:s.plmn,
-    sig_type:s.radio==="NR"?"5G NR":s.radio, freq_mhz:null, dist_mi:s.dist_mi})), center:S.center, radius:S.radius, name:"RF Recon - cell sites", colorOf, typeOf, fccDate:null});
+    sig_type:s.radio==="NR"?"5G NR":s.radio, freq_mhz:null, dist_mi:s.dist_mi})), center:S.center, radius:S.radius, name:"DAStastic - cell sites", colorOf, typeOf, fccDate:null});
 };

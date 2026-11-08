@@ -10,7 +10,7 @@ trap's source address (or the v1 agent address) or its community string, and tag
 signals (NFPA 1225 (2022) 18.14.1.2 and 18.3.2.1, IFC 2021 510.4.2.5) in the code's own words: from the BDA's own map
 (trap or varbind OID -> signal, set in the panel), else the standard SNMP traps, else the words in the trap's text. A
 trap it can't place shows its raw OID until someone maps it. A monitored BDA that sends nothing for its quiet hours
-(default 24) is "not heard from". RF Recon never sends SNMP: no replies to informs, no GET, no SET (remote RF shut-off
+(default 24) is "not heard from". DAStastic never sends SNMP: no replies to informs, no GET, no SET (remote RF shut-off
 is the licensee's, beat-ahead "needs others").
 
 The server's firewall is not opened by this code: the admin opens UDP <port> from the buildings' addresses.
@@ -197,7 +197,7 @@ def _varbinds(b):
 # The message is RFC 3412 6, security is the User-based Security Model (RFC 3414): HMAC-SHA-96 or HMAC-MD5-96 (RFC 3414),
 # HMAC-SHA-2 (RFC 7860), and AES-128 in CFB mode for privacy (RFC 3826). DES privacy isn't read (no DES here, and it's
 # broken). A v3 trap is filed only when its user is set up on a BDA and its key checks out; a v3 inform isn't, because
-# RF Recon never answers the engine discovery an inform needs.
+# DAStastic never answers the engine discovery an inform needs.
 V3_AUTH = {"sha": ("sha1", 12), "sha224": ("sha224", 16), "sha256": ("sha256", 24), "sha384": ("sha384", 32), "sha512": ("sha512", 48),
            "md5": ("md5", 12), "none": (None, 0)}  # name -> (hash, MAC bytes)
 V3_PRIV = ("aes", "none")
@@ -413,7 +413,7 @@ def decode_v3(packet, creds):
         raise BerError("bad v3 scoped PDU")
     ptag, pdu = sp[2]
     if ptag != 0xA7:
-        raise BerError(f"not a v3 trap (PDU 0x{ptag:02x}): informs need engine discovery, which RF Recon never answers")
+        raise BerError(f"not a v3 trap (PDU 0x{ptag:02x}): informs need engine discovery, which DAStastic never answers")
     pf = _items(pdu)
     if len(pf) != 4 or pf[3][0] != 0x30:
         raise BerError("bad v3 trap")

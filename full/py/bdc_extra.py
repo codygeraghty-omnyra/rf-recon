@@ -11,7 +11,7 @@ same key, same bdc.db):
   fixed wireless    who offers licensed, unlicensed and LBR fixed wireless where, and the best advertised speeds,
                     counted per H3 resolution-8 cell from the FCC's location files
 
-Places are H3 resolution-8 cells. RF Recon keeps no H3 library: the carrier hexagons (bdc.py) are resolution 9,
+Places are H3 resolution-8 cells. DAStastic keeps no H3 library: the carrier hexagons (bdc.py) are resolution 9,
 and a resolution-9 cell's parent is a bit operation (parent8), so a spot's cell is the parent of its nearest
 carrier hexagon. Left out on purpose: wired fixed broadband (cable, fiber, copper, satellite), the summaries, the
 raw coverage polygons (about 82 GB), the Funding Map, and Location Fabric points (licensed by CostQuest).

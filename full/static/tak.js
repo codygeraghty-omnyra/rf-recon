@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: ATAK / iTAK / WinTAK export. A TAK data package (a zip with MANIFEST/manifest.xml) holding one
+/* DAStastic: ATAK / iTAK / WinTAK export. A TAK data package (a zip with MANIFEST/manifest.xml) holding one
    Cursor-on-Target marker per site, coloured by its main signal type, with the site's frequencies in the marker's
    remarks; the search pin and ring as KML; and the coverage heatmap as a KMZ ground overlay when one is showing.
    In ATAK: Import, then pick the .zip (or share it to ATAK); WinTAK: drag it onto the map. Shared by the PC app,
@@ -76,7 +76,7 @@ function cot(site, o, now, stale) {
   if (radios.length > 40) lines.push(`+${radios.length - 40} more frequencies here`);
   if (tower) lines.push(`Tower ASR ${tower.reg}: ${[tower.struct_type, tower.overall_agl_m != null ? `${tower.overall_agl_m} m` : "", tower.owner].filter(Boolean).join(", ")}`);
   if (site.dist < 1e9) lines.push(`${site.dist.toFixed(2)} mi ${site.rows[0].compass || ""} of the search pin`);
-  lines.push(`RF Recon (beta) · licensed sites from FCC data${o.fccDate ? ` of ${o.fccDate}` : ""}, not measurements`);
+  lines.push(`DAStastic (beta) · licensed sites from FCC data${o.fccDate ? ` of ${o.fccDate}` : ""}, not measurements`);
   const elev = site.rows.find(r => r.ground_elev_m != null)?.ground_elev_m, uid = `RFRecon.${site.key}`, c = argb(color);
   return {uid, xml: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <event version="2.0" uid="${uid}" type="b-m-p-s-m" time="${now}" start="${now}" stale="${stale}" how="h-g-i-g-o">
@@ -214,7 +214,7 @@ if (btn && typeof filtered === "function") btn.onclick = async () => {
   const fcc = (/FCC data ([\d-]+ [\d:]+)/.exec(document.getElementById("meta")?.textContent || "") || [])[1];
   const area = S.mode === "county" ? `${document.getElementById("county").value || "all counties"} ${document.getElementById("state").value}`
     : S.mode === "nationwide" ? "licence search" : S.center ? `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi` : "area";
-  const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `RF Recon - ${S.mission?.name || area}`,
+  const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `DAStastic - ${S.mission?.name || area}`,
     colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
   if (pkg.how === "cancelled") { st.textContent = "Not sent to ATAK."; return; }
   st.textContent = `${pkg.how === "shared" ? "Sent" : "Saved"} ${pkg.name}: ${pkg.sites.toLocaleString()} sites${pkg.skipped ? ` (the nearest ${pkg.sites.toLocaleString()}; ${pkg.skipped.toLocaleString()} more left out)` : ""}`
@@ -244,11 +244,11 @@ if (push && typeof filtered === "function") push.onclick = async () => {
     }
   }
   const area = S.center ? `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi` : "area";
-  const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `RF Recon - ${S.mission?.name || area}`,
+  const pkg = await save({rows, center: S.mode === "point" ? S.center : null, radius: S.radius, name: `DAStastic - ${S.mission?.name || area}`,
     colorOf, typeOf, fccDate: fcc, heat: S.heat?.kind !== "off" ? S.heatImg : null});
   st.textContent = pkg.how === "cancelled" ? "Not sent to ATAK."
     : pkg.how === "shared" ? `Sent ${pkg.sites.toLocaleString()} sites to the app you picked: ATAK and iTAK import them as they open.`
     : pkg.steps ? `Saved ${pkg.name} to Downloads: the steps to open it in ATAK are on screen.`
-    : `Saved ${pkg.name}. Open it with ATAK or WinTAK (drag it onto the map); live push runs from RF Recon on the PC.`;
+    : `Saved ${pkg.name}. Open it with ATAK or WinTAK (drag it onto the map); live push runs from DAStastic on the PC.`;
 };
 })();

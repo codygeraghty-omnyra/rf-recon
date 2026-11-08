@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: BDA monitoring on a DAS job's Overview (snmpwatch.py, lane D 11/4). The job's BDAs (address, community or an
+/* DAStastic: BDA monitoring on a DAS job's Overview (snmpwatch.py, lane D 11/4). The job's BDAs (address, community or an
    SNMPv3 user (11/6), quiet hours), their open alarms in NFPA 1225 18.14's words, BDAs gone quiet, and the traps as they came in, with a
    way to map a maker's OID to a code signal. The server listens only after an admin switches monitoring on here. */
 (() => {
@@ -62,7 +62,7 @@
       <details style="margin-top:8px"><summary>Why this, and its limits</summary>
         <p class="hint">The code requires the system to send supervisory signals (<a href="${NFPA}" target="_blank" rel="noopener">NFPA 1225 (2022) 18.14.1.2</a>; <a href="${IFC}" target="_blank" rel="noopener">IFC 2021 510.4.2.5</a>): ${st.signals.map(s => `${esc(s.label)} (${esc(s.section)})`).join("; ")}. These go to the fire alarm panel; this panel watches the same signals from the BDA's own SNMP traps, from any maker. A trap with no readable words shows its OID until you map it.</p>
         <p class="hint">OCSD's guideline asks for it: "${esc(st.ocsd.text)}" (<a href="${esc(st.ocsd.source)}" target="_blank" rel="noopener">${esc(st.ocsd.section)}</a>). ${esc(st.ocsd.also)}</p>
-        <p class="hint">RF Recon never sends SNMP to a BDA: no replies to informs, no GET, no SET. Remote RF shut-off stays with the licensee. Alarm emails wait in Mail › Ready to send for a click.</p></details>`;
+        <p class="hint">DAStastic never sends SNMP to a BDA: no replies to informs, no GET, no SET. Remote RF shut-off stays with the licensee. Alarm emails wait in Mail › Ready to send for a click.</p></details>`;
     const redraw = nj => panel(el, nj || j, save);
     const keep = async bl => { const nj = await save({ monitor: { ...M, bdas: bl } }); redraw(nj); };
     const ver = el.querySelector("#mnVer");

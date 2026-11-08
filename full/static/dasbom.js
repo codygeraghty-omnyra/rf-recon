@@ -1,4 +1,4 @@
-/* RF Recon: the bill of materials on a DAS job's Materials tab (11/5). fieldref.js dasMaterials draws the panels and hands
+/* DAStastic: the bill of materials on a DAS job's Materials tab (11/5). fieldref.js dasMaterials draws the panels and hands
    this the job; dasbom.py does the thinking (groups, wrong-part warnings, what's missing, the outputs, the workbook) and
    answers /api/das/jobs/<id>/bomreview. Here: the grouped list, the part number lookup, the three outputs on screen, what's
    missing with one click to add it, the iBwave import, kits, revisions, and the check of a part in someone's hand. */

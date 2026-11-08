@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — the TAK team on our own map (Cody 11/6, the TAK layer he picked). One more overlay in the map's layer menu,
+/* DAStastic — the TAK team on our own map (Cody 11/6, the TAK layer he picked). One more overlay in the map's layer menu,
    "TAK team (this network)": while it's on, the PC listens on the TAK multicast Push to ATAK sends on and draws what ATAK,
    iTAK and WinTAK users share: people as blue dots with their callsign, their markers as small diamonds, a stale one grey.
    Turning the layer off stops the listening (takwatch.py); nothing is kept on disk. The server copy isn't on anyone's local

@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — core: state, search, layers, filters, map, detail. */
+/* DAStastic — core: state, search, layers, filters, map, detail. */
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -353,7 +353,7 @@ function addMapLayers(map){
 
 function drawMap(rows){
   if(typeof L==="undefined"){ $("#map").innerHTML='<p class="status" style="padding:12px">Map library missing.</p>'; return; }
-  if(S.wheelZoom==null) S.wheelZoom=window.rfWheelZoom?rfWheelZoom.on:false;  // locked whenever RF Recon opens (zoombar.js)
+  if(S.wheelZoom==null) S.wheelZoom=window.rfWheelZoom?rfWheelZoom.on:false;  // locked whenever DAStastic opens (zoombar.js)
   const map=L.map("map",{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
   // − / + and the wheel-zoom lock: the shared zoom bar (zoombar.js), added by addMapLayers like every other map
   addMapLayers(map);

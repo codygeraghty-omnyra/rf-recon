@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — DAS jobs: in-building public safety radio (ERCES / ERRCS / BDA / public safety DAS) from lead to annual
+/* DAStastic — DAS jobs: in-building public safety radio (ERCES / ERRCS / BDA / public safety DAS) from lead to annual
    retest. A board of jobs by stage, each job with its building, contacts and compliance dates, a pre-survey from the
    FCC data (agency systems, downlink and uplink channels, donor sites, levels inside), the code requirements, a grid
    test per floor (over the floor plan when there is one), files, a log and a report for the AHJ. Any tool's results
@@ -90,7 +90,7 @@ const DAS_PROFILES = {
     note: "New York City's own system (FDNY Auxiliary Radio Communication System), required in high-rises, underground and buildings over 250,000 sq ft. BC App. Q 24.9: −95 dBm and DAQ 3.4 both ways (outbound at the donor site), 100% critical, 95% general, battery 24 h supervisory then 6 h full load. Grid at most 5% of the testable floor and 1,600 sq ft; no failed grid on consecutive floors. Daily console check, annual certification, 5-year recertification; an FDNY-approved company, a tester with a B-03 certificate and an FCC GROL. Codified rule read 11/5: last amended City Record 9/20/2023, eff. 10/20/2023.",
     source: "https://rules.cityofnewyork.us/wp-content/uploads/2023/04/Notice-of-Adoption-FDNY-Miscellaneous-Rule-Amendments-City-Record.pdf", checked: "read"},
   // 11/4 (lane A): sixteen AHJ policies, each opened and read in full on 2026-11-04. `cite` gives the section for every
-  // number, and says "not stated in …" where the policy gives none (the RF Recon default then applies and says so).
+  // number, and says "not stated in …" where the policy gives none (the DAStastic default then applies and says so).
   // sinr_db / ber_pct: the AHJ's own measured equivalent of DAQ; ul_required: an uplink reading in every square;
   // either: a square passes on its level OR its BER (Denver); adjacent_fail: 2 adjacent failed squares fail the floor
   "San Diego Fire-Rescue C-1 (rev 01/22/2026)": {threshold: -95, daq: 3.4, general_pct: 95, critical_pct: 99, battery_h: 12, grid_rule: "ifc", sinr_db: 20, ber_pct: 2, ul_required: true,
@@ -181,17 +181,17 @@ const DAS_PROFILES = {
     note: "Designs in iBwave 'or comparable'; a report with the floor plan overlaid with spectrum analyzer data (RSSI, SNR, BER) for every permit; cable sweeps; Class A only; UCA retransmit letter first. The policy gives both 'every two years' and 'annual' for recertification.",
     source: "https://fire.slc.gov/wp-content/uploads/2025/03/Salt-Lake-City-ERCES-Policy-March-2025.pdf", checked: "read"},
   "Douglas County CO (DCSORS Rev 2.0)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, grid_rule: "ifc", sinr_db: 20, ber_pct: 2, class_a_only: true, packet: "douglas",
-    tool_lock: "Acceptance and annual tests only by DCSORS or a PCTel-certified vendor with a calibrated IBflex, uploaded to SeeHawk Central (App. F p.21, App. G p.24): RF Recon's results alone won't be accepted.",
-    cite: {threshold: "Step 1, p.5: no dBm pass level (SINR and FER decide; −50 to −95 dBm is design guidance only)", daq: "Step 1, p.5: the SINR / FER rule secures DAQ 3.0", sinr_db: "Step 1, p.5: SINR greater than 20 dB (strictly above; RF Recon passes 20.0)",
+    tool_lock: "Acceptance and annual tests only by DCSORS or a PCTel-certified vendor with a calibrated IBflex, uploaded to SeeHawk Central (App. F p.21, App. G p.24): DAStastic's results alone won't be accepted.",
+    cite: {threshold: "Step 1, p.5: no dBm pass level (SINR and FER decide; −50 to −95 dBm is design guidance only)", daq: "Step 1, p.5: the SINR / FER rule secures DAQ 3.0", sinr_db: "Step 1, p.5: SINR greater than 20 dB (strictly above; DAStastic passes 20.0)",
       ber_pct: "Step 1, p.5: FER less than 2.0% ((frame) bit error rate; enter it as BER)", ul_required: "not stated per square: uplink is a near / far test per floor at the donor site (App. F, p.22)", general_pct: "Step 1, p.5", critical_pct: "Step 1, p.5",
       battery_h: "not stated in the DCSORS guidelines", grid_rule: "Step 1, p.5: grid size per the fire code, 12 samples per grid; no failure rule stated, so the IFC rule applies"},
     note: "Class A only; FirstNet filtered out; uplink gain +65 dB at most; noise at the donor site −145 dBm / 10 kHz; the five-year grid runs with the BDA on and off.",
     source: "https://dcsheriff.net/documents/derces-implementation-guidelines.pdf/", checked: "read"},
 };
-// where a number comes from when the profile gives none: RF Recon's defaults, each with its basis
-const DAS_DEFAULT_SRC = {threshold: "RF Recon default: IFC 2021 510.4.1.1, −95 dBm", daq: "RF Recon default: NFPA 1225 18.8 / IFC 510.4.1, DAQ 3.0",
-  general_pct: "RF Recon default: NFPA 1225 18.8.4, 95%", critical_pct: "RF Recon default: NFPA 1225 18.8, 99%", battery_h: "RF Recon default: NFPA 1225 18.13.2 / IFC 510.4.2.3, 12 h",
-  grid_rule: "RF Recon default: IFC 510.5.4", ul_required: "RF Recon default: off (uplink scored where it was read)"};
+// where a number comes from when the profile gives none: DAStastic's defaults, each with its basis
+const DAS_DEFAULT_SRC = {threshold: "DAStastic default: IFC 2021 510.4.1.1, −95 dBm", daq: "DAStastic default: NFPA 1225 18.8 / IFC 510.4.1, DAQ 3.0",
+  general_pct: "DAStastic default: NFPA 1225 18.8.4, 95%", critical_pct: "DAStastic default: NFPA 1225 18.8, 99%", battery_h: "DAStastic default: NFPA 1225 18.13.2 / IFC 510.4.2.3, 12 h",
+  grid_rule: "DAStastic default: IFC 510.5.4", ul_required: "DAStastic default: off (uplink scored where it was read)"};
 // the per-AHJ fields a preset carries into the job (DAS_PROFILE_NUMS stays as it was: it matches pre-11/4 jobs to presets)
 const DAS_PROFILE_AHJ = ["sinr_db", "ber_pct", "ul_required", "either", "adjacent_fail", "third_party", "packet", "tool_lock", "cite"];
 const DAS_PROFILE_ALIASES = {"IFC 2021 + NFPA 1225": "IFC 2021 (refs NFPA 1221): −95 dBm + DAQ 3.0", "Seattle SFC 510 (2018) + CAM 5123": "Seattle SFC 510 (2021) + CAM 5123", "Denver Policy 510-1 (02/01/2018)": "Denver Fire Code 2025 + Policy 510-1 (02/01/2018)"};  // the name until 11/4 (R2 C-2)
@@ -330,10 +330,10 @@ S.views.das = async v => {
       <button class="primary" id="dsNew">+ New job</button>${S.me?.course?'<a class="hbtn" id="dsCourse" href="/course" target="_blank" rel="noopener" style="text-decoration:none">DAS course ↗</a>':""}
       <div class="seg" id="dsView">${[["board","Board"],["list","List"],["contacts","Contacts"],["register","Equipment & people"],["prospects","Prospects"],["pitch","Pitch"],["mail",window.rfMail?.ready_n?`Mail · ${rfMail.ready_n}`:"Mail"],["fault","Fault chart"],["data","Data & links"]].map(([k,l])=>`<button data-v="${k}" class="${D.view===k?"on":""}">${l}</button>`).join("")}</div>
       <label class="inl" title="Filters the board, and searches everything in DAS: every field in every job (readings, channels, notes), contacts, the log, job files and the DAS research">Find <input id="dsQ" value="${esc(D.q)}" placeholder="search all DAS data: jobs, readings, channels, contacts, files, code rules" style="width:330px"></label>
-      <label class="inl" title="A job exported from RF Recon (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
+      <label class="inl" title="A job exported from DAStastic (JSON)">Import job <input type="file" id="dsImpJob" accept=".json"></label>
       <button id="dsExpCsv">⇩ Jobs CSV</button><button id="dsExpJson">⇩ All jobs JSON</button>${window.dasVerifyBox?'<button id="dsVerifyBtn" title="Paste a sealed report\'s verify code: what was sealed, and whether the job changed since">Verify a report</button>':""}
       <span class="hint">${(D.folder||"").startsWith("/rfr/") ? "Files for each job are kept in this browser."  /* the web version (web/webhost.py) */
-        : S.me ? "Files for each job are kept on the RF Recon server: open them from the job's Files."  /* a signed-in login never sees the server's folders (11/3) */
+        : S.me ? "Files for each job are kept on the DAStastic server: open them from the job's Files."  /* a signed-in login never sees the server's folders (11/3) */
         : `Files for each job are kept in <span class="mono">${esc(D.folder||"")}</span>.`}</span></div>
     <p style="margin:2px 2px 10px"><b>${D.jobs.length} job${D.jobs.length===1?"":"s"}</b>${nNeed?` · <b style="color:var(--warn)">${nNeed} need${nNeed===1?"s":""} you</b>`:" · nothing waiting on you"}</p>
     ${nNeed?`<div class="panel" id="dsNeed"><h3>Needs you</h3>${need.map(([j,t,,x],i)=>`<div class="row${i>=8?" need-more":""}" style="${i>=8&&!S.das.needAll?"display:none;":""}justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid var(--line)"><span><b>${esc(j.name)}</b> <span class="hint">${esc(j.stage)}</span> · ${esc(t)}${x?.url?` <a class="hint" href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.source)}">source</a>`:""}</span>${x?.reply?`<span data-rprow="${x.reply.id}" style="display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:auto">${window.dasReplyBtns?.(x.reply)||""}<button data-open="${j.id}">Open</button></span><div data-rpbox="${x.reply.id}" style="flex:1 1 100%;min-width:0"></div>`:x?.firm&&x?.fold?`<button data-firm-open>Open the list</button>`:`<span class="row" style="gap:6px;margin-left:auto">${x?.move?`<button class="primary" data-move="${j.id}" data-to="${esc(x.move)}" title="Nothing moves until you press this. The gate checks it again">Move to ${esc(x.move)}</button>`:""}<button data-open="${j.id}">Open</button></span>`}</div>`).join("")}
@@ -390,12 +390,12 @@ S.views.das = async v => {
   $("#dsNew").onclick=async e=>{ const b=e.currentTarget; if(b.disabled) return; b.disabled=true;  // one press, one job (a double click made two, 11/3)
     try{ const p=parseLoc($("#loc").value); const j=await post("/api/das/jobs",{name:"New job",stage:"Lead",data:p?{lat:p[0],lon:p[1]}:{}}); D.job=j.id; D.sub="overview"; render(); }
     catch(err){ b.disabled=false; dasSay("The job wasn't made: "+err.message); } };
-  $("#dsExpCsv").onclick=()=>dasDl("RF Recon DAS jobs.csv", csvOf(D.jobs.map(j=>({id:j.id,name:j.name,stage:j.stage,address:j.address,lat:j.lat,lon:j.lon,ahj:j.ahj,client:j.client,
+  $("#dsExpCsv").onclick=()=>dasDl("DAStastic DAS jobs.csv", csvOf(D.jobs.map(j=>({id:j.id,name:j.name,stage:j.stage,address:j.address,lat:j.lat,lon:j.lon,ahj:j.ahj,client:j.client,
     next_step:j.next_step,due:j.due,floors:Array.isArray(j.floors)?j.floors.length:"",accepted_on:j.accepted_on,retest_due:j.retest_due,...Object.fromEntries(DAS_CHECKS.map(([k])=>[k,(j.checks||{})[k]||""])),updated_at:j.updated_at}))), "text/csv");
   $("#dsExpJson").onclick=async()=>{ const full=[]; for(const j of D.jobs) full.push(await api(`/api/das/jobs/${j.id}`));
-    dasDl("RF Recon DAS jobs.json", JSON.stringify({rfrecon_das_jobs:1, exported:new Date().toISOString(), jobs:full.map(({id,log,...x})=>x)},null,1), "application/json"); };
+    dasDl("DAStastic DAS jobs.json", JSON.stringify({rfrecon_das_jobs:1, exported:new Date().toISOString(), jobs:full.map(({id,log,...x})=>x)},null,1), "application/json"); };
   $("#dsImpJob").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const j=JSON.parse(await f.text()); const list=j.jobs||[j];
-      for(const x of list) await post("/api/das/jobs",{name:x.name||"Imported job",stage:x.stage||"Lead",data:x.data||{}}); render(); }catch(err){ alert("That file isn't an RF Recon job: "+err.message); } };
+      for(const x of list) await post("/api/das/jobs",{name:x.name||"Imported job",stage:x.stage||"Lead",data:x.data||{}}); render(); }catch(err){ alert("That file isn't a DAStastic job: "+err.message); } };
 };
 
 /* ---------- data and links: what DAS work reads, what to download, where the codes and lookups are ---------- */
@@ -425,18 +425,18 @@ const DAS_LINKS = [
   ["FCC lookups", [["ULS licence search", "https://wireless2.fcc.gov/UlsApp/UlsSearch/searchLicense.jsp", "Any licence by call sign, name, frequency or area"],
     ["Antenna structure (ASR) search", "https://wireless2.fcc.gov/UlsApp/AsrSearch/asrRegistrationSearch.jsp", "Towers by registration, owner or location"],
     ["Equipment authorization (FCC ID) search", "https://apps.fcc.gov/oetcf/eas/reports/GenericSearch.cfm", "A device's grant: frequencies, power, test reports (Data & updates, Look up an FCC ID, links here)"],
-    ["National Broadband Map", "https://broadbandmap.fcc.gov/", "Carriers' modelled coverage: RF Recon's Carrier coverage heatmap (your own free FCC key)"],
+    ["National Broadband Map", "https://broadbandmap.fcc.gov/", "Carriers' modelled coverage: DAStastic's Carrier coverage heatmap (your own free FCC key)"],
     ["Signal boosters (FCC)", "https://www.fcc.gov/wireless/bureau-divisions/mobility-division/signal-boosters", "Rules, classes, how to register"],
     ["Class B booster registration and list", "https://signalboosters.fcc.gov/", "Register a Class B booster; search registered ones (refuses scripted downloads; was down for maintenance 2026-10-28)"]]],
   ["Planning and agencies", [["CAPRAD", "https://caprad.org/", "700 / 800 MHz public safety regional planning and channel assignments"],
     ["NPSTC", "https://www.npstc.org/", "Channel naming, interoperability, in-building reports"],
-    ["RadioReference database", "https://www.radioreference.com/db/", "Systems, sites and talk groups (look up there; RF Recon only links to it)"],
+    ["RadioReference database", "https://www.radioreference.com/db/", "Systems, sites and talk groups (look up there; DAStastic only links to it)"],
     ["FirstNet Authority", "https://www.firstnet.gov/", "Holds the Band 14 licence (AT&T runs the network); the Band 14 retransmit request goes to FirstNetSpectrum.Manager@firstnet.gov (makers' manuals)"],
     ["Safer Buildings Coalition", "https://www.saferbuildings.org/", "Industry guidance, AHJ resources"]]],
   ["Bulk downloads", [["USGS National Map downloader", "https://apps.nationalmap.gov/downloader/", "3DEP elevation and building data, by area"],
-    ["AWS Terrain Tiles", "https://registry.opendata.aws/terrain-tiles/", "The terrain RF Recon uses (free, no account)"],
+    ["AWS Terrain Tiles", "https://registry.opendata.aws/terrain-tiles/", "The terrain DAStastic uses (free, no account)"],
     ["Microsoft US building footprints", "https://github.com/microsoft/USBuildingFootprints", "Every US building outline, by state (large)"],
-    ["OpenStreetMap", "https://www.openstreetmap.org/copyright", "Building outlines RF Recon fetches per job (ODbL)"]]],
+    ["OpenStreetMap", "https://www.openstreetmap.org/copyright", "Building outlines DAStastic fetches per job (ODbL)"]]],
 ];
 // the research sets beside DAS-ERCES in Drive (docs/research, built by build_field_research.py): name, folder id, what it holds
 const DAS_RESEARCH = [["PIM", "1baexagIqzgUM9fdpTeNfJ2UcB8dImiko", "limits, checklists, procedures, torque"],
@@ -514,8 +514,8 @@ function dasContacts(el){
     try{ await post("/api/das/contacts", d); render(); }catch(e){ dasSay("The contact wasn't saved: "+e.message); } };  // a refusal shows (11/3)
   $("#dcImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const r=await api(`/api/das/contacts/import?name=${encodeURIComponent(f.name)}`,{method:"POST",body:await f.arrayBuffer()});
       $("#dcMsg").textContent=`${r.found} found, ${r.added} added (the rest were already here).`; setTimeout(render,900); }catch(err){ $("#dcMsg").textContent="Import: "+err.message; } };
-  $("#dcCsv").onclick=()=>dasDl("RF Recon contacts.csv", csvOf(cs.map(({id,updated_at,...c})=>c)), "text/csv");
-  $("#dcVcf").onclick=()=>dasDl("RF Recon contacts.vcf", cs.map(c=>["BEGIN:VCARD","VERSION:3.0",`FN:${c.name||c.org}`,c.org?`ORG:${c.org}`:"",c.role?`TITLE:${c.role}`:"",c.phone?`TEL:${c.phone}`:"",c.email?`EMAIL:${c.email}`:"",c.notes?`NOTE:${c.notes.replace(/\n/g,"\\n")}`:"","END:VCARD"].filter(Boolean).join("\r\n")).join("\r\n")+"\r\n", "text/vcard");
+  $("#dcCsv").onclick=()=>dasDl("DAStastic contacts.csv", csvOf(cs.map(({id,updated_at,...c})=>c)), "text/csv");
+  $("#dcVcf").onclick=()=>dasDl("DAStastic contacts.vcf", cs.map(c=>["BEGIN:VCARD","VERSION:3.0",`FN:${c.name||c.org}`,c.org?`ORG:${c.org}`:"",c.role?`TITLE:${c.role}`:"",c.phone?`TEL:${c.phone}`:"",c.email?`EMAIL:${c.email}`:"",c.notes?`NOTE:${c.notes.replace(/\n/g,"\\n")}`:"","END:VCARD"].filter(Boolean).join("\r\n")).join("\r\n")+"\r\n", "text/vcard");
 }
 
 /* ---------- one job ---------- */
@@ -546,7 +546,7 @@ async function dasJob(v, id){
   $("#djName").onchange=async e=>{ await post(`/api/das/jobs/${id}`,{name:e.target.value}); };
   $("#djStage").onchange=e=>window.dasMoveStage(id,e.target.value,()=>render());  // a move forward needs what the stage needs, or a reason (codecheck.py)
   $("#djSub").onclick=e=>{ const b=e.target.closest("button"); if(b){ D.sub=b.dataset.s; render(); } };
-  $("#djExp").onclick=()=>{ const {id:_,log,...x}=j; dasDl(`${fileSafe(j.name)} (RF Recon job).json`, JSON.stringify({rfrecon_das_job:1,...x},null,1), "application/json"); };
+  $("#djExp").onclick=()=>{ const {id:_,log,...x}=j; dasDl(`${fileSafe(j.name)} (DAStastic job).json`, JSON.stringify({rfrecon_das_job:1,...x},null,1), "application/json"); };
   $("#djDel").onclick=async()=>{ if(!confirm(`Delete “${j.name}”? ${S.me||(S.das?.folder||"").startsWith("/rfr/")?"Its files are kept on this copy.":"Its files stay in the Drive folder."}`)) return; await post(`/api/das/jobs/${id}/delete`); D.job=null; render(); };
   const body=$("#djBody");
   if(D.sub==="fault"&&window.dasFaultChart) return window.dasFaultChart(body, {job:j});
@@ -574,7 +574,7 @@ function dasOverview(el, j, save){
       <div class="row" style="margin-top:6px"><label class="grow">AHJ (jurisdiction)<input data-k="ahj" value="${esc(d.ahj||"")}" placeholder="e.g. Arlington County Fire Marshal"></label>
         <label class="grow">Code basis<input data-k="code" value="${esc(d.code||"IFC 510 + NFPA 1225")}" placeholder="IFC 2024 510, NFPA 1225 2022, local amendments"></label></div>
       <div id="doAhjX"></div>
-      <div class="row" style="margin-top:6px"><label class="grow" title="What you type here shows on the board, in place of what RF Recon works out">Next step<input data-k="next_step" value="${esc(d.next_step||"")}" placeholder="${esc(j.standing?.worked?.text||"")}"></label><label>Due<input data-k="due" type="date" value="${esc(d.due||"")}"></label>
+      <div class="row" style="margin-top:6px"><label class="grow" title="What you type here shows on the board, in place of what DAStastic works out">Next step<input data-k="next_step" value="${esc(d.next_step||"")}" placeholder="${esc(j.standing?.worked?.text||"")}"></label><label>Due<input data-k="due" type="date" value="${esc(d.due||"")}"></label>
         <label>Value ($)<input data-k="value" type="number" value="${d.value??""}" style="width:110px"></label></div></div>
     <div class="panel"><h3>Compliance <span class="hint">· a date means done${dasCellOnly(d)?"; a cellular job: the carriers' approvals are under Pre-survey":""}</span></h3>
       ${dasChecksFor(dasCellOnly(d)).map(([k,l])=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:4px 0"><span>${ck[k]?"✅":"⬜"} ${esc(l)}</span><input type="date" data-ck="${k}" value="${esc(ck[k]||"")}"></div>`).join("")}
@@ -1005,7 +1005,7 @@ async function dasPresurvey(el, j, save){
   const takRows=()=>{ const aims=new Map(); for(const s of (inc.size?chosen:r.systems)){ const a=dasAim(d, s, r, ps); if(a) aims.set(`${s.call_sign}|${a.st.lat},${a.st.lon}`, a); }
     return siteRows().map(x=>{ const a=aims.get(`${x.call_sign}|${x.lat},${x.lon}`);
       return a?{...x, licensee:`${x.licensee} · donor: aim ${dasDeg(a.true_deg)} true${a.mag_deg!=null?` / ${dasDeg(a.mag_deg)} magnetic`:""}${a.elev!=null?`, ${a.elev>=0?"+":""}${num(a.elev,1)}° up`:""} from the roof`}:x; }); };
-  $("#psTak").onclick=()=>RFTak.save({rows:takRows(), center:[d.lat,d.lon], radius:P.radius, name:`RF Recon - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
+  $("#psTak").onclick=()=>RFTak.save({rows:takRows(), center:[d.lat,d.lon], radius:P.radius, name:`DAStastic - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
     outline:d.building?.outline?{name:`${j.name} outline`, points:d.building.outline}:null});
   if(typeof L!=="undefined"){ const map=L.map("psMap",{preferCanvas:true}); addMapLayers(map); L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name}).addTo(map);
     if(d.building?.outline) L.polygon(d.building.outline,{color:"#f0a020", weight:2, fillOpacity:.15}).bindTooltip(dasBuildingLine(d.building)).addTo(map);
@@ -1025,7 +1025,7 @@ async function dasPresurvey(el, j, save){
 const dasRuleText = rule => rule==="pct"
   ? `judged by percentage: ${DASJ.general_pct}% of general and ${DASJ.critical_pct}% of critical squares pass on each floor, exact (94.7% is not 95%)`
   : `IFC 510.5.4: ${DAS.grids} areas per floor; more than 1 failed area fails the floor. With exactly 2 failed, the floor may be re-divided into 40 areas and then passes with no more than 2 failed areas, none sharing an edge with another; failing that, the system is altered to reach 95%. Critical squares and named critical areas also meet ${DASJ.critical_pct}%`;
-// each number the job is judged by, with where it comes from: the AHJ's section, "typed for this job", or RF Recon's
+// each number the job is judged by, with where it comes from: the AHJ's section, "typed for this job", or DAStastic's
 // default and its basis (a preset that doesn't state a number says "not stated in …" beside the default)
 function dasProfileSources(){
   const c=DASJ.cite||{}, E=daqEq(), src=k=>{ const own=c[k]&&!/^not stated|^cleared/.test(c[k]); return own?c[k]:[DAS_DEFAULT_SRC[k], c[k]].filter(Boolean).join(" · "); };
@@ -1038,7 +1038,7 @@ function dasProfileSources(){
 function dasRequire(el, j, save){
   const d=j.data||{}, req=d.require||{}, prof=d.profile||{}, pre=dasPreset(prof), P=pre?pre[1]:null;
   const rows=[["Signal at each test location", DASJ.threshold==null?"No dBm floor (DAQ decides)":`≥ ${DASJ.threshold} dBm downlink (uplink too where the AHJ asks)`],
-    ["Audio quality", `DAQ ≥ ${DASJ.daq} downlink and uplink; design to 3.4. Measured equivalent: SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}% (${daqEq().sinr_ahj?"the AHJ's figure":"RF Recon's default: no AHJ figure"})`],
+    ["Audio quality", `DAQ ≥ ${DASJ.daq} downlink and uplink; design to 3.4. Measured equivalent: SINR ≥ ${daqEq().sinr} dB with BER ≤ ${daqEq().ber}% (${daqEq().sinr_ahj?"the AHJ's figure":"DAStastic's default: no AHJ figure"})`],
     ["Uplink", DASJ.ul_required?"An uplink reading in every square: a square with only a downlink reading is untested":"Scored where it was read; a square without one isn't held back"],
     ["Coverage", `${DASJ.general_pct}% of general areas and ${DASJ.critical_pct}% of critical areas, each floor`],
     ["Grid test", `${dasRuleText(DASJ.grid_rule)}. One test point near each area's centre; areas 20–80 ft across; floors over 128,000 sq ft split into sectors`],
@@ -1061,8 +1061,8 @@ function dasRequire(el, j, save){
         <label>General %<input id="pf_general_pct" type="number" value="${DASJ.general_pct}" style="width:64px"></label><label>Critical %<input id="pf_critical_pct" type="number" value="${DASJ.critical_pct}" style="width:64px"></label>
         <label>Battery h<input id="pf_battery_h" type="number" value="${DASJ.battery_h}" style="width:64px"></label>
         <label title="How each floor's grid is judged">Grid rule <select id="pf_grid_rule"><option value="ifc" ${DASJ.grid_rule!=="pct"?"selected":""}>IFC 510.5.4 failed areas</option><option value="pct" ${DASJ.grid_rule==="pct"?"selected":""}>Percentages only (NFPA)</option></select></label></div>
-      <div class="row" style="margin-top:6px;align-items:end"><label title="The AHJ's measured equivalent of DAQ. Empty: RF Recon's default for the DAQ above">SINR ≥ dB<input id="pf_sinr_db" type="number" step="0.1" value="${DASJ.sinr_db??""}" placeholder="${daqEq().sinr}" style="width:72px"></label>
-        <label title="Empty: RF Recon's default for the DAQ above">BER ≤ %<input id="pf_ber_pct" type="number" step="0.1" value="${DASJ.ber_pct??""}" placeholder="${daqEq().ber}" style="width:72px"></label>
+      <div class="row" style="margin-top:6px;align-items:end"><label title="The AHJ's measured equivalent of DAQ. Empty: DAStastic's default for the DAQ above">SINR ≥ dB<input id="pf_sinr_db" type="number" step="0.1" value="${DASJ.sinr_db??""}" placeholder="${daqEq().sinr}" style="width:72px"></label>
+        <label title="Empty: DAStastic's default for the DAQ above">BER ≤ %<input id="pf_ber_pct" type="number" step="0.1" value="${DASJ.ber_pct??""}" placeholder="${daqEq().ber}" style="width:72px"></label>
         <label class="inl" style="padding-bottom:6px" title="A square with a downlink reading and no uplink reading counts as untested, never as a pass"><input type="checkbox" id="pf_ul_required" ${DASJ.ul_required?"checked":""}> Uplink reading in every square</label></div>
       <p class="hint" id="pfNote">${!Object.keys(prof).length?"Defaults: IFC 2021 numbers with the IFC 510.5.4 grid rule.":pre?`<b>${esc(pre[0])}${prof.edited?", edited":""}</b>. ${esc(P.note||"")}${src(P)}`:"Custom numbers for this job."}
         ${pre&&Object.keys(prof).length&&P.checked==="search excerpt"?'<br><b style="color:var(--warn)">From a search excerpt: the research did not open this document. Confirm the numbers with the AHJ.</b>':""}
@@ -1089,7 +1089,7 @@ function dasRequire(el, j, save){
     setProf({name:k, ...Object.fromEntries(KEEP.filter(f=>x[f]!==undefined).map(f=>[f,x[f]]))}); };
   // a number typed here says so in its source line (cite), so the report never credits the AHJ with it
   const edit=patch=>setProf({...prof, ...Object.fromEntries(DAS_PROFILE_NUMS.map(x=>[x,DASJ[x]])), grid_rule:DASJ.grid_rule, ...(pre?{name:pre[0], edited:true}:{}), ...patch,
-    cite:{...(prof.cite||{}), ...Object.fromEntries(Object.keys(patch).map(k=>[k, patch[k]==null?`cleared for this job ${today()}: RF Recon's default applies`:`typed for this job ${today()}`]))}});
+    cite:{...(prof.cite||{}), ...Object.fromEntries(Object.keys(patch).map(k=>[k, patch[k]==null?`cleared for this job ${today()}: DAStastic's default applies`:`typed for this job ${today()}`]))}});
   for(const k of DAS_PROFILE_NUMS) $(`#pf_${k}`).onchange=e=>edit({[k]:e.target.value===""?null:+e.target.value});
   for(const k of ["sinr_db","ber_pct"]) $(`#pf_${k}`).onchange=e=>edit({[k]:e.target.value===""?null:+e.target.value});
   $("#pf_ul_required").onchange=e=>edit({ul_required:e.target.checked});
@@ -1107,10 +1107,10 @@ function dasRequire(el, j, save){
 // DAQ 3.4 = 17.7 dB / 2% (TSB-88.1-D/E, C4FM narrow IF, faded). The 19 dB often quoted for 3.4 is the VSELP/LSM row.
 // 17.7 sits under NFPA's 18 dB for 3.0, and a stricter DAQ never accepts a lower SINR, so 3.4 keeps the higher of the two.
 // 11/4: the AHJ's own figure wins where its profile states one (sinr_db / ber_pct, San Diego C-1 and LA County V7-C3-S21:
-// 20 dB / 2%); RF Recon's default above applies only where none does, and says where it comes from.
+// 20 dB / 2%); DAStastic's default above applies only where none does, and says where it comes from.
 const daqEq = () => { const d34=DASJ.daq>=3.4, cite=DASJ.cite||{};
-  const def = d34 ? {sinr:Math.max(17.7, DAS.sinr), ber:2, src:"RF Recon default for DAQ 3.4: 18 dB / 2% (TSB-88.1-D/E gives 17.7 dB for C4FM, kept at NFPA's 18 dB for 3.0; PCTEL quotes 19 dB)"}
-    : {sinr:DAS.sinr, ber:DAS.ber, src:"RF Recon default: NFPA 1225 A.20.3.10, DAQ 3.0 = SINR 18 dB / BER 2.5%"};
+  const def = d34 ? {sinr:Math.max(17.7, DAS.sinr), ber:2, src:"DAStastic default for DAQ 3.4: 18 dB / 2% (TSB-88.1-D/E gives 17.7 dB for C4FM, kept at NFPA's 18 dB for 3.0; PCTEL quotes 19 dB)"}
+    : {sinr:DAS.sinr, ber:DAS.ber, src:"DAStastic default: NFPA 1225 A.20.3.10, DAQ 3.0 = SINR 18 dB / BER 2.5%"};
   const ahj = k => typeof DASJ[k]==="number" && isFinite(DASJ[k]);
   const why = (k, own) => own ? (cite[k]||"this job's requirement (Requirements)") : `${def.src}${cite[k]?` · ${cite[k]}`:""}`;
   return {sinr: ahj("sinr_db")?DASJ.sinr_db:def.sinr, ber: ahj("ber_pct")?DASJ.ber_pct:def.ber, sinr_ahj: ahj("sinr_db"), ber_ahj: ahj("ber_pct"),
@@ -1250,7 +1250,7 @@ async function dasGrid(el, j, save){
   const instOpts=(sel,adds=true)=>`${insts.map(i=>{ const s=instState(i); return `<option value="${esc(instKey(i))}" ${instKey(i)===sel?"selected":""}>${esc(instName(i))} · ${esc(s.why)}${s.ok?"":" (won't count)"}</option>`; }).join("")}
     <option value="uncal" ${sel==="uncal"?"selected":""}>Not calibrated: an SDR, a phone app, a quick check (pre-survey)</option>
     ${adds?`<optgroup label="Add an instrument">${(typeof SCREEN_RX!=="undefined"?SCREEN_RX:[]).map(x=>`<option value="add:${esc(x.id)}">${esc(x.name)}…</option>`).join("")}<option value="add:other">Another instrument…</option></optgroup>`:""}`;
-  // the market DAS test instruments RF Recon knows (dasscreen.js), plus any other, can be added here with their serial and
+  // the market DAS test instruments DAStastic knows (dasscreen.js), plus any other, can be added here with their serial and
   // calibration date (11/3: the list held only the instruments typed on the Overview, so the example job offered one)
   const unnamedRes=Object.keys(res).filter(k=>readingsOf(res[k]).some(x=>calOf(d,x)&&!x.inst)), unnamedCr=Object.keys(cr).filter(k=>calOf(d,cr[k])&&!cr[k].inst), unnamed=unnamedRes.length+unnamedCr.length;
   // NFPA 1225: 20 squares per floor, each 20-80 ft across; floors over 128,000 sq ft split into sectors
@@ -1273,7 +1273,7 @@ async function dasGrid(el, j, save){
       <label class="inl" title="What takes the readings you enter or import here. Only an instrument calibrated within ${DAS.cal_months} months counts toward pass / fail; add instruments on the Overview (model | serial | calibration date)">Taken with
         <select id="dgInst"><option value="">— pick —</option>${instOpts(inst)}</select></label>
       <label class="inl" title="Results from any tool: CSV, TSV, Excel, JSON, KML/KMZ or GPX">Import results <input type="file" id="dgImp" accept=".csv,.tsv,.txt,.xlsx,.json,.kml,.kmz,.gpx"></label>
-      <button id="dgCsv" title="One row per square: the reading that decides it">⇩ Results CSV</button><button id="dgAll" title="Every reading, one row per channel, cellular ones too: imports back into RF Recon or into another tool">⇩ All readings CSV</button><button id="dgJson">⇩ Results JSON</button>
+      <button id="dgCsv" title="One row per square: the reading that decides it">⇩ Results CSV</button><button id="dgAll" title="Every reading, one row per channel, cellular ones too: imports back into DAStastic or into another tool">⇩ All readings CSV</button><button id="dgJson">⇩ Results JSON</button>
       <button id="dgBase" title="Keep these results as the acceptance test, to compare each annual retest with">${base?`Baseline: ${esc(base.date)} · replace`:"Save as acceptance baseline"}</button></div>
     <div id="dgAddInst" class="row no-print" style="display:none;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0 2px 8px"></div>
     ${warn.length?`<p class="status err" style="margin:0 2px 8px">${warn.map(esc).join(" ")}</p>`:""}
@@ -1560,7 +1560,7 @@ function dasReport(el, j){
       background:${sk?"repeating-linear-gradient(45deg,#ddd 0 5px,transparent 5px 10px)":n2?"rgba(140,149,159,.45)":p==null?"rgba(255,255,255,.55)":p?"rgba(60,207,122,.55)":"rgba(229,83,75,.6)"}">
       <b>${esc(f.name)}-${g}${c?" ★":""}</b>${sk?"not tested":r&&has(r.dl)?`${r.dl} dBm`:""}${n2?"<span>not counted</span>":""}${um?"<span>no uplink</span>":""}</div>`; };
   el.innerHTML=`<div class="maptools no-print"><div class="seg" id="drView"><button data-rv="test" class="on">Test report</button><button data-rv="submittal">Design submittal</button></div>
-    <button class="primary" id="drPrint">⎙ Print / save as PDF</button>${window.dasSealPrint?`<button id="drFinal" title="Seals the report: RF Recon keeps a SHA-256 of what prints and a verify code, and prints the code and date on every page">⎙ Print as final (sealed)</button>`:""}${window.rfMail?`<button id="drMail" title="Email the AHJ from your own mailbox with the report PDF from the job's Files; their reply comes back into the job">✉ Email the AHJ</button>`:""}<span class="hint">Prints the report only. Choose “Save as PDF”, then add the PDF to the job's Files.</span></div>
+    <button class="primary" id="drPrint">⎙ Print / save as PDF</button>${window.dasSealPrint?`<button id="drFinal" title="Seals the report: DAStastic keeps a SHA-256 of what prints and a verify code, and prints the code and date on every page">⎙ Print as final (sealed)</button>`:""}${window.rfMail?`<button id="drMail" title="Email the AHJ from your own mailbox with the report PDF from the job's Files; their reply comes back into the job">✉ Email the AHJ</button>`:""}<span class="hint">Prints the report only. Choose “Save as PDF”, then add the PDF to the job's Files.</span></div>
   <div id="drMailBox" class="no-print"></div>
   <div id="drAhjTop" class="no-print"></div>
   <div class="panel" id="dasPrint">

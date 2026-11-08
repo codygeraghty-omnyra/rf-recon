@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — sweeps (job › PIM / sweeps, and the Report): return loss, VSWR, distance to fault and insertion loss from any
+/* DAStastic — sweeps (job › PIM / sweeps, and the Report): return loss, VSWR, distance to fault and insertion loss from any
    cable and antenna analyzer's export (das.py read_sweep: Anritsu Site Master and Line Sweep Tools CSV / text, Keysight
    FieldFox CSV, Touchstone .s1p / .s2p, a plain two-column table). Each trace is plotted, graded against a limit that
    carries its source (a common practice is said to be one, not a code rule), filed with the job (the export in Files, the

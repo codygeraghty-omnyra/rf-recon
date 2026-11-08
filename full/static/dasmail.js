@@ -1,7 +1,7 @@
 "use strict";
-/* RF Recon — mail from your own mailbox (Cody 11/4: "send/receive automatically from RF Recon without leaving the
+/* DAStastic — mail from your own mailbox (Cody 11/4: "send/receive automatically from RF Recon without leaving the
    window/tab/sub tab", with a naming convention in the subject). Each login connects its own mailbox once (IMAP +
-   SMTP with an app password; mailbox.py, dasmail.py). Every email RF Recon sends carries a tag like [RFR Q12.2];
+   SMTP with an app password; mailbox.py, dasmail.py). Every email DAStastic sends carries a tag like [RFR Q12.2];
    replies are read every 5 minutes (or on Check now) and filed where they belong: a supplier's quote into the
    comparison, a prospect's reply or opt-out into their status, plans and consent replies into the job's files.
    Nothing is sent unless the person presses Send. Without a mailbox (or in the web version) everything keeps
@@ -30,18 +30,18 @@ window.rfMail = (() => {
     const a = await account(true);
     // the web version (its stand-in server answers "runs on the PC only") and the phone app: a browser can't sign in to a mailbox
     if (!a.available) { el.innerHTML = `<div class="panel"><h3 style="margin-top:0">Email from your own mailbox</h3>
-      <p>Sending from your mailbox and filing the replies into jobs, quotes and prospects works on the RF Recon server and in the PC app: a web page can't sign in to a mailbox itself.</p>
+      <p>Sending from your mailbox and filing the replies into jobs, quotes and prospects works on the DAStastic server and in the PC app: a web page can't sign in to a mailbox itself.</p>
       <p class="hint" style="margin-bottom:0">Here, each email button (quote requests, prospects, plans, consent letters, the AHJ report) opens the email in your own mail app, ready to send; replies stay in your mail.</p></div>`; return; }
     const ac = a.account || {}, st = a.state || {};
     const q = s => el.querySelector(s);
-    el.innerHTML = `<div class="panel" id="mlAcct"><h3 style="margin-top:0">Your mailbox <span class="hint">· ${esc(a.login === "local" ? "this PC" : a.login)}: RF Recon sends from it when you press Send, and files tagged replies</span></h3>
+    el.innerHTML = `<div class="panel" id="mlAcct"><h3 style="margin-top:0">Your mailbox <span class="hint">· ${esc(a.login === "local" ? "this PC" : a.login)}: DAStastic sends from it when you press Send, and files tagged replies</span></h3>
       ${ac.address ? `<p>Connected: <b>${esc(ac.address)}</b> <span class="hint">(${esc(ac.provider || "")}, folder ${esc(ac.folder || "INBOX")}${st.last_check ? `, checked ${esc(when(st.last_check))}` : ""})</span>
-        ${st.last_error ? `<span class="status err">${esc(st.last_error)}</span>` : ""}</p>` : `<p class="hint">Not connected. RF Recon reads only emails with "[RFR" in the subject, never marks anything read, and keeps your password sealed on ${a.login === "local" ? "this PC" : "the server"}, never shown again.</p>`}
+        ${st.last_error ? `<span class="status err">${esc(st.last_error)}</span>` : ""}</p>` : `<p class="hint">Not connected. DAStastic reads only emails with "[RFR" in the subject, never marks anything read, and keeps your password sealed on ${a.login === "local" ? "this PC" : "the server"}, never shown again.</p>`}
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
         <label>Email address<input id="mlAddr" type="email" value="${esc(ac.address || "")}" style="width:230px" autocomplete="email"></label>
         <label>Your name (on emails)<input id="mlName" autocomplete="name" value="${esc(ac.name || S.me?.name || "")}" style="width:170px"></label>
         <label>App password<input id="mlPw" type="password" autocomplete="new-password" placeholder="${ac.address ? "kept: type to change" : "from your provider"}" style="width:200px"></label>
-        <label>Folder or label<input id="mlFolder" autocomplete="off" data-lpignore="true" value="${esc(ac.folder || "INBOX")}" style="width:140px" title="Where RF Recon looks for tagged replies. A mail filter on [RFR can put them in their own folder or label."></label>
+        <label>Folder or label<input id="mlFolder" autocomplete="off" data-lpignore="true" value="${esc(ac.folder || "INBOX")}" style="width:140px" title="Where DAStastic looks for tagged replies. A mail filter on [RFR can put them in their own folder or label."></label>
         <button class="primary" id="mlSave">${ac.address ? "Save and test" : "Connect and test"}</button>
         ${ac.address ? `<button id="mlCheck">⟳ Check now</button><button id="mlDel">Disconnect</button>` : ""}</div>
       <p class="hint" id="mlHow" style="margin:6px 0 0"></p>
@@ -68,13 +68,13 @@ window.rfMail = (() => {
       catch (err) { q("#mlMsg").className = "status err"; q("#mlMsg").textContent = err.message; b.disabled = false; } };
     q("#mlCheck") && (q("#mlCheck").onclick = async e => { e.currentTarget.disabled = true; const r = await post("/api/mail/check").catch(x => ({ error: x.message }));
       say(r.error ? `Mail: ${r.error}` : r.new ? `${r.new} new: ${r.filed.map(f => `${f.from} (${f.result})`).join("; ")}` : "No new tagged mail."); await connectPanel(el, done); done && done(); });
-    q("#mlDel") && (q("#mlDel").onclick = async () => { if (!confirm("Disconnect your mailbox? RF Recon forgets the app password; sent emails and filed replies stay.")) return;
+    q("#mlDel") && (q("#mlDel").onclick = async () => { if (!confirm("Disconnect your mailbox? DAStastic forgets the app password; sent emails and filed replies stay.")) return;
       await post("/api/mail/account/delete"); info = null; await connectPanel(el, done); done && done(); });
   }
 
   // ---- compose and send (inline, in the tab you're on)
   // o: {kind: "rfq"|"prospect"|"job", refs, to, subject, body, files: [job files offered], ticked: [those that come ticked], rfqSheet, title, onSent, write}
-  // Cody 11/4: pick who from RF Recon's contacts (or type an address), RF Recon writes it, a preview every time, then Send.
+  // Cody 11/4: pick who from DAStastic's contacts (or type an address), DAStastic writes it, a preview every time, then Send.
   // o.write: a free-form email (nothing written for you): it opens on the message box instead of the preview.
   async function compose(el, o) {
     const a = await account();
@@ -100,7 +100,7 @@ window.rfMail = (() => {
     if (st.to) st.body = greet(st.body, who(st.to));
     const uid = "m" + Math.random().toString(36).slice(2, 8);
     el.innerHTML = `<div class="panel" style="margin-top:10px"><div class="row" style="justify-content:space-between"><b>${esc(o.title || "Email")}</b><button class="sm" data-mx title="Close">✕</button></div>
-      <p class="hint" style="margin:2px 0 6px">From ${esc(a.account.address)}. RF Recon adds a tag to the subject so the reply files itself; nothing goes until you press Send.</p>
+      <p class="hint" style="margin:2px 0 6px">From ${esc(a.account.address)}. DAStastic adds a tag to the subject so the reply files itself; nothing goes until you press Send.</p>
       ${o.templates && jid != null ? `<label style="max-width:420px">Kind of email<select data-mtpl></select></label>` : ""}
       <div data-mpeople class="row" style="gap:6px;flex-wrap:wrap;margin:0 0 6px"></div>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
@@ -123,7 +123,7 @@ window.rfMail = (() => {
       q(`#${uid}`).innerHTML = ppl.map(x => `<option value="${esc(x.email)}">${esc(label(x))}</option>`).join("");
       const job = ppl.filter(x => x.source === "job");
       q("[data-mpeople]").innerHTML = job.length ? `<span class="hint">This job:</span>${job.map(x => `<button class="sm${cleanAddr(st.to).toLowerCase() === x.email ? " on" : ""}" type="button" data-mpick="${esc(x.email)}" title="${esc(x.email)}">${esc(x.role)}: ${esc(x.name || x.email)}</button>`).join("")}`
-        : `<span class="hint">${ppl.length ? `${ppl.length} people in RF Recon's contacts and suppliers: type a name or pick from the list.` : "No contacts with an email yet: type an address, or import contacts."}</span>`;
+        : `<span class="hint">${ppl.length ? `${ppl.length} people in DAStastic's contacts and suppliers: type a name or pick from the list.` : "No contacts with an email yet: type an address, or import contacts."}</span>`;
       q("[data-mpeople]").querySelectorAll("[data-mpick]").forEach(btn => btn.onclick = () => setTo(btn.dataset.mpick));
     };
     const drawWho = () => {
@@ -216,7 +216,7 @@ window.rfMail = (() => {
     let saved = new Set();
     try { saved = new Set(((await api(`/api/mail/people${q.job != null ? `?job=${q.job}` : ""}`)).people || []).filter(x => x.source !== "replied").map(x => x.email)); } catch (e) { /* the button is a help only */ }
     el.querySelectorAll("[data-mfrom]").forEach(s => { const e = s.dataset.mfrom; if (saved.has(e)) return;
-      s.insertAdjacentHTML("afterend", ` <button class="sm" type="button" data-mkeep="${esc(e)}" data-mname="${esc(s.dataset.mname || "")}" title="Add them to RF Recon's contacts, to pick next time">＋ Save as contact</button>`); });
+      s.insertAdjacentHTML("afterend", ` <button class="sm" type="button" data-mkeep="${esc(e)}" data-mname="${esc(s.dataset.mname || "")}" title="Add them to DAStastic's contacts, to pick next time">＋ Save as contact</button>`); });
     el.querySelectorAll("[data-mkeep]").forEach(btn => btn.onclick = async ev => { ev.preventDefault(); ev.stopPropagation(); const e = btn.dataset.mkeep;
       const name = window.prompt("Save as contact: their name", btn.dataset.mname || e.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()));
       if (name == null) return; btn.disabled = true;
@@ -357,7 +357,7 @@ window.rfMail = (() => {
         <table><thead><tr><th>What</th><th>With</th><th>Last</th><th>Status</th><th>Tag</th></tr></thead><tbody>${[...by].map(([t, ms]) => { const last = ms[0], inb = ms.filter(m => m.direction === "in"); const [b] = badge(last.status);
           return `<tr><td>${esc(what(t))}${last.job_id ? ` <a href="#" data-mjob="${last.job_id}">job ${last.job_id}</a>` : ""}</td><td>${esc([...new Set(ms.map(m => m.counterpart))].join(", "))}</td>
             <td class="hint">${esc(when(last.ts))}</td><td>${inb.length ? esc(b) : "waiting for a reply"}</td><td class="mono hint">[RFR ${esc(t)}]</td></tr>`; }).join("")}</tbody></table></div>`
-        : `<p class="hint">No RF Recon emails yet. Send one from a quote request, a prospect, a job's plans request, consent letters or the AHJ report.</p>`;
+        : `<p class="hint">No DAStastic emails yet. Send one from a quote request, a prospect, a job's plans request, consent letters or the AHJ report.</p>`;
       box.querySelectorAll("[data-mjob]").forEach(a => a.onclick = e => { e.preventDefault(); S.das.job = +a.dataset.mjob; S.das.sub = "overview"; S.views.das($("#view")); });
     };
     await connectPanel(el.querySelector("[data-macct]"), draw); draw();

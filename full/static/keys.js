@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — keyboard shortcuts. One document listener for the whole app; each part registers a scope that says when
+/* DAStastic — keyboard shortcuts. One document listener for the whole app; each part registers a scope that says when
    it's on screen and which keys it takes:
      RFKeys.scope("walls", {active: () => bool, keys: {"w": fn, "shift+s": fn, "ctrl+z": fn, "escape": fn}})
    The newest active scope that has the key wins; a handler that returns false passes the key on. Keys are left alone

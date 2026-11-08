@@ -1,10 +1,10 @@
 """
-Push to ATAK: RF Recon's markers go straight into ATAK, iTAK and WinTAK as Cursor-on-Target (CoT) events, over the
+Push to ATAK: DAStastic's markers go straight into ATAK, iTAK and WinTAK as Cursor-on-Target (CoT) events, over the
 local network's SA multicast (239.2.3.1:6969, which TAK apps listen on out of the box) and, when one is set, to a TAK
 Server (plain TCP streaming, usually port 8087). Each marker keeps the same uid, so pushing again moves and updates it
 instead of adding a copy. WinTAK on this PC is opened when it's installed.
 
-Only RF Recon's own events go out (uid RFRecon.*, one event each, size-capped, no DOCTYPE), so the server can't be used
+Only DAStastic's own events go out (uid RFRecon.*, one event each, size-capped, no DOCTYPE), so the server can't be used
 to relay anything else. Anyone on the same network running a TAK app sees what is pushed.
 """
 import glob
@@ -26,7 +26,7 @@ def check(events):
     out = []
     for e in events:
         if not isinstance(e, str) or len(e) > 60000 or "<!DOCTYPE" in e.upper() or e.count("<event") != 1 or not _EVENT.match(e):
-            raise ValueError("That isn't an RF Recon marker; only RF Recon's own CoT events are pushed.")
+            raise ValueError("That isn't a DAStastic marker; only DAStastic's own CoT events are pushed.")
         out.append(e.encode("utf-8"))
     return out
 

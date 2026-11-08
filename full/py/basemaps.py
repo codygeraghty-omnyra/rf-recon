@@ -50,7 +50,7 @@ def parse_map_source(data):
 
 
 def map_source_xml(name, url, min_zoom=0, max_zoom=19, fmt="png"):
-    """A map for ATAK / WinTAK: the same tiles RF Recon shows."""
+    """A map for ATAK / WinTAK: the same tiles DAStastic shows."""
     x = lambda s: str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     atak = url.replace("{z}", "{$z}").replace("{x}", "{$x}").replace("{y}", "{$y}").replace("{s}", "{$s}")
     return (f'<?xml version="1.0" encoding="UTF-8"?>\n<customMapSource>\n  <name>{x(name)}</name>\n  <minZoom>{int(min_zoom)}</minZoom>\n'
@@ -70,7 +70,7 @@ def mbtiles_info(path):
         con.close()
     fmt = meta.get("format", "png")
     if fmt == "pbf":
-        raise ValueError("That MBTiles holds vector tiles (pbf); RF Recon shows image tiles (png, jpg, webp).")
+        raise ValueError("That MBTiles holds vector tiles (pbf); DAStastic shows image tiles (png, jpg, webp).")
     return {"name": meta.get("name"), "format": fmt, "min": zmin or 0, "max": zmax or 19, "bounds": meta.get("bounds"),
             "attribution": meta.get("attribution")}
 

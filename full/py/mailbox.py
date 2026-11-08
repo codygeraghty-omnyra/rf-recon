@@ -1,9 +1,9 @@
 """
-RF Recon's link to a person's own mailbox (Cody 11/4: send and receive from inside RF Recon, agnostic of the mail
+DAStastic's link to a person's own mailbox (Cody 11/4: send and receive from inside DAStastic, agnostic of the mail
 provider, least set-up). IMAP to read, SMTP to send, with an app password the person makes at their provider. Each
 login has its own mailbox (kept in the key store, never in a database or returned to the page).
 
-What it reads: only messages whose subject carries an RF Recon tag "[RFR ...]" (IMAP SEARCH SUBJECT), in the inbox
+What it reads: only messages whose subject carries a DAStastic tag "[RFR ...]" (IMAP SEARCH SUBJECT), in the inbox
 or a folder/label the person picks; BODY.PEEK, so nothing is marked read; by UID, so nothing is read twice.
 What it sends: only what the person presses Send on, from their own address; a copy goes to their Sent folder when
 the provider doesn't keep one itself (Gmail does), so it shows in their mail app on phone, tablet and PC.
@@ -41,7 +41,7 @@ PRESETS = {
     "fastmail": ("imap.fastmail.com", 993, "smtp.fastmail.com", 465, "ssl", False, "Fastmail: Settings › Privacy & Security › App passwords."),
     "gmx": ("imap.gmx.com", 993, "mail.gmx.com", 587, "starttls", False, "GMX: turn on IMAP/POP in settings; your normal password or an app password."),
     "microsoft": (None, None, None, None, None, False,
-                  "Outlook.com and Microsoft 365 no longer accept app passwords for mail: they need Microsoft's own sign-in, which RF Recon doesn't have yet. Forward tagged replies to a mailbox that does, or use Open in my mail."),
+                  "Outlook.com and Microsoft 365 no longer accept app passwords for mail: they need Microsoft's own sign-in, which DAStastic doesn't have yet. Forward tagged replies to a mailbox that does, or use Open in my mail."),
 }
 DOMAINS = {"gmail.com": "gmail", "googlemail.com": "gmail", "yahoo.com": "yahoo", "ymail.com": "yahoo", "aol.com": "aol",
            "icloud.com": "icloud", "me.com": "icloud", "mac.com": "icloud", "zoho.com": "zoho", "zohomail.com": "zoho",
@@ -94,7 +94,7 @@ def guess(address, fetch=None):
     if not key:
         return {"provider": "other", "imap_host": f"imap.{dom}" if dom else "", "imap_port": 993, "smtp_host": f"smtp.{dom}" if dom else "",
                 "smtp_port": 465, "smtp_mode": "ssl", "saves_sent": False,
-                "how": f"RF Recon couldn't tell who runs mail for {dom or 'this address'}, so these are a guess: check your provider's IMAP and "
+                "how": f"DAStastic couldn't tell who runs mail for {dom or 'this address'}, so these are a guess: check your provider's IMAP and "
                        "SMTP settings. Google Workspace uses imap.gmail.com and smtp.gmail.com with an app password."}
     ih, ip, sh, sp, mode, saves, how = PRESETS[key]
     return {"provider": key, "imap_host": ih, "imap_port": ip, "smtp_host": sh, "smtp_port": sp, "smtp_mode": mode,
@@ -240,7 +240,7 @@ def build(acct, to, subject, text, html=None, attachments=(), in_reply_to=None, 
     if in_reply_to:
         msg["In-Reply-To"] = in_reply_to
         msg["References"] = references or in_reply_to
-    msg["X-Mailer"] = "RF Recon"
+    msg["X-Mailer"] = "DAStastic"
     msg.set_content(text or "")
     if html:
         msg.add_alternative(html, subtype="html")
@@ -287,7 +287,7 @@ def _q(name):
 # ---------------------------------------------------------------- reading
 
 def fetch_tagged(acct, folder="INBOX", after_uid=0, uidvalidity=None, imap_factory=None, limit=200):
-    """New messages carrying an RF Recon tag in the folder, after after_uid (a changed UIDVALIDITY starts over).
+    """New messages carrying a DAStastic tag in the folder, after after_uid (a changed UIDVALIDITY starts over).
     Returns {"uidvalidity", "last_uid", "messages": [parsed...]}. Read with BODY.PEEK: nothing is marked read."""
     m = imap_connect(acct, imap_factory)
     try:

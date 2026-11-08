@@ -1,5 +1,5 @@
 """
-Search: one box over everything RF Recon holds (the Search tab, Ctrl+K), and a DAS-only search over the DAS tab's data.
+Search: one box over everything DAStastic holds (the Search tab, Ctrl+K), and a DAS-only search over the DAS tab's data.
 
 Everything: places, licences (by call sign, licensee or frequency), towers, 911 call centres, broadcast, aviation,
 NOAA, microwave links, your labels and talk groups, crowd and survey points, missions, DAS jobs and the DAS research.
@@ -35,7 +35,7 @@ RESEARCH_TABLES = {  # table: (label, the columns searched / shown)
     "tools": ("Industry tool", ("vendor", "product", "purpose", "screens", "workflow", "measures", "outputs", "price")),
     "bda_vendors": ("Booster vendor", ("vendor", "product", "gui")),
     "ui_patterns": ("Tool pattern", ("pattern", "seen_in")),
-    "gaps": ("Gap RF Recon fills", ("gap", "rf_recon", "status")),
+    "gaps": ("Gap DAStastic fills", ("gap", "rf_recon", "status")),
     "sources": ("Source", ("title", "kind", "url")),
 }
 
@@ -178,7 +178,7 @@ def _by_licensee(items):
 
 
 def everything(con, crowd, q, lat=None, lon=None, scope=None, per=25):
-    """Search all of RF Recon. scope: a set of group keys to limit to."""
+    """Search all of DAStastic. scope: a set of group keys to limit to."""
     t0 = time.time()
     q = (q or "").strip()
     if len(q) < 2:

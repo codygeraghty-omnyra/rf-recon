@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — the wall tools on a DAS floor plan (Design, Antennas and coverage): drag or click-click walls that snap to
+/* DAStastic — the wall tools on a DAS floor plan (Design, Antennas and coverage): drag or click-click walls that snap to
    the drawn walls and the plan's own lines, a rectangle Snip and a free Lasso that find the walls inside (one material,
    or Smart: each wall's material from what the plan and the job say), a review of what was found with how sure each
    one is and why, undo / redo, keyboard shortcuts and a hint of the best tool for this plan.

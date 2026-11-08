@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — the commercial cellular side of a DAS job (the "mobile survey"), from the cited research in
+/* DAStastic — the commercial cellular side of a DAS job (the "mobile survey"), from the cited research in
    docs/research/DAS-Cellular (checked 2026-11-02): a cellular profile for the grid test (RSRP / SINR targets per carrier),
    the carriers at the building (FCC Broadband Map, cell sites, a rooftop donor table), an approvals tracker with consent
    letters under 47 CFR 20.21(c), a report section, and the LTE / 5G bands for the link budget (dasdesign.js).

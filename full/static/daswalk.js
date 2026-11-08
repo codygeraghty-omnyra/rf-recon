@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — walk test on a floor plan (Grid test › Walk). Cody 11/4: "try to build the COMPASS app from a market competitor,
+/* DAStastic — walk test on a floor plan (Grid test › Walk). Cody 11/4: "try to build the COMPASS app from a market competitor,
    try to rebuild the iBflex cell mapping/survey tool". Our own version of what the in-building survey tools do (Nextivity
    COMPASS XR with its phone app, PCTEL's IBflex scanner with SeeHawk Touch, iBwave Mobile Survey): walk the plan and tap
    where you are.
@@ -12,7 +12,7 @@
    coloured against the job's requirements. Every change rolls the walk up into the grid squares (grid.results, readings
    marked walk:1), so the grid score (IFC 510.5.4 20 / 40 areas, critical squares) and the Report use them. Only readings
    from a calibrated instrument count; cellular readings never count toward public safety (das.js).
-   A web page can't read the phone's own radio, so the signal comes from a log or is typed, except in RF Recon for Android
+   A web page can't read the phone's own radio, so the signal comes from a log or is typed, except in DAStastic for Android
    (android/, outside this repo): its window.RFRadio gives the phone's own LTE / 5G serving cell (Read the phone; Start
    walk logs it). Phone readings are cellular only and not calibrated: indicative, never counted toward public safety.
    Saved with the job as data.walk = {v:1, floors:[{name, rev, seq, ar, arFor, rule, pts, wps}]}: lists, so the job's log
@@ -224,7 +224,7 @@ function wkHeat(pts, W, H, cols){ const rows=Math.max(1, Math.round(cols*H/W)), 
     if(sw>0){ v[r*cols+c]=sv/sw; al[r*cols+c]=1-(dmin/rad)**2; } }
   return {cols, rows, v, al}; }
 
-// a log's columns: G-NetTrack Pro's own names; any other file by the names RF Recon's grid import knows (das.py
+// a log's columns: G-NetTrack Pro's own names; any other file by the names DAStastic's grid import knows (das.py
 // GRID_ALIASES) and the person picks the rest. G-NetTrack's Level / Qual / SNR are RSRP / RSRQ / SINR on LTE.
 const WK_FIELDS = [["time","Time"],["tech","Technology"],["carrier","Carrier"],["band","Band"],["pci","PCI"],["freq","Channel / EARFCN / MHz"],["mhz","DL MHz"],
   ["rsrp","RSRP dBm"],["rsrq","RSRQ dB"],["sinr","SINR dB"],["dl","DL dBm (public safety)"],["daq","DL DAQ"],["ber","BER %"],["ul","UL dBm"],["ul_daq","UL DAQ"],
@@ -281,7 +281,7 @@ function wkFromLog(fw, rows, m, o){ const legs=wkLegs(fw.wps), out={filled:0, pl
     out.pts.push({by:"time", t:new Date(s.ms).toISOString(), rs:[s.r], inst:o.inst, src:o.src}); out.placed++; });
   return out; }
 
-// the phone's own signal (RF Recon for Android's window.RFRadio): a snapshot {ts, serving:[cell], neighbours:[cell]}, a cell
+// the phone's own signal (DAStastic for Android's window.RFRadio): a snapshot {ts, serving:[cell], neighbours:[cell]}, a cell
 // {tech, carrier, mcc, mnc, band, pci, earfcn | nrarfcn, rsrp, rsrq, sinr}. Cellular only, not calibrated (inst "uncal").
 const WK_PHONE_SRC = "Phone (not calibrated)";
 const WK_PLMN = {"313100":"FirstNet", "310410":"AT&T", "310280":"AT&T", "310150":"AT&T", "311480":"Verizon", "310004":"Verizon", "310012":"Verizon",
@@ -373,7 +373,7 @@ function wkFloorOf(j, name){ const W=(j.data||{}).walk, saved=(W&&Array.isArray(
   return wkClone(base||{name, rev:0, seq:0, rule:"centre", pts:[], wps:[]}); }
 const wkLocalTime = ms => { const t=new Date(ms), p=x=>String(x).padStart(2,"0"); return `${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}T${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`; };
 const wkClock = ms => isFinite(ms) ? new Date(ms).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "–";
-// RF Recon for Android's radio: there, and a call to it (its answers are JSON text; a refusal is {error, message})
+// DAStastic for Android's radio: there, and a call to it (its answers are JSON text; a refusal is {error, message})
 const wkPhone = () => { try{ return !!(window.RFRadio&&window.RFRadio.available()); }catch(e){ return false; } };
 const wkPhoneCall = (fn, ...a) => { try{ const v=window.RFRadio[fn](...a); return typeof v==="string"?JSON.parse(v):v; }
   catch(e){ return {error:"bridge", message:`The phone's signal couldn't be read (${e.message}).`}; } };
@@ -462,7 +462,7 @@ function wkMount(panel, j0, save, ctx){
     <div id="wkCal"></div>
     <div id="wkCmp"></div>
     <p class="hint" style="margin:8px 0 0">${phone?`<b>This app reads the phone's own signal</b>: Read the phone (Point) takes its serving cell at a tap; Start walk (Continuous) logs it and Stop places the readings by time. Phone readings are cellular only (LTE / 5G, no public-safety channels) and not calibrated: indicative, never counted toward a public-safety pass, saved as taken with "${esc(WK_PHONE_SRC)}". An instrument's log still imports here (Import a log); readings`
-      :`A web page can't read this phone's own signal. On Android, the <a href="#" data-help="android">RF Recon Android app</a> can (Read the phone); otherwise log it with a survey app (G-NetTrack Pro, Network Cell Info) or an instrument, then import the log here; readings`} are matched to your taps by time (set the clock offset if the logger's clock differs). The heat map shows every reading; the grid squares take ${esc(WK_RULE_SHORT[fw.rule||"centre"])} reading of the points in each, and only readings from a calibrated instrument count toward pass / fail. Cellular readings never count toward public safety. Taken with: <b>${esc(instName2(ctx.inst)||"not picked")}</b>.</p>`;
+      :`A web page can't read this phone's own signal. On Android, the <a href="#" data-help="android">DAStastic Android app</a> can (Read the phone); otherwise log it with a survey app (G-NetTrack Pro, Network Cell Info) or an instrument, then import the log here; readings`} are matched to your taps by time (set the clock offset if the logger's clock differs). The heat map shows every reading; the grid squares take ${esc(WK_RULE_SHORT[fw.rule||"centre"])} reading of the points in each, and only readings from a calibrated instrument count toward pass / fail. Cellular readings never count toward public safety. Taken with: <b>${esc(instName2(ctx.inst)||"not picked")}</b>.</p>`;
   const $p=s=>panel.querySelector(s), svg=$p("#wkSvg"), cv=$p("#wkHeat"), img=$p("#wkImg");
   const say=t=>{ const x=$p("#wkSaid"); if(x) x.textContent=t; };
 
@@ -707,7 +707,7 @@ function wkMount(panel, j0, save, ctx){
       return {ok:true, msg:`${head}${o.outside?`; ${o.outside.toLocaleString()} rows ${!walked?"not used (no walk on this floor to place them on)":fname===WK_PHONE_SRC?"logged before your first tap or after your last: not placed":"outside this floor's walk times (another floor? import it there too)"}`:""}${o.noTime?`; ${o.noTime.toLocaleString()} with no readable time`:""}${o.other?`; ${o.other.toLocaleString()} 2G / 3G rows left out`:""}${add.length>keep.length?`; ${(add.length-keep.length).toLocaleString()} over the ${WK_MAX.toLocaleString()} points a floor holds, left out`:""}.`}; }
   // the phone's logged readings (Start walk to Stop) onto this floor, exactly as an imported log: placed by time between taps
   const phoneDrain=()=>{ wkPhoneCall("stop"); const snaps=wkPhoneCall("drain"), rows=wkPhoneRows(Array.isArray(snaps)?snaps:[]);
-    if(!rows.length) return {ok:false, msg:`${WK_PHONE_SRC}: no readings were logged (Android gave none: check Location is on and allowed for RF Recon).`};
+    if(!rows.length) return {ok:false, msg:`${WK_PHONE_SRC}: no readings were logged (Android gave none: check Location is on and allowed for DAStastic).`};
     const o=wkFromLog(pv(), rows, WK_PHONE_MAP, {offset:0, win:5000, inst:"uncal", src:WK_PHONE_SRC, lteOnly:false});
     for(const p of o.pts) p.rs=calFix(p.rs||[]);
     const pl=placeLog(o, WK_PHONE_SRC);
@@ -725,7 +725,7 @@ function wkMount(panel, j0, save, ctx){
     spot={x:+x.toFixed(4), y:+y.toFixed(4)}; draw();
     box.innerHTML=`<div class="panel" style="margin-top:8px"><b>Phone vs instrument${g?` in square ${esc(f.name)}-${g}`:""}</b>
       <p class="hint" style="margin:2px 0 6px">Read the same cell on the instrument (same carrier and band, the PCI if it shows one), held beside the phone.
-        Each pair teaches RF Recon how far this phone (${esc(calModel)}) reads off on that band.</p>
+        Each pair teaches DAStastic how far this phone (${esc(calModel)}) reads off on that band.</p>
       <label class="inl">Instrument <select id="wcInst">${good.map(i=>`<option value="${esc(instKey(i))}" ${i===pick?"selected":""}>${esc(instName(i))}</option>`).join("")}</select></label>
       ${rs.map((r, i)=>`<div class="row" style="align-items:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap"><span style="flex:1 1 220px">${esc(wkPhoneTxt(r))}</span>
         <label>Instrument RSRP dBm<input id="wc_${i}" type="number" step="0.5" inputmode="decimal" style="width:90px"></label></div>`).join("")}
@@ -765,10 +765,10 @@ function wkMount(panel, j0, save, ctx){
     el.innerHTML=`<div class="panel" style="margin-top:8px"><h3 style="margin:0 0 4px">Phone correction <span class="hint">· ${phone?`${esc(calModel)}, `:""}against a calibrated instrument</span></h3>
       ${phone?(ownT||`<p class="hint" style="margin:0">No pairs yet for this phone. Point › <b>Phone vs instrument</b>: at 5 or more spots, strong and weak signal, read this phone and a calibrated instrument side by side.</p>`):""}
       ${groups.map(g=>`<h4 style="margin:8px 0 4px">${esc(g.model)} <span class="hint">· ${g.pairs.length} pair${g.pairs.length===1?"":"s"} in this job${phone?"; shown only: its readings are corrected on that phone":""}</span></h4>${table(g.pairs, g.model)}`).join("")}
-      ${!phone&&!groups.length?'<p class="hint" style="margin:0">No pairs in this job yet. Pairs are taken in the RF Recon Android app (Help › Android app).</p>':""}
+      ${!phone&&!groups.length?'<p class="hint" style="margin:0">No pairs in this job yet. Pairs are taken in the DAStastic Android app (Help › Android app).</p>':""}
       ${phone?`<div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><label class="inl"><input type="checkbox" id="wcOn" ${calOn()?"checked":""}> Correct this phone's readings as they're taken</label>
         ${left&&ownT?`<button id="wcFix">Correct this floor's ${left} earlier phone reading${left===1?"":"s"}</button>`:""}</div>`
-        :'<p class="hint" style="margin:6px 0 0">Read-only here: a phone\'s readings are corrected in the RF Recon Android app on that model of phone.</p>'}
+        :'<p class="hint" style="margin:6px 0 0">Read-only here: a phone\'s readings are corrected in the DAStastic Android app on that model of phone.</p>'}
       <p class="hint" style="margin:6px 0 0">A band with 3 or more pairs uses its own offset; any other band uses every band's once there are 5 pairs. A corrected reading keeps what the phone read and the offset used.
         It's still not calibrated: closer to the truth and shown in the cellular view, never counted toward pass / fail. The table stays on the phone for the next job, and the pairs are kept with this walk.</p></div>`;
     el.querySelector("#wcOn")?.addEventListener("change", e=>{ U.cor=e.target.checked; calPanel(); });

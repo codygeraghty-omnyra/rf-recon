@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — DAS job revisions, save conflicts, history and access (11/4; the server side is dashist.py).
+/* DAStastic — DAS job revisions, save conflicts, history and access (11/4; the server side is dashist.py).
    Every save of a job says which revision the page's copy came from (core.js api() hands /api/das/jobs saves here), and
    one job's saves go one at a time. The revision is the one the page was drawn from, never a later save's answer. When someone else changed the same thing since, the server says what, and the page
    asks: keep theirs, keep yours, or see both first; the rest of the save goes through either way. The job's Log tab

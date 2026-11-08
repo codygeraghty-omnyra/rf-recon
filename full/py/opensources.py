@@ -47,7 +47,7 @@ def get(url, timeout=40):
             return r.read(MAX_BYTES + 1)
     data = connectors.retry(once)
     if len(data) > MAX_BYTES:
-        raise ValueError("The source sent more than RF Recon accepts in one answer.")
+        raise ValueError("The source sent more than DAStastic accepts in one answer.")
     return data
 
 

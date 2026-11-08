@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — guided BDA commissioning (job › Commissioning). Step by step, with any analyzer and any maker's BDA (values
+/* DAStastic — guided BDA commissioning (job › Commissioning). Step by step, with any analyzer and any maker's BDA (values
    typed, or a trace / log imported as CSV), graded with the AHJ's own numbers where we have them:
      1 isolation, donor to server antennas (NFPA 1225 18.10: at least 20 dB over the system gain; some AHJs differ), with the booster off
      (the order the fault chart runs: isolation before the first switch-on. Readings are kept by id, so this moved no one's data)

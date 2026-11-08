@@ -9,7 +9,7 @@ the registry page says "the general public can use the data for similar purposes
 with fire departments); FEMA's Website Information page: "Most material on FEMA.gov is free of copyright and may be
 copied and distributed without permission" (US government work). The registry stopped taking updates in June 2026:
 its records are as of then. The current list is NERIS (neris.fsri.org/departments): public to browse, but its terms forbid
-automated retrieval and commercial reproduction without UL's written consent (read 2026-11-04), so RF Recon only links to it.
+automated retrieval and commercial reproduction without UL's written consent (read 2026-11-04), so DAStastic only links to it.
 
 Which place and county the building is in: the Census Bureau's TIGERweb (public domain), one small point query per
 job, kept. In most places the fire marshal is the ERCES AHJ (IFC 510's fire code official): the registry names fire

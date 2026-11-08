@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: what the job's file says is next, on the board and the job (nextstep.py), and the retest and its dates (retest.py).
+/* DAStastic: what the job's file says is next, on the board and the job (nextstep.py), and the retest and its dates (retest.py).
    The server reads the file: nothing here works anything out. What a person typed in Next step wins, and a stage move or a date is a
    proposal: it only happens when a person presses, and a stage press goes through the gate (dascode.js dasMoveStage).
    Needs core.js, das.js, dascode.js. */
@@ -14,7 +14,7 @@
       ${m ? `<button class="sm" data-move="${j.id}" data-to="${esc(m.to)}" style="margin-top:6px" title="Nothing moves until you press this. The gate checks it again">Move to ${esc(m.to)}</button>` : ""}`; };
   // lines for Needs you: [text, sort, what the row carries]
   window.dasNextNeeds = j => { const s = stand(j), r = s.retest, out = [];
-    if (s.error) out.push([`RF Recon couldn't read this job's next step: ${s.error}`, 0, {}]);
+    if (s.error) out.push([`DAStastic couldn't read this job's next step: ${s.error}`, 0, {}]);
     if (r && r.proposals.length) out.push([`${r.name}: ${plural(r.proposals.length, "date")} waiting on your press`, -1e4, {}]);
     else if (r && r.held) out.push([`${r.name}: ${r.held}`, -1e4, {}]);
     if (s.move) out.push([`Ready for ${s.move.to}`, 0, { move: s.move.to }]);

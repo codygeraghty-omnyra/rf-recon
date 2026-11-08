@@ -1,9 +1,9 @@
 "use strict";
-/* RF Recon phone app: DAS in the field. A grid test entered square by square with no signal (kept on this phone,
-   exported as a CSV that RF Recon on the PC reads in a DAS job's Grid test, Import results), the PIM calculator,
+/* DAStastic phone app: DAS in the field. A grid test entered square by square with no signal (kept on this phone,
+   exported as a CSV that DAStastic on the PC reads in a DAS job's Grid test, Import results), the PIM calculator,
    and the code numbers at a glance. Profiles, pass rules and floor percentages match the PC's DAS tab (static/das.js).
    Prospects: the schools, colleges and hospitals near the pin from the pack's own lists (fieldpack.py, packs made since
-   11/4), to call or look up; their status, first emails and jobs are kept in RF Recon on the PC or the web version. */
+   11/4), to call or look up; their status, first emails and jobs are kept in DAStastic on the PC or the web version. */
 
 // the PC's AHJ presets (static/das.js DAS_PROFILES), the numbers a phone grid test scores by. ul: an uplink reading in
 // every square (the AHJ's own rule; a square with only a downlink reading is untested, never a pass). The PC keeps every
@@ -19,15 +19,15 @@ const DAS_PROFILES = {
   "Seattle SFC 510 (2021) + CAM 5123": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "2021 SFC 510.4.1, 510.5.4"},
   "Colorado Springs FD (6/30/2023)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "CSFD II.C"},
   "Miami-Dade Fire Rescue (rev 05-2024)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12, src: "MDFR General Guidelines p.5 (no contractor uplink testing)"},
-  "Osceola County FL (06/2024)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12, src: "Osceola ERCES p.15-16 (−95 dBm: RF Recon default)"},
+  "Osceola County FL (06/2024)": {threshold: -95, daq: 3.0, general_pct: 90, critical_pct: 99, battery_h: 12, src: "Osceola ERCES p.15-16 (−95 dBm: DAStastic default)"},
   "Santa Clara County FD C-2 (rev 09/01/2020)": {threshold: null, daq: 3.4, general_pct: 90, critical_pct: 99, battery_h: 24, ul: true, src: "C-2 V.A, VIII.A"},
   "Murray City UT": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "Murray ERCS 1., 5."},
-  "Charlotte / Mecklenburg ERCCS (rev 09/04/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "ERCCS Signal Strength Survey p.3 (general %: RF Recon default)"},
+  "Charlotte / Mecklenburg ERCCS (rev 09/04/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "ERCCS Signal Strength Survey p.3 (general %: DAStastic default)"},
   "Denver Fire Code 2025 + Policy 510-1 (02/01/2018)": {threshold: -100, daq: 3.4, general_pct: 95, critical_pct: 99, battery_h: 12, src: "2025 Denver Fire Code 510.4.1.3; Policy 510-1 ATP A"},
   "Riverside County Fire OFM-13 (11/2023)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "OFM-13 p.3-5"},
   "Durham NC BDA permit (Doc. 47330)": {threshold: -95, daq: 3.0, general_pct: 100, critical_pct: 99, battery_h: 12, src: "Doc. 47330 App. 4 3.g"},
   "College Station TX": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "College Station handout p.1-2"},
-  "Salt Lake City FD (02/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "SLC states no numbers: RF Recon defaults"},
+  "Salt Lake City FD (02/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "SLC states no numbers: DAStastic defaults"},
   "Douglas County CO (DCSORS Rev 2.0)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "DCSORS Step 1 (PCTEL tools required there)"},
 };
 const DAS_DAQ = ["", "1", "2", "2.5", "3", "3.4", "3.5", "4", "4.5", "5"];
@@ -78,7 +78,7 @@ window.viewDas = async v => {
   if (DAS.view === "prospects") { v.innerHTML = head("DAS prospects", "Buildings near the pin that often must have emergency responder radio coverage, from the public lists in your pack.") + seg + dasProspects(); return; }
   if (DAS.view === "pim") { v.innerHTML = head("DAS", "Where the intermod products land, and the result in dBc.") + seg + dasPim(); dasPimWire(); return; }
   if (DAS.view === "codes") { v.innerHTML = head("DAS", "The numbers ERCES / BDA work is judged by.") + seg + dasCodes(); return; }
-  v.innerHTML = head("DAS", "Grid tests square by square, with no signal. They stay on this phone; export one to RF Recon on the PC.") + seg
+  v.innerHTML = head("DAS", "Grid tests square by square, with no signal. They stay on this phone; export one to DAStastic on the PC.") + seg
     + `<div class="row" style="margin:0 2px 12px"><button class="btn primary" data-act="dasnew">＋ New grid test</button></div>`
     + (DAS.tests.length ? DAS.tests.map((x, i) => { const st = x.floors.map(f => dasFloor(x, f)), passed = st.filter(s => s.ok).length,
         tested = st.reduce((s, o) => s + (o.gen + o.crit - o.untested), 0), all = st.reduce((s, o) => s + o.gen + o.crit, 0);
@@ -199,7 +199,7 @@ async function dasExport(t) {  // the columns the PC's Grid test import reads (d
 function dasProspects() {  // read-only: the pack's prospect table (the columns prospects.near reads), within the radius of the pin
   if (!S.db) return noPack();
   if (!q("SELECT 1 FROM sqlite_master WHERE type='table' AND name='prospect'").length || !q("SELECT 1 FROM prospect LIMIT 1").length)
-    return `<div class="card glass empty" style="--i:1"><p>This pack has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use RF Recon on the PC.</p>
+    return `<div class="card glass empty" style="--i:1"><p>This pack has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use DAStastic on the PC.</p>
       <button class="btn" data-act="map">Open the map</button></div>`;
   const c = S.center || (S.me ? [S.me.lat, S.me.lon] : null);
   if (!c) return `<div class="card glass empty" style="--i:1"><p>Set the pin first: tap the map, search a place or use where you are. Prospects are listed within the map's radius of it.</p>
@@ -225,7 +225,7 @@ function dasProspects() {  // read-only: the pack's prospect table (the columns 
             ${r.website ? `<a class="btn small" href="${esc(/^https?:/i.test(r.website) ? r.website : "https://" + r.website)}" target="_blank" rel="noopener">Website</a>` : ""}</div></div></div>`).join("")
       : `<p class="hint" style="margin:0">None of these within ${S.radius} mi: pick another kind, or a bigger radius on the map.</p>`}</div>
     <p class="hint" style="margin:4px">From the lists in the pack: NCES schools, IPEDS colleges and CMS hospitals (US government, public domain)${ov ? "; Overture Maps Foundation places and buildings (© OpenStreetMap contributors, Overture Maps Foundation)" : ""}.
-      Status, a first email and + Job are kept in RF Recon on the PC or the web version.</p>`;
+      Status, a first email and + Job are kept in DAStastic on the PC or the web version.</p>`;
 }
 async function dasProspectCsv() {
   const cols = ["name", "kind", "address", "city", "state", "zip", "phone", "website", "contact_name", "contact_title", "dist_mi"], label = Object.fromEntries(DAS_PKINDS);
@@ -282,7 +282,7 @@ function dasCodes() {
       ${row("BDA noise at the site", "−150 dBm or less (Durham −153)", "OCSD, San Diego, Santa Clara")}
       ${row("Standby power", "12 hours at full load (24 h where the AHJ asks); low battery signal at 70% used", "NFPA 1225")}
       ${row("PIM", "−140 dBc at 2 × 43 dBm system pass; −150 dBc stricter", "Anritsu; carriers' DAS specs")}</dl>
-    <p class="hint" style="margin:6px 0 0">The AHJ's own rules win. The full research, with every source, is in RF Recon on the PC (DAS, Data &amp; links).</p></div>`;
+    <p class="hint" style="margin:6px 0 0">The AHJ's own rules win. The full research, with every source, is in DAStastic on the PC (DAS, Data &amp; links).</p></div>`;
 }
 
 document.addEventListener("click", async e => {  // the DAS screen's buttons (app.js handles the rest)

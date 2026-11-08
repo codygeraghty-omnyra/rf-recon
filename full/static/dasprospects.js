@@ -1,11 +1,11 @@
 "use strict";
-/* RF Recon — DAS Prospects (Cody 11/3: "a tool for DAS to help locate / research data / reach out to potential
+/* DAStastic — DAS Prospects (Cody 11/3: "a tool for DAS to help locate / research data / reach out to potential
    customers (common customer lists: schools, malls, stadiums, public, any high-traffic areas) automatically").
    Buildings that often must have emergency responder radio coverage, near a spot, from public US government lists
    (prospects.py: NCES schools, IPEDS colleges, CMS hospitals; refreshed monthly by the "DAS prospect lists" update),
    ranked by the market research's priority (das_market.json prospect_types), with who to approach and why.
    Each one has a status in the firm's pipeline. Outreach is a first email the person sends: Open in my mail, or Send from my
-   mail through their own connected mailbox, one press after they read it. RF Recon never sends one without that press. The email follows CAN-SPAM (who it's from, the firm's mailing address, an opt-out), and
+   mail through their own connected mailbox, one press after they read it. DAStastic never sends one without that press. The email follows CAN-SPAM (who it's from, the firm's mailing address, an opt-out), and
    "Do not contact" is honoured: no email button. "Make a DAS job" puts the building on the board as a Lead.
    Needs core.js (api, post, esc, $, S, parseLoc, num), das.js (dasSay). */
 
@@ -123,7 +123,7 @@ window.dasProspects = async el => {
     <details class="panel" style="margin-top:12px"><summary>Why these buildings, and who to approach</summary>
       <div class="pitch-cards" style="margin-top:8px">${types.map(t => `<div><b>${esc(t.type)}</b> <span class="tag">${esc(t.priority || "")}</span><p>${esc(t.why || "")}</p><p class="hint">Approach: ${esc(t.decision_maker || "")}</p></div>`).join("")}</div>
       <p class="hint" id="prNeedHow"><b>RF need</b> is an estimate, not a measurement: the strongest government trunked or 700/800 MHz radio system licensed within 15 mi, its licensed power and height through Okumura-Hata with the hills on the path where terrain is on this computer, minus a building loss (ITU-R P.2109 by year built, plus deep interior, cores and below grade from the USACE National Structure Inventory or the building's type), against −95 dBm inside. Within 6 dB either way it's close: a walk test decides. Carriers: the FCC Broadband Map's modelled signal minus the same loss, against −95 dBm. Sources: FCC ULS, terrain tiles (USGS 3DEP), USACE NSI, Overture heights, FCC Broadband Map.</p>
-      <p class="hint" id="prTrigHow"><b>Trigger</b> is the building's strongest permit from city and county open data, matched by its address or within 250 ft of the building (800 ft for malls, campuses, hospitals and other large sites): a new building with no CO yet, a CO in the last 12 months, a major alteration, an addition, then ERCES work already permitted. A new building has to show radio coverage before it is occupied (IFC 2024 510.1 and 510.5.4; Virginia USBC 918; Montgomery County ER 13-24). "Major alteration" is RF Recon's working line ($250,000 or 10,000 sq ft of work, or a change of occupancy), not a code threshold: the codes read retest after any addition or remodel that could change the original test (IFC 510.6.1). Permitted new buildings no list has yet show as Under construction. Each city or county dataset has its own switch in Data &amp; updates; those whose terms aren't clearly open ship off.</p>
+      <p class="hint" id="prTrigHow"><b>Trigger</b> is the building's strongest permit from city and county open data, matched by its address or within 250 ft of the building (800 ft for malls, campuses, hospitals and other large sites): a new building with no CO yet, a CO in the last 12 months, a major alteration, an addition, then ERCES work already permitted. A new building has to show radio coverage before it is occupied (IFC 2024 510.1 and 510.5.4; Virginia USBC 918; Montgomery County ER 13-24). "Major alteration" is DAStastic's working line ($250,000 or 10,000 sq ft of work, or a change of occupancy), not a code threshold: the codes read retest after any addition or remodel that could change the original test (IFC 510.6.1). Permitted new buildings no list has yet show as Under construction. Each city or county dataset has its own switch in Data &amp; updates; those whose terms aren't clearly open ship off.</p>
       <p class="hint">Malls, venues, hotels and the rest are Overture Maps places (CDLA-Permissive-2.0, Apache-2.0 or CC0; attribution: Overture Maps Foundation). High-rises are Overture buildings (© OpenStreetMap contributors, Overture Maps Foundation, ODbL). A building's own name is used when it has one; otherwise it's named by the business inside it.</p>
     </details>`;
   const body = $("#prBody");
@@ -216,7 +216,7 @@ window.dasProspects = async el => {
       try { r = await api(`/api/das/prospects/need?ids=${ids.map(encodeURIComponent).join(",").replace(/%3A/gi, ":")}&lat=${P.where[0]}&lon=${P.where[1]}&radius=${P.radius}&env=${P.env}`); }
       catch (e) { if (gen === P.gen && P.needKey === key) needSay(`<span class="err">RF need: ${esc(e.message)}</span>`); return; }
       if (gen !== P.gen || P.needKey !== key || !el.isConnected) return;
-      for (const id of ids) P.need[id] = r.need[id] || { ps: "unknown", ps_why: "No estimate: this building isn't in the lists RF Recon reads.", carriers: null };
+      for (const id of ids) P.need[id] = r.need[id] || { ps: "unknown", ps_why: "No estimate: this building isn't in the lists DAStastic reads.", carriers: null };
       P.needMethod = r.method; note = r.carriers_note || "";
       done += ids.length;
       for (const id of ids) {  // in place: the cell, its open "why" row, the dot
@@ -247,7 +247,7 @@ window.dasProspects = async el => {
     return `<div class="pr-trig" style="max-width:900px;margin-top:6px"><b>Trigger: ${t.near_m != null ? "Nearby, " : ""}${esc(t.label)}</b>${t.n > 1 ? ` <span class="hint">(${t.n} permits ${t.n_near === t.n ? "near" : "here"}${t.n_near && t.n_near < t.n ? `, ${t.n_near} of them nearby` : ""}; the strongest shown)</span>` : ""}
       ${t.near_m != null ? `<div class="hint">Nearby: this permit is for ${esc(t.address)}, ${t.near_m} m from this building. It matched by distance only, so it is most likely a neighbour's.</div>` : ""}
       <div class="hint">Permit ${esc(t.permit_id)}${t.status ? ` (${esc(t.status)})` : ""}${dates ? `, ${esc(dates)}` : ""}${t.address ? ` at ${esc(t.address)}` : ""}: ${esc(t.desc)}${size ? `. ${esc(size)}` : ""}.</div>
-      <div class="hint">Why this kind: ${esc(t.why)}.${t.kind === "major_alteration" && /RF Recon's line/.test(t.why) ? " That line is RF Recon's, not a code threshold." : ""}</div>
+      <div class="hint">Why this kind: ${esc(t.why)}.${t.kind === "major_alteration" && /(DAStastic|RF Recon)'s line/.test(t.why) ? " That line is DAStastic's, not a code threshold." : ""}</div>
       ${rules.map(r => `<div class="hint">Rule: ${esc(r.ahj)}, ${esc(r.code)} ${esc(r.section)}: ${esc(r.threshold)}${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">source</a>` : ""}</div>`).join("")}
       <div class="hint">Source: ${esc(t.source_name)}, ${esc(t.publisher)} (${esc(t.license.slice(0, 120))}). ${t.url && t.url !== t.dataset_url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">The permit</a> · ` : ""}<a href="${esc(t.dataset_url)}" target="_blank" rel="noopener">The dataset</a></div></div>`;
   };

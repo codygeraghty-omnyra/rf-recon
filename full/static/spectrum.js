@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — Spectrum: an analyzer-style view of every frequency in the results.
+/* DAStastic — Spectrum: an analyzer-style view of every frequency in the results.
    Exact frequencies down to kHz (channel widths from the emission designators), min / max range, band presets,
    drag to zoom, Ctrl+wheel zoom, Shift+drag pan, an overview strip, band-plan markings, and markers with deltas. */
 

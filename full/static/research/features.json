@@ -1,5 +1,5 @@
 {
- "about": "What RF Recon does in the current build, area by area: the Current build section of static/release-notes.html is rendered from this file by tools/build_features.py. Each feature traces to a release (its id in src) or a file. A release with New or Improved lines must be in some feature's src (tests/test_release_notes.py).",
+ "about": "What DAStastic does in the current build, area by area: the Current build section of static/release-notes.html is rendered from this file by tools/build_features.py. Each feature traces to a release (its id in src) or a file. A release with New or Improved lines must be in some feature's src (tests/test_release_notes.py).",
  "areas": [
   {
    "id": "start",
@@ -162,8 +162,8 @@
      ]
     },
     {
-     "name": "Open RF Recon on Start",
-     "text": "A box at the foot of Start makes RF Recon open on Start instead of the Map, in this browser.",
+     "name": "Open DAStastic on Start",
+     "text": "A box at the foot of Start makes DAStastic open on Start instead of the Map, in this browser.",
      "src": [
       "static/start.js",
       "static/core.js"
@@ -316,7 +316,7 @@
     },
     {
      "name": "Wheel-zoom lock",
-     "text": "Every map opens with mouse-wheel zoom locked, so the wheel scrolls the page; hold the left button or Ctrl and scroll to zoom. The lock button frees the wheel until RF Recon is opened again. Zoom bar top right, layers top left.",
+     "text": "Every map opens with mouse-wheel zoom locked, so the wheel scrolls the page; hold the left button or Ctrl and scroll to zoom. The lock button frees the wheel until DAStastic is opened again. Zoom bar top right, layers top left.",
      "src": [
       "d-2026-11-04-2030",
       "static/zoombar.js",
@@ -357,7 +357,8 @@
       "d-2026-10-28",
       "d-2026-11-05-2200",
       "static/core.js",
-      "d-2026-11-07-1646"
+      "d-2026-11-07-1646",
+      "d-2026-11-07-2100"
      ]
     },
     {
@@ -478,7 +479,7 @@
   {
    "id": "search",
    "name": "Search",
-   "summary": "One box over everything RF Recon holds, opened from any tab with Ctrl+K.",
+   "summary": "One box over everything DAStastic holds, opened from any tab with Ctrl+K.",
    "features": [
     {
      "name": "Search everything",
@@ -1438,7 +1439,7 @@
     },
     {
      "name": "Import and export jobs",
-     "text": "Import job reads one or many jobs exported from RF Recon. Jobs CSV gives one row per job with its dates and checks; All jobs JSON and each job's Job JSON carry everything except the log.",
+     "text": "Import job reads one or many jobs exported from DAStastic. Jobs CSV gives one row per job with its dates and checks; All jobs JSON and each job's Job JSON carry everything except the log.",
      "group": "jobs board",
      "src": [
       "static/das.js"
@@ -1575,7 +1576,7 @@
     },
     {
      "name": "Job log",
-     "text": "A dated record per job: add a note for a site visit, an AHJ call or a punch item. RF Recon adds field changes, files added, gate overrides, quote requests, sealed reports, licence changes and fault chart steps.",
+     "text": "A dated record per job: add a note for a site visit, an AHJ call or a punch item. DAStastic adds field changes, files added, gate overrides, quote requests, sealed reports, licence changes and fault chart steps.",
      "group": "jobs board",
      "src": [
       "static/das.js",
@@ -2699,7 +2700,7 @@
     },
     {
      "name": "Grid tests on the phone",
-     "text": "RF Recon lite enters a grid test square by square with no signal, using the same AHJ profiles and pass rules, and exports a CSV the Grid test imports.",
+     "text": "DAStastic lite enters a grid test square by square with no signal, using the same AHJ profiles and pass rules, and exports a CSV the Grid test imports.",
      "where": "phone",
      "group": "grid test and walk test",
      "src": [
@@ -2838,7 +2839,7 @@
     },
     {
      "name": "OTDR traces",
-     "text": "An OTDR trace (.sor) is kept with its fiber link and goes in the carrier closeout package. RF Recon doesn't read the trace itself.",
+     "text": "An OTDR trace (.sor) is kept with its fiber link and goes in the carrier closeout package. DAStastic doesn't read the trace itself.",
      "group": "PIM, sweeps and fiber",
      "src": [
       "d-2026-11-06-2200",
@@ -3079,7 +3080,7 @@
     },
     {
      "name": "Ready to send",
-     "text": "Emails RF Recon writes wait in groups: BDA alarms, follow-ups after 5 days without a reply, retest and lifecycle reminders, reports due to the AHJ, calibration and certificates, plans requests and prospect first emails. Nothing goes without your click.",
+     "text": "Emails DAStastic writes wait in groups: BDA alarms, follow-ups after 5 days without a reply, retest and lifecycle reminders, reports due to the AHJ, calibration and certificates, plans requests and prospect first emails. Nothing goes without your click.",
      "where": "server, pc",
      "group": "mail and prospects",
      "src": [
@@ -3355,7 +3356,7 @@
    "features": [
     {
      "name": "PIM calculator",
-     "text": "Enter F1, F2, tone power and measured PIM: it lists the IM3, IM5, IM7 and IM9 products both ways to 3 decimals, flags any landing in 12 uplink bands, and gives the result in dBc. RF Recon lite has it under DAS.",
+     "text": "Enter F1, F2, tone power and measured PIM: it lists the IM3, IM5, IM7 and IM9 products both ways to 3 decimals, flags any landing in 12 uplink bands, and gives the result in dBc. DAStastic lite has it under DAS.",
      "src": [
       "d-2026-10-28",
       "d-2026-10-29",
@@ -3507,7 +3508,7 @@
   {
    "id": "data",
    "name": "Data & updates",
-   "summary": "Where RF Recon downloads and keeps its data and holds the keys, and where the admin manages logins, the DAS course, server files and Push to ATAK.",
+   "summary": "Where DAStastic downloads and keeps its data and holds the keys, and where the admin manages logins, the DAS course, server files and Push to ATAK.",
    "features": [
     {
      "name": "Automatic updates",
@@ -3603,7 +3604,7 @@
     },
     {
      "name": "Used live and researched sources",
-     "text": "Used live as you work lists the maps, terrain, address search, building outlines, radar and live ships RF Recon reads as you go. Other open and crowd sources lists the researched ones it doesn't use, with key, cost, terms and why.",
+     "text": "Used live as you work lists the maps, terrain, address search, building outlines, radar and live ships DAStastic reads as you go. Other open and crowd sources lists the researched ones it doesn't use, with key, cost, terms and why.",
      "src": [
       "d-2026-11-02",
       "reference/data_sources.json",
@@ -3655,7 +3656,7 @@
     },
     {
      "name": "Look up an FCC ID",
-     "text": "An FCC ID or grantee code gives the maker and its grants: grantee, date and purpose, plus bands, booster class and power for DAS and booster makers. When the FCC refuses RF Recon, the grants kept here show.",
+     "text": "An FCC ID or grantee code gives the maker and its grants: grantee, date and purpose, plus bands, booster class and power for DAS and booster makers. When the FCC refuses DAStastic, the grants kept here show.",
      "src": [
       "d-2026-10-31",
       "d-2026-10-28",
@@ -3665,7 +3666,7 @@
     },
     {
      "name": "Maker list",
-     "text": "Maker names come from the FCC's own current grantee list, which the RF Recon site hands to every copy, or the FCC's 2021 open data when the site can't be reached. One person imports the FCC's download; the web version hides the import.",
+     "text": "Maker names come from the FCC's own current grantee list, which the DAStastic site hands to every copy, or the FCC's 2021 open data when the site can't be reached. One person imports the FCC's download; the web version hides the import.",
      "src": [
       "d-2026-10-31",
       "fccid.py",
@@ -3685,7 +3686,7 @@
     },
     {
      "name": "Ways in",
-     "text": "Every way to reach RF Recon or its data, from the server and Cody's PC to field packs, exports and Push to ATAK, with each one's version and which work with Cody's PC off. On a phone each way is a card.",
+     "text": "Every way to reach DAStastic or its data, from the server and Cody's PC to field packs, exports and Push to ATAK, with each one's version and which work with Cody's PC off. On a phone each way is a card.",
      "where": "server, pc",
      "src": [
       "d-2026-11-04-late",
@@ -3792,7 +3793,7 @@
     },
     {
      "name": "What's new",
-     "text": "A link at the top of Help opens the release notes: History, every release oldest first with its own time (Newest first turns it round), then Current build, what RF Recon does now area by area, with the build this copy runs. One search covers both.",
+     "text": "A link at the top of Help opens the release notes: History, every release oldest first with its own time (Newest first turns it round), then Current build, what DAStastic does now area by area, with the build this copy runs. One search covers both.",
      "src": [
       "static/help.js",
       "d-2026-11-07-1225",
@@ -3834,7 +3835,7 @@
     },
     {
      "name": "Android app download",
-     "text": "Help › Android app downloads RF Recon for Android 1.0 without signing in, and walks through installing it outside the Play Store, reading the phone in the walk test and correcting it against a calibrated instrument.",
+     "text": "Help › Android app downloads DAStastic for Android 1.0 without signing in, and walks through installing it outside the Play Store, reading the phone in the walk test and correcting it against a calibrated instrument.",
      "src": [
       "d-2026-11-04-late",
       "static/help.js",
@@ -3850,7 +3851,7 @@
     },
     {
      "name": "Help links in the app",
-     "text": "Links elsewhere in RF Recon, such as Ways in's Android row, open Help at the matching section.",
+     "text": "Links elsewhere in DAStastic, such as Ways in's Android row, open Help at the matching section.",
      "src": [
       "static/help.js",
       "static/mission.js"
@@ -3977,7 +3978,7 @@
     },
     {
      "name": "Back and Close",
-     "text": "Back and Close sit beside the Look button, for RF Recon's own window, which has no browser buttons. Back steps between tabs; Close shuts the window or says to press Ctrl+W.",
+     "text": "Back and Close sit beside the Look button, for DAStastic's own window, which has no browser buttons. Back steps between tabs; Close shuts the window or says to press Ctrl+W.",
      "src": [
       "d-2026-10-28",
       "static/theme/look.js"
@@ -3985,7 +3986,7 @@
     },
     {
      "name": "Note button",
-     "text": "On every screen: a voice note, the screen recorded while you talk and point, a photo with voice or words, or just words, each tagged with the screen, pin and mission. The web version and RF Recon lite keep notes in the browser.",
+     "text": "On every screen: a voice note, the screen recorded while you talk and point, a photo with voice or words, or just words, each tagged with the screen, pin and mission. The web version and DAStastic lite keep notes in the browser.",
      "src": [
       "d-2026-10-31",
       "static/notes.js"
@@ -3993,7 +3994,7 @@
     },
     {
      "name": "Share with Cody",
-     "text": "Share with Cody, pressed twice, emails a note to Cody as a numbered RF Recon report with its files; each person's send code comes in their link. A team login's note on the server goes straight to Cody's copy.",
+     "text": "Share with Cody, pressed twice, emails a note to Cody as a numbered DAStastic report with its files; each person's send code comes in their link. A team login's note on the server goes straight to Cody's copy.",
      "src": [
       "d-2026-10-31",
       "static/notes.js"
@@ -4086,7 +4087,7 @@
     },
     {
      "name": "Field packs",
-     "text": "Data & updates makes a field pack for chosen states or around the pin, for the web version and RF Recon lite: licences, towers, broadcast, NOAA, FAA, 911 centres, microwave links and prospect buildings, never your work, keys or crowd layers.",
+     "text": "Data & updates makes a field pack for chosen states or around the pin, for the web version and DAStastic lite: licences, towers, broadcast, NOAA, FAA, 911 centres, microwave links and prospect buildings, never your work, keys or crowd layers.",
      "where": "server, pc",
      "src": [
       "d-2026-10-27",
@@ -4118,11 +4119,11 @@
   {
    "id": "integrations",
    "name": "Integrations",
-   "summary": "How RF Recon connects to ATAK and TAK, to your own mailbox, to BDA alarms, to an Android phone's radio, to parts and shipping services, and to Cody's note mailer.",
+   "summary": "How DAStastic connects to ATAK and TAK, to your own mailbox, to BDA alarms, to an Android phone's radio, to parts and shipping services, and to Cody's note mailer.",
    "features": [
     {
      "name": "ATAK data package",
-     "text": "⇩ ATAK saves what's on screen as a TAK data package: a marker per site coloured by signal type, the pin and its ring, and the heatmap showing, nearest 3,000 sites first. RF Recon lite's Send to ATAK makes the same package.",
+     "text": "⇩ ATAK saves what's on screen as a TAK data package: a marker per site coloured by signal type, the pin and its ring, and the heatmap showing, nearest 3,000 sites first. DAStastic lite's Send to ATAK makes the same package.",
      "src": [
       "d-2026-10-28",
       "static/tak.js",
@@ -4174,8 +4175,8 @@
      ]
     },
     {
-     "name": "RF Recon maps in ATAK",
-     "text": "Download an ATAK, WinTAK or iTAK map source file for any built-in base map, or a map you imported by tile address, so ATAK shows the same ground as RF Recon.",
+     "name": "DAStastic maps in ATAK",
+     "text": "Download an ATAK, WinTAK or iTAK map source file for any built-in base map, or a map you imported by tile address, so ATAK shows the same ground as DAStastic.",
      "src": [
       "d-2026-10-28",
       "static/mapstyle.js",
@@ -4184,7 +4185,7 @@
     },
     {
      "name": "Your own mailbox",
-     "text": "Each signed-in person connects their own mailbox once with an app password: Gmail, Yahoo, iCloud, AOL, Zoho, Fastmail, GMX or any IMAP and SMTP host. RF Recon sends only on Send, from their address, with a copy in Sent.",
+     "text": "Each signed-in person connects their own mailbox once with an app password: Gmail, Yahoo, iCloud, AOL, Zoho, Fastmail, GMX or any IMAP and SMTP host. DAStastic sends only on Send, from their address, with a copy in Sent.",
      "where": "server, pc",
      "src": [
       "d-2026-11-04-pm",
@@ -4194,7 +4195,7 @@
     },
     {
      "name": "Microsoft and web mail",
-     "text": "Outlook.com and Microsoft 365 aren't connected: they need Microsoft's own sign-in, which RF Recon doesn't have. The web version and lite keep Open in my mail, which opens your own mail app.",
+     "text": "Outlook.com and Microsoft 365 aren't connected: they need Microsoft's own sign-in, which DAStastic doesn't have. The web version and lite keep Open in my mail, which opens your own mail app.",
      "src": [
       "d-2026-11-04-pm",
       "mailbox.py",
@@ -4203,7 +4204,7 @@
     },
     {
      "name": "Tagged replies",
-     "text": "Every email RF Recon sends carries an [RFR …] tag. Every 5 minutes it reads only tagged mail, files each reply on its quote, prospect or job, marks an opt-out Do not contact, and holds a reply from an unknown address. Their attachments are checked as a drop is; a refused one waits in the drop spot with its reason.",
+     "text": "Every email DAStastic sends carries an [RFR …] tag. Every 5 minutes it reads only tagged mail, files each reply on its quote, prospect or job, marks an opt-out Do not contact, and holds a reply from an unknown address. Their attachments are checked as a drop is; a refused one waits in the drop spot with its reason.",
      "where": "server, pc",
      "src": [
       "d-2026-11-04-pm",
@@ -4272,7 +4273,7 @@
     },
     {
      "name": "Phone radio in walk tests",
-     "text": "RF Recon for Android gives the page the phone's serving and neighbour LTE and 5G cells: carrier, band, PCI, RSRP, RSRQ and SINR. The DAS walk test's Read the phone and Start walk use them; they never count toward a public-safety pass.",
+     "text": "DAStastic for Android gives the page the phone's serving and neighbour LTE and 5G cells: carrier, band, PCI, RSRP, RSRQ and SINR. The DAS walk test's Read the phone and Start walk use them; they never count toward a public-safety pass.",
      "where": "android",
      "src": [
       "d-2026-11-04-late",
@@ -4293,7 +4294,7 @@
   {
    "id": "sources",
    "name": "Data sources",
-   "summary": "Every source RF Recon downloads or reads live: what it gives, how often it refreshes, whether it needs a key, and which build carries it.",
+   "summary": "Every source DAStastic downloads or reads live: what it gives, how often it refreshes, whether it needs a key, and which build carries it.",
    "features": [
     {
      "name": "FCC ULS licences",
@@ -4400,7 +4401,7 @@
     },
     {
      "name": "FCC equipment makers",
-     "text": "Every grantee code that starts an FCC ID, with its company, from the FCC's own list on the RF Recon site (2021 open data if the site can't be reached). Every 90 days, on by default, no key.",
+     "text": "Every grantee code that starts an FCC ID, with its company, from the FCC's own list on the DAStastic site (2021 open data if the site can't be reached). Every 90 days, on by default, no key.",
      "src": [
       "d-2026-10-31",
       "updater.py",
@@ -4689,11 +4690,11 @@
   {
    "id": "versions",
    "name": "Versions and where it runs",
-   "summary": "Each copy of RF Recon, who gets in and what it carries: the 24/7 server, Cody's PC, the web version, RF Recon lite, the Android app and the install kits.",
+   "summary": "Each copy of DAStastic, who gets in and what it carries: the 24/7 server, Cody's PC, the web version, DAStastic lite, the Android app and the install kits.",
    "features": [
     {
      "name": "24/7 server",
-     "text": "The main RF Recon runs around the clock on AWS at its own web address, for invited logins. It holds the whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes.",
+     "text": "The main DAStastic runs around the clock on AWS at its own web address, for invited logins. It holds the whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes.",
      "where": "server",
      "src": [
       "d-2026-11-03",
@@ -4715,7 +4716,7 @@
     },
     {
      "name": "Passwords and sessions",
-     "text": "RF Recon makes each password and shows it once. A sign-in lasts 14 days; a password reset or removal ends that person's sessions at once, and a signed-out page goes straight to the sign-in page.",
+     "text": "DAStastic makes each password and shows it once. A sign-in lasts 14 days; a password reset or removal ends that person's sessions at once, and a signed-out page goes straight to the sign-in page.",
      "where": "server",
      "src": [
       "d-2026-11-03-pm",
@@ -4763,7 +4764,7 @@
     },
     {
      "name": "Opened from the folder",
-     "text": "Opening RF Recon's page straight from its folder goes to the running app, or says how to start it.",
+     "text": "Opening DAStastic's page straight from its folder goes to the running app, or says how to start it.",
      "where": "pc",
      "src": [
       "d-2026-10-28",
@@ -4772,7 +4773,7 @@
     },
     {
      "name": "Remote link from the PC",
-     "text": "Remote access on Cody's PC turns a Tailscale link to the PC copy on or off. People sign in with the same roles, and the link works only while the PC and RF Recon run; Ways in shows it on the PC only.",
+     "text": "Remote access on Cody's PC turns a Tailscale link to the PC copy on or off. People sign in with the same roles, and the link works only while the PC and DAStastic run; Ways in shows it on the PC only.",
      "where": "pc",
      "src": [
       "d-2026-11-03",
@@ -4824,7 +4825,7 @@
      ]
     },
     {
-     "name": "RF Recon lite",
+     "name": "DAStastic lite",
      "text": "The phone app keeps one area's data on the phone: Map, List, Report, Log with Find a signal, DAS grid tests, read-only prospects, the PIM calculator and code numbers, and Packs, plus Send to ATAK and the Note button.",
      "where": "phone",
      "src": [
@@ -4846,7 +4847,7 @@
      ]
     },
     {
-     "name": "RF Recon for Android",
+     "name": "DAStastic for Android",
      "text": "Version 1.0, for Android 10 and up, opens the server full-screen and keeps the sign-in. Back on the first page offers the server, the web version, reload or exit, and downloads land in Downloads/RF Recon.",
      "where": "android",
      "src": [
@@ -4884,7 +4885,7 @@
     },
     {
      "name": "Kit updates",
-     "text": "A kit copy checks the RF Recon site for a later kit at most hourly, shows an Update available chip with the notes, installs the zip picked under This copy of RF Recon and restarts. Data, jobs and settings stay.",
+     "text": "A kit copy checks the DAStastic site for a later kit at most hourly, shows an Update available chip with the notes, installs the zip picked under This copy of DAStastic and restarts. Data, jobs and settings stay.",
      "where": "pc",
      "src": [
       "d-2026-10-29",
@@ -4916,7 +4917,7 @@
     },
     {
      "name": "Keys sealed",
-     "text": "API keys, mailbox passwords and SNMPv3 passphrases sit outside every database file: sealed to the Windows account on a PC, and on the server in a key file only RF Recon's own user can read. No kit, backup or field pack carries them.",
+     "text": "API keys, mailbox passwords and SNMPv3 passphrases sit outside every database file: sealed to the Windows account on a PC, and on the server in a key file only DAStastic's own user can read. No kit, backup or field pack carries them.",
      "src": [
       "d-2026-11-06-2000",
       "d-2026-11-02",
@@ -4934,7 +4935,7 @@
     },
     {
      "name": "Saves during a refresh",
-     "text": "When a save meets an FCC refresh writing the database, RF Recon says nothing was changed and to try again in a few minutes.",
+     "text": "When a save meets an FCC refresh writing the database, DAStastic says nothing was changed and to try again in a few minutes.",
      "src": [
       "d-2026-11-02",
       "app.py"

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS sigwiki(name TEXT PRIMARY KEY, title TEXT, url TEXT, 
 CREATE INDEX IF NOT EXISTS sigwiki_f ON sigwiki(fmin, fmax);
 """
 LOCAL = re.compile(r"worldwide|united states|usa|\bus\b|north america|americas|global|international", re.I)
-# Distinctive catalog words for RF Recon's signal types. Generic words ("radio", "weather", "data") would
+# Distinctive catalog words for DAStastic's signal types. Generic words ("radio", "weather", "data") would
 # boost every "... Radio" entry, so only these count. The catalog has no NOAA Weather Radio or FRS/GMRS pages:
 # it covers digital and unusual signals, and the band plan in sigid.py covers the everyday ones.
 TYPE_WORDS = {"P25 Phase 1": ["p25", "project 25"], "P25 Phase 2": ["p25", "project 25"], "DMR": ["dmr", "mototrbo"],

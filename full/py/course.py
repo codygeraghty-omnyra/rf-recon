@@ -39,9 +39,9 @@ def page(login):
 
 def off_page():
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            '<title>DAS course · RF Recon</title></head><body style="font:16px/1.5 system-ui,sans-serif;max-width:32em;margin:15vh auto;padding:0 20px">'
+            '<title>DAS course · DAStastic</title></head><body style="font:16px/1.5 system-ui,sans-serif;max-width:32em;margin:15vh auto;padding:0 20px">'
             "<h1 style=\"font-size:20px\">The DAS course isn't on for this login</h1><p>Ask Cody to tick your account.</p>"
-            '<p><a href="/">Back to RF Recon</a></p></body></html>')
+            '<p><a href="/">Back to DAStastic</a></p></body></html>')
 
 
 def opened(con, login):

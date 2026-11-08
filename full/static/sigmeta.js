@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: what any signal's frequency says, for every kind of signal, not only cellular (Cody 11/6: "Show all that metadata for every
+/* DAStastic: what any signal's frequency says, for every kind of signal, not only cellular (Cody 11/6: "Show all that metadata for every
    signal you can find"). Shown in each signal's Details: the US band it sits in, its channel number under each published plan that covers
    it, the frequency it pairs with where the band plan fixes one, what only a scan adds for that kind of signal, and every field on file.
    Worked out from the frequency and the published plans, never measured: a channel number says where the plan puts this frequency.
@@ -108,7 +108,7 @@
     const head = f > 0 ? (() => {
       const ch = channels(f), p = pair(f), bands = bandsAt(f);
       return `<div class="sec" id="sigMeta"><h3>Band and channel</h3>${kvg([
-        ["Band", esc(bands.join(" · ") || "Not in RF Recon's band list")],
+        ["Band", esc(bands.join(" · ") || "Not in DAStastic's band list")],
         ["Wavelength", `${num(299.792458 / f, f > 1000 ? 3 : 2)} m`],
         ...ch.map(([plan, v]) => [esc(plan), `<span class="mono">${esc(v)}</span>`]),
         ...(p ? [["Pairs with", `<span class="mono">${fmtF(p[0])} MHz</span>: ${esc(p[1])}`]] : [])])}

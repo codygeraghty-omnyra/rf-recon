@@ -10125,7 +10125,7 @@
     "role": "Building official – permit",
     "phone": "703-555-0146",
     "email": "agrant@buildingofficial.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "owner": {
     "name": "Ray Kim",
@@ -10133,7 +10133,7 @@
     "role": "Facilities manager – building owner",
     "phone": "703-555-0151",
     "email": "rkim@samplelogistics.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "tech": {
     "name": "Jordan Lee",
@@ -10141,7 +10141,7 @@
     "role": "RF technician, FCC GROL, NICET III",
     "phone": "703-555-0109",
     "email": "jlee@samplerf.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    }
   },
   "suppliers": [

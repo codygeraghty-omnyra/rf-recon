@@ -46,7 +46,7 @@ MAX_PAGES = 100              # per dataset per run (100,000 rows); the next run 
 PAUSE_S = 1.0                # between requests to one provider
 MAJOR_USD = 250000           # a working line for "major" (not a code threshold; see why_major)
 MAJOR_SQFT = 10000
-WHY_MAJOR = ("RF Recon counts an alteration as major at $250,000 or 10,000 sq ft of work, or a change of occupancy: a working "
+WHY_MAJOR = ("DAStastic counts an alteration as major at $250,000 or 10,000 sq ft of work, or a change of occupancy: a working "
              "line, not a code threshold. The codes read name none: IFC 510.6.1 retests after any addition or remodel that could "
              "change the original test; Florida's Level III alteration (work area over 50% of the building, FBC-EB 604.1) is "
              "the only percentage found (permit_sources.json).")
@@ -395,9 +395,9 @@ def classify(rec, co_dataset=False):
             return out("major_alteration", big_w, big_f)
         if v >= MAJOR_USD or sq >= MAJOR_SQFT:
             size = f"${v:,.0f}" if v >= MAJOR_USD else f"{sq:,.0f} sq ft"
-            return out("major_alteration", alt_w, alt_f, f", {size} of work (RF Recon's line: $250,000 or 10,000 sq ft)")
+            return out("major_alteration", alt_w, alt_f, f", {size} of work (DAStastic's line: $250,000 or 10,000 sq ft)")
         size = "no value or area published" if not v and not sq else f"${v:,.0f}" if v else f"{sq:,.0f} sq ft"
-        return "other", f"Alteration under RF Recon's major line ($250,000 or 10,000 sq ft): '{alt_w}' in the {alt_f}, {size}", erces
+        return "other", f"Alteration under DAStastic's major line ($250,000 or 10,000 sq ft): '{alt_w}' in the {alt_f}, {size}", erces
     if erces:
         return "other", f"ERCES work: '{erces_w}' in the {erces_f}", True
     return "other", "No new-building, addition, alteration or occupancy words in the type, work class or description", erces

@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon: Equipment & people, and the AHJ book (Cody's automation ideas 1 and 4, 11/6). dasfirm.py and ahjbook.py do the work.
+/* DAStastic: Equipment & people, and the AHJ book (Cody's automation ideas 1 and 4, 11/6). dasfirm.py and ahjbook.py do the work.
    The list keeps each instrument and person once. A job offers them, and picking one copies it onto the job's own fields, so every tab that
    reads an instrument or a tester reads what it always did. Nothing here writes into a job without a press, and a job's past readings keep the
    calibration they were taken under.

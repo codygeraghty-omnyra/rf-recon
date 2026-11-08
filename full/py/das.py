@@ -713,7 +713,7 @@ def _compass(text):
 
 
 def _add_carrier(head, rows):
-    """A table with a PLMN (MCC-MNC) column and no carrier column gets one, named from RF Recon's operator list (cells.py)."""
+    """A table with a PLMN (MCC-MNC) column and no carrier column gets one, named from DAStastic's operator list (cells.py)."""
     norm = {re.sub(r"[^a-z0-9]", "", h.lower()): h for h in head}
     if any(k in norm for k in GRID_ALIASES["carrier"]):
         return head, rows
@@ -1104,7 +1104,7 @@ def job_dir(jid, name, create=True):
 
 
 def list_files(jid, name, con=None):
-    """A job's files as the disk has them. With con, each one RF Recon has recorded (das_file) also says what it is."""
+    """A job's files as the disk has them. With con, each one DAStastic has recorded (das_file) also says what it is."""
     d = job_dir(jid, name, create=False)
     files = []
     if os.path.isdir(d):
@@ -1997,7 +1997,7 @@ def _canon(d):
     return json.dumps(d, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-# what RF Recon writes into a job on its own, not part of what was tested: the FCC licence watch rewrites data.lic_watch
+# what DAStastic writes into a job on its own, not part of what was tested: the FCC licence watch rewrites data.lic_watch
 # after every FCC data update (daswatch.check), which made every sealed report read "job changed since" (11/4)
 SEAL_SKIP = ("lic_watch",)
 
@@ -2295,11 +2295,12 @@ def public_verify_page(con, code):
 
 
 RESEARCH_PARTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "research", "rf_parts.json")
-SEED_SUPPLIER = "RF Recon research"
+SEED_SUPPLIER = "DAStastic research"
+SEED_SUPPLIERS = (SEED_SUPPLIER, "RF Recon research")  # parts seeded before the rename (11/7) keep the old name in the database
 
 
 def seed_parts(con, path=RESEARCH_PARTS):
-    """A starter catalogue from RF Recon's own research (cables and components with their makers' part numbers and
+    """A starter catalogue from DAStastic's own research (cables and components with their makers' part numbers and
     datasheet links), so the catalogue isn't empty before a supplier's price list is imported (11/3). Once only: a
     marker in the spec sheet folder keeps it from coming back after the parts are deleted."""
     mark = os.path.join(spec_dir(), ".seeded")
@@ -2337,7 +2338,7 @@ def seed_parts(con, path=RESEARCH_PARTS):
 # A request for quote from a job's bill of materials to several suppliers; their quotes kept line by line, with each
 # supplier's shipping, shipping time and how long the quote holds; then the comparison: each supplier's landed total
 # and when the order is ready, the cheapest, the fastest, and the best split (each line from its cheapest supplier,
-# each used supplier's shipping added). RF Recon writes the request; the person sends it: nothing goes to a supplier
+# each used supplier's shipping added). DAStastic writes the request; the person sends it: nothing goes to a supplier
 # on its own.
 
 RFQ_SCHEMA = """
@@ -2351,7 +2352,7 @@ CREATE TABLE IF NOT EXISTS das_rfq_supplier(id INTEGER PRIMARY KEY, rfq_id INTEG
     valid_until TEXT, terms TEXT, quote_ref TEXT, sent_at TEXT, received_at TEXT, ship_est TEXT, UNIQUE(rfq_id, supplier));
 """
 SCHEMA += RFQ_SCHEMA  # created with the other DAS tables at start-up
-# mail threads: RF Recon emails sent from a person's own mailbox and the tagged replies (dasmail.py, mailbox.py)
+# mail threads: DAStastic emails sent from a person's own mailbox and the tagged replies (dasmail.py, mailbox.py)
 MAIL_SCHEMA = """
 CREATE TABLE IF NOT EXISTS das_mail(id INTEGER PRIMARY KEY, login TEXT, direction TEXT, tag TEXT, kind TEXT, job_id INTEGER,
     rfq_id INTEGER, supplier TEXT, prospect_id TEXT, counterpart TEXT, subject TEXT, body TEXT, attachments TEXT,
@@ -2381,7 +2382,7 @@ QUOTE_ALIASES = {
 def list_suppliers(con):
     """Every supplier: the ones kept with an email and the ones the parts catalogue names."""
     kept = {r["name"]: dict(r) for r in con.execute("SELECT * FROM das_supplier ORDER BY name")}
-    for (n,) in con.execute("SELECT DISTINCT supplier FROM das_part WHERE supplier<>'' AND supplier<>?", (SEED_SUPPLIER,)):
+    for (n,) in con.execute("SELECT DISTINCT supplier FROM das_part WHERE supplier<>'' AND supplier NOT IN (?,?)", SEED_SUPPLIERS):
         kept.setdefault(n, {"id": None, "name": n, "email": "", "phone": "", "website": "", "contact": "", "notes": "", "price_url": ""})
     return sorted(kept.values(), key=lambda s: s["name"].lower())
 
@@ -2759,7 +2760,7 @@ LIFE_SOURCES = {
                 "https://up.codes/viewer/general-services-administration/ifc-2024/chapter/5/fire-service-features"),
     # the firm's own dates (lane D 11/4, beat-par lifecycle "firm certificates"): the instruments and the tester
     "cal": ("Instrument calibration: Grid test scores a reading only when its instrument was calibrated within the 12 months "
-            "before it (RF Recon's rule, the usual annual cycle; check the AHJ). AHJs ask for each instrument's model, serial "
+            "before it (DAStastic's rule, the usual annual cycle; check the AHJ). AHJs ask for each instrument's model, serial "
             "and calibration date (San Diego FD C-1 Appendix D; FDNY ARCS procedures)",
             "https://www.sandiego.gov/sites/default/files/2025-01/c-1-emergency-responder-communication-enhancement-systems.pdf"),
     "nicet": ("NICET Policy 30: a certification runs three years and loses Active Status on the first day of the expiration "

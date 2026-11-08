@@ -1,6 +1,6 @@
 """
 RadioID.net look-ups: who a DMR or NXDN radio ID belongs to (call sign, name, city, state, country). Its terms allow
-look-ups but no mirroring, bulk export or competing directory (checked 2026-10-28), so RF Recon asks one ID at a time,
+look-ups but no mirroring, bulk export or competing directory (checked 2026-10-28), so DAStastic asks one ID at a time,
 only when someone asks, and keeps each answer 30 days so the same ID isn't asked twice.
 """
 import json

@@ -1,8 +1,8 @@
 "use strict";
-/* RF Recon: Code check and stage gates (codecheck.py). The card on a job's Overview answers: which fire code applies here,
+/* DAStastic: Code check and stage gates (codecheck.py). The card on a job's Overview answers: which fire code applies here,
    can a system be required at all, what we already hold on this jurisdiction, and who at the AHJ confirmed it. Every line
    says how far it was read. It never says "not required": it says what we read, and that the AHJ hasn't confirmed it.
-   RF Recon doesn't fetch the code sites: their terms bar robots, so the links are searches a person clicks. Nothing sends
+   DAStastic doesn't fetch the code sites: their terms bar robots, so the links are searches a person clicks. Nothing sends
    without a click. The gate dialog stands in front of a move forward: it lists what's missing, each with a way to go fix it,
    and a move anyway needs a reason, which the job's log keeps. Needs core.js, das.js, dasmail.js. */
 
@@ -59,7 +59,7 @@ window.dasCodeCard = async (el, j, save) => {
     <div class="cc-cols"><div>${facts}
     ${r ? `<p class="hint">Machine lead from the state's table, checked ${esc(r.checked)}. Each line says how far it was read. ${esc(P.land)}</p>` : ""}
     ${held.length ? `<h4>What we already hold for this state</h4><ul class="cc-held">${held.join("")}</ul>` : ""}</div><div>
-    <h4 style="margin-top:0">Find it</h4><p class="hint">RF Recon doesn't read these sites for you: their terms bar it. Press each, read what's there, and paste the page below.</p>
+    <h4 style="margin-top:0">Find it</h4><p class="hint">DAStastic doesn't read these sites for you: their terms bar it. Press each, read what's there, and paste the page below.</p>
     ${steps.map(([k, t]) => { const ls = P.links.filter(x => x.step === k); return ls.length ? `<div class="cc-step"><b>${t}</b> ${ls.map(x => `<a class="btn sm" href="${esc(x.url)}" target="_blank" rel="noopener"${x.guess ? ' title="A guess at the address: this city may not be on it"' : ""}>${esc(x.label)}${x.guess ? " ?" : ""}</a>`).join(" ")}</div>` : ""; }).join("")}
     <div class="grid2" style="margin-top:6px">${field("read_url", "The page you read", "Paste its address")}${field("read_note", "What it says", "510 unchanged, or the section")}</div>
     <h4>Ask the AHJ</h4><ol class="cc-q">${P.questions.map(q => `<li>${esc(q)}</li>`).join("")}</ol>

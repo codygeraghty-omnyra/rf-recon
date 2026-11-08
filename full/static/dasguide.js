@@ -1,10 +1,10 @@
 "use strict";
-/* RF Recon: Walk me through (Cody 11/5: "walk you through the whole thing, even moving to the location in the DAS tab, in auto mode or
+/* DAStastic: Walk me through (Cody 11/5: "walk you through the whole thing, even moving to the location in the DAS tab, in auto mode or
    hit Next or Done, even if you already started without it, and pick up where you are and check where you've been so far").
    One job, start to finish, on the fault chart's own steps (dasfi_data.js): nothing here is a second copy of them. Before it starts it
    reads the job and says, stage by stage, what's on file and what's missing, so it works on a job begun without it. It picks up at the
    first step the record and the saved answers can't get past. The panel stays on screen as the DAS tab moves under it.
-   Step: it waits for Next or Done. Auto: it opens each place itself and moves on when the record shows the step done. Only what RF Recon
+   Step: it waits for Next or Done. Auto: it opens each place itself and moves on when the record shows the step done. Only what DAStastic
    can see can be seen: a physical check (is the head-end powered on?) always waits for a person, in either mode.
    Answers are kept on the job (data.guide), so anyone can carry on from any browser. A stage's end goes through the same gate as the DAS
    tab (dasMoveStage). Needs core.js, das.js, dasfi.js, dascode.js. */
@@ -127,7 +127,7 @@
   function afterHtml() {
     const a = G.j.data.auto || {}, did = a.did || [], check = did.filter(x => x.open), done = did.filter(x => !x.open), other = (G.rows || []).filter(r => r.state !== "done" || r.key === "mail"), r = pickUp(G.j);
     const line = x => `<li class="${x.open ? "gap" : "ok"}"><b>${esc(x.label)}</b><span class="hint">${esc(x.said || "")}</span><div class="row" style="gap:6px;margin-top:4px">${x.open ? `<button class="sm primary" data-ok="${esc(x.key)}">Looks right</button>` : ""}${x.before ? `<button class="sm" data-undo="${esc(x.key)}">Undo</button>` : ""}</div></li>`;
-    return `${check.length ? `<p style="margin:0 0 4px"><b>Check ${check.length === 1 ? "this" : `these ${check.length}`}.</b> RF Recon chose ${check.length === 1 ? "it" : "them"} for you, so ${check.length === 1 ? "it doesn't" : "they don't"} count until you say so.</p><ol class="dg-where">${check.map(line).join("")}</ol>` : `<p style="margin:0 0 4px"><b>Nothing left to check.</b></p>`}
+    return `${check.length ? `<p style="margin:0 0 4px"><b>Check ${check.length === 1 ? "this" : `these ${check.length}`}.</b> DAStastic chose ${check.length === 1 ? "it" : "them"} for you, so ${check.length === 1 ? "it doesn't" : "they don't"} count until you say so.</p><ol class="dg-where">${check.map(line).join("")}</ol>` : `<p style="margin:0 0 4px"><b>Nothing left to check.</b></p>`}
       ${done.length ? `<p class="hint" style="margin:8px 0 4px">Also done:</p><ol class="dg-where">${done.map(line).join("")}</ol>` : ""}
       ${other.length ? `<ol class="dg-where" style="margin-top:6px">${other.map(rowHtml).join("")}</ol>` : ""}
       <p style="margin:8px 0 4px"><b>${r.w.end ? `${esc(r.t.title)} looks finished.` : "Next for a person:"}</b> ${r.w.end ? "" : esc(r.w.at.t)}</p>

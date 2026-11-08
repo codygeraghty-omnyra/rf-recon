@@ -1,5 +1,5 @@
 """
-The TAK team on RF Recon's own map (Cody 11/6: "ATAK actually in our map", the TAK layer he picked). ATAK, iTAK and WinTAK
+The TAK team on DAStastic's own map (Cody 11/6: "ATAK actually in our map", the TAK layer he picked). ATAK, iTAK and WinTAK
 share positions and markers as Cursor-on-Target over the local network's SA multicast, 239.2.3.1:6969, the channel
 Push to ATAK already sends on (takpush.py). This listens there and keeps the latest event from each sender in memory:
 who (callsign, team, role), where, and how fresh. Both encodings ATAK uses are read: TAK protocol version 0 (CoT XML)
@@ -7,7 +7,7 @@ and version 1 (protobuf, a 0xbf 0x01 0xbf header then a TakMessage).
 
 PC only, and only while someone is looking: the map's "TAK team" layer switches it on and keeps it on by asking for the
 feed; with no ask for IDLE_S it stops and the socket closes. Nothing is written to disk: people's positions live in memory
-and go when they go stale or the listener stops. RF Recon's own markers (uid RFRecon.*) are left out. Packets are capped,
+and go when they go stale or the listener stops. DAStastic's own markers (uid RFRecon.*) are left out. Packets are capped,
 a DOCTYPE or ENTITY is refused, and one sender's flood is dropped past a rate.
 """
 import socket
@@ -248,7 +248,7 @@ def ask(now=None):
             with _lock:
                 _state["run"], _state["error"], _state["since"] = run, "", time.strftime("%H:%M")
         except OSError as e:
-            _state["error"] = f"Can't listen on UDP {PORT}: {e.strerror or e}. Another TAK app on this PC may hold it; WinTAK and RF Recon can't both."
+            _state["error"] = f"Can't listen on UDP {PORT}: {e.strerror or e}. Another TAK app on this PC may hold it; WinTAK and DAStastic can't both."
     with _lock:
         r = _state["run"]
         return {"listening": bool(r), "networks": len(r.joined) if r else 0, "since": _state["since"], "error": _state["error"], "heard": _state["count"]}

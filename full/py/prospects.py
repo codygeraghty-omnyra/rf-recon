@@ -32,7 +32,7 @@ import zipfile
 
 UA = "RF-Recon/2.0 (DAS prospect lists)"
 # data.cms.gov's Akamai answers 403 to any agent it doesn't know (ours included) and lets Python's own through
-# (checked 2026-11-03), so CMS calls lead with it and still name RF Recon
+# (checked 2026-11-03), so CMS calls lead with it and still name DAStastic
 UA_CMS = "Python-urllib/3 " + UA
 BATCH = 5000
 PROGRESS = 20000

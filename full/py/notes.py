@@ -2,10 +2,10 @@
 Notes from the Note button on every screen (static/notes.js): a voice note, the screen recorded while someone talks
 and points, a photo with a voice or a written note, or just words.
 
-On a PC each note is a folder of plain files in NOTES_DIR, so it opens without RF Recon: note.txt (when, where, who,
+On a PC each note is a folder of plain files in NOTES_DIR, so it opens without DAStastic: note.txt (when, where, who,
 which screen, the words) and voice / screen / photo files. The launcher points NOTES_DIR at RF Recon\\notes in Drive.
 The note table keeps the list. People on the remote link can leave notes too, their one write (remote.py), and see
-only their own. The web version and RF Recon lite keep notes in the browser instead (notes.js).
+only their own. The web version and DAStastic lite keep notes in the browser instead (notes.js).
 """
 import json
 import os
@@ -48,7 +48,7 @@ def _clean(s, n):
 
 def _write_txt(folder, r):
     files = json.loads(r["files"] or "[]")
-    lines = [f"RF Recon (beta): {KINDS.get(r['kind'], 'Note').lower()}", f"When: {r['ts']}"]
+    lines = [f"DAStastic (beta): {KINDS.get(r['kind'], 'Note').lower()}", f"When: {r['ts']}"]
     if r["who"]:
         lines.append(f"From: {r['who']} (remote link)")
     if r["screen"]:

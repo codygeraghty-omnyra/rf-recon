@@ -171,7 +171,7 @@ def _sheet(sh, strings, n):
     return "".join(x), rels
 
 
-def workbook(sheets, title="", author="RF Recon"):
+def workbook(sheets, title="", author="DAStastic"):
     """sheets: [{name, rows, cols (widths), head_row, filter, merges, lists, footer}] -> the .xlsx file's bytes."""
     used, strings, parts, rels = [], _Strings(), [], {}
     for i, sh in enumerate(sheets):

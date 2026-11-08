@@ -192,7 +192,7 @@ SAY = {"pin": "Put the pin on the building", "ahj": "Name the AHJ", "code": "Get
        "profile": "Pick the AHJ's requirements", "asked": "Ask the licensees for consent", "donor": "Read each carrier on the roof", "approvals": "Pick an approval path for each carrier",
        "design_ok": "Get the design approved and enter the date", "permit": "Get the AHJ permit and enter the date", "monitoring": "Connect monitoring to the fire alarm panel and enter the date",
        "consent": "Get licensee consent and enter the date", "fcc_reg": "File the FCC registration for the Class B booster and enter the date", "accepted": "Get the AHJ's acceptance and enter the date"}
-SAY_OPEN = {"ahj": "Check the AHJ RF Recon filled in", "plan": "Check the channel plan RF Recon filled in"}  # Run it for me chose it (data.auto.open)
+SAY_OPEN = {"ahj": "Check the AHJ DAStastic filled in", "plan": "Check the channel plan DAStastic filled in"}  # Run it for me chose it (data.auto.open)
 NOTHING_TO_READ = {"Install": ("Build it, and test each section as you go", "pim")}  # a stage whose gate has nothing to look at on this job
 
 

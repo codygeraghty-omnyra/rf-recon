@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — a floor plan from an ASCII DXF (AutoCAD's drawing exchange format; DWG has to be saved as DXF first):
+/* DAStastic — a floor plan from an ASCII DXF (AutoCAD's drawing exchange format; DWG has to be saved as DXF first):
    LINE, LWPOLYLINE, POLYLINE / VERTEX, ARC, CIRCLE and INSERT (block references, with their scale, rotation and nesting)
    are read with their layers. The drawing becomes the floor's plan image at its true width, and the lines on wall layers
    become walls, each with a material from its layer name (the AIA / US National CAD Standard layer names: A-WALL,

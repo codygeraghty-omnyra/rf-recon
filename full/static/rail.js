@@ -1,8 +1,8 @@
 "use strict";
-/* RF Recon — the filter rail. Cody 11/4: "study how the filter tabs should be - sdr sharp, etc and copy their layouts",
+/* DAStastic — the filter rail. Cody 11/4: "study how the filter tabs should be - sdr sharp, etc and copy their layouts",
    then "best one wins". SDR#, SDR++, GQRX, SDRangel, SDR Console, the scanner programs, ATAK, QGIS, Google Earth and WiGLE
    were studied; the docked layer rail won (SDR++'s menu, SDR#'s side panels, QGIS's and Google Earth's layer trees), as a
-   bottom sheet on a phone (ATAK upright). RF Recon's own glass, skins and colours; the layout is borrowed.
+   bottom sheet on a phone (ATAK upright). DAStastic's own glass, skins and colours; the layout is borrowed.
    - 1,100 px and up: a 288 px rail left of the tab's content, sticky under the tab bar with its own scroll. ‹ or L folds it
      to a 44 px strip with an "n on" badge (remembered as rfr.railFolded, which replaces rfr.filtersFolded). Until someone
      chooses, it starts open from 1,600 px and folded below.

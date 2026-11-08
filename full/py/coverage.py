@@ -37,6 +37,25 @@ def hata_db(d_km, f_mhz, hb_m, hm_m, env):
     return max(loss, fspl_db(d_km, f_mhz))
 
 
+def _loss_consts(model, f_mhz, hb_m, hm_m):
+    """hata_db (or fspl_db for "free") as loss(d) = max(c0 + c1 log10 d, 20 log10 d + c2) for d >= 0.05 km: the same model with its
+    constants worked out once per transmitter. "free" has no Hata term (c0 = -inf)."""
+    c2 = 20 * math.log10(f_mhz) + 32.44
+    if model == "free":
+        return -math.inf, 0.0, c2
+    lf, hb = math.log10(f_mhz), max(10.0, min(hb_m, 300.0))
+    a = (1.1 * lf - 0.7) * hm_m - (1.56 * lf - 0.8)
+    if f_mhz <= 1500:
+        c0 = 69.55 + 26.16 * lf - 13.82 * math.log10(hb) - a
+    else:
+        c0 = 46.3 + 33.9 * lf - 13.82 * math.log10(hb) - a + (3 if model == "urban" else 0)
+    if model == "suburban" and f_mhz <= 1500:
+        c0 -= 2 * math.log10(f_mhz / 28) ** 2 + 5.4
+    elif model == "open":
+        c0 -= 4.78 * lf ** 2 - 18.33 * lf + 40.94
+    return c0, 44.9 - 6.55 * math.log10(hb), c2
+
+
 def pattern_db(brg, az, bw):
     """Horizontal pattern relative to the main beam, dB (0 for an omni)."""
     if az is None or not bw or bw >= 360:
@@ -64,10 +83,13 @@ def dest(lat, lon, brg_deg, d_km):
     return math.degrees(p2), math.degrees(l2)
 
 
-def radial_table(lat, lon, R, z, have_terrain, g0, h_tx, h_rx, lam, eirp, loss, az, bw, threshold, radials=RADIALS, steps=STEPS):
+def radial_table(lat, lon, R, z, have_terrain, g0, h_tx, h_rx, lam, eirp, loss, az, bw, threshold, radials=RADIALS, steps=STEPS,
+                 limits=None):
     """The level along each bearing out to R km: the area model, the antenna pattern, and the loss over the highest
     ridge as seen from the site (terrain, or a smooth earth so the radio horizon still counts). Also the farthest
-    distance each bearing still reaches `threshold`."""
+    distance each bearing still reaches `threshold`. limits: per bearing, the last step anyone will read (area() passes the
+    farthest grid cell on it); a point depends only on the ground before it on its bearing, so the values are the same, and
+    `edge` then covers only those steps."""
     step = R / steps
     base = [eirp - loss(step * i) for i in range(1, steps + 1)]  # the model depends on distance only
     drop = [(step * i * 1000) ** 2 / (2 * terrain.K * terrain.EARTH_M) for i in range(1, steps + 1)]  # the earth's curve
@@ -75,28 +97,55 @@ def radial_table(lat, lon, R, z, have_terrain, g0, h_tx, h_rx, lam, eirp, loss, 
     g_site = g0 if have_terrain else 0.0
     H_tx = g_site + h_tx
     levels, edge = [], []
+    if have_terrain:  # dest() and terrain.elevation() inline, their sines and cosines once per step and per bearing: the same
+        # arithmetic in the same order, so the same values (11/7: those two calls were 11 of the 15 s a terrain heatmap spent here)
+        p1, l1 = math.radians(lat), math.radians(lon)
+        sp1, cp1 = math.sin(p1), math.cos(p1)
+        sds, cds = [], []
+        for i in range(1, steps + 1):
+            da = step * i / geo.EARTH_KM
+            sds.append(math.sin(da))
+            cds.append(math.cos(da))
+        n_t, mem, get_tile = 2 ** z, terrain._mem, terrain.tile
+        asin, atan2, sin, degrees, asinh, tan, radians, pi = (math.asin, math.atan2, math.sin, math.degrees, math.asinh, math.tan,
+                                                               math.radians, math.pi)
+    sqrt, log10 = math.sqrt, math.log10
     for j in range(radials):
         b = j * 360.0 / radials
         pat = pattern_db(b, az, bw)
         row, ground, edge_km, e_prev = [], [], 0.0, g_site
+        put, put_g = row.append, ground.append
         best, obs_d, obs_h = -1e18, None, None
-        for i in range(1, steps + 1):
+        if have_terrain:
+            br = math.radians(b)
+            sb, cb = math.sin(br), math.cos(br)
+        for i in range(1, (steps if limits is None else limits[j]) + 1):
             d = step * i
             if have_terrain:
-                e = terrain.elevation(*dest(lat, lon, b, d), z, fetch=False)
-                e_prev = e if e is not None else e_prev
+                sd, cd = sds[i - 1], cds[i - 1]
+                p2 = asin(sp1 * cd + cp1 * sd * cb)
+                la2 = degrees(p2)
+                la2 = 85.0 if la2 > 85.0 else -85.0 if la2 < -85.0 else la2
+                lo2 = degrees(l1 + atan2(sb * sd * cp1, cd - sp1 * sin(p2)))
+                x, y = (lo2 + 180.0) / 360.0 * n_t, (1 - asinh(tan(radians(la2))) / pi) / 2 * n_t
+                tx, ty = int(x), int(y)
+                t = mem.get((z, tx, ty)) or get_tile(z, tx, ty, False)
+                if t is not None:
+                    py, px = int((y - ty) * 256), int((x - tx) * 256)
+                    e_prev = t[(255 if py > 255 else py) * 256 + (255 if px > 255 else px)]
             g = e_prev - drop[i - 1]  # ground below the site's horizon plane
-            ground.append(g)
+            put_g(g)
             k = i - 1 - gap  # the ridge that rises highest as seen from the site, at least 1 km short of here
             if k >= 0:
                 s = (ground[k] - H_tx) / (step * (k + 1))
                 if s > best:
                     best, obs_d, obs_h = s, step * (k + 1), ground[k]
             lvl = base[i - 1] + pat
-            if obs_d is not None:
-                los = H_tx + (g + h_rx - H_tx) * obs_d / d
-                lvl -= terrain.knife_edge_db((obs_h - los) * math.sqrt(2 * d / (lam * obs_d * (d - obs_d) * 1000)))
-            row.append(lvl)
+            if obs_d is not None:  # terrain.knife_edge_db inline
+                v = (obs_h - (H_tx + (g + h_rx - H_tx) * obs_d / d)) * sqrt(2 * d / (lam * obs_d * (d - obs_d) * 1000))
+                if v > -0.78:
+                    lvl -= 6.9 + 20 * log10(sqrt((v - 0.1) ** 2 + 1) + v - 0.1)
+            put(lvl)
             if lvl >= threshold:
                 edge_km = d  # the farthest it still reaches (behind a hill it can drop out and come back)
         levels.append(row)
@@ -122,8 +171,10 @@ def area(grid, txs, model="suburban", use_terrain=True, h_rx=1.5, with_terrain=2
     full terrain model, the rest Hata (or free space) over a smooth earth. txs: dicts with lat, lon, eirp, f_mhz,
     h_tx, haat, az, bw. Returns how many were modelled with terrain."""
     kx = 111.0
-    cells = [(grid.n - (r + 0.5) * grid.dy, grid.w + (c + 0.5) * grid.dx) for r in range(grid.rows) for c in range(grid.cols)]
-    best = [-1e18] * len(cells)
+    row_lat = [grid.n - (r + 0.5) * grid.dy for r in range(grid.rows)]
+    col_lon = [grid.w + (c + 0.5) * grid.dx for c in range(grid.cols)]
+    best = [-1e18] * (grid.rows * grid.cols)
+    hypot, degrees, atan2, log10 = math.hypot, math.degrees, math.atan2, math.log10
     corner = max(geo.haversine_km(grid.s, grid.w, grid.n, grid.e), 1.0)
     n_ter = 0
     for i, t in enumerate(txs):
@@ -134,25 +185,52 @@ def area(grid, txs, model="suburban", use_terrain=True, h_rx=1.5, with_terrain=2
         loss = (lambda d, f=f: fspl_db(d, f)) if m == "free" else (lambda d, f=f, hb=hb, m=m: hata_db(d, f, hb, h_rx, m))
         R = min(corner + geo.haversine_km(t["lat"], t["lon"], (grid.s + grid.n) / 2, (grid.w + grid.e) / 2), 60 * geo.MI_KM)
         steps = 160
+        step = R / steps
+        cos0 = math.cos(math.radians(t["lat"]))
+        dys = [(la - t["lat"]) * kx for la in row_lat]
+        dxs = [(lo - t["lon"]) * kx * cos0 for lo in col_lon]
         if g0 is not None:
+            # each cell's bearing and step first, so the table goes only as far along each bearing as its farthest cell (R reaches the
+            # grid's far corner from anywhere, so most of every bearing was never read: 11/7, the same values)
+            where, lim = [], [0] * 180
+            for dy in dys:
+                for dx in dxs:
+                    d = hypot(dx, dy)
+                    if d <= R:
+                        j, s_i = int(round(degrees(atan2(dx, dy)) / 2)) % 180, min(steps, max(1, int(round(d / step))))
+                        where.append((j, s_i - 1))
+                        if s_i > lim[j]:
+                            lim[j] = s_i
+                    else:
+                        where.append(None)
             z = terrain.zoom_for(R)
             terrain.ensure(terrain.tiles_for(t["lat"], t["lon"], R, z))
             levels, _ = radial_table(t["lat"], t["lon"], R, z, True, g0, t["h_tx"], h_rx, 299.792458 / f, t["eirp"], loss,
-                                     t.get("az"), t.get("bw"), floor, radials=180, steps=steps)
+                                     t.get("az"), t.get("bw"), floor, radials=180, steps=steps, limits=lim)
             n_ter += 1
         else:
-            levels = None
-        step = R / steps
-        cos0 = math.cos(math.radians(t["lat"]))
-        for k, (la, lo) in enumerate(cells):
-            dy, dx = (la - t["lat"]) * kx, (lo - t["lon"]) * kx * cos0
-            d = math.hypot(dx, dy)
-            if levels is not None and d <= R:
-                v = levels[int(round(math.degrees(math.atan2(dx, dy)) / 2)) % 180][min(steps, max(1, int(round(d / step)))) - 1]
-            else:
-                v = t["eirp"] - loss(max(d, 0.05)) + pattern_db(math.degrees(math.atan2(dx, dy)) % 360, t.get("az"), t.get("bw"))
-            if v > best[k]:
-                best[k] = v
+            levels = where = None
+        # per cell: the model as loss(d) = max(c0 + c1 log d, 20 log d + c2), one log a cell (hata_db and fspl_db with their
+        # constants worked out once), no angle for an omni, each row's and column's offset once (11/7: 9 of a terrain heatmap's 27 s)
+        c0, c1, c2 = _loss_consts(m, f, hb, h_rx)
+        eirp, az, bw = t["eirp"], t.get("az"), t.get("bw")
+        omni = az is None or not bw or bw >= 360
+        k = 0
+        for dy in dys:
+            for dx in dxs:
+                if where is not None and where[k] is not None:
+                    j, s_i = where[k]
+                    v = levels[j][s_i]
+                else:
+                    d = hypot(dx, dy)
+                    ld = log10(d if d > 0.05 else 0.05)
+                    lm, lf = c0 + c1 * ld, 20 * ld + c2
+                    v = eirp - (lm if lm > lf else lf)
+                    if not omni:
+                        v += pattern_db(degrees(atan2(dx, dy)) % 360, az, bw)
+                if v > best[k]:
+                    best[k] = v
+                k += 1
     for k, v in enumerate(best):
         grid.values[k // grid.cols][k % grid.cols] = v if v >= floor else None
     return n_ter
@@ -165,7 +243,7 @@ def compute(lat, lon, f_mhz, eirp, h_tx=30.0, haat=None, az=None, bw=None, model
     if not f_mhz or f_mhz <= 0:
         raise ValueError("Coverage needs the transmitter's frequency.")
     if f_mhz < 30:
-        raise ValueError(f"{f_mhz:g} MHz travels by ground wave and skywave (AM broadcast, HF); RF Recon's coverage models start at 30 MHz.")
+        raise ValueError(f"{f_mhz:g} MHz travels by ground wave and skywave (AM broadcast, HF); DAStastic's coverage models start at 30 MHz.")
     model = model if model in MODELS else "suburban"
     if model != "free" and not 30 <= f_mhz <= 3800:
         model = "free"

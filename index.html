@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>RF Recon lite (beta)</title>
-<meta name="description" content="RF Recon lite (beta), the phone app: FCC licences, towers, broadcast, NOAA and FAA for one area, offline.">
+<title>DAStastic lite (beta)</title>
+<meta name="description" content="DAStastic lite (beta), the phone app: FCC licences, towers, broadcast, NOAA and FAA for one area, offline.">
 <meta name="theme-color" content="#12110f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="RF Recon lite">
+<meta name="apple-mobile-web-app-title" content="DAStastic lite">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -168,6 +168,13 @@ details + details { border-top: 1px solid var(--line); }
   #sheet { left: calc(50vw - 300px); right: calc(50vw - 300px); }
   #nav { left: calc(50vw - 260px); right: calc(50vw - 260px); }
 }
+/* on its side the Note button sat over the List's frequencies (Cody's phone, 11/7): it goes level with the tab bar, in the room
+   beside it (the bar is 520 px wide from 720 px up), as a round icon so it clears the list's column too (the word stays for screen
+   readers). html body outranks notes.js's own rules, which it injects later */
+@media (min-width: 720px) and (max-height: 500px) {
+  html body .rfn-fab { bottom: calc(env(safe-area-inset-bottom) + 19px); width: 44px; padding: 0; justify-content: center; }
+  html body .rfn-fab span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 @media (pointer: coarse) { .dl-look .dl-keys { display: none; } }  /* the display sheet's keyboard shortcuts: no keyboard on a phone (outranks look.js's own rule, injected later) */
 </style>
 </head>
@@ -209,7 +216,7 @@ details + details { border-top: 1px solid var(--line); }
 <div id="map" aria-label="Map"></div>
 
 <header class="top glass over">
-  <span class="brand"><img src="icons/icon-192.png" alt="">RF Recon lite <span class="badge">BETA</span></span>
+  <span class="brand"><img src="icons/icon-192.png" alt="">DAStastic lite <span class="badge">BETA</span></span>
   <button class="packchip" id="packchip" type="button" title="Data packs">No data pack</button>
   <span id="lookSlot"></span>
 </header>

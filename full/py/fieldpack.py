@@ -1,5 +1,5 @@
 """
-Field packs: one area's public data for the RF Recon phone app.
+Field packs: one area's public data for the DAStastic phone app.
 
 A pack is a gzip-compressed SQLite file (.rfpack) holding only what the phone needs, worked out in advance:
 active FCC licences (with band and signal type), towers, broadcast, NOAA Weather Radio, FAA, place names, 911 call
@@ -425,7 +425,7 @@ def main():
         ap.error("give --states, --center and --radius, or --circle")
     name = a.name or " + ".join(", ".join(x["states"]).upper() if x.get("states") else x.get("label") or
                                 f"{x['center'][0]:.3f}, {x['center'][1]:.3f} {x['radius_mi']:g} mi" for x in areas)
-    out = a.out or os.path.join(PACK_DIR, f"RF Recon pack - {safe_name(name)}.rfpack")
+    out = a.out or os.path.join(PACK_DIR, f"DAStastic pack - {safe_name(name)}.rfpack")
     r = build(a.db, out, name=name, areas=areas, prospects=None if a.prospects.lower() == "none" else a.prospects)
     print(json.dumps(r, indent=1))
     if r["big"]:

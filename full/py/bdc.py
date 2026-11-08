@@ -4,7 +4,7 @@ H3 hexagons (resolution 9, about 0.1 km2), each with the minimum signal the carr
 that holds outdoors standing still or in a moving vehicle.
 
 The FCC publishes one file per carrier, technology and speed tier, per state: a zipped shapefile whose table carries
-the hexagon and its values. RF Recon keeps each hexagon's centre with those values in its own database (bdc.db, beside
+the hexagon and its values. DAStastic keeps each hexagon's centre with those values in its own database (bdc.db, beside
 uls.db), loaded for the states set in Data & updates. A new release comes twice a year; files already loaded for the
 current release aren't fetched again. Needs a free API token (broadbandmap.fcc.gov, Manage API Access), sent with the
 FCC sign-in email; the FCC's API terms apply.

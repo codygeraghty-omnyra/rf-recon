@@ -16532,7 +16532,7 @@
     "role": "Fire marshal – AHJ",
     "phone": "703-555-0142",
     "email": "dwhitfield@firemarshal.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "owner": {
     "name": "Priya Raman",
@@ -16540,7 +16540,7 @@
     "role": "Property manager – building owner",
     "phone": "703-555-0117",
     "email": "praman@sampleproperties.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "agency": {
     "name": "Marcus Bell",
@@ -16548,7 +16548,7 @@
     "role": "Radio system manager",
     "phone": "703-555-0163",
     "email": "radioshop@county-ecc.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "gc": {
     "name": "Tom Alvarez",
@@ -16556,7 +16556,7 @@
     "role": "Project manager – general contractor",
     "phone": "703-555-0125",
     "email": "talvarez@samplebuilders.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "sub": {
     "name": "Lena Ortiz",
@@ -16564,7 +16564,7 @@
     "role": "Electrical subcontractor – cabling and pathway",
     "phone": "703-555-0138",
     "email": "lortiz@sampleelectric.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    },
    "tech": {
     "name": "Jordan Lee",
@@ -16572,7 +16572,7 @@
     "role": "RF technician, FCC GROL, NICET III",
     "phone": "703-555-0109",
     "email": "jlee@samplerf.example",
-    "notes": "Fictional contact for the RF Recon example jobs."
+    "notes": "Fictional contact for the DAStastic example jobs."
    }
   },
   "suppliers": [

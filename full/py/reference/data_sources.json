@@ -1,5 +1,5 @@
 {
- "_about": "Open and crowd data sources for RF Recon: what each needs, costs and allows. Checked on the providers' own pages 2026-10-28; the map, terrain, address-search, building-outline and radar services 2026-11-02 (header-only or anonymous requests; no sign-ups). 'updater' names the Data & updates sources it covers; 'keys' the settings it needs; 'status' says whether RF Recon uses it.",
+ "_about": "Open and crowd data sources for DAStastic: what each needs, costs and allows. Checked on the providers' own pages 2026-10-28; the map, terrain, address-search, building-outline and radar services 2026-11-02 (header-only or anonymous requests; no sign-ups). 'updater' names the Data & updates sources it covers; 'keys' the settings it needs; 'status' says whether DAStastic uses it.",
  "sources": [
   {
    "name": "FCC ULS licences, ASR towers, broadcast",
@@ -19,7 +19,7 @@
    "cost": "Free",
    "terms": "US government public data",
    "area": "Bulk files (weekly and daily)",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "FCC market licences (carrier spectrum)",
@@ -32,7 +32,7 @@
    "cost": "Free",
    "terms": "US government public data",
    "area": "Bulk files (weekly), about 115 MB",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "NOAA Weather Radio",
@@ -45,7 +45,7 @@
    "cost": "Free",
    "terms": "US government public data",
    "area": "Bulk file",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "FAA aviation frequencies (NASR)",
@@ -58,7 +58,7 @@
    "cost": "Free",
    "terms": "US government public data",
    "area": "Bulk files every 28 days",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "Signal Identification Wiki",
@@ -71,7 +71,7 @@
    "cost": "Free",
    "terms": "Read on this PC; the catalog is never exported",
    "area": "Catalog",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "Artemis signal database (Ares Valley)",
@@ -82,7 +82,7 @@
    "cost": "Free (release v74 is a 302 MB download, about 290 MB unpacked)",
    "terms": "App GPL-3.0; the database is Signal Identification Wiki content: read on this PC, never exported",
    "area": "Catalog (by frequency, bandwidth and mode, not by place)",
-   "status": "In RF Recon: each Signal ID Wiki match shows its waterfall and plays its audio (map details, field log). Data & updates, Artemis signal database, downloads it (off until you switch it on)",
+   "status": "In DAStastic: each Signal ID Wiki match shows its waterfall and plays its audio (map details, field log). Data & updates, Artemis signal database, downloads it (off until you switch it on)",
    "updater": [
     "artemis"
    ]
@@ -104,7 +104,7 @@
    "cost": "Free (non-commercial only; commercial licensing is suspended)",
    "terms": "Personal, research or educational use only; no redistribution",
    "area": "Yes (lat/lon box)",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "OpenCelliD",
@@ -122,7 +122,7 @@
    "cost": "Free (1,000 requests a day); commercial plans unpriced",
    "terms": "CC BY-SA 4.0: credit OpenCelliD with a link",
    "area": "Yes (box up to 4 sq km, 50 cells a request); whole-country downloads",
-   "status": "In RF Recon"
+   "status": "In DAStastic"
   },
   {
    "name": "RepeaterBook",
@@ -140,7 +140,7 @@
    "cost": "Free for approved non-commercial use; commercial needs paid terms",
    "terms": "Personal use; its policy discourages tools that mix it with other sources, and repeater maps need written permission",
    "area": "By state / county",
-   "status": "In RF Recon (check the token's approved use)"
+   "status": "In DAStastic (check the token's approved use)"
   },
   {
    "name": "RadioReference web service",
@@ -154,7 +154,7 @@
    "cost": "Premium $30/year ($15 for 6 months, $60 for 2 years); dashboards need a paid licence (price not stated)",
    "terms": "The free key is for radio-programming tools only",
    "area": "By county; callsign radius under 3 mi",
-   "status": "Not added: needs Premium and a paid licence. RF Recon links to it instead."
+   "status": "Not added: needs Premium and a paid licence. DAStastic links to it instead."
   },
   {
    "name": "OpenSky Network (ADS-B)",
@@ -176,7 +176,7 @@
    "cost": "Free",
    "terms": "No terms published; no direct browser connections",
    "area": "Yes (box, live stream only)",
-   "status": "In RF Recon: the map's Ships (AIS, live) layer, for the owner only (Cody's PC, and his admin login on the 24/7 server); streams only while the layer is on",
+   "status": "In DAStastic: the map's Ships (AIS, live) layer, for the owner only (Cody's PC, and his admin login on the 24/7 server); streams only while the layer is on",
    "keys": [
     "aisstream_key"
    ]
@@ -211,7 +211,7 @@
    "cost": "Free",
    "terms": "US government data",
    "area": "Per state (the carrier-coverage states in Data & updates)",
-   "status": "In RF Recon",
+   "status": "In DAStastic",
    "updater": [
     "bdc"
    ],
@@ -232,7 +232,7 @@
    "cost": "Free",
    "terms": "US government data; the API allows 10 calls a minute",
    "area": "H3 cells of about 0.7 km2 (checks, fixed wireless); per provider (link budgets)",
-   "status": "In RF Recon from 2026-11-03: Cell sites, under Carrier coverage at the pin, and How modelled per carrier. Left out: wired broadband, summaries, raw coverage polygons (about 82 GB), the Funding Map, and Location Fabric points (CostQuest licence)",
+   "status": "In DAStastic from 2026-11-03: Cell sites, under Carrier coverage at the pin, and How modelled per carrier. Left out: wired broadband, summaries, raw coverage polygons (about 82 GB), the Funding Map, and Location Fabric points (CostQuest licence)",
    "keys": [
     "fcc_bdc_username",
     "fcc_bdc_token"
@@ -251,7 +251,7 @@
    "cost": "Free (about 1.3 GB of disk an area)",
    "terms": "USGS: public domain, tile export allowed (checked 2026-11-03); terrain: AWS open data, credit Tilezen's sources. OpenStreetMap and Esri tiles are never kept",
    "area": "Each mission area",
-   "status": "In RF Recon from 2026-11-03"
+   "status": "In DAStastic from 2026-11-03"
   },
   {
    "name": "FCC Equipment Authorization (FCC ID)",
@@ -261,7 +261,7 @@
    "cost": "Free",
    "terms": "US government data",
    "area": "No (by FCC ID or company)",
-   "status": "In RF Recon: grantee codes download with the data sources; Look up an FCC ID in Data & updates; makers in Search",
+   "status": "In DAStastic: grantee codes download with the data sources; Look up an FCC ID in Data & updates; makers in Search",
    "updater": [
     "grantee"
    ]
@@ -274,7 +274,7 @@
    "cost": "Free",
    "terms": "CC BY-SA 4.0",
    "area": "No (one list of all stations)",
-   "status": "In RF Recon",
+   "status": "In DAStastic",
    "updater": [
     "satnogs"
    ]
@@ -288,7 +288,7 @@
    "cost": "Free",
    "terms": "No mirroring, bulk export or competing directory",
    "area": "No (city / state)",
-   "status": "In RF Recon from 2026-11-03: look-ups only, from a DMR or NXDN reading's details (one ID when asked, kept 30 days)"
+   "status": "In DAStastic from 2026-11-03: look-ups only, from a DMR or NXDN reading's details (one ID when asked, kept 30 days)"
   },
   {
    "name": "PSKReporter",
@@ -298,7 +298,7 @@
    "cost": "Free",
    "terms": "Not stated; poll at most every 5 minutes",
    "area": "By grid square",
-   "status": "In RF Recon",
+   "status": "In DAStastic",
    "updater": [
     "pskreporter"
    ]
@@ -321,7 +321,7 @@
    "cost": "Free",
    "terms": "Non-commercial; results free for everyone; 20 requests a minute",
    "area": "Yes (SQL on positions)",
-   "status": "In RF Recon",
+   "status": "In DAStastic",
    "updater": [
     "wspr"
    ]
@@ -334,7 +334,7 @@
    "cost": "Free",
    "terms": "Not stated",
    "area": "Yes (radius)",
-   "status": "In RF Recon",
+   "status": "In DAStastic",
    "updater": [
     "ttn"
    ]
@@ -347,7 +347,7 @@
    "cost": "Free",
    "terms": "Not stated",
    "area": "No (paged list of about a million)",
-   "status": "In RF Recon from 2026-11-03: active Helium IoT hotspots for each mission area; reads the whole network (about 190 MB) a week, so on for the 24/7 server and off by default",
+   "status": "In DAStastic from 2026-11-03: active Helium IoT hotspots for each mission area; reads the whole network (about 190 MB) a week, so on for the 24/7 server and off by default",
    "updater": [
     "helium"
    ]
@@ -360,7 +360,7 @@
    "cost": "Free",
    "terms": "Data terms not stated",
    "area": "No (one file)",
-   "status": "In RF Recon from 2026-11-03: the Meshtastic mesh radios layer, for each mission area (one 4 MB list a day)",
+   "status": "In DAStastic from 2026-11-03: the Meshtastic mesh radios layer, for each mission area (one 4 MB list a day)",
    "updater": [
     "meshtastic"
    ]
@@ -393,7 +393,7 @@
    "cost": "n/a",
    "terms": "Personal viewing only; no mirroring",
    "area": "No",
-   "status": "Not added: its terms allow viewing only. RF Recon links to it."
+   "status": "Not added: its terms allow viewing only. DAStastic links to it."
   },
   {
    "name": "FCC 911 PSAP registry",
@@ -403,7 +403,7 @@
    "cost": "Free",
    "terms": "US government data",
    "area": "Bulk",
-   "status": "In RF Recon: rows last updated 2017-10-10; placed at town or county centres (no addresses in the registry)",
+   "status": "In DAStastic: rows last updated 2017-10-10; placed at town or county centres (no addresses in the registry)",
    "updater": [
     "psap"
    ]
@@ -416,7 +416,7 @@
    "cost": "Free",
    "terms": "US government data",
    "area": "Bulk",
-   "status": "In RF Recon from 2026-11-02: about 470 sites, updated daily by the FCC",
+   "status": "In DAStastic from 2026-11-02: about 470 sites, updated daily by the FCC",
    "updater": [
     "fss"
    ]
@@ -429,7 +429,7 @@
    "cost": "Free",
    "terms": "US government data",
    "area": "Bulk",
-   "status": "In RF Recon from 2026-11-02, off by default (about 445 MB): about 2,300 pending links, drawn dashed on the Microwave backhaul layer",
+   "status": "In DAStastic from 2026-11-02, off by default (about 445 MB): about 2,300 pending links, drawn dashed on the Microwave backhaul layer",
    "updater": [
     "mw_pending"
    ]
@@ -442,7 +442,7 @@
    "cost": "Free (donation-funded, best effort)",
    "terms": "Tile policy: light use, credit OpenStreetMap, honour caching; no bulk downloads, prefetching or offline use",
    "area": "Map tiles",
-   "status": "In RF Recon: the Street base map"
+   "status": "In DAStastic: the Street base map"
   },
   {
    "name": "USGS The National Map",
@@ -452,7 +452,7 @@
    "cost": "Free",
    "terms": "US government public domain; USGS asks for credit",
    "area": "Map tiles",
-   "status": "In RF Recon: the four USGS base maps"
+   "status": "In DAStastic: the four USGS base maps"
   },
   {
    "name": "Esri World Imagery",
@@ -462,7 +462,7 @@
    "cost": "Free to view",
    "terms": "Esri Master License Agreement; credit Esri, Vantor, Earthstar Geographics; not for exporting tiles to use offline",
    "area": "Map tiles",
-   "status": "In RF Recon: the Satellite hi-res (Esri) base map"
+   "status": "In DAStastic: the Satellite hi-res (Esri) base map"
   },
   {
    "name": "US Census Bureau TIGERweb",
@@ -472,7 +472,7 @@
    "cost": "Free",
    "terms": "US government public data",
    "area": "Map tiles; one point query per DAS job",
-   "status": "In RF Recon: the County + state lines layer; a DAS job's county and city (the AHJ guess)"
+   "status": "In DAStastic: the County + state lines layer; a DAS job's county and city (the AHJ guess)"
   },
   {
    "name": "Terrain Tiles on AWS (Tilezen)",
@@ -482,7 +482,7 @@
    "cost": "Free",
    "terms": "AWS open data; credit the sources in Tilezen's attribution list",
    "area": "Elevation tiles",
-   "status": "In RF Recon: terrain profiles and coverage estimates; tiles already fetched are kept for use with no signal"
+   "status": "In DAStastic: terrain profiles and coverage estimates; tiles already fetched are kept for use with no signal"
   },
   {
    "name": "Photon address search (komoot)",
@@ -492,7 +492,7 @@
    "cost": "Free",
    "terms": "Public demo server: \"please be fair\"; heavy use is throttled; no availability promise. OpenStreetMap data",
    "area": "By address or place name",
-   "status": "In RF Recon: addresses in the Pin box's search"
+   "status": "In DAStastic: addresses in the Pin box's search"
   },
   {
    "name": "Overpass API (OpenStreetMap)",
@@ -502,7 +502,7 @@
    "cost": "Free",
    "terms": "Main server: under 10,000 queries and 1 GB a day; OpenStreetMap data (ODbL), credit OpenStreetMap; tunnel prospects kept off the public packs",
    "area": "Yes (box)",
-   "status": "In RF Recon: DAS jobs' building outlines, tunnels near a job and tunnel prospects (public servers asked at once)"
+   "status": "In DAStastic: DAS jobs' building outlines, tunnels near a job and tunnel prospects (public servers asked at once)"
   },
   {
    "name": "Iowa Environmental Mesonet: NEXRAD",
@@ -512,7 +512,7 @@
    "cost": "Free",
    "terms": "No terms published for the tile service",
    "area": "Map tiles",
-   "status": "In RF Recon: the map's Weather radar (NEXRAD, live) layer"
+   "status": "In DAStastic: the map's Weather radar (NEXRAD, live) layer"
   },
   {
    "name": "USFA National Fire Department Registry",
@@ -525,7 +525,7 @@
    "cost": "Free",
    "terms": "US government work: the registry says the general public can use the data; FEMA: free of copyright, may be copied and distributed (read 2026-11-04). Frozen: no updates after June 2026 (NERIS is the current list)",
    "area": "Whole US (about 12 MB)",
-   "status": "In RF Recon from 2026-11-04: a DAS job's AHJ guess (the fire departments covering the address)"
+   "status": "In DAStastic from 2026-11-04: a DAS job's AHJ guess (the fire departments covering the address)"
   }
  ]
 }

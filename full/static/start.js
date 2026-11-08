@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — Start: one job, step by step, for someone with no RF background (Cody 11/5, picked from a preview). Four steps, each
+/* DAStastic — Start: one job, step by step, for someone with no RF background (Cody 11/5, picked from a preview). Four steps, each
    a set of plain questions with drop-downs, each ending in something to hand over: Discovery, Survey, Design, AHJ package.
    Nothing here is a second copy of the tool. A Start job is an ordinary DAS job: the answers go in its record (data.guided), the
    fields the full tool also shows go in that tool's own keys (client, address, lat, lon, area_sqft, construction, presurvey), and
@@ -159,14 +159,14 @@ async function landing(v) {
   try { jobs = (await api("/api/das/jobs")).jobs || []; } catch (e) { /* no jobs to list: the form still works */ }
   const mine = jobs.filter(j => stand(j).guided);
   const landOn = (() => { try { return localStorage.getItem("rfr.landing") === "start"; } catch (e) { return false; } })();
-  v.innerHTML = `<div class="st"><div class="st-hero"><h2>Start a job</h2><p>Answer a few questions about the building. RF Recon works out what it needs, then takes you through it one step at a time, to the package the AHJ signs off.</p></div>
+  v.innerHTML = `<div class="st"><div class="st-hero"><h2>Start a job</h2><p>Answer a few questions about the building. DAStastic works out what it needs, then takes you through it one step at a time, to the package the AHJ signs off.</p></div>
     <div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, G.draft[q.k])).join("")}</div>
       <p class="status err" id="stLeft" hidden></p>
       <div class="st-next"><button class="primary" id="stGo">Build the Discovery report</button></div></div>
     <p class="hint st-foot">Got files already? <button class="sm" id="stIntake">Drop them here</button> Plans, contacts, letters, old emails: each one is checked and put where it goes.</p>
     ${mine.length ? `<div class="panel"><h3>Carry on with a job</h3><div class="st-jobs">${mine.map(j => { const n = stepOf(stand(j).step) + 1;
       return `<button data-open="${j.id}"><b>${esc(j.name)}</b><span class="hint">${esc(j.address || "")}</span><span class="st-pill">Step ${n} of 4: ${esc(STEPS[n - 1].label)}</span></button>`; }).join("")}</div></div>` : ""}
-    <p class="hint st-foot">This is the guided way through. Everything RF Recon does is still on the tabs above. <label class="inl"><input type="checkbox" id="stLand" ${landOn ? "checked" : ""}> Open RF Recon here</label></p></div>`;
+    <p class="hint st-foot">This is the guided way through. Everything DAStastic does is still on the tabs above. <label class="inl"><input type="checkbox" id="stLand" ${landOn ? "checked" : ""}> Open DAStastic here</label></p></div>`;
   wireForm(v, null);
   document.getElementById("stIntake").onclick = () => window.intakeOpen?.();
   v.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { G.job = +b.dataset.open; G.step = null; redraw(); });
@@ -259,7 +259,7 @@ function decidingSystem(systems, ahj, spec) {
 // (61 systems and 437 channels at one address, 11/6), and each one becomes a consent email. A person adds the rest on the Pre-survey
 window.startSystems = (systems, ahj, spec) => { const r = localPool(systems, ahj, spec); if (!r) return []; return r.local.length ? r.local : [decidingSystem(systems, ahj, spec)]; };
 function verdictOf(R, cellOnly) {
-  if (R.noPin) return ["Add the address for the rest", "With no address on the map, RF Recon can't look up the radio systems, the carriers or the AHJ. What you filled in is saved on the job."];
+  if (R.noPin) return ["Add the address for the rest", "With no address on the map, DAStastic can't look up the radio systems, the carriers or the AHJ. What you filled in is saved on the job."];
   if (cellOnly) return ["Cellular job", "Coverage inside comes from each carrier's approval: start with the carriers below."];
   if (R.ps._error) return ["No estimate", `The estimate didn't run: ${R.ps._error}`];
   if (!R.systems.length) return ["No systems found", "No licensed radio systems came back within 15 miles. Ask the fire marshal what the building has to carry."];
@@ -288,7 +288,7 @@ function blanksHtml(j) {
   return `${rough ? `<p class="st-skip" id="stRough"><b>The pin is near ${esc(r.at)}, not on the building.</b> That address isn't on any list yet. The radio systems and the AHJ are for that area. Move the pin on the job's Overview once you can.</p>` : ""}
     ${left.length ? `<p class="st-skip" id="stBlank"><b>Left blank:</b> ${esc(left.map(q => q.s).join(", "))}. This report works from what it has. <button class="sm no-print" id="stFill">Fill them in</button></p>` : ""}`;
 }
-const printHead = (j, title) => `<div class="st-print-head"><div><b>${esc(title)}</b><div>${esc(j.name)}${j.data.address ? ` · ${esc(j.data.address)}` : ""}</div></div><div>RF Recon · ${esc(today())}</div></div>`;
+const printHead = (j, title) => `<div class="st-print-head"><div><b>${esc(title)}</b><div>${esc(j.name)}${j.data.address ? ` · ${esc(j.data.address)}` : ""}</div></div><div>DAStastic · ${esc(today())}</div></div>`;
 const skipNote = (d, id) => { const s = skipped(d, id); return s ? `<p class="st-skip">Skipped by ${esc(s.by || "the user")} on ${esc(s.at)}: ${esc(s.why)}</p>` : ""; };
 function contactLine(c) {
   const e = c && ((c.contact && c.contact.has_address) ? c.contact : c.licensee); if (!e) return "";

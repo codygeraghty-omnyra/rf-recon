@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon phone app: Find a signal, with no signal (the PC's Mission tab, static/hunt.js, on the phone). Walk toward
+/* DAStastic phone app: Find a signal, with no signal (the PC's Mission tab, static/hunt.js, on the phone). Walk toward
    it: at each stop the phone's own GPS position (a fresh fix, never a kept one), the level read off any receiver, and
    optionally the direction from the phone's compass. Each stop is a field log reading kept on this phone (so the
    Field log's CSV takes it to the PC); the estimate is worked out here (geofix.js: geo.py's level_fix, bearing_fix and
@@ -286,7 +286,7 @@ window.viewHunt = async v => {
           <li>A direction is saved only once the compass is steady (within 5°): hold it still, away from cars and metal. Aim for 8 stops, and go where the purple ring says: from the side, the lines cross wider.</li>
           <li>A rogue booster usually sits inside a building: the level climbs sharply in the last 50 m. Walk the block, then the floors; look for a donor antenna on the roof or a booster in a telecom room.</li>
           <li>A booster retransmits with the licensee's consent only (47 CFR 90.219): tell the agency's radio shop what you found, with the readings (Field log, Export CSV).</li>
-          <li>Worked out on this phone the same way as RF Recon on the PC (Mission, Find a signal).</li></ul></details></div>`;
+          <li>Worked out on this phone the same way as DAStastic on the PC (Mission, Find a signal).</li></ul></details></div>`;
   $("#hn_f").onchange = () => { HUNT.freq = $("#hn_f").value.trim(); hSave(); hDraw(); };
   $("#hn_tol").onchange = e => { HUNT.tol = +e.target.value; hSave(); hDraw(); };
   $("#hn_ref").onchange = e => { HUNT.ref = e.target.value; hSave(); };

@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon (beta), full web version: stands in for the PC app's server. The PC app's own screens (app/static)
+/* DAStastic (beta), full web version: stands in for the PC app's server. The PC app's own screens (app/static)
    run unchanged; their /api/* calls are answered here from a field pack held in this browser, and their map
    tiles come straight from the sources instead of the PC's tile cache. Packs are shared with the phone app
    (same site, same browser storage). Nothing is sent anywhere. Ports of app.py's query_area, heatmap,
@@ -49,16 +49,16 @@ const ready = (async () => {
     const [active, packs] = await Promise.all([idb.get("kv", "activePack"), idb.all("packs")]);
     const id = active && packs.some(p => p.id === active) ? active : packs[0]?.id;
     if (id) await openPack(id);
-  } catch (e) { console.error("RF Recon: couldn't open the pack", e); }
+  } catch (e) { console.error("DAStastic: couldn't open the pack", e); }
 })();
 async function importPack(file) {
   const buf = await file.arrayBuffer(), raw = await unpack(buf);
-  if (String.fromCharCode(...raw.subarray(0, 15)) !== "SQLite format 3") throw new Error(`${file.name} isn't an RF Recon pack. Pick a file ending in .rfpack.`);
+  if (String.fromCharCode(...raw.subarray(0, 15)) !== "SQLite format 3") throw new Error(`${file.name} isn't a DAStastic pack. Pick a file ending in .rfpack.`);
   const SQL = await sqlReady(), db = new SQL.Database(raw);
   let meta;
   try { meta = readMeta(db); } finally { db.close(); }
-  if (!meta.pack_version) throw new Error(`${file.name} isn't an RF Recon pack.`);
-  if (meta.pack_version > PACK_VERSION) throw new Error("That pack was made by a newer RF Recon. Reload this page to update, then try again.");
+  if (!meta.pack_version) throw new Error(`${file.name} isn't a DAStastic pack.`);
+  if (meta.pack_version > PACK_VERSION) throw new Error("That pack was made by a newer DAStastic. Reload this page to update, then try again.");
   const id = `${meta.name}|${meta.made_at}`;
   const info = {id, name: meta.name, made_at: meta.made_at, area: meta.area, counts: meta.counts, fcc_built_at: meta.fcc_built_at,
     bbox: meta.bbox, bboxes: meta.bboxes, size: buf.byteLength, raw: raw.length, added: new Date().toISOString(), file: file.name};
@@ -83,7 +83,7 @@ async function statePackFor(lat, lon) {  // the smallest state box around the sp
 }
 async function loadSitePack(s) {
   const r = await realFetch(`../packs/${s.file}`);
-  if (!r.ok) throw new Error(`The RF Recon site didn't send ${s.name} (${r.status}).`);
+  if (!r.ok) throw new Error(`The DAStastic site didn't send ${s.name} (${r.status}).`);
   return importPack(new File([await r.blob()], s.file));
 }
 // a pin no loaded pack covers: use a pack already in this browser that does, else fetch its state's pack; then reload
@@ -97,7 +97,7 @@ async function packForPin(lat, lon) {
   h.set("tab", !h.get("tab") || h.get("tab") === "data" ? "map" : h.get("tab")); h.set("lat", lat); h.set("lon", lon);  // Packs (data) -> the map
   history.replaceState(null, "", "#" + h.toString());
   setTimeout(() => location.reload(), 50);
-  return saved ? `Switching to ${saved.name}, already in this browser…` : `Loading ${s.name} (${s.mb.toFixed(1)} MB) from the RF Recon site…`;
+  return saved ? `Switching to ${saved.name}, already in this browser…` : `Loading ${s.name} (${s.mb.toFixed(1)} MB) from the DAStastic site…`;
 }
 async function packUpdate() {  // the web version's data updates: a newer pack of the same area on the site
   if (!PACK) return null;
@@ -123,7 +123,7 @@ async function historyFiles() {
       const s = (await sitePacks()).find(x => x.st === st && x.history);
       if (!s) continue;
       const st_ = document.getElementById("status");
-      if (st_) st_.textContent = `Loading the FCC history for ${s.name} (${s.history_mb} MB) from the RF Recon site…`;
+      if (st_) st_.textContent = `Loading the FCC history for ${s.name} (${s.history_mb} MB) from the DAStastic site…`;
       const r = await realFetch(`../packs/${s.history}`);
       if (!r.ok) continue;
       buf = await r.arrayBuffer();
@@ -356,7 +356,7 @@ function heatExtent(rows) {  // a county search has no pin: cover where its entr
   return [lat, lon, Math.min(60, Math.max(2, half * 1.05))];
 }
 function heatmap(p) {
-  if (fstr(p, "kind") === "carrier") throw new Error("Carrier coverage comes from the FCC Broadband Map files RF Recon keeps on the PC.");
+  if (fstr(p, "kind") === "carrier") throw new Error("Carrier coverage comes from the FCC Broadband Map files DAStastic keeps on the PC.");
   let lat = fnum(p, "lat"), lon = fnum(p, "lon"), radius = fnum(p, "radius", 10);
   if (lat == null && !(fstr(p, "state") && fstr(p, "county"))) throw new Error("Heatmaps need a pin or a county.");
   const res = queryArea(p);
@@ -410,7 +410,7 @@ function heatmap(p) {
     acc.forEach((v, i) => { const x = 100 * v / mx; if (x > 1) vals[i] = x; });
     unit = "%"; desc = `Density of ${pts.length} RF points`;
   } else {
-    desc = "Measured level from 0 survey points (captures are kept in RF Recon on the PC)";
+    desc = "Measured level from 0 survey points (captures are kept in DAStastic on the PC)";
   }
   const floor = fnum(p, "floor");
   if (floor != null) vals.forEach((v, i) => { if (v < floor) vals[i] = NaN; });
@@ -475,7 +475,7 @@ function toCsv(rows) {
 function toKml(rows, center, radius) {
   const x = s => String(s ?? "").replace(/[<>&'"]/g, c => ({"<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;"}[c]));
   const kmlColor = h => "ff" + h.slice(5, 7) + h.slice(3, 5) + h.slice(1, 3);
-  const parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"><Document>', "<name>RF Recon export</name>"];
+  const parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"><Document>', "<name>DAStastic export</name>"];
   const styles = {};
   for (const r of rows) { const t = r.sig_type || r.layer; if (!(t in styles)) { styles[t] = "s" + Object.keys(styles).length;
     parts.push(`<Style id="${styles[t]}"><IconStyle><color>${kmlColor(META?.sig_lib?.[t]?.color || "#6e7781")}</color><scale>0.8</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>`); } }
@@ -522,8 +522,8 @@ function exportFile(kind, qs) {
   const p = new URLSearchParams(qs), res = queryArea(p);
   if (res.error) throw new Error(res.error);
   const rows = res.rows.filter(facetKeep(p));
-  if (kind === "csv") download("rf_recon.csv", toCsv(rows), "text/csv");
-  else download("rf_recon.kml", toKml(rows, res.center, res.radius), "application/vnd.google-earth.kml+xml");
+  if (kind === "csv") download("DAStastic.csv", toCsv(rows), "text/csv");
+  else download("DAStastic.kml", toKml(rows, res.center, res.radius), "application/vnd.google-earth.kml+xml");
 }
 
 /* ---------- one emitter's coverage (coverage.py, terrain.py): the same models; terrain straight from AWS ---------- */
@@ -591,7 +591,7 @@ async function coverage(p) {
   const lat = fnum(p, "lat"), lon = fnum(p, "lon"), f = fnum(p, "freq");
   if (lat == null || lon == null) throw new Error("Coverage needs the transmitter's location.");
   if (!f) throw new Error("Coverage needs the transmitter's frequency.");
-  if (f < 30) throw new Error(`${f} MHz travels by ground wave and skywave (AM broadcast, HF); RF Recon's coverage models start at 30 MHz.`);
+  if (f < 30) throw new Error(`${f} MHz travels by ground wave and skywave (AM broadcast, HF); DAStastic's coverage models start at 30 MHz.`);
   let eirp, src;
   if (fnum(p, "eirp") != null) { eirp = fnum(p, "eirp"); src = `${eirp} dBm EIRP, set by you`; }
   else if (fnum(p, "erp")) { eirp = 10 * Math.log10(fnum(p, "erp") * 1000) + 2.15; src = `licensed ERP ${fnum(p, "erp")} W`; }
@@ -839,7 +839,7 @@ async function basemaps(path, p, method, body) {
     if (typeof body === "string" && body.trim().startsWith("{")) { const d = JSON.parse(body); m = {name: (d.name || "My map").slice(0, 80), url: checkUrl(d.url), min: 0, max: 19}; }
     else {
       const text = body instanceof Blob ? await body.text() : String(body || "");
-      if (!text.trim().startsWith("<")) throw new Error("MBTiles maps open in RF Recon on the PC; here, import an ATAK map source (.xml) or a tile address.");
+      if (!text.trim().startsWith("<")) throw new Error("MBTiles maps open in DAStastic on the PC; here, import an ATAK map source (.xml) or a tile address.");
       if (/<!DOCTYPE/i.test(text.slice(0, 2000))) throw new Error("That XML has a DOCTYPE; refused.");
       const x = new DOMParser().parseFromString(text, "application/xml"), g = k => x.querySelector(k)?.textContent?.trim();
       if (x.documentElement.nodeName !== "customMapSource") throw new Error("Expected an ATAK map source (<customMapSource>).");
@@ -886,7 +886,7 @@ async function route(path, p, method, body) {
   if (path === "/bdc/at") return {carriers: [], loaded: false};
   if (path === "/bdc/near") return {cell: null, checks: [], fixed_wireless: []};
   if (path === "/bdc/modelled") return {models: [], frequencies: []};
-  if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from RF Recon on the PC (the key stays there)."};
+  if (path === "/ais") return {ships: [], status: "PC only", error: "Live ships stream from DAStastic on the PC (the key stays there)."};
   if (path === "/geocode") return geocode(p);
   if (path === "/sigwiki/match") return {candidates: await sigwikiMatch(fnum(p, "freq"), fnum(p, "bw"), fstr(p, "type"), fnum(p, "limit", 5))};
   if (path === "/sigwiki/range") return {signals: await sigwikiRange(fnum(p, "lo", 0), fnum(p, "hi", 1e6))};
@@ -896,7 +896,7 @@ async function route(path, p, method, body) {
   if (path === "/fieldpacks") return {packs: [], folder: "", phone_url: "../", job: {running: false, log: []}};  // packs are made on the PC
   if (path === "/update/run" && /das_prospects/.test(typeof body === "string" ? body : ""))  // DAS Prospects' "Download them now"
     throw new Error("The prospect lists download on the PC or server. Here they come in the field pack: load a pack made since 11/4 for this area (Packs).");
-  const e = new Error("That part of RF Recon runs on the PC only."); e.status = 404; throw e;
+  const e = new Error("That part of DAStastic runs on the PC only."); e.status = 404; throw e;
 }
 
 /* ---------- the Signal Identification Wiki's catalog (sigwiki.py's match and in_range) ---------- */
@@ -973,10 +973,10 @@ function pyBoot() {
   PYW = new Worker("pyworker.js");
   PYW.onmessage = ({data: m}) => { const w = pyWait.get(m.id); if (!w) return; pyWait.delete(m.id);
     m.ok ? w.ok(m) : w.no(Object.assign(new Error(m.error), {status: 500})); };
-  PYW.onerror = e => { for (const w of pyWait.values()) w.no(new Error("RF Recon's engine didn't start: " + (e.message || "check the connection")));
+  PYW.onerror = e => { for (const w of pyWait.values()) w.no(new Error("DAStastic's engine didn't start: " + (e.message || "check the connection")));
     pyWait.clear(); };
   pyStart = (async () => {
-    const st = document.getElementById("status"), was = st?.textContent || "", note = "Starting RF Recon's own engine in this browser";
+    const st = document.getElementById("status"), was = st?.textContent || "", note = "Starting DAStastic's own engine in this browser";
     if (st) st.textContent = `${note} (the first time it downloads about 15 MB)…`;
     try {
       const pack = PACK ? (await unpack(await idb.get("packdata", PACK.id))).slice().buffer : null;

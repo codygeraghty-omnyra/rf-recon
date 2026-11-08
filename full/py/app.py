@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RF Recon - local server. Run:  python app.py   then open http://localhost:8765
+DAStastic - local server. Run:  python app.py   then open http://localhost:8765
 Options:  --port 8765   --lan (serve to other devices on your network)
 Standard library only.
 """
@@ -11,7 +11,7 @@ import io
 import json
 import math
 import mimetypes
-mimetypes.add_type("application/vnd.android.package-archive", ".apk")  # RF Recon for Android (Help › Android app)
+mimetypes.add_type("application/vnd.android.package-archive", ".apk")  # DAStastic for Android (Help › Android app)
 mimetypes.add_type("application/manifest+json", ".webmanifest")  # the app manifest (installable on the server)
 import os
 import re
@@ -715,7 +715,7 @@ def query_area(qs):
 # ---------------------------------------------------------------- field packs for the phone app
 
 PHONE_URL = "https://codygeraghty-omnyra.github.io/rf-recon/"
-ANDROID_VERSION = "1.0"  # RF Recon for Android (android/, built outside this repo): the one version not readable from a file here
+ANDROID_VERSION = "1.0"  # DAStastic for Android (android/, built outside this repo): the one version not readable from a file here
 FP_JOB = {"running": False, "log": [], "result": None, "error": None}
 
 
@@ -730,7 +730,7 @@ def start_fieldpack(d):
         return FP_JOB
     center = (float(lat), float(lon)) if not states else None
     name = (d.get("name") or "").strip() or (", ".join(states) if states else f"{center[0]:.3f}, {center[1]:.3f} {float(radius):g} mi")
-    out = os.path.join(fieldpack.PACK_DIR, f"RF Recon pack - {fieldpack.safe_name(name)}.rfpack")
+    out = os.path.join(fieldpack.PACK_DIR, f"DAStastic pack - {fieldpack.safe_name(name)}.rfpack")
     FP_JOB.update(running=True, log=[], result=None, error=None)
 
     def work():
@@ -1575,7 +1575,7 @@ def heatmap_bundle(qs):
 
 
 def features_kml(rows, center, radius, mission_id=None, include_tracks=True):
-    parts = [geo.KML_HEAD, "<name>RF Recon export</name>"]
+    parts = [geo.KML_HEAD, "<name>DAStastic export</name>"]
     styles = {}
     for r in rows:
         t = r.get("sig_type") or r.get("layer")
@@ -1823,8 +1823,8 @@ class H(BaseHTTPRequestHandler):
 
     def mail_route(self, p, method, qs, con):
         if sys.platform == "emscripten":  # the web version: a browser can't reach a mail server (checked before the mail modules load)
-            return self.send(200, {"available": False, "why": "Mail from your own mailbox works in RF Recon on the server or the PC; here, Open in my mail."}) \
-                if p == "/api/mail/account" else self.send(400, {"error": "Mail works in RF Recon on the server or the PC."})
+            return self.send(200, {"available": False, "why": "Mail from your own mailbox works in DAStastic on the server or the PC; here, Open in my mail."}) \
+                if p == "/api/mail/account" else self.send(400, {"error": "Mail works in DAStastic on the server or the PC."})
         import dasmail
         import mailbox
         login = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"  # the PC's own window: "local"
@@ -1916,7 +1916,7 @@ class H(BaseHTTPRequestHandler):
             raise ValueError("Connect your mailbox first (Mail › Your mailbox).")
         import mailqueue
         if mailqueue.sent_last_hour(con, login) >= mailqueue.SEND_PER_HOUR:  # Gmail / Workspace cap a mailbox's sending per day
-            raise ValueError(f"{mailqueue.SEND_PER_HOUR} emails sent in the last hour: RF Recon waits before sending more, so your "
+            raise ValueError(f"{mailqueue.SEND_PER_HOUR} emails sent in the last hour: DAStastic waits before sending more, so your "
                              "mailbox stays under its provider's limits. Try again later.")
         to = (d.get("to") or "").strip()
         if not re.fullmatch(r"[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24}(\s*[,;]\s*[^@\s,;]+@[^@\s,;]+\.[A-Za-z]{2,24})*", to):
@@ -2166,7 +2166,7 @@ class H(BaseHTTPRequestHandler):
                     takwatch.stop()
                     return self.send(200, {"listening": False, "items": []})
                 return self.send(200, {**takwatch.ask(), "items": takwatch.feed()})
-            if p == "/api/tak/push" and method == "POST":  # RF Recon's markers straight into ATAK / WinTAK (takpush.py)
+            if p == "/api/tak/push" and method == "POST":  # DAStastic's markers straight into ATAK / WinTAK (takpush.py)
                 d = self.body_json()
                 return self.send(200, takpush.push(d.get("events"), get_setting("tak", {}) or {}, bool(d.get("open", True))))
             if p.startswith("/api/basemaps"):  # your own base maps (basemaps.py)
@@ -2519,7 +2519,7 @@ class H(BaseHTTPRequestHandler):
                     das.delete_contact(con, cid)
                     return self.send(200, {"ok": True})
                 return self.send(200, das.save_contact(con, self.body_json(), cid))
-            # supplier quotes for a job's bill of materials: RF Recon writes the request, the person sends it (11/3)
+            # supplier quotes for a job's bill of materials: DAStastic writes the request, the person sends it (11/3)
             # prospects: buildings likely to need ERCES near a spot, from public lists (prospects.py), and the pipeline (11/3)
             if p == "/api/das/prospects":
                 import prospects
@@ -2591,7 +2591,7 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, job)
             if p == "/api/das/suppliers/refresh" and method == "POST":  # every supplier's price list link, now
                 return self.send(200, {"refreshed": das.refresh_price_lists(con), "suppliers": das.list_suppliers(con)})
-            # mail from the person's own mailbox (Cody 11/4: send and receive without leaving RF Recon): dasmail.py, mailbox.py
+            # mail from the person's own mailbox (Cody 11/4: send and receive without leaving DAStastic): dasmail.py, mailbox.py
             if p.startswith("/api/mail/"):
                 return self.mail_route(p, method, qs, con)
             if p == "/api/das/share-links":  # read-only share links for outside people: off until the admin turns them on
@@ -2936,7 +2936,7 @@ class H(BaseHTTPRequestHandler):
                 return self.share_route(p, qs)
             if p in ("/course", remote.COURSE_SAVE):  # the DAS course: a ticked login's, through the door only (course.py)
                 return self.course_route("GET", p)
-            if p == "/review":  # the review page: an AHJ login's whole RF Recon (dasreview.js)
+            if p == "/review":  # the review page: an AHJ login's whole DAStastic (dasreview.js)
                 with open(os.path.join(STATIC, "review.html"), "rb") as fh:
                     return self.send(200, fh.read(), "text/html; charset=utf-8")
             if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
@@ -3003,7 +3003,7 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"carriers": bdc.carriers(uls_import.DATA_DIR, *(fnum(qs, k) for k in ("s", "n", "w", "e")))})
             if p == "/api/me":  # the remote door answers this itself (RemoteH); the data folder lets a launcher know its own copy
                 return self.send(200, {"remote": False, "data": uls_import.DATA_DIR})
-            if p == "/api/remote":  # who can use RF Recon remotely, and the public link (remote.py); door 0 = this copy has none
+            if p == "/api/remote":  # who can use DAStastic remotely, and the public link (remote.py); door 0 = this copy has none
                 return self.send(200, {"people": remote.users(), "link": remote.link() if REMOTE_PORT else {}, "door": REMOTE_PORT})
             if p == "/api/remote/course":  # who has the DAS course and how far each has got (admin only: /api/remote is blocked)
                 return self.course_people()
@@ -3057,13 +3057,13 @@ class H(BaseHTTPRequestHandler):
                 finally:
                     cc.close()
             if p == "/api/export.csv":
-                return self.attach(to_csv([r for r in query_area(qs).get("rows", []) if facet_keep(qs)(r)]), "rf_recon.csv", "text/csv")
+                return self.attach(to_csv([r for r in query_area(qs).get("rows", []) if facet_keep(qs)(r)]), "DAStastic.csv", "text/csv")
             if p == "/api/export.kml":
                 res = query_area(qs)
                 mid = fnum(qs, "mission")
                 return self.attach(features_kml([r for r in res.get("rows", []) if facet_keep(qs)(r)], res.get("center"), res.get("radius"),
                                                 int(mid) if mid is not None else None),
-                                   "rf_recon.kml", "application/vnd.google-earth.kml+xml")
+                                   "DAStastic.kml", "application/vnd.google-earth.kml+xml")
             if p == "/api/heatmap":
                 grid, rgba, vmin, vmax, unit, desc = heatmap(qs)
                 tp = time.perf_counter()
@@ -3141,7 +3141,7 @@ class H(BaseHTTPRequestHandler):
             return self.send(404, {"error": str(e)})
         except sqlite3.OperationalError as e:
             if "locked" in str(e):  # the FCC refresh is writing: say so, and that nothing was saved
-                return self.send(503, {"error": "RF Recon is refreshing its FCC data and couldn't do this just now. Nothing was changed: try again in a few minutes."})
+                return self.send(503, {"error": "DAStastic is refreshing its FCC data and couldn't do this just now. Nothing was changed: try again in a few minutes."})
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
         except Exception as e:
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
@@ -3450,7 +3450,7 @@ class H(BaseHTTPRequestHandler):
             return self.send(404, {"error": str(e)})
         except sqlite3.OperationalError as e:
             if "locked" in str(e):  # the FCC refresh is writing: say so, and that nothing was saved
-                return self.send(503, {"error": "RF Recon is refreshing its FCC data and couldn't do this just now. Nothing was changed: try again in a few minutes."})
+                return self.send(503, {"error": "DAStastic is refreshing its FCC data and couldn't do this just now. Nothing was changed: try again in a few minutes."})
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
         except Exception as e:
             return self.send(500, {"error": f"{type(e).__name__}: {e}"})
@@ -3499,7 +3499,7 @@ class RemoteH(H):
             return self.send(303, b"", "text/plain", {"Location": "/remote/login", "Set-Cookie": remote.cookie("", self.secure(), clear=True)})
         if p == "/sw.js":
             return self.send(200, remote.SW_JS, "text/javascript", {"Service-Worker-Allowed": "/"})
-        # the sign-in page's look, and RF Recon for Android (Help › Android app): a phone fetches it before it signs in
+        # the sign-in page's look, and DAStastic for Android (Help › Android app): a phone fetches it before it signs in
         if p.startswith(("/static/theme/", "/static/app/", "/static/android/")) or p == "/favicon.ico":
             return handler()
         if p.startswith("/share/") and method == "GET":  # a read-only share link: 404 unless share links are on (dashist.py)
@@ -3513,7 +3513,7 @@ class RemoteH(H):
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})
         if p == "/api/me":
             return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL), "course": remote.has_course(user)})
-        if role == "ahj" and p in ("/", "/index.html"):  # an AHJ reviewer's RF Recon is the review page
+        if role == "ahj" and p in ("/", "/index.html"):  # an AHJ reviewer's DAStastic is the review page
             return self.send(303, b"", "text/plain", {"Location": "/review"})
         if p in remote.EMPTY and role != "admin":
             return self.send(200, remote.EMPTY[p])
@@ -3571,7 +3571,7 @@ def main():
     rport = a.remote_port if a.remote_port is not None else (remote.PORT if a.port == 8765 else 0)
     if rport:  # the live copy opens the remote door; a test server only when asked (--remote-port)
         serve_remote(rport)
-    print(f"RF Recon running at http://localhost:{a.port}  (Ctrl+C to stop)")
+    print(f"DAStastic running at http://localhost:{a.port}  (Ctrl+C to stop)")
     ThreadingHTTPServer((host, a.port), H).serve_forever()
 
 

@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon (beta), full web version: what differs from the PC app. Loaded after the PC app's own scripts
+/* DAStastic (beta), full web version: what differs from the PC app. Loaded after the PC app's own scripts
    (app/static): the Data & updates tab becomes Packs (the PC's own panels for keys, crowd data, imports and FCC IDs,
    with the packs on top), exports and files come through the page, and newer packs on the site are offered as the
    data updates. Everything else is the PC's code, run here by shim.js and the engine (pyworker.js, webhost.py). */
@@ -41,7 +41,7 @@ document.addEventListener("click", async e => {
 }, true);
 
 const reload = () => { location.hash = "tab=map"; location.reload(); };
-const updateNote = s => `Newer FCC data for ${s.name} is on the RF Recon site (made ${s.made_at}${s.fcc_built_at ? `, FCC files of ${s.fcc_built_at}` : ""}).`;
+const updateNote = s => `Newer FCC data for ${s.name} is on the DAStastic site (made ${s.made_at}${s.fcc_built_at ? `, FCC files of ${s.fcc_built_at}` : ""}).`;
 
 // replaces mission.js's start-up (connection checks and kit updates stay on the PC): runs once the page has its data
 window.missionBoot = async () => {
@@ -67,7 +67,7 @@ window.missionBoot = async () => {
 
 const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
 const pcData = S.views.data;  // the PC's Data & updates (mission.js): its keys, crowd, import and FCC ID panels serve here too
-const PC_ONLY = ["Connection", "Automatic updates", "Ways in", "This copy of RF Recon", "Phone app: field packs", "Remote access", "Push to ATAK", "Data sources"];
+const PC_ONLY = ["Connection", "Automatic updates", "Ways in", "This copy of DAStastic", "Phone app: field packs", "Remote access", "Push to ATAK", "Data sources"];
 const NOT_HERE = ["aisstream_key", "fcc_bdc_username"];  // live ships: aisstream allows server-side use only; carrier coverage: PC import
 // Packs: the packs at once, then the PC's panels below them when the engine answers (with work kept here it may still be
 // starting). The PC's panels redraw themselves through S.views.data(their own box): that box gets only them again.
@@ -88,7 +88,7 @@ async function pcPanels(v) {
   const say = (sel, from, to) => { const el = [...v.querySelectorAll(sel)].find(x => x.innerHTML.includes(from)); if (el) el.innerHTML = el.innerHTML.replace(from, to); };
   say(".panel p.hint", "Free accounts of your own, kept only in this PC's database.", "Free accounts of your own, kept only in this browser (never sent anywhere but to the service they're for).");
   say(".panel h3", "Crowd / imported layers on this computer", "Crowd / imported layers in this browser");
-  say(".panel p.hint", "The USGS maps and county lines you view are kept on this PC, so areas you looked at before a trip keep working with no signal. Street (OpenStreetMap) and Esri's hi-res satellite are for use with signal only (their terms don't allow keeping them for offline use): with no signal the map shows USGS Topo instead.", "SatNOGS stations come from a copy on the RF Recon site (SatNOGS Network, CC BY-SA 4.0), refreshed with the packs.");
+  say(".panel p.hint", "The USGS maps and county lines you view are kept on this PC, so areas you looked at before a trip keep working with no signal. Street (OpenStreetMap) and Esri's hi-res satellite are for use with signal only (their terms don't allow keeping them for offline use): with no signal the map shows USGS Topo instead.", "SatNOGS stations come from a copy on the DAStastic site (SatNOGS Network, CC BY-SA 4.0), refreshed with the packs.");
   say("#fiMsg", "On the PC.", "The maker shows from the FCC's grantee list, and the grants open in your browser.");
 }
 async function packPanels(v) {
@@ -104,7 +104,7 @@ async function packPanels(v) {
         <div>911 centres, microwave links</div><div>${p.counts?.psap == null ? "not in this pack (an older one)" : `${p.counts.psap.toLocaleString()}, ${(p.counts.mw_links || 0).toLocaleString()}`}</div>
         <div>Size</div><div>${(p.size / 1e6).toFixed(1)} MB (${Math.round(p.raw / 1e6)} MB open)</div></div>
       ${upd ? `<p style="margin:10px 0 0"><b>${esc(updateNote(upd))}</b></p><div class="row" style="margin-top:6px"><button class="primary" id="pkUpdate">Load the newer data (${upd.mb.toFixed(1)} MB)</button><span class="hint" id="pkUpdMsg"></span></div>`
-        : `<p class="hint" style="margin:10px 0 0">Data updates: when the RF Recon site has newer FCC data for this area, it's offered here and on the pack's button at the top.</p>`}
+        : `<p class="hint" style="margin:10px 0 0">Data updates: when the DAStastic site has newer FCC data for this area, it's offered here and on the pack's button at the top.</p>`}
       <div class="row" style="margin-top:10px"><button id="pkRemove" data-id="${esc(p.id)}">Remove from this browser</button></div>`
       : '<p class="status">No pack loaded yet. Load one below to start.</p>'}</div>
     <div class="panel"><h3>Load a pack</h3>
@@ -112,18 +112,18 @@ async function packPanels(v) {
         folder is shared with see it); one made on the server is downloaded there by the admin. Pick the .rfpack file here.</p>
       <div class="row"><input type="file" id="pkFile" accept=".rfpack"><span class="hint" id="pkMsg"></span></div>
       <h3 style="margin-top:14px">Or a state from this site</h3>
-      <p class="hint" style="margin-top:0">Every state's FCC data is kept on the RF Recon site. Search anywhere and its state loads by itself; or pick one here.</p>
+      <p class="hint" style="margin-top:0">Every state's FCC data is kept on the DAStastic site. Search anywhere and its state loads by itself; or pick one here.</p>
       <div class="row"><select id="spSel" style="flex:1"><option value="">Getting the list…</option></select><button id="spLoad" class="primary">Load</button><span class="hint" id="spMsg"></span></div>
       ${other.length ? `<h3 style="margin-top:14px">Also in this browser</h3>${other.map(o => `<div class="row" style="justify-content:space-between">
         <span><b>${esc(o.name)}</b> <span class="hint">${esc(area(o.area))} · made ${esc(o.made_at)} · ${(o.size / 1e6).toFixed(1)} MB</span></span>
         <span><button data-use="${esc(o.id)}">Use</button> <button data-rm="${esc(o.id)}">Remove</button></span></div>`).join("")}` : ""}</div>
   </div>
   <div class="panel"><h3>With no signal</h3><p style="margin-top:0" id="offMsg">${esc(offlineNote())}</p>
-    <div class="row"><button id="offKeep">Keep it again</button><span class="hint">The page, its research, RF Recon's own code and the engine stay in this browser, so DAS jobs open, change and save in a basement. Your work is kept here either way.</span></div></div>
+    <div class="row"><button id="offKeep">Keep it again</button><span class="hint">The page, its research, DAStastic's own code and the engine stay in this browser, so DAS jobs open, change and save in a basement. Your work is kept here either way.</span></div></div>
   <div class="panel"><h3>About the web version</h3>
-    <p class="hint" style="margin-top:0">This is RF Recon in your browser, run by the PC app's own code: every tab, from search and the map's layers to
+    <p class="hint" style="margin-top:0">This is DAStastic in your browser, run by the PC app's own code: every tab, from search and the map's layers to
       missions, captures, the field log, labels, DAS jobs, talk groups, your own layers and crowd data with your own keys. The first time you keep
-      something here, RF Recon's engine loads in this browser (about 15 MB, once). A pack and everything you do here stay in this browser.
+      something here, DAStastic's engine loads in this browser (about 15 MB, once). A pack and everything you do here stay in this browser.
       Signal ID Wiki matches aren't here: the web version is the sold build, which leaves the wiki out until its terms are settled.
       Only these stay on the PC: live ships (aisstream allows its keys on a server only), Artemis (its database is for
       internal use only), FCC ID grant lists (the FCC refuses web pages; the maker still shows and the grants open in your browser), live
@@ -132,7 +132,7 @@ async function packPanels(v) {
       here), sending email from your own mailbox and filing the replies (DAS Mail; here each email button opens your mail app), and the
       national building inventory lookup (NSI). DAS Prospects' schools, colleges and hospitals come in the pack (packs made since 11/4), not the PC's monthly download. Online
       part prices from Mouser and Digi-Key work here with your own keys. It works on a phone too; for one state kept on the phone with no
-      signal at all, use <a href="../">RF Recon lite (beta)</a>, the phone app.</p></div>`);
+      signal at all, use <a href="../">DAStastic lite (beta)</a>, the phone app.</p></div>`);
   $("#pkFile").onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     $("#pkMsg").textContent = `Opening ${f.name}…`;
@@ -161,7 +161,7 @@ async function packPanels(v) {
 const prSay = () => {
   const src = $("#prSrc"), p = RFPack.info();
   if (src?.textContent.includes("aren't downloaded on this computer yet"))
-    src.innerHTML = `The pack in use (${esc(p?.name || "none")}) has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use RF Recon on the PC or server, which downloads the lists itself.`;
+    src.innerHTML = `The pack in use (${esc(p?.name || "none")}) has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use DAStastic on the PC or server, which downloads the lists itself.`;
   else if (src?.textContent.includes("refreshes them monthly"))
     src.innerHTML = src.innerHTML.replace(/; the "DAS prospect lists" update refreshes them monthly\./, `; they came with the pack in use (${esc(p?.name || "")}, made ${esc(p?.made_at || "")}), so a newer pack brings newer lists.`);
   const none = [...document.querySelectorAll("#prBody p.hint")].find(x => x.textContent.includes("(the lists aren't downloaded yet)"));
@@ -195,6 +195,6 @@ window.RFOffline = {keep: keepOffline, note: offlineNote, ready: null};
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("../sw.js").catch(() => {});  // opens with no signal next time
   if (!navigator.connection?.saveData) RFOffline.ready = (document.readyState === "complete" ? Promise.resolve() : new Promise(ok => addEventListener("load", ok))).then(keepOffline)
-    .then(() => { if ($("#offMsg")) $("#offMsg").textContent = offlineNote(); }).catch(e => console.warn("RF Recon: not kept for offline use", e));
+    .then(() => { if ($("#offMsg")) $("#offMsg").textContent = offlineNote(); }).catch(e => console.warn("DAStastic: not kept for offline use", e));
 }
 })();

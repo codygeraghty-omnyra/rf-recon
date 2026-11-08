@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — one emitter. Click one on the map (its popup) or in its details to see:
+/* DAStastic — one emitter. Click one on the map (its popup) or in its details to see:
    - Coverage: where it reaches, as a heatmap, the edge of its coverage, its antenna pattern and the path to the pin
      (estimates: free space or Hata, the antenna pattern when known, hills from the terrain data);
    - Network: its licence's base stations and mobiles, the same system under other call signs, simulcast sites,
@@ -84,7 +84,7 @@ function emCovQuery(){
 
 async function emCellSite(r){
   if(r._site) return r._site;
-  const m=CELL_RE.exec(String(r.ext_id||r.ident||"")); if(!m) throw new Error("This cell's ID isn't in a form RF Recon can read (MCC-MNC-area-cell).");
+  const m=CELL_RE.exec(String(r.ext_id||r.ident||"")); if(!m) throw new Error("This cell's ID isn't in a form DAStastic can read (MCC-MNC-area-cell).");
   const res=await api(`/api/cells?lat=${r.lat}&lon=${r.lon}&radius=2`);
   // the operator too (MCC and MNC): two operators' cells can share a cell ID within 2 mi
   for(const s of res.sites) for(const c of s.cells) if(c.mcc===m[1] && +c.mnc===+m[2] && +c.cid===+m[4]){ r._cell=c; r._site=s; S.emit.opt=Object.assign(emDefaults(r), {}); return s; }
@@ -160,7 +160,7 @@ function emCoverageBody(el){
     const bytes=RFTak.zip([{name:"doc.kml", data:kml}, {name:"coverage.png", data:Uint8Array.from(atob(c.png), ch=>ch.charCodeAt(0))}]);
     const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([bytes],{type:"application/vnd.google-earth.kmz"}));
     a.download=`${nm.replace(/[\\/:*?"<>|]+/g,"-").slice(0,80)} coverage.kmz`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),10000); };
-  $("#emTak").onclick=()=>{ if(!c) return; RFTak.save({rows:[e.r], center:[e.r.lat,e.r.lon], radius:c.radius_mi, name:`RF Recon - ${emName(e.r)} coverage`, colorOf, typeOf, fccDate:null,
+  $("#emTak").onclick=()=>{ if(!c) return; RFTak.save({rows:[e.r], center:[e.r.lat,e.r.lon], radius:c.radius_mi, name:`DAStastic - ${emName(e.r)} coverage`, colorOf, typeOf, fccDate:null,
     heat:{png:c.png, bounds:c.bounds, desc:c.desc}}); };
 }
 

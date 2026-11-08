@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — a DAS job's plans: a builder's PDF plan sheets turned into floor plan images for the grid test (pdf.js,
+/* DAStastic — a DAS job's plans: a builder's PDF plan sheets turned into floor plan images for the grid test (pdf.js,
    kept in static/vendor so it works offline), where plans come from and an email asking for them, what OpenStreetMap
    knows of the building, and the wall loss calculator (fieldref.js) from the building-materials research. */
 
@@ -51,7 +51,7 @@ window.dasPlans = async (el, j, save) => {
     .replaceAll("{building}", place).replaceAll("{client}", d.client||"").replaceAll("{job}", j.name);  // [Name] is both the recipient and the sender: left to fill
   el.innerHTML=`<div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Plan sheets</h3>
-      <p class="hint" style="margin-top:0">A builder's PDF set: open it, then give each floor its page. The page is saved as an image with the job's files and goes under that floor's grid test. RF Recon reads the set's own words and proposes the floors, the scale and the critical areas: you press to accept. CAD files (DWG, DXF, Revit): ask for a PDF export.</p>
+      <p class="hint" style="margin-top:0">A builder's PDF set: open it, then give each floor its page. The page is saved as an image with the job's files and goes under that floor's grid test. DAStastic reads the set's own words and proposes the floors, the scale and the critical areas: you press to accept. CAD files (DWG, DXF, Revit): ask for a PDF export.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
         <label class="grow">A PDF in this job's files<select id="plPdf"><option value="">Pick a PDF…</option>${pdfs.map(x=>`<option>${esc(x.name)}</option>`).join("")}</select></label>
         <label>or add one <input type="file" id="plNew" accept=".pdf,application/pdf"></label></div>
@@ -116,8 +116,8 @@ window.dasPlans = async (el, j, save) => {
   const quote=s=>`<q class="rd-src">${esc(s)}</q>`;
   const drawRead=()=>{ const P=PLR.cur, box=$("#plRead"); if(!box||!P) return; const R=P.read, jobFl=floorsNow();
     P.rows=Readers.matchFloors(R, jobFl.map(f=>f.name));
-    if(R.scan){ box.innerHTML=`<div class="rd" id="plReadScan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">These pages have no words RF Recon can read: a scan, or a drawing with its text turned into shapes. It proposes nothing. Give each floor its page below.</p></div>`; return; }
-    if(!P.rows.length&&!R.critical.length){ box.innerHTML=`<div class="rd" id="plReadNone"><p class="rd-say"><b>Nothing to propose</b></p><p class="hint" style="margin:2px 0 0">RF Recon read the words on ${R.read} page${R.read===1?"":"s"} and found no floor names, scale or critical areas in them. Give each floor its page below.</p></div>`; return; }
+    if(R.scan){ box.innerHTML=`<div class="rd" id="plReadScan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">These pages have no words DAStastic can read: a scan, or a drawing with its text turned into shapes. It proposes nothing. Give each floor its page below.</p></div>`; return; }
+    if(!P.rows.length&&!R.critical.length){ box.innerHTML=`<div class="rd" id="plReadNone"><p class="rd-say"><b>Nothing to propose</b></p><p class="hint" style="margin:2px 0 0">DAStastic read the words on ${R.read} page${R.read===1?"":"s"} and found no floor names, scale or critical areas in them. Give each floor its page below.</p></div>`; return; }
     const missing=P.rows.filter(r=>r.isNew), noSheet=jobFl.filter(f=>!P.rows.some(r=>r.floor===f.name)).map(f=>f.name);
     const line=(r,i)=>{ const s=rowNow(P, r), free=s.page||s.fill;
       return `<div class="rd-row" data-row="${i}"><div class="rd-what"><b>Floor ${esc(r.floor)}</b>${r.isNew?' <span class="tag w">not on the job yet</span>':""}<span class="hint">${esc(plWho(r))}${r.also.length?` · also on page ${r.also.join(", ")}`:""}</span></div>

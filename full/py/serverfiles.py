@@ -1,5 +1,5 @@
 """
-Server files (Data & updates, admin only): what the RF Recon server keeps, with sizes and dates, and a copy of any file to
+Server files (Data & updates, admin only): what the DAStastic server keeps, with sizes and dates, and a copy of any file to
 download. Read only: nothing here writes, moves or deletes.
 
 It shows named folders, never the whole disk, and never a folder's place on the server. Logins, keys and the sign-in secret

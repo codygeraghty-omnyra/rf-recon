@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — views: table, analyzer (Wireshark-style), dashboard (Kibana-style), topology, profile, agencies, spectrum. */
+/* DAStastic — views: table, analyzer (Wireshark-style), dashboard (Kibana-style), topology, profile, agencies, spectrum. */
 
 // with nothing to count a chart says so (11/3: the donut read "1" and the bar panels were empty boxes)
 const NO_DATA=`<p class="hint" style="margin:6px 0">Nothing here for this search: widen the radius, or change the filters or layers.</p>`;

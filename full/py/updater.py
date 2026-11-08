@@ -46,7 +46,7 @@ SOURCES = {
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
     "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,600 call centres at town level; the FCC last updated its rows in 2017"),
-    "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the RF Recon site (FCC open data of March 2021 if the site can't be reached)"),
+    "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the DAStastic site (FCC open data of March 2021 if the site can't be reached)"),
     "artemis": ("Artemis signal database (waterfalls and audio)", "reference", 720, "A waterfall picture and an audio clip for each Signal ID Wiki signal, shown beside its matches (Ares Valley; about 300 MB; checked monthly, downloaded only when there's a new release)"),
     "bdc": ("FCC carrier coverage (Broadband Map)", "fcc", 720, "Each carrier's modelled 3G / 4G / 5G coverage and signal, for the carrier-coverage states; new release twice a year"),
     "bdc_extra": ("FCC broadband extras (coverage checks, fixed wireless, link budgets)", "fcc", 720, "The FCC's resolved coverage challenges, verifications and audits, who offers fixed wireless where, and each carrier's filed link budgets and propagation tools (about 2.5 GB of download a release, about 1 GB kept)"),
@@ -67,7 +67,7 @@ DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectr
 AFTER_ULS = {"psap"}  # placed at town centres from the place list the licence import builds
 LINKS = ("wifi", "ethernet", "cellular")
 LINK_NAMES = {"wifi": "Wi-Fi", "ethernet": "Ethernet", "cellular": "cellular / phone tether"}
-# what each source needs, costs and allows, and the open / crowd sources RF Recon doesn't use (checked 2026-10-28)
+# what each source needs, costs and allows, and the open / crowd sources DAStastic doesn't use (checked 2026-10-28)
 CATALOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reference", "data_sources.json")
 
 
@@ -524,7 +524,7 @@ class Updater:
                 finally:
                     con.close()
                 msg = (f"{n:,} grantee codes: the FCC's own list of {src['at']}"
-                       + (" (from the RF Recon site)" if src["file"] == "the RF Recon site" else ", imported here")
+                       + (" (from the DAStastic site)" if src["file"] == "the RF Recon site" else ", imported here")
                        if src["source"] == "fcc-download" else f"{n:,} grantee codes (FCC open data, last updated March 2021)")
                 self._mark(ids, state="ok", message=msg, last_checked=now(), last_updated=now(), rows=n)
             elif job == "bdc":  # carrier coverage hexagons for the carrier-coverage states (bdc.py)

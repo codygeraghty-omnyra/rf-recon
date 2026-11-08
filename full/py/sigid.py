@@ -214,7 +214,7 @@ DECLARED = {
 
 
 def from_uls_mode(mode):
-    """Map RF Recon's ULS-derived mode label to a library name."""
+    """Map DAStastic's ULS-derived mode label to a library name."""
     m = (mode or "")
     if "P25 Phase 1" in m:
         return "P25 Phase 1"  # Phase 2 systems also license Phase 1 (control channel); details note both

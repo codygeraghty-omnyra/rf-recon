@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — search: address autocomplete, nationwide licence search, FCC licence search fields,
+/* DAStastic — search: address autocomplete, nationwide licence search, FCC licence search fields,
    and the view as a link (pin, radius, tab and filters in the address bar). */
 
 /* ---------- FCC licence search fields (like the ULS advanced / geographic search) ---------- */
@@ -239,7 +239,7 @@ window.writeUrlState = () => {
   const next = "#" + h.toString();
   if (location.hash === next) return;
   // a new tab is a step Back can return to; a new pin or filter replaces the step it's on. (11/3: every change replaced
-  // it, so Back left RF Recon, and in the app window it stayed greyed out.)
+  // it, so Back left DAStastic, and in the app window it stayed greyed out.)
   const was = new URLSearchParams(location.hash.slice(1)).get("tab");
   if (was && was !== S.tab) { history.pushState(null, "", next); window.dispatchEvent(new Event("hashchange")); }  // the kit's Back button rechecks on hashchange
   else history.replaceState(null, "", next);

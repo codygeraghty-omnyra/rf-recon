@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — field reference: the PIM tab (passive intermodulation: limits, checklists, SOPs, torque, testers, a PIM
+/* DAStastic — field reference: the PIM tab (passive intermodulation: limits, checklists, SOPs, torque, testers, a PIM
    product calculator) and the Parts tab (cables with a loss calculator, connectors, components, suppliers), both read
    from the cited research in app/reference (pim.json, rf_parts.json). In a DAS job, the PIM and Materials sections
    keep their ticks, PIM runs and bill of materials with the job. Every row shows its sources. */
@@ -455,7 +455,7 @@ window.dasMaterials = async (el, j, save) => {
   window.dasSpecBatch?.($("#dmReadBom"), j, mine.parts);  // every spec sheet behind this list, read at once (dasread.js)
   if(S.das.pcOpen) api(`/api/das/parts?ids=${S.das.pcOpen}`).then(r=>{ const box=$("#dmCodeEd"); if(box&&r.parts[0]) pcEditor(box, r.parts[0], std.code_fields||[], {saved:catList, closed:ch=>{ if(ch) render(); }}); }).catch(()=>{ S.das.pcOpen=null; });
   // Quotes from suppliers (Cody 11/3): a request for quote from this BOM to several suppliers, their quotes entered or
-  // imported, and the comparison. RF Recon writes the email; the person sends it from their own mail.
+  // imported, and the comparison. DAStastic writes the email; the person sends it from their own mail.
   const quotes=async()=>{ const box=$("#dmQuotes"); if(!box) return;
     const [sl, rl]=await Promise.all([api("/api/das/suppliers").catch(()=>({suppliers:[]})), api(`/api/das/rfq?job=${j.id}`).catch(()=>({rfqs:[]}))]);
     if(!$("#dmQuotes")) return;

@@ -1,6 +1,6 @@
 {
-  "name": "RF Recon (beta)",
-  "short_name": "RF Recon",
+  "name": "DAStastic (beta)",
+  "short_name": "DAStastic",
   "description": "FCC licences, towers, broadcast, DAS jobs and site surveys.",
   "id": "/",
   "start_url": "/",

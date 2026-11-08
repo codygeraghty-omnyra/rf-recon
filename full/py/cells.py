@@ -66,7 +66,7 @@ _BRANDS = [(r"^Verizon Wireless", "Verizon"), (r"^AT&T Mobility", "AT&T"), (r"^T
 
 
 def register_name(entity):
-    """The register's holder as RF Recon names it: the brand for the big carriers, else the trading name, tidied."""
+    """The register's holder as DAStastic names it: the brand for the big carriers, else the trading name, tidied."""
     for pat, brand in _BRANDS:
         if re.search(pat, entity or "", re.I):
             return brand

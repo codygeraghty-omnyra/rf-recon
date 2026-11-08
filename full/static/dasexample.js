@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — DAS example jobs and the step guide. Four worked jobs ship in static/das_examples (fictional buildings,
+/* DAStastic — DAS example jobs and the step guide. Four worked jobs ship in static/das_examples (fictional buildings,
    people and companies; the ERCES ones carry real FCC licences near their pin): two mid-way, to learn each step (a public
    safety ERCES office at Acceptance, a carrier cellular warehouse at Design), and the same two finished, In service, to
    see the end result (Cody 11/4: "show me a completed job example for both cellular and ERCES"). "Add example jobs"

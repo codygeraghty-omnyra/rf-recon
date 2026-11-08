@@ -172,7 +172,7 @@ def known(s, n, w, e):
         out = [dict(v, age_s=int(now - v["seen"])) for v in STATE["ships"].values()
                if v.get("lat") is not None and now - v.get("seen", 0) <= KEEP_S and s <= v["lat"] <= n and w <= v["lon"] <= e]
         return {"ships": out, "status": STATE["status"] if STATE["thread"] else "idle", "error": None, "since": STATE["since"],
-                "messages": STATE["messages"], "note": "Ships show here while Cody's RF Recon is streaming this area."}
+                "messages": STATE["messages"], "note": "Ships show here while Cody's DAStastic is streaming this area."}
 
 
 def ships(s, n, w, e, key):

@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — a mission over time, under Compare in an opened mission (mission.js): replay its readings on a map,
+/* DAStastic — a mission over time, under Compare in an opened mission (mission.js): replay its readings on a map,
    when signals are heard (hour by weekday), and lines of bearing with where they cross (geo.bearing_fix). */
 
 const MT_VIEWS = [["replay", "Replay"], ["wheel", "When heard"], ["bearing", "Lines of bearing"]];

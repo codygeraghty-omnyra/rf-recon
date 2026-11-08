@@ -1,9 +1,9 @@
 "use strict";
-/* RF Recon (beta) for phones: one area's FCC data, offline. Map, list, area report and a field log.
-   Packs (.rfpack) are made by RF Recon on the PC and kept in the RF Recon folder in Google Drive. The phone's file
+/* DAStastic (beta) for phones: one area's FCC data, offline. Map, list, area report and a field log.
+   Packs (.rfpack) are made by DAStastic on the PC and kept in the RF Recon folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "904cc05e5c";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "42cc3ee2b8";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -104,12 +104,12 @@ async function importPack(file) {
   busy(`Opening ${file.name}…`);
   try {
     const buf = await file.arrayBuffer(), raw = await unpack(buf);
-    if (!isSqlite(raw)) throw new Error(`${file.name} isn't an RF Recon pack. Pick a file ending in .rfpack from the "field packs" folder.`);
+    if (!isSqlite(raw)) throw new Error(`${file.name} isn't a DAStastic pack. Pick a file ending in .rfpack from the "field packs" folder.`);
     const SQL = await sqlReady(), db = new SQL.Database(raw);
     let meta;
-    try { meta = readMeta(db); } catch (e) { db.close(); throw new Error(`${file.name} isn't an RF Recon pack.`); }
-    if (!meta.pack_version) { db.close(); throw new Error(`${file.name} isn't an RF Recon pack.`); }
-    if (meta.pack_version > PACK_VERSION) { db.close(); throw new Error("That pack was made by a newer RF Recon. Reload this app to update it, then try again."); }
+    try { meta = readMeta(db); } catch (e) { db.close(); throw new Error(`${file.name} isn't a DAStastic pack.`); }
+    if (!meta.pack_version) { db.close(); throw new Error(`${file.name} isn't a DAStastic pack.`); }
+    if (meta.pack_version > PACK_VERSION) { db.close(); throw new Error("That pack was made by a newer DAStastic. Reload this app to update it, then try again."); }
     const id = `${meta.name}|${meta.made_at}`;
     const info = {id, name: meta.name, made_at: meta.made_at, area: meta.area, counts: meta.counts, fcc_built_at: meta.fcc_built_at,
       bbox: meta.bbox, bboxes: meta.bboxes, size: buf.byteLength, raw: raw.length, added: new Date().toISOString(), file: file.name};
@@ -149,7 +149,7 @@ const inPack = c => {  // a pack of several areas holds each area's box
   return !bs || bs.some(b => c[0] >= b[0] - .5 && c[0] <= b[1] + .5 && c[1] >= b[2] - .5 && c[1] <= b[3] + .5);
 };
 
-/* ---------- state packs on the RF Recon site (packs/, phone/state_packs.py), loaded on a tap: they cost phone data ---------- */
+/* ---------- state packs on the DAStastic site (packs/, phone/state_packs.py), loaded on a tap: they cost phone data ---------- */
 let SITE_PACKS = null;
 async function sitePacks() {
   if (!SITE_PACKS) { try { SITE_PACKS = (await (await fetch("packs/index.json", {cache: "no-cache"})).json()).packs || []; } catch (e) { return []; } }
@@ -164,7 +164,7 @@ async function loadSitePack(s) {
   busy(`Downloading ${s.name} (${num(s.mb, 1)} MB)…`);
   try {
     const r = await fetch(`packs/${s.file}`);
-    if (!r.ok) throw new Error(`The RF Recon site didn't send ${s.name} (${r.status}). Try again with signal.`);
+    if (!r.ok) throw new Error(`The DAStastic site didn't send ${s.name} (${r.status}). Try again with signal.`);
     await importPack(new File([await r.blob()], s.file));
   } catch (e) { busy(); toast(e.message || String(e)); }
 }
@@ -173,7 +173,7 @@ async function offerPackFor(c) {
   const saved = S.packs.find(p => p.id !== S.pack?.id && packHas(p, c));
   if (saved) { toast(`That spot is in ${saved.name}, saved on this phone.`, async () => { busy("Opening pack…"); await openPack(saved.id); busy(); afterPackOpened(false); setCenter(c); }, "Switch"); return; }
   const s = await stateFor(c), was = S.pack ? `That spot is outside ${S.pack.name}.` : "No pack loaded yet.";
-  if (s) toast(`${was} ${s.name} is on the RF Recon site (${num(s.mb, 1)} MB).`, async () => { await loadSitePack(s); if (S.db) setCenter(c); }, "Load it");
+  if (s) toast(`${was} ${s.name} is on the DAStastic site (${num(s.mb, 1)} MB).`, async () => { await loadSitePack(s); if (S.db) setCenter(c); }, "Load it");
   else toast(S.pack ? "That spot is outside this pack's area, so nothing will show. Load the pack for that area." : "Load a data pack first: Packs, then Load a pack.");
 }
 
@@ -456,7 +456,7 @@ const takRow = () => `<div class="row" style="margin:0 2px 12px"><button class="
 async function sendToTak() {  // tak.js: the same data package the PC app makes
   if (!S.rows.length) { toast("Nothing to send yet: pick a spot or search first."); return; }
   const area = S.mode === "search" ? `“${S.query}”` : `${S.center[0].toFixed(4)}, ${S.center[1].toFixed(4)} ${S.radius} mi`;
-  const pkg = await RFTak.save({rows: S.rows, center: S.mode === "area" ? S.center : null, radius: S.radius, name: `RF Recon - ${area}`,
+  const pkg = await RFTak.save({rows: S.rows, center: S.mode === "area" ? S.center : null, radius: S.radius, name: `DAStastic - ${area}`,
     colorOf, typeOf, fccDate: S.meta?.fcc_built_at});
   if (pkg.how === "cancelled" || pkg.steps) return;  // backed out, or the Android steps card is showing (tak.js)
   toast(`${pkg.how === "shared" ? "Sent" : "Saved"} ${pkg.name}: ${int(pkg.sites)} sites${pkg.skipped ? ` (nearest ${int(pkg.sites)})` : ""}.`
@@ -583,7 +583,7 @@ function logForm(pre = {}) {
       <div class="two"><div class="field"><label for="lf_f">Frequency, MHz</label><input id="lf_f" inputmode="decimal" placeholder="155.475" value="${esc(pre.freq_mhz != null ? fmtF(pre.freq_mhz) : "")}"></div>
         <div class="field"><label for="lf_l">Level, dBm</label><input id="lf_l" inputmode="decimal" placeholder="-85"></div></div>
       <div class="field"><label for="lf_b">Bearing, degrees (optional)</label><input id="lf_b" inputmode="decimal" placeholder="the direction it came from, e.g. 215">
-        <p class="hint" style="margin:4px 0 0">From true north. Bearings taken from a few places cross where the signal is (RF Recon on the PC, Mission, Lines of bearing).</p></div>
+        <p class="hint" style="margin:4px 0 0">From true north. Bearings taken from a few places cross where the signal is (DAStastic on the PC, Mission, Lines of bearing).</p></div>
       <div class="field"><label for="lf_t">What it sounds or looks like</label><select id="lf_t"><option value="">Unknown</option>${types.map(t => `<option ${t === pre.sig_type ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
       <div class="field"><label for="lf_lab">Label</label><input id="lf_lab" placeholder="e.g. county fire dispatch" value="${esc(pre.label || "")}"></div>
       <div class="field"><label for="lf_n">Notes</label><textarea id="lf_n" rows="2"></textarea></div>
@@ -629,12 +629,12 @@ function viewLog(v) {
 const logSeg = () => window.viewHunt ? `<div class="chips" style="margin:0 2px 12px">${[["log", "Field log"], ["hunt", "🎯 Find a signal"]].map(([k, l]) =>
   `<button class="chip ${(S.logView || "log") === k ? "on" : ""}" data-act="logview" data-v="${k}">${l}</button>`).join("")}</div>` : "";
 const csvCell = v => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-function logCsv() {  // the columns RF Recon on the PC reads in Mission, Import captures
+function logCsv() {  // the columns DAStastic on the PC reads in Mission, Import captures
   const cols = ["time", "lat", "lon", "accuracy", "freq_mhz", "dbm", "bearing", "type", "label", "notes", "check", "pack"];
   const lines = [cols.join(",")].concat(S.log.slice().reverse().map(e => [e.ts, e.lat, e.lon, e.acc != null ? Math.round(e.acc) : "", e.freq_mhz, e.dbm, e.bearing ?? "", e.sig_type || "",
     e.label, e.notes, e.check?.text || "", e.pack].map(csvCell).join(",")));
   const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
-  return {name: `RF Recon field log ${stamp}.csv`, text: lines.join("\r\n") + "\r\n"};
+  return {name: `DAStastic field log ${stamp}.csv`, text: lines.join("\r\n") + "\r\n"};
 }
 async function exportLog() {
   const {name, text} = logCsv(), file = new File([text], name, {type: "text/csv"});
@@ -655,12 +655,12 @@ async function viewPacks(v) {
   const p = S.pack, other = S.packs.filter(x => x.id !== p?.id);
   const area = a => a?.areas ? a.areas.map(area).join(" + ") : a?.states ? a.states.join(", ") : a?.center ? (a.label || `${a.radius_mi} mi around ${a.center[0]}, ${a.center[1]}`) : "";
   v.innerHTML = head("Data packs", p ? `Using <b>${esc(p.name)}</b>. Everything works without signal once a pack is loaded.` : "Load the FCC data for an area to start.")
-    + (!matchMedia("(pointer: coarse)").matches ? `<div class="card glass" style="--i:0"><h2>On a computer?</h2><p style="margin:0">This is RF Recon lite (beta), the phone version.
-      <a href="full/"><b>Open the full web version</b></a>: every RF Recon tab in this browser, from the same packs.
-      On the PC where RF Recon is installed: <a href="http://localhost:8765/">RF Recon (beta) on this PC</a>.</p></div>` : "")
+    + (!matchMedia("(pointer: coarse)").matches ? `<div class="card glass" style="--i:0"><h2>On a computer?</h2><p style="margin:0">This is DAStastic lite (beta), the phone version.
+      <a href="full/"><b>Open the full web version</b></a>: every DAStastic tab in this browser, from the same packs.
+      On the PC where DAStastic is installed: <a href="http://localhost:8765/">DAStastic (beta) on this PC</a>.</p></div>` : "")
     + (!standalone() ?`<div class="card glass" style="--i:0"><h2>Put it on your home screen</h2><p style="margin:0 0 8px">${isIOS()
-      ? "In Safari, tap Share, then <b>Add to Home Screen</b>. Open RF Recon lite from that icon: it keeps your packs and works offline."
-      : "Tap <b>Install</b> (or the browser menu, then <b>Add to Home screen</b>). Open RF Recon lite from that icon: it keeps your packs and works offline."}</p>
+      ? "In Safari, tap Share, then <b>Add to Home Screen</b>. Open DAStastic lite from that icon: it keeps your packs and works offline."
+      : "Tap <b>Install</b> (or the browser menu, then <b>Add to Home screen</b>). Open DAStastic lite from that icon: it keeps your packs and works offline."}</p>
       ${installEvt ? '<button class="btn primary" data-act="install">Install</button>' : ""}</div>` : "")
     + (p ? `<div class="card glass" style="--i:1"><h2>In use</h2><div class="t" style="font-size:18px;font-weight:700">${esc(p.name)}</div>
       <dl class="kv">${kvs([["Area", area(p.area)], ["FCC data", p.fcc_built_at], ["Pack made", p.made_at], ["Licences", int(p.counts?.licences)], ["Towers", int(p.counts?.towers)],
@@ -672,7 +672,7 @@ async function viewPacks(v) {
       ${isIOS() ? "<b>Browse</b>, then <b>Google Drive</b> (turn it on under Browse, the ⋯ menu, Edit, if it isn't listed)" : "<b>Drive</b> from the picker's menu"}. Only people the folder is shared with can see them.
       A pack made on the PC with “Make a field pack” (Data &amp; updates) appears there when Drive has synced.</p>
       <div class="row"><button class="btn primary" data-act="load">Load a pack</button>${p ? '<button class="btn danger" data-act="rmpack" data-id="' + esc(p.id) + '">Remove this pack</button>' : ""}</div></div>`
-    + `<div class="card glass" style="--i:3"><h2>A state from the RF Recon site</h2><p style="margin:0 0 10px">Every state's FCC data is kept on the RF Recon site, so you
+    + `<div class="card glass" style="--i:3"><h2>A state from the DAStastic site</h2><p style="margin:0 0 10px">Every state's FCC data is kept on the DAStastic site, so you
       don't need Drive for it: pick one and it downloads to this phone (most under 13 MB; California 32 MB and Texas 28 MB, so use Wi-Fi for the big ones). A search outside your pack offers its state too.</p>
       <div class="row"><select id="spSel" style="flex:1"><option value="">Getting the list…</option></select><button class="btn primary" data-act="sitepack">Load</button></div></div>`
     + `<div class="card glass" style="--i:4"><h2>Map without signal</h2><p style="margin:0 0 10px">Map tiles you've looked at stay on the phone. To save more before you go, set the pin and radius,
@@ -859,7 +859,7 @@ async function start() {
   // Wilmington with the SC pack said "Nothing here with the layers and filters on")
   if (S.center && S.mode !== "search" && !(S.db && inPack(S.center))) offerPackFor(S.center);
 }
-start().catch(e => { busy(); toast(`RF Recon lite couldn't start: ${e.message}`); console.error(e); });
+start().catch(e => { busy(); toast(`DAStastic lite couldn't start: ${e.message}`); console.error(e); });
 
 // the Note button (notes.js, shared with the PC app): above the tab bar, under this app's own sheets; a note carries the
 // screen and the phone's position (a fix from the last 10 minutes), else the map's centre
@@ -877,7 +877,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     reg.addEventListener("updatefound", () => {
       const nw = reg.installing;
       nw?.addEventListener("statechange", () => {
-        if (nw.state === "activated" && hadWorker) toast("RF Recon lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
+        if (nw.state === "activated" && hadWorker) toast("DAStastic lite was updated. Reload to use the new version.", () => location.reload(), "Reload");
       });
     });
   }).catch(() => {});

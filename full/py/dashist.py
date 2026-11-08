@@ -110,7 +110,7 @@ def ensure(con):
             con.execute(stmt)
     if "rev" not in cols:
         con.execute("ALTER TABLE das_job ADD COLUMN rev INTEGER NOT NULL DEFAULT 0")
-        con.execute("INSERT OR IGNORE INTO das_access(job_id, who, level, added_by, added_at) SELECT id, '*', 'edit', 'RF Recon', ? FROM das_job",
+        con.execute("INSERT OR IGNORE INTO das_access(job_id, who, level, added_by, added_at) SELECT id, '*', 'edit', 'DAStastic', ? FROM das_job",
                     (now(),))
     con.commit()
     if key:
@@ -125,7 +125,7 @@ def begin(con):
 
 
 def who_now():
-    """Who is saving: the signed-in login (admin too), the PC's own window, or RF Recon itself."""
+    """Who is saving: the signed-in login (admin too), the PC's own window, or DAStastic itself."""
     try:
         import remote
         return getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"
@@ -255,7 +255,7 @@ def check(con, jid, cur, cur_rev, patch, base_rev, who, client, need_rev=False, 
     if base_rev is NO_REV or base_rev is None:
         if need_rev:
             raise Refused(428, {"error": "This page is older than the server. Reload it, then make the change again.", "reload": True})
-        return patch  # RF Recon's own saves and the PC's scripts: section by section, as before
+        return patch  # DAStastic's own saves and the PC's scripts: section by section, as before
     if isinstance(base_rev, bool) or not isinstance(base_rev, int) or base_rev < 0 or base_rev > cur_rev:
         raise Refused(409, {"error": "That save names a revision this job never had. Reload the job, then make the change again.",
                             "reload": True, "rev": cur_rev})
@@ -528,7 +528,7 @@ def grant(con, jid, who, lv, by):
 
 def on_create(con, jid, creator):
     """A new job: shared with the whole team (as jobs always were), and with the team login that made it."""
-    con.execute("INSERT OR IGNORE INTO das_access(job_id, who, level, added_by, added_at) VALUES(?,?,?,?,?)", (jid, "*", "edit", "RF Recon", now()))
+    con.execute("INSERT OR IGNORE INTO das_access(job_id, who, level, added_by, added_at) VALUES(?,?,?,?,?)", (jid, "*", "edit", "DAStastic", now()))
     if creator:
         con.execute("INSERT OR IGNORE INTO das_access(job_id, who, level, added_by, added_at) VALUES(?,?,?,?,?)",
                     (jid, creator.strip().lower(), "edit", creator, now()))

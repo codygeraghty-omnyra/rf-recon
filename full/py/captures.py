@@ -1,5 +1,5 @@
 """
-Import field captures (with GPS) into RF Recon.
+Import field captures (with GPS) into DAStastic.
 
 Formats (auto-detected):
   * WiGLE CSV (WigleWifi-1.x) - also what Kismet exports with "wiglecsv"

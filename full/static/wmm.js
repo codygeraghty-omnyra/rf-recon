@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — magnetic declination from NOAA's World Magnetic Model 2025 (WMM2025, valid 2025.0 to 2030.0; NOAA NCEI
+/* DAStastic — magnetic declination from NOAA's World Magnetic Model 2025 (WMM2025, valid 2025.0 to 2030.0; NOAA NCEI
    and the British Geological Survey; a US government work, public domain). A phone's compass points to magnetic
    north; a bearing on the map needs true north: true = magnetic + declination (east positive). Up to about 15 degrees
    across the US, about 80 m sideways at 300 m, so Find a signal corrects every compass bearing with it.

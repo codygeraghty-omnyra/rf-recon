@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — missions (setup + live settings), captures, field log, data sources & auto-update. */
+/* DAStastic — missions (setup + live settings), captures, field log, data sources & auto-update. */
 
 const BAND_LABELS=["VHF Low","6m","72-76 MHz","Aviation VHF","VHF High","VHF TV/Aux","220 MHz","Gov UHF/Other","UHF","UHF T-Band","UHF TV/Aux","700 MHz","800 MHz","900 MHz","L-band/1-2 GHz","2-6 GHz","Microwave >6 GHz"];
 const STATUSES=["Planning","Active","Paused","Complete"];
@@ -21,7 +21,7 @@ window.missionBoot = async () => {
   if(S.remote){
     document.body.classList.add("remote"); if(S.tab==="data") setTab("map");
     $("#netLed").className="led on"; $("#netText").textContent=`${S.remote.role==="full"?"Signed in":"View only"} · ${S.remote.user} · Sign out`;
-    $("#netChip").title=`Signed in to ${S.remote.server?"RF Recon":"Cody's RF Recon"}. Press to sign out.`; $("#netChip").onclick=()=>{ location.href="/remote/logout"; };
+    $("#netChip").title=`Signed in to ${S.remote.server?"DAStastic":"Cody's DAStastic"}. Press to sign out.`; $("#netChip").onclick=()=>{ location.href="/remote/logout"; };
   } else if(S.me){
     const b=document.createElement("button"); b.className="hbtn"; b.id="meOut"; b.textContent=`Admin · ${S.me.user} · Sign out`;
     b.onclick=()=>{ location.href="/remote/logout"; }; $("#netChip").after(b);
@@ -29,7 +29,7 @@ window.missionBoot = async () => {
   try{ const r=await api("/api/missions"); if(r.active) { await loadMission(r.active, true); if(parseLoc($("#loc").value)) runSearch(); } }catch(e){ /* no active mission, or the server is starting: the app opens without one */ }
   if(!S.remote){ netHint(); pollStatus(); setInterval(pollStatus, 15000);
     api("/api/kit").then(k=>{ if(!k.update) return;  // a kit copy with a newer kit out: say so in the header
-      const b=document.createElement("button"); b.className="hbtn"; b.id="kitChip"; b.title="A newer RF Recon is out: Data & updates installs it";
+      const b=document.createElement("button"); b.className="hbtn"; b.id="kitChip"; b.title="A newer DAStastic is out: Data & updates installs it";
       b.innerHTML='<span class="led busy"></span>Update available'; b.onclick=()=>setTab("data"); $("#netChip").after(b); }).catch(()=>{}); }
 };
 $("#missionChip").onclick=()=>setTab("mission");
@@ -242,7 +242,7 @@ function paintNet(browserOffline){
   const link={wifi:"Wi-Fi",cellular:"Cellular",ethernet:"Ethernet",vpn:"VPN"}[u.link]||"";
   $("#netText").textContent=(busy?"Updating… ":"")+(online?(u.net.online==null?"checking":`Online${link?" · "+link:""}`):"Offline")+(u.auto?" · auto":"");
 }
-// the keys RF Recon can use (sealed outside the database, keystore.py); a field's third value is its hint, or "text" for a name
+// the keys DAStastic can use (sealed outside the database, keystore.py); a field's third value is its hint, or "text" for a name
 const API_KEYS=[
   {id:"wigle", name:"WiGLE", what:"Wi-Fi, Bluetooth and cell points near the pin", src:"wigle", get:"https://wigle.net/account",
    fields:[["wigle_name","API name","text"],["wigle_token","API token","32 characters"]], how:"Account → API token: the name and the token. Non-commercial use only."},
@@ -280,14 +280,14 @@ const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"]
 // filled in live (/api/versions: this copy's build, the published site's, the newest kit; Android's is the one written
 // down). The panel shows on a copy with the remote door, and on the server for the admin; team logins never see it.
 const WAYS=[
-  ["24/7 server","The main RF Recon, always on. The admin login sees every source; team logins see the sold build (no WiGLE, RepeaterBook, WSPR, Signal ID Wiki, Artemis or ships). The whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes live here","Yes, 24/7 on AWS ($24 a month)",'<a href="https://44-207-142-90.sslip.io/" target="_blank" rel="noopener">44-207-142-90.sslip.io ↗</a>; installs as an app',"","server"],
+  ["24/7 server","The main DAStastic, always on. The admin login sees every source; team logins see the sold build (no WiGLE, RepeaterBook, WSPR, Signal ID Wiki, Artemis or ships). The whole-US FCC data, carrier coverage, crowd data for the mission areas, and the team's DAS jobs and notes live here","Yes, 24/7 on AWS ($24 a month)",'<a href="https://44-207-142-90.sslip.io/" target="_blank" rel="noopener">44-207-142-90.sslip.io ↗</a>; installs as an app',"","server"],
   ["Cody's PC","A second full copy for working with no signal: its own data and DAS jobs, separate from the server's","No","localhost:8765; starts with Windows","","pc"],
-  ["RF Recon for Android","The server in a full-screen app on an Android phone (Android 10 or newer). The DAS walk test reads the phone's own LTE / 5G signal, and corrects it against a calibrated instrument","Yes: it opens the server",'<a href="#help-android" data-help="android">Help › Android app</a> (the download opens signed out), or Drive › RF Recon › install kit',"","android"],
+  ["DAStastic for Android","The server in a full-screen app on an Android phone (Android 10 or newer). The DAS walk test reads the phone's own LTE / 5G signal, and corrects it against a calibrated instrument","Yes: it opens the server",'<a href="#help-android" data-help="android">Help › Android app</a> (the download opens signed out), or Drive › RF Recon › install kit',"","android"],
   ["Remote link","Cody's PC copy, live, for people signed in: a backup way in now the server is up","No: it runs on Cody's PC and its connection",'<span id="wayRemote">Checking…</span>',"wayRemoteRow","pc"],
-  ["Full web version","Nearly every tab in any browser. Each state's FCC data loads from the RF Recon site; each person's work stays in their browser","Yes, 24/7 on GitHub's servers",'<a id="wayWeb" target="_blank" rel="noopener">The web version ↗</a>',"","site"],
-  ["RF Recon lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>',"","site"],
-  ["Field packs","One area's public data in a file, for the web version or RF Recon lite","Yes. On the server only the admin login makes and downloads them","Phone app: field packs, below","",""],
-  ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of RF Recon, below; install kit in the Drive folder","","kit"],
+  ["Full web version","Nearly every tab in any browser. Each state's FCC data loads from the DAStastic site; each person's work stays in their browser","Yes, 24/7 on GitHub's servers",'<a id="wayWeb" target="_blank" rel="noopener">The web version ↗</a>',"","site"],
+  ["DAStastic lite","The phone app: one area's data kept on the phone, for no signal","Yes",'<a id="wayLite" target="_blank" rel="noopener">The phone app ↗</a>',"","site"],
+  ["Field packs","One area's public data in a file, for the web version or DAStastic lite","Yes. On the server only the admin login makes and downloads them","Phone app: field packs, below","",""],
+  ["Install kit","Their own copy on their own Windows PC; it downloads its own FCC data","Yes","This copy of DAStastic, below; install kit in the Drive folder","","kit"],
   ["Drive folder","The docs and the install kit, and Cody's PC copy's field packs, backups and notes (its code left Drive on 11/3)","Yes","Google Drive › RF Recon, for the people it's shared with","",""],
   ["Exports","CSV, KML and ATAK data packages of what's on the map","Yes, once made","The export buttons beside the results","",""],
   ["Push to ATAK","Live markers in ATAK, iTAK and WinTAK: from Cody's PC to TAK apps on its networks; from either copy to your TAK Server. On the server only the admin login pushes","Yes, from the server to a TAK Server (admin login)","Push to ATAK, below","",""],
@@ -337,12 +337,12 @@ S.views.data = async (v) => {
       #waysPanel td[data-lbl]::before{content:attr(data-lbl) ": ";color:var(--dim)} }</style>
     <div class="tw wrap"><table><thead><tr><th>Way</th><th>What they get</th><th>Version</th><th>With Cody's PC off</th><th>Where</th></tr></thead><tbody>${
       WAYS.map(([w,what,off,where,id,ver])=>`<tr${id?` id="${id}"`:""}><td><b>${w}</b></td><td>${what}</td><td data-ver="${ver}" data-lbl="Version">${ver?'<span class="hint">Checking…</span>':""}</td><td data-lbl="With Cody's PC off">${off}</td><td data-lbl="Where">${where}</td></tr>`).join("")}</tbody></table></div>
-    <p class="hint">RF Recon lives on the 24/7 server (AWS Lightsail, since 11/2): the FCC database and its downloads, the crowd data, the keys it uses and the team's DAS jobs are there. Team logins get the sold build (no WiGLE, Signal ID Wiki, Artemis, ships, RepeaterBook or WSPR).
+    <p class="hint">DAStastic lives on the 24/7 server (AWS Lightsail, since 11/2): the FCC database and its downloads, the crowd data, the keys it uses and the team's DAS jobs are there. Team logins get the sold build (no WiGLE, Signal ID Wiki, Artemis, ships, RepeaterBook or WSPR).
       Cody's PC keeps its own copy for work with no signal. The two don't sync: a DAS job made on one isn't on the other.</p></div>
-  <div class="panel"><h3>This copy of RF Recon</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
+  <div class="panel"><h3>This copy of DAStastic</h3><div id="kitBody"><p class="hint">Checking…</p></div></div>
   <div class="panel"><h3>Phone app: field packs</h3>
-    <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for RF Recon lite (beta), the phone app, which works with no signal.
-      ${S.me?`Packs made here are saved on the RF Recon server, not in Google Drive<span id="fpDir" hidden></span>: download one (⇩ below) to load it on a phone or share it.`  /* a signed-in copy (the 24/7 server): no Drive folder, and no server paths shown (11/3) */
+    <p class="hint" style="margin-top:0">A field pack is one area's FCC licences, towers, broadcast, NOAA and FAA for DAStastic lite (beta), the phone app, which works with no signal.
+      ${S.me?`Packs made here are saved on the DAStastic server, not in Google Drive<span id="fpDir" hidden></span>: download one (⇩ below) to load it on a phone or share it.`  /* a signed-in copy (the 24/7 server): no Drive folder, and no server paths shown (11/3) */
         :`Packs are saved in <span class="mono" id="fpDir"></span>, so anyone the Drive folder is shared with can load them.`} Phone app: <a id="fpUrl" target="_blank" rel="noopener"></a></p>
     <div class="row"><label class="grow">States<input id="fpStates" placeholder="VA,MD,DC" value="${esc(settings.states||"")}"></label>
       <label class="grow">Name (optional)<input id="fpName" placeholder="e.g. Northern Virginia"></label></div>
@@ -350,7 +350,7 @@ S.views.data = async (v) => {
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Pack</th><th>Size</th><th>Made</th></tr></thead><tbody id="fpList"></tbody></table></div>
     <p class="hint">Packs carry public data only: never your missions, captures, labels or keys, and none of the crowd layers or the Signal ID Wiki catalog. VA, MD and DC together come to about 5 MB.</p></div>
   <div class="panel"><h3>Remote access: this full version from anywhere</h3>
-    <p class="hint" id="raHow" style="margin-top:0">People you add open the link in any browser, sign in, and do what their login allows: View only looks and searches; Full also works DAS jobs, missions and notes; Admin also has the keys, updates and people. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay with the admin. The link works while this PC is on and RF Recon is running, and what they look at runs over this PC's connection.</p>
+    <p class="hint" id="raHow" style="margin-top:0">People you add open the link in any browser, sign in, and do what their login allows: View only looks and searches; Full also works DAS jobs, missions and notes; Admin also has the keys, updates and people. Your keys, update settings, TAK settings and the Signal ID Wiki catalog stay with the admin. The link works while this PC is on and DAStastic is running, and what they look at runs over this PC's connection.</p>
     <div id="raLink"><p class="hint">Checking Tailscale…</p></div>
     <div class="row" style="margin-top:8px;align-items:end"><label class="grow">Add a person<input id="raName" placeholder="Their name, e.g. Josh" autocomplete="off"></label>
       <label>Can<select id="raRole"><option value="view">View only</option><option value="full">Full: DAS jobs, missions, notes</option><option value="admin">Admin: everything, keys and people too</option><option value="ahj">AHJ reviewer: only the jobs shared with it</option></select></label><button class="primary" id="raAdd">Add and make a password</button></div>
@@ -387,7 +387,7 @@ S.views.data = async (v) => {
   <div class="panel"><h3>Other open and crowd sources <span class="hint">· researched</span></h3><div id="srcCatalog"><p class="hint">Loading…</p></div></div>
   <div class="grid2">
     <div class="panel"><h3>Your API keys</h3>
-      <p class="hint" style="margin-top:0">Free accounts of your own, sealed for your Windows account on this PC, outside every database file, so no copy, kit or backup carries them. Each sign-up has its own terms, so RF Recon can't make them for you.</p>
+      <p class="hint" style="margin-top:0">Free accounts of your own, sealed for your Windows account on this PC, outside every database file, so no copy, kit or backup carries them. Each sign-up has its own terms, so DAStastic can't make them for you.</p>
       ${API_KEYS.map(k=>{ const saved=keySaved(settings,k), s=k.src&&UPD?.sources?.[k.src];
         const last=s?.state==="error"?` · Last try failed: ${esc(s.message||"")}`:s?.last_updated?` · Last fetch ${esc(s.last_updated)}${s.message?`: ${esc(s.message)}`:""}`:"";
         return `<div style="border-top:1px solid var(--line);padding:10px 0 4px">
@@ -422,21 +422,21 @@ S.views.data = async (v) => {
       // get 403), so when it won't answer, the grants open there: the FCC's own list, or fccid.io's readable copy of it
       const id=encodeURIComponent(r.query||q);
       const fccList=`<a href="https://apps.fcc.gov/OETLabServices/getFCCIDList?fccId=${id}" target="_blank" rel="noopener">the FCC's list ↗</a>`;
-      $("#fiMsg").innerHTML=r.offline&&r.kept?`${maker}The FCC won't send its grant list to RF Recon, so these are the grants kept here (the FCC's grant search, for DAS and booster makers), with the bands each is granted for. Power and class: each grant's view, or ${fccList}.`
-        :r.offline?`${maker}The FCC won't send its grant list to RF Recon, so this is from the grantee list kept here. The grants open in your browser: ${fccList} or <a href="https://fccid.io/${id}" target="_blank" rel="noopener">fccid.io ↗</a> (a third-party viewer of the FCC's records).`
+      $("#fiMsg").innerHTML=r.offline&&r.kept?`${maker}The FCC won't send its grant list to DAStastic, so these are the grants kept here (the FCC's grant search, for DAS and booster makers), with the bands each is granted for. Power and class: each grant's view, or ${fccList}.`
+        :r.offline?`${maker}The FCC won't send its grant list to DAStastic, so this is from the grantee list kept here. The grants open in your browser: ${fccList} or <a href="https://fccid.io/${id}" target="_blank" rel="noopener">fccid.io ↗</a> (a third-party viewer of the FCC's records).`
         :`${maker}${r.count.toLocaleString()} grant${r.count===1?"":"s"} for ${esc(r.query)}. Power and test reports: the FCC's <a href="${esc(r.search_form)}" target="_blank" rel="noopener">search form ↗</a> or each grant's view.`;
       const bands=b=>(b||[]).length?b.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(b.length>8?` +${b.length-8}`:""):"";
       const anyBands=r.results.some(x=>(x.bands||[]).length), anyCls=r.results.some(x=>x.eq_class||x.watts);
       $("#fiOut").innerHTML=r.results.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>FCC ID</th><th>Grantee</th><th>Granted</th><th>Purpose</th>${anyBands?"<th>Bands (MHz)</th>":""}${anyCls?"<th>Booster class</th><th title=\"The FCC's power range for the device's strongest band; exact watts per band on its page\">Power (strongest band)</th>":""}<th>Address</th><th></th></tr></thead><tbody>${r.results.map(x=>`<tr><td class="mono">${esc(x.fcc_id)}</td><td>${esc(x.grantee)}</td><td class="mono">${esc(x.grant_date)}</td><td>${esc(x.purpose)}</td>${anyBands?`<td class="mono">${esc(bands(x.bands))}</td>`:""}${anyCls?`<td>${esc(x.class_name||"")}</td><td class="mono">${esc(wattsTxt(x))}</td>`:""}<td class="hint">${esc(x.address)}</td><td>${x.view?`<a href="${esc(x.view)}" target="_blank" rel="noopener">view ↗</a>`:""}</td></tr>`).join("")}</tbody></table></div><p class="hint">“view” opens fccid.io, a third-party viewer of the FCC's public records, with each band's exact power${anyBands?"; bands, booster class and power ranges come from the FCC's grant search, kept here":""}.</p>`:'<p class="hint">No grants match.</p>'; }
     catch(e){ $("#fiMsg").textContent=e.message; } };
   $("#fiGo").onclick=fiRun; $("#fiQ").onkeydown=e=>{ if(e.key==="Enter") fiRun(); };
-  // the maker list: the FCC's own (one person imports its download; the RF Recon site hands it to every other copy), or open data (2021)
+  // the maker list: the FCC's own (one person imports its download; the DAStastic site hands it to every other copy), or open data (2021)
   const fiSrc=g=>{ if(!$("#fiSrc")?.isConnected) return; const page=`<a href="${esc(g.page)}" target="_blank" rel="noopener">Grantee Search ↗</a>`;
-    const own=`Only the person who keeps the RF Recon site imports the FCC's download (its ${page}, Download all grantees).`;
-    $("#fiSrc").innerHTML=g.source==="site"?`Maker names: the FCC's own grantee list, from the RF Recon site. Nothing to do here.`
-      :g.source==="fcc-download"&&g.file==="the RF Recon site"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list of ${esc(g.at)}, from the RF Recon site. It stays current through FCC equipment grantee codes in Data sources.`
-      :g.source==="fcc-download"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list, imported ${esc(g.at)}${g.newest?` (newest ${esc(g.newest)})`:""}. Refresh the RF Recon site's packs to pass it on. ${own}`
-      :`Maker names: ${(g.codes||0).toLocaleString()} grantee codes${g.codes?" from FCC open data, which the FCC last updated in March 2021":""}. For its current list, run FCC equipment grantee codes in Data sources: it comes from the RF Recon site. ${own}`;
+    const own=`Only the person who keeps the DAStastic site imports the FCC's download (its ${page}, Download all grantees).`;
+    $("#fiSrc").innerHTML=g.source==="site"?`Maker names: the FCC's own grantee list, from the DAStastic site. Nothing to do here.`
+      :g.source==="fcc-download"&&g.file==="the RF Recon site"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list of ${esc(g.at)}, from the DAStastic site. It stays current through FCC equipment grantee codes in Data sources.`
+      :g.source==="fcc-download"?`Maker names: ${g.codes.toLocaleString()} grantee codes, the FCC's own list, imported ${esc(g.at)}${g.newest?` (newest ${esc(g.newest)})`:""}. Refresh the DAStastic site's packs to pass it on. ${own}`
+      :`Maker names: ${(g.codes||0).toLocaleString()} grantee codes${g.codes?" from FCC open data, which the FCC last updated in March 2021":""}. For its current list, run FCC equipment grantee codes in Data sources: it comes from the DAStastic site. ${own}`;
     // the DAS and booster makers' grants with their bands (fccid.import_grant_file): one FCC grant search per maker code
     const gr=g.grants||{}, form=`<a href="https://apps.fcc.gov/oetcf/eas/reports/GenericSearch.cfm" target="_blank" rel="noopener">Authorization Search ↗</a>`;
     const cls=gr.classes||{}, n=k=>(cls[k]||0).toLocaleString();
@@ -478,13 +478,13 @@ S.views.data = async (v) => {
       ${k.update&&L.notes?.length?`<ul class="hint" style="margin:0 0 8px">${L.notes.slice(0,6).map(n=>`<li>${esc(n)}</li>`).join("")}</ul>`:""}
       <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap"><a class="btn" href="${esc(k.get)}" target="_blank" rel="noopener">Get the update ↗</a>
         <label class="inl">Install an update <input type="file" id="kitZip" accept=".zip"></label><span class="hint" id="kitMsg"></span></div>
-      <p class="hint" style="margin:6px 0 0">Download the new “RF Recon (beta).zip”, then pick it here. Your data, DAS jobs and settings stay; RF Recon restarts with the new version.</p>`;
+      <p class="hint" style="margin:6px 0 0">Download the new “DAStastic (beta).zip”, then pick it here. Your data, DAS jobs and settings stay; DAStastic restarts with the new version.</p>`;
     $("#kitZip").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#kitMsg").textContent=`Installing ${f.name}…`;
       try{ const r=await api("/api/kit/update",{method:"POST", body:await f.arrayBuffer()});
-        $("#kitMsg").textContent=`Updated ${r.from} → ${r.to} (${r.files} files). RF Recon is restarting…`;
+        $("#kitMsg").textContent=`Updated ${r.from} → ${r.to} (${r.files} files). DAStastic is restarting…`;
         await new Promise(ok=>setTimeout(ok,3000));
         for(let i=0;i<60;i++){ try{ if((await api("/api/kit")).current?.version===r.to){ location.reload(); return; } }catch(err){ /* the server is restarting: ask again in a second */ } await new Promise(ok=>setTimeout(ok,1000)); }  // the old server can still answer while it shuts down
-        $("#kitMsg").textContent="It didn't come back by itself: double-click Start RF Recon."; }
+        $("#kitMsg").textContent="It didn't come back by itself: double-click Start DAStastic."; }
       catch(err){ $("#kitMsg").textContent=err.message; } };
   }).catch(()=>{ if($("#kitBody")) $("#kitBody").innerHTML='<p class="hint" style="margin:0">Couldn\'t read this copy\'s version.</p>'; });
   // remote access (remote.py): the Tailscale Funnel link, and the people who can sign in at it
@@ -629,17 +629,17 @@ function paintSources(){
     $$("#uLinks [data-link]").forEach(b=>b.classList.toggle("on", b.dataset.link==="all"?on.size===3:on.has(b.dataset.link)));
     const now=u.link==="vpn"||u.link==="unknown"?"ethernet":u.link;
     $("#uLinkNow").innerHTML=`This PC is on <b>${esc(nm[now]||u.link||"?")}</b> now: updates ${on.has(now)?'<span style="color:var(--good)">can run</span>':'<span style="color:var(--warn)">wait for '+[...on].map(k=>nm[k]).join(" or ")+"</span>"}.`; }
-  // the catalog's sources with no Data & updates entry: the ones RF Recon uses live, then the researched rest
-  const catRows=(rows,live)=>`<div class="tw wrap"><table><thead><tr><th>Source</th><th>What it gives</th><th>Key</th><th>Cost</th>${live?"":"<th>Area search</th>"}<th>Terms</th><th>${live?"Where in RF Recon":"In RF Recon"}</th></tr></thead><tbody>${
+  // the catalog's sources with no Data & updates entry: the ones DAStastic uses live, then the researched rest
+  const catRows=(rows,live)=>`<div class="tw wrap"><table><thead><tr><th>Source</th><th>What it gives</th><th>Key</th><th>Cost</th>${live?"":"<th>Area search</th>"}<th>Terms</th><th>${live?"Where in DAStastic":"In DAStastic"}</th></tr></thead><tbody>${
     rows.map(c=>`<tr><td><a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.name)}</b> ↗</a></td><td>${esc(c.what)}</td><td>${esc(c.key)}${c.signup?` · <a href="${esc(c.signup)}" target="_blank" rel="noopener">sign up ↗</a>`:""}</td>
-      <td>${esc(c.cost)}</td>${live?"":`<td>${esc(c.area)}</td>`}<td class="hint">${esc(c.terms)}</td><td>${esc(live?c.status.replace(/^In RF Recon:\s*(.)/,(m,ch)=>ch.toUpperCase()):c.status)}${live&&DAS_LIVE[c.name]?dasNote(DAS_LIVE[c.name]):""}</td></tr>`).join("")}</tbody></table></div>`;
-  const inApp=c=>/^In RF Recon/.test(c.status);
+      <td>${esc(c.cost)}</td>${live?"":`<td>${esc(c.area)}</td>`}<td class="hint">${esc(c.terms)}</td><td>${esc(live?c.status.replace(/^In DAStastic:\s*(.)/,(m,ch)=>ch.toUpperCase()):c.status)}${live&&DAS_LIVE[c.name]?dasNote(DAS_LIVE[c.name]):""}</td></tr>`).join("")}</tbody></table></div>`;
+  const inApp=c=>/^In DAStastic/.test(c.status);
   if($("#srcLive") && u.catalog) $("#srcLive").innerHTML=catRows(u.catalog.filter(inApp),true)+`
     <p class="hint">Terms checked on each provider's own page: the maps, terrain, address search, building outlines and radar on 2026-11-02, live ships on 2026-10-28.
       Plus what you bring in yourself: your own layers (CSV, KML, KMZ, GeoJSON, GPX), RadioReference-style labels, talk groups (CSV, Excel or JSON), field captures, and your own maps (ATAK map sources, a tile address or MBTiles).</p>`;
   if($("#srcCatalog") && u.catalog) $("#srcCatalog").innerHTML=catRows(u.catalog.filter(c=>!inApp(c)),false)+`
-    <p class="hint">Checked on each provider's own pages on 2026-10-28. “Could add” means its terms and API allow it; say which to wire in. Sign-ups need your own account: RF Recon never makes one for you.
-      The research behind RF Recon is in the Drive folder's docs › research: DAS and ERCES, link budget, PIM, RF parts, building plans and materials, receivers and SDRs, the data roadmap and the capability and UX review.</p>`;
+    <p class="hint">Checked on each provider's own pages on 2026-10-28. “Could add” means its terms and API allow it; say which to wire in. Sign-ups need your own account: DAStastic never makes one for you.
+      The research behind DAStastic is in the Drive folder's docs › research: DAS and ERCES, link budget, PIM, RF parts, building plans and materials, receivers and SDRs, the data roadmap and the capability and UX review.</p>`;
   $$("[data-int]").forEach(x=>x.onchange=async()=>{ UPD=await post("/api/update/config",{sources:{[x.dataset.int]:{interval_h:+x.value}}}); paintSources(); });
   $$("[data-run]").forEach(x=>x.onclick=async()=>{ UPD=await post("/api/update/run",{ids:[x.dataset.run],force:true}); paintNet(); paintSources(); });
 }

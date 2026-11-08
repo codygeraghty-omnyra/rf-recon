@@ -1,5 +1,5 @@
 "use strict";
-/* RF Recon — Find a signal (Cody 11/3: "DF / geolocation capabilities any user could easily use, no matter their
+/* DAStastic — Find a signal (Cody 11/3: "DF / geolocation capabilities any user could easily use, no matter their
    skill level", for hunting a rogue BDA or any signal). A guided panel on the Mission tab, laid out for a phone:
    at each stop, the phone's position, the level read off any receiver, and optionally the direction from the phone's
    compass; after each stop, where the signal probably is (from levels, geo.level_fix, and bearings,
@@ -103,7 +103,7 @@ window.missionHunt = (v, m) => {
   const H = S.hunt = S.hunt || { freq: "", tol: 12.5, open: false };
   v.insertAdjacentHTML("afterbegin", `<details class="panel" id="hnPanel" ${H.open ? "open" : ""} style="margin-bottom:10px">
     <summary style="cursor:pointer;list-style:none"><h3 style="margin:0;display:inline">🎯 Find a signal</h3>
-      <span class="hint"> · walk toward it: at each stop, your position and the level you read (and a direction if you can), and RF Recon says where it probably is</span></summary>
+      <span class="hint"> · walk toward it: at each stop, your position and the level you read (and a direction if you can), and DAStastic says where it probably is</span></summary>
     <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end;margin-top:8px">
       <label>Looking for (MHz)<input id="hnFreq" type="number" step="any" value="${esc(H.freq)}" placeholder="e.g. 851.0125" style="width:150px"></label>
       <label>Match within<select id="hnTol">${[[6.25, "6.25 kHz (one channel)"], [12.5, "12.5 kHz"], [25, "25 kHz"], [1000, "1 MHz (a booster's whole band)"], [5000, "5 MHz"]]

@@ -1,7 +1,7 @@
 "use strict";
-/* RF Recon — Help window: "?" in the header, or press ? / F1. Opens on the section for the tab you're on. */
+/* DAStastic — Help window: "?" in the header, or press ? / F1. Opens on the section for the tab you're on. */
 
-// RF Recon for Android (android/, built outside this repo): served by the 24/7 server; the public web version leaves it out
+// DAStastic for Android (android/, built outside this repo): served by the 24/7 server; the public web version leaves it out
 const RF_APK = (/github\.io$/.test(location.hostname) || location.protocol === "file:" ? "https://44-207-142-90.sslip.io/" : "") + "static/android/rf-recon-android.apk";
 const HELP = [
   ["start", "Quick start", `
@@ -48,11 +48,11 @@ const HELP = [
   ["map", "Map", `
     <ul><li>Every result as a dot, sized by how many entries share the site; towers outlined. Click a dot for what's there, then <i>Details</i>.</li>
     <li>Drag the pin (it takes the skin's colour) or click the map to move it; rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
-    <li><b>Zoom bar</b> at the top right of every map (the layers button is top left): − and +, and 🔒, mouse-wheel zoom on or off for every map. It is locked whenever RF Recon opens, so the wheel scrolls the page; <b>hold the left mouse button (or Ctrl) and scroll</b> to zoom anyway. Click 🔒 to let the wheel zoom until RF Recon is opened again. Pinch still zooms.</li>
+    <li><b>Zoom bar</b> at the top right of every map (the layers button is top left): − and +, and 🔒, mouse-wheel zoom on or off for every map. It is locked whenever DAStastic opens, so the wheel scrolls the page; <b>hold the left mouse button (or Ctrl) and scroll</b> to zoom anyway. Click 🔒 to let the wheel zoom until DAStastic is opened again. Pinch still zooms.</li>
     <li><b>Layers</b> (top right of the map): Street, USGS satellite / satellite + labels / topo / terrain relief, Esri hi-res satellite;
       overlays for county and state lines, microwave backhaul links (FCC), live ships (AIS: the owner's personal build only) and live NEXRAD weather radar.
       USGS maps and county lines you view are kept by the copy serving the page (this PC, or the server), and a mission area's USGS maps are kept ahead
-      (to zoom 16; shaded relief to 13). The web version and RF Recon lite keep the USGS map tiles you view in that browser; county lines aren't kept there.
+      (to zoom 16; shaded relief to 13). The web version and DAStastic lite keep the USGS map tiles you view in that browser; county lines aren't kept there.
       Street and Esri are for use with signal only (their terms): with no signal the map shows USGS Topo, and goes back to your map when signal returns.</li>
     <li><b>Heatmap</b>: <i>Predicted with terrain</i> (Okumura-Hata, suburban, from the 60 strongest licensed transmitters, with the hills counted for
       the 25 strongest where terrain is kept), <i>Predicted from licences</i> (free space: best case), <i>Measured</i> (your captures and WiGLE),
@@ -116,7 +116,7 @@ const HELP = [
     <li>Below the mission: <b>Find a signal</b>, <b>Compare with another survey</b>, and <b>Replay</b> / <b>When heard</b> / <b>Lines of bearing</b>
       (sections of their own in this help).</li></ul>`],
   ["find", "Search (Ctrl+K)", `
-    <ul><li>One box over everything RF Recon holds: places, licences (call sign, licensee or a frequency such as <span class="mono">851.7125</span>),
+    <ul><li>One box over everything DAStastic holds: places, licences (call sign, licensee or a frequency such as <span class="mono">851.7125</span>),
       towers (owner or ASR number), 911 call centres, broadcast, aviation and NOAA stations, microwave links, FCC equipment makers, your labels and
       talk groups, survey and crowd points, missions, DAS jobs and the DAS research. <b>Ctrl+K</b> (⌘K) opens it from anywhere.</li>
     <li>The buttons under the box limit it to one kind. A frequency finds every licence, broadcast, FAA and NOAA station on it, under
@@ -157,7 +157,7 @@ const HELP = [
       line, and where they cross.</li></ul>`],
   ["compare", "Compare with another survey", `
     <ul><li>In an opened mission: pick a <b>baseline</b> (another mission, the same place on another day) and how far a level must move to count as
-      changed (3 to 15 dB). RF Recon lists what's <b>new</b> since the baseline, what's <b>gone</b>, and what <b>changed level</b>.</li>
+      changed (3 to 15 dB). DAStastic lists what's <b>new</b> since the baseline, what's <b>gone</b>, and what <b>changed level</b>.</li>
     <li>Signals match by MAC or cell ID where there is one, else by 6.25 kHz channel and signal type.</li></ul>`],
   ["receivers", "Receivers and calibration", `
     <ul><li>Every capture can say what took it: the receiver's model, whether it was calibrated, and the calibration date (Mission › Import field
@@ -167,25 +167,25 @@ const HELP = [
   ["data", "Data &amp; updates", `
     <ul><li><b>Connection</b>: online / offline and the link type (a phone tether counts as cellular).</li>
     <li><b>Automatic updates</b>: one switch for all, which networks it may use (<i>All</i>, <i>Wi-Fi</i>, <i>Ethernet</i>, <i>Cellular / phone tether</i>), and per source: on / off, how often, Run now, last result. <b>■ Stop all downloads</b> stops every download at once (FCC licences, carrier coverage, prospect lists and the rest) and starts nothing again, automatic updates included, until <b>Resume downloads</b>; the data you had is kept.</li>
-    <li><b>Ways in</b> (on Cody's PC, and on the server for the admin): every way people get RF Recon or its data (the 24/7 server, Cody's PC,
-      RF Recon for Android, the remote link, the web version, RF Recon lite, field packs, the install kit, the Drive folder, exports, Push to ATAK),
+    <li><b>Ways in</b> (on Cody's PC, and on the server for the admin): every way people get DAStastic or its data (the 24/7 server, Cody's PC,
+      DAStastic for Android, the remote link, the web version, DAStastic lite, field packs, the install kit, the Drive folder, exports, Push to ATAK),
       the version each runs, and which work with Cody's PC off. On the server, field packs and Push to ATAK are the admin's.</li>
     <li><b>DAS course: who has it</b> (wherever people sign in: the server, or Cody's PC with the remote link on): tick the accounts that have the course, and see each one's lessons, mastery,
       exams passed, current lesson and last use. They open it from the DAS tab; their progress saves to their sign-in.</li>
     <li><b>Server files</b> (on the server, for the admin): what the server keeps, with sizes and dates, and a copy of any job file, note, field pack
       or backup to download. Read only. App data lists sizes, and logins, keys and the sign-in secret never show.</li>
-    <li><b>Data sources</b> are what RF Recon downloads; <b>Used live as you work</b> lists the maps, terrain, address search,
+    <li><b>Data sources</b> are what DAStastic downloads; <b>Used live as you work</b> lists the maps, terrain, address search,
       building outlines, weather radar and live ships it reads as you go; <b>Other open and crowd sources</b> is the research: what else exists,
-      what it costs and allows, and why it is or isn't in RF Recon.</li>
+      what it costs and allows, and why it is or isn't in DAStastic.</li>
     <li><b>Your API keys</b> (WiGLE, OpenCelliD, aisstream, Mouser, Digi-Key, Shippo, FCC Broadband Map) are kept outside every database file:
-      sealed for your Windows account on a PC, in a file only RF Recon's user reads on the server. No copy, kit or backup carries them.
+      sealed for your Windows account on a PC, in a file only DAStastic's user reads on the server. No copy, kit or backup carries them.
       RepeaterBook's token isn't taken (its policy discourages tools that mix sources).</li>
     <li>Import your own map layer (CSV, KML, KMZ, GeoJSON) or RadioReference-style labels.</li></ul>`],
   ["notes", "Notes", `
     <ul><li>The <b>Note</b> button, bottom right on every screen (or the <b>N</b> key): a voice note, the screen recorded while you
       talk and point, a photo with a voice or written note, or just words. Each note keeps the time, the screen, the pin and the mission.</li>
     <li>On Cody's PC a note is a folder in <i>RF Recon › notes</i> in Drive (note.txt plus the recording or photo), so it opens there too.
-      On the 24/7 server a note is kept on the server. From the PC's remote link a note goes to Cody's PC. In the web version and RF Recon lite
+      On the 24/7 server a note is kept on the server. From the PC's remote link a note goes to Cody's PC. In the web version and DAStastic lite
       it stays in that browser.</li>
     <li>To send one to Cody: <b>Share with Cody</b>, then <b>Send email now</b>. It's emailed from the page, numbered (report #1, #2 ...)
       with a short topic; the first time it asks for your send code, which is in the link Cody sent you. A note emailed once shows its report
@@ -216,7 +216,7 @@ const HELP = [
       plan line locks onto it (blue preview), ending on a double-line wall puts the wall on its centre. <b>Shift</b> while drawing: square
       to the plan. <b>Ctrl</b> held: no snap for that wall. <b>X</b> turns snap off and on.</li>
     <li><b>Snip</b> (<b>S</b>): drag a box; the walls inside the plan are found at once, all as the wall type picked. <b>Smart</b>
-      (<b>Shift+S</b>): each wall gets its own type from what RF Recon knows: a word beside it on the plan (CMU, CONC, GYP, CURTAIN WALL),
+      (<b>Shift+S</b>): each wall gets its own type from what DAStastic knows: a word beside it on the plan (CMU, CONC, GYP, CURTAIN WALL),
       a stair, elevator or shaft box, glazing drawn as three thin lines, a hatched (block) or solid (concrete) fill and the wall's thickness,
       outside walls from the job's other floors, its construction and the building type.</li>
     <li><b>Lasso</b> (<b>L</b>, <b>Shift+L</b> Smart): draw any loop, a circle too; it closes where you started.</li>
@@ -248,7 +248,7 @@ const HELP = [
       is kept. Licensed doesn't mean on the air: mark what you hear.</li></ul>`],
   ["credits", "Data credits and this build", () => {
     const b = S.build || {}, out = Object.entries(b.left_out || {});
-    if (!b.build) return `<p class="hint">This copy didn't say which build it is (restart RF Recon to load it).</p>`;
+    if (!b.build) return `<p class="hint">This copy didn't say which build it is (restart DAStastic to load it).</p>`;
     return `<p>This is the <b>${b.build === "personal" ? "personal" : "sold"} build</b>.
       ${b.build === "personal" ? "It carries every source, including ones whose terms allow personal use only. Don't sell or share what it shows from them."
         : "It leaves out every source whose terms bar commercial use or sharing:"}</p>
@@ -263,9 +263,9 @@ const HELP = [
     <tr><td><b>Part 15 / Part 95</b></td><td>Unlicensed devices (Wi-Fi, Bluetooth, ISM) / personal radio licensed by rule (FRS, GMRS, MURS, CB).</td></tr>
     <tr><td><b>Unlisted</b></td><td>A surveyed signal with no FCC licence nearby on its frequency and no allocation that allows it: worth a second look.</td></tr></tbody></table>`],
   ["android", "Android app", () => `
-    <p>RF Recon for Android opens this RF Recon in a full-screen app and lets the DAS walk test read the phone's own LTE / 5G signal.
+    <p>DAStastic for Android opens this DAStastic in a full-screen app and lets the DAS walk test read the phone's own LTE / 5G signal.
       Android 10 or newer. (iPhones can't: Apple gives no app the phone's signal readings.)</p>
-    <p><a href="${RF_APK}" download="RF Recon (Android) 1.0.apk" style="display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--on-accent,#fff);font-weight:600;text-decoration:none">⇩ Download the Android app (1.0)</a>
+    <p><a href="${RF_APK}" download="DAStastic (Android) 1.0.apk" style="display:inline-block;padding:8px 14px;border-radius:10px;background:var(--accent);color:var(--on-accent,#fff);font-weight:600;text-decoration:none">⇩ Download the Android app (1.0)</a>
       <span class="hint">Open this on the phone, or get the same file from Drive › RF Recon › install kit.</span></p>
     <ol><li>On the phone, tap the download (or the <i>.apk</i> file in Drive) to open it.</li>
     <li>The first time, Android says installs from that app are blocked: tap <b>Settings</b>, turn on <b>Allow from this source</b>, go back,
@@ -292,7 +292,7 @@ const HELP = [
     <li><b>Cody's PC</b>: the app runs from its own folder (<span class="mono">rf-recon\\app</span> in the Windows user folder, outside Drive since 11/3);
       FCC data and the database stay on the PC (<span class="mono">rf-recon\\data</span>): gigabytes that shouldn't sync or go over a phone connection.
       The docs, field packs, backups (missions, captures, labels and settings, not API keys, every 6 hours) and notes are in the <b>RF Recon</b> folder in Google Drive.</li>
-    <li><b>The web version and RF Recon lite</b>: the data is a state pack from the RF Recon site, or a field pack you load (from Drive or the server's
+    <li><b>The web version and DAStastic lite</b>: the data is a state pack from the DAStastic site, or a field pack you load (from Drive or the server's
       admin), kept in that browser with everything you do there.</li></ul>`],
 ];
 
@@ -311,7 +311,7 @@ const HELP = [
 })();
 
 function openHelp(section) {
-  $("#dlgTitle").textContent = "Help: RF Recon (beta)";
+  $("#dlgTitle").textContent = "Help: DAStastic (beta)";
   $("#dlgBody").innerHTML = `<p style="margin:0 0 8px"><a href="static/release-notes.html" target="_blank" rel="noopener"><b>What's new:</b> release notes: every change in order, then what the current build does</a></p>
     <input id="helpQ" placeholder="Search help…" style="width:100%;margin-bottom:8px">
     <div class="chips" style="margin-bottom:8px">${HELP.map(([id, t]) => `<span class="chip" data-hjump="${id}">${t}</span>`).join("")}</div>
