@@ -277,6 +277,11 @@ mark{background:color-mix(in srgb,var(--accent) 38%,transparent);color:inherit;b
    sight with no cue): tighter tabs first, then a second row. Phones keep the swipeable bar. */
 @media (min-width:601px) and (max-width:1320px){ .tabs button{padding:7px 10px} }
 @media (min-width:601px) and (max-width:1120px){ .tabs{flex-wrap:wrap;justify-content:center;border-radius:18px;overflow-x:visible} }
+/* tablets and narrow windows (item 15, 11/8): two half-width panels share a row beside the filters, and a short chart beside a long list left 93 px empty under it (Dashboard, Distance from pin, 1180x820). Each panel keeps its own height. */
+@media (min-width:901px) and (max-width:1320px){ .dash{align-items:start} }
+/* a segmented row wider than the screen (a DAS job's sections on a tablet, 1,155 px at 820, 11/8) wraps, as the main tabs do;
+   26 px keeps a one-row pill round (half its height) and a two-row one a rounded box */
+@media (min-width:601px) and (max-width:1320px){ .seg{flex-wrap:wrap;max-width:100%;border-radius:26px} }
 /* depth (Cody, 10/28: "add some depth and make the edges look nicer"): panels get the kit's beveled edge, buttons sit
    slightly proud and press in, fields and segment tracks sit recessed. Tokens from theme/glass.css. */
 header,.panel,.tabs,.tw,.side,#cy,dialog{border-color:var(--g-edges)}
@@ -830,6 +835,7 @@ body.rail-none #filters{display:none}
 <script src="static/rail.js"></script>
 <script src="static/checklists.js"></script>
 <script src="static/addrfill.js"></script>
+<script src="static/helptips.js" data-wire></script>
 <script src="static/help.js"></script>
 <script src="static/tak.js"></script>
 <script src="static/takwatch.js"></script>

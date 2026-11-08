@@ -328,7 +328,9 @@ function pullLine(p){
   return `WiGLE refuses this server's address, so Cody's PC fetches it with its own key, every 15 minutes while it's on, and the points stay here: `
     +`${p.waiting?`${p.waiting} area${p.waiting===1?"":"s"} waiting`:"nothing waiting"}, last brought ${esc(p.last_pc||"never")}.`;
 }
+const NY={pull:null, people:null};  // what Needs you was drawn with, so paintSources can redraw it after a switch
 function needsYou(pull, people){
+  NY.pull=pull; NY.people=people;
   const u=UPD; if(!u) return "";
   const out=[];
   // item 8 (Cody 11/7: "let me know when Andy, Josh or Josh sign in"): a first Google sign-in in the last week
@@ -337,7 +339,8 @@ function needsYou(pull, people){
   for(const [id,s] of Object.entries(u.sources||{})){
     if(!s.enabled || (id==="wigle" && pull)) continue;  // WiGLE through the PC: its own line below
     if(s.access?.needs_key && !s.access.key_saved) out.push(`<b>${esc(s.label)}</b> is on but has no key: add it under Your API keys, or turn it off.`);
-    else if(s.state==="error") out.push(`<b>${esc(s.label)}</b>: the last run failed${s.message?`: ${esc(s.message)}`:""}.`);
+    // a failed run sits in "failed" with the state idle again (11/8: a failure there never showed)
+    else if(s.state==="error"||s.failed) out.push(`<b>${esc(s.label)}</b>: the last run failed${s.message?`: ${esc(s.message)}`:""}.`);
   }
   if(pull && pull.waiting && pullAge(pull)>24)
     out.push(`<b>WiGLE</b>: ${pull.waiting} area${pull.waiting===1?"":"s"} waiting for Cody's PC, which ${pull.last_pc?`last brought points ${esc(pull.last_pc)}`:"hasn't brought any yet"}. It fetches every 15 minutes while it's on.`);
@@ -665,6 +668,7 @@ function paintStop(u){ const b=$("#uStop"), m=$("#uStopMsg"); if(!b) return;
   m.textContent=u.stopped?`Downloads stopped at ${u.stopped}${run?`: ${run} finishing their current megabyte`:""}. Nothing downloads, automatic updates included, until you press Resume downloads. The data you had is kept.`:""; }
 function paintSources(){
   const u=UPD; if(!u||!$("#srcList")) return;
+  const ny=$("#needsYou"); if(ny) ny.outerHTML=needsYou(NY.pull, NY.people);  // a source switched off leaves the list at once (11/8)
   paintStop(u);
   const n=u.net, link={wifi:"Wi-Fi",cellular:"Cellular",ethernet:"Ethernet",vpn:"VPN",unknown:"unknown link"}[u.link]||u.link;
   if($("#netCard")) $("#netCard").innerHTML=`<div class="row" style="align-items:center"><span class="led ${n.online?"on":n.online===false?"off":""}" style="width:14px;height:14px"></span><b>${n.online?"Online":n.online===false?"Offline":"Not checked yet"}</b> · ${esc(link)}${n.interface?` (${esc(n.interface)})`:""}${n.latency_ms!=null?` · ${n.latency_ms} ms to FCC`:""}</div><p class="hint">Last checked ${esc(n.checked||"–")} · ${esc(n.os||"")}</p>`;

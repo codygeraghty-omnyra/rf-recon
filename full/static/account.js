@@ -31,7 +31,7 @@
         <p style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0">
           <button type="submit" class="primary" id="pwSave">Change password</button><span id="pwMsg" class="hint" role="status"></span></p>
         <p class="hint">Your other devices are signed out when it changes; this one stays signed in.</p></form>
-      ${me.role === "ahj" ? "" : `<label style="display:flex;gap:10px;align-items:flex-start;margin:14px 0 0;border-top:1px solid var(--line);padding-top:12px;cursor:pointer">
+      ${me.role === "ahj" ? "" : `<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;margin:14px 0 0;border-top:1px solid var(--line);padding-top:12px;cursor:pointer">
         <input type="checkbox" id="acctAuto" style="margin-top:4px"><span><b>Update by itself</b><br><span class="hint">When DAStastic is updated on the server, this
         browser reloads the next time you leave the tab. Off: a chip says so and you reload when you choose.</span></span></label>`}
       <p style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 0;border-top:1px solid var(--line);padding-top:12px">

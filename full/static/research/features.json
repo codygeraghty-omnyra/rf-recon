@@ -3551,12 +3551,13 @@
    "features": [
     {
      "name": "Needs you here",
-     "text": "Data & updates opens with what needs the admin: a source that's on with no key, a source whose last run failed, and WiGLE areas waiting a day or more for Cody's PC. When nothing does, it says so.",
+     "text": "Data & updates opens with what needs the admin: a source that's on with no key, a source whose last run failed, and WiGLE areas waiting a day or more for Cody's PC. When nothing does, it says so. It lists a failed run even when the source's state reads idle again, and follows a source's switch at once.",
      "where": "server",
      "src": [
       "static/mission.js",
       "tests/ui_sweep.mjs",
-      "d-2026-11-08-0220"
+      "d-2026-11-08-0220",
+      "d-2026-11-08-0520"
      ]
     },
     {
@@ -3791,7 +3792,8 @@
       "static/dasreview.js",
       "tests/test_password_change.py",
       "d-2026-11-08-0220",
-      "d-2026-11-08-0410"
+      "d-2026-11-08-0410",
+      "d-2026-11-08-0520"
      ]
     },
     {
@@ -3875,11 +3877,12 @@
      ]
     },
     {
-     "name": "27 sections",
-     "text": "Quick start, Searching, Filters, Map, Area report, Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, Mission, Search, Cell sites, Find a signal, Replay, Compare, Receivers, Data & updates, Notes, keys, walls, sources, credits, glossary, Android and files. DAS, PIM, Parts and Start have none.",
+     "name": "28 sections",
+     "text": "Quick start, Guides, Searching, Filters, Map, Area report, Analyzer, Dashboard, Topology, Site profile, Agencies, Spectrum, Mission, Search, Cell sites, Find a signal, Replay, Compare, Receivers, Data & updates, Notes, keys, walls, sources, credits, glossary, Android and files. DAS, PIM, Parts and Start have none.",
      "src": [
       "d-2026-11-04-late",
-      "static/help.js"
+      "static/help.js",
+      "d-2026-11-08-0610"
      ]
     },
     {
@@ -3888,6 +3891,17 @@
      "src": [
       "d-2026-11-05-2200",
       "static/help.js"
+     ]
+    },
+    {
+     "name": "Feature guides",
+     "text": "A small \"?\" beside eight features (Start, Walk me through, Prospects, the drop spot, Emails this job needs, Cell sites, Find a signal, Push to ATAK) opens a short window: what it's for, three steps, and what to check when you see something else; on a phone it opens from the bottom. Help's Guides section has the same eight, and names the full PDF guide with a screenshot of every step. A check walks every guide step and every text against the app.",
+     "src": [
+      "d-2026-11-08-0610",
+      "static/helptips.js",
+      "static/help.js",
+      "static/research/help_tips.json",
+      "tests/guides_check.mjs"
      ]
     },
     {
@@ -4205,13 +4219,14 @@
     },
     {
      "name": "Phone layout",
-     "text": "On a phone: one column, the header scrolls away, the tab bar sticks and scrolls sideways, the map comes first with its tools under it, and the filters open as a bottom sheet. Controls are at least 44 px.",
+     "text": "On a phone: one column, the header scrolls away, the tab bar sticks and scrolls sideways, the map comes first with its tools under it, and the filters open as a bottom sheet. Controls are at least 44 px. Tablets are checked on every tab too, upright and on their side; between 901 and 1,320 pixels wide the Dashboard's panels keep their own heights, so a short chart beside a long list leaves no empty band.",
      "src": [
       "d-2026-10-31",
       "d-2026-11-05-2200",
       "d-2026-10-27",
       "static/index.html",
-      "static/rail.js"
+      "static/rail.js",
+      "d-2026-11-08-0520"
      ]
     }
    ]

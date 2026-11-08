@@ -14,6 +14,7 @@ const HELP = [
     <li><b>Read it.</b> <i>Area report</i> is the one-page answer; <i>Spectrum</i> and <i>Analyzer</i> go deep.</li>
     <li><b>Go there.</b> Make a mission, import what you collect, and the app tells you what's licensed, what's allowed and what's unexplained.</li></ol>
     <p>The address bar always holds the current view, so a bookmark or a copied link reopens exactly this.</p>`],
+  ["guides", "Guides", () => helpGuides()],
   ["search", "Searching", `
     <ul><li><b>Pin + radius</b>: address, place, county, coordinates or Maps link. Counties and towns resolve offline from the FCC data;
       street addresses need a connection (OpenStreetMap / Photon). Picking a county searches the whole county.</li>
@@ -300,6 +301,20 @@ const HELP = [
     <li><b>The web version and DAStastic lite</b>: the data is a state pack from the DAStastic site, or a field pack you load (from Drive or the server's
       admin), kept in that browser with everything you do there.</li></ul>`],
 ];
+
+// Guides (Cody 11/8, item 10): the eight features he named, each one's short text and steps, from the same texts the "?"
+// beside each feature opens (static/research/help_tips.json, helptips.js). The full guide, with a screenshot of every step and
+// what to check when you see something else, is a PDF in the DAStastic Drive folder: named here, not linked, since a Drive
+// link opens only for the people the folder is shared with
+function helpGuides() {
+  const T = window.RFHelpTips, tips = T && T.ready() ? T.list().filter(t => !t.extra) : [];
+  if (!tips.length) return `<p class="hint">The guides didn't load on this page. Reload it to see them.</p>`;
+  return `<p>The eight features, one at a time: what each is for, the steps, and what to check when you see something else. The same text opens from the small <b>?</b> beside each feature.</p>
+    <p class="hint">The full guide, with a screenshot of every step, is <i>DAStastic - feature guides (2026-11-08).pdf</i> in the DAStastic folder in Google Drive, under docs, guides. Ask Cody for a copy if that folder isn't shared with you.</p>
+    ${tips.map(t => `<details class="help-guide" id="help-guide-${esc(t.id)}"><summary><b>${esc(t.title)}</b> <span class="hint">· ${esc(t.tab)}</span></summary>
+      <p>${esc(t.short)}</p>${(t.steps || []).length ? `<ol>${t.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+      ${(t.if_you_see || []).map(x => `<p class="hint" style="margin:2px 0">If you see <b>${esc(x.see)}</b>: ${esc(x.check)}</p>`).join("")}</details>`).join("")}`;
+}
 
 (function helpUi() {
   const hdrBtn = document.getElementById("themeBtn");
