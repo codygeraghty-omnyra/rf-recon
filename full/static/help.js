@@ -54,6 +54,7 @@ const HELP = [
       USGS maps and county lines you view are kept by the copy serving the page (this PC, or the server), and a mission area's USGS maps are kept ahead
       (to zoom 16; shaded relief to 13). The web version and DAStastic lite keep the USGS map tiles you view in that browser; county lines aren't kept there.
       Street and Esri are for use with signal only (their terms): with no signal the map shows USGS Topo, and goes back to your map when signal returns.</li>
+    <li><b>Boundaries</b> (in Layers): <i>State</i>, <i>County</i> and <i>City / town</i> lines, each on its own, or <i>All boundaries</i> for the three, from the Census Bureau's 1:500,000 boundary files (2025; cities, towns, villages, boroughs and census-designated places). They draw under every other layer and never take a click; counties load for the states in view from zoom 7, cities and towns from zoom 9. State and county names show where they fit; city and town names only on the satellite and relief maps, since the others name them already. In DAStastic lite they're under Layers and filters, and the web version and lite keep the ones you've seen for use with no signal.</li>
     <li><b>Heatmap</b>: <i>Predicted with terrain</i> (Okumura-Hata, suburban, from the 60 strongest licensed transmitters, with the hills counted for
       the 25 strongest where terrain is kept), <i>Predicted from licences</i> (free space: best case), <i>Measured</i> (your captures and WiGLE),
       <i>Carrier coverage</i> (the FCC Broadband Map, by carrier and technology) or <i>Density</i>.

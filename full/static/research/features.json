@@ -343,6 +343,18 @@
      ]
     },
     {
+     "name": "Boundaries",
+     "text": "State, county and city / town lines from the Census Bureau's 1:500,000 boundary files (2025), each switched on alone or All boundaries for the three, in every map's layers and in DAStastic lite's Layers and filters. They draw under every other layer and never take a click; counties load for the states in view from zoom 7, cities and towns from zoom 9, state and county names where they fit, city and town names on the satellite and relief maps. The web version and lite keep the ones seen for use with no signal.",
+     "src": [
+      "static/boundaries.js",
+      "tools/build_boundaries.py",
+      "static/data/boundaries/index.json",
+      "phone/app.js",
+      "static/core.js",
+      "d-2026-11-08-0315"
+     ]
+    },
+    {
      "name": "Map styles",
      "text": "Standard, ATAK style (2525-style frames, imagery, MGRS in the readout), or your own map: an ATAK or WinTAK map source, a tile address or an MBTiles file.",
      "src": [

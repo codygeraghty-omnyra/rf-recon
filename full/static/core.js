@@ -320,6 +320,7 @@ function addMapLayers(map){
   const pref=mapPrefs(), bases={}, overs={};
   for(const [name,{src,url,online,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(url||`/tiles/${src}/{z}/{x}/{y}.png`,opt);  // url: a map you imported
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
+  if(window.RFBounds) RFBounds.link(map, overs);  // All boundaries switches the other three (boundaries.js)
   bases[pref.base].addTo(map);
   for(const n of pref.overlays) overs[n].addTo(map);
   L.control.layers(bases, overs, {position:"topleft"}).addTo(map);  // layers on the left, the zoom bar on the right (Cody 11/4)

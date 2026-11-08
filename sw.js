@@ -1,13 +1,18 @@
 /* DAStastic (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "4ac1b8e615";
+const VERSION = "501cd4fe69";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 // the full version's Python engine (Pyodide, full/pyodide/, served from this site since 11/4): kept apart from the app
 // files, by the engine's version (publish.py writes it), so a new build doesn't download it again
 const ENGINE = "rfr-engine-0.27.7";
+// the map's state, county and city / town lines (full/static/data/boundaries/, boundaries.js): every file a map fetched is
+// kept here, apart from the app files, by the boundary data's version (publish.py writes it from their index.json), so a
+// new build keeps them and new boundary data replaces them. Not fetched ahead: 10 MB for every state, where a phone needs one.
+const BOUNDS = "rfr-bounds-2025-478dc6b836";
 const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glass.css", "theme/skins.js", "theme/look.js",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/sqljs/sql-wasm.js", "vendor/sqljs/sql-wasm.wasm",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js", "notes.js", "das.js", "geofix.js", "wmm.js", "hunt.js", "zoombar.js"];
+  "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "tak.js", "notes.js", "das.js", "geofix.js", "wmm.js", "hunt.js", "zoombar.js",
+  "boundaries.js"];
 // USGS tiles only: they're public domain. OpenStreetMap's tile policy says "Offline use is not permitted", so its tiles
 // go through the browser's own cache (their caching headers) and are never saved here; the app shows Topo with no signal.
 const TILE_HOSTS = ["basemap.nationalmap.gov"];
@@ -17,7 +22,8 @@ self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES.map(f => new Request(f, {cache: "reload"})))).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => (k.startsWith("rfr-shell-") && k !== SHELL) || (k.startsWith("rfr-engine-") && k !== ENGINE)).map(k => caches.delete(k))))
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => (k.startsWith("rfr-shell-") && k !== SHELL) || (k.startsWith("rfr-engine-") && k !== ENGINE)
+    || (k.startsWith("rfr-bounds-") && k !== BOUNDS)).map(k => caches.delete(k))))
     .then(() => caches.open(TILES)).then(async c => { for (const r of await c.keys()) if (NOT_KEPT.includes(new URL(r.url).hostname)) await c.delete(r); })
     .catch(() => {}).then(() => self.clients.claim()));
 });
@@ -41,6 +47,11 @@ self.addEventListener("fetch", e => {
   if (url.origin !== location.origin) return;
   if (url.pathname.includes("/packs/")) return;  // state packs: the app keeps a loaded one itself, so never cached twice
   if (url.pathname.includes("/full/pyodide/")) { e.respondWith(cacheFirst(ENGINE, req)); return; }  // the engine: never changes within a version
+  if (url.pathname.includes("/static/data/boundaries/")) {  // boundary lines: never change within their version; while testing, the network first
+    e.respondWith(VERSION === "dev" ? fetch(req).then(res => { if (res.ok) { const copy = res.clone(); caches.open(BOUNDS).then(c => c.put(req, copy)).catch(() => {}); } return res; })
+      .catch(() => caches.open(BOUNDS).then(c => c.match(req, {ignoreSearch: true})).then(hit => hit || Response.error())) : cacheFirst(BOUNDS, req));
+    return;
+  }
   // while testing on the PC ("dev"), the network first so edits show; published copies open from the phone
   if (VERSION === "dev") { e.respondWith(fetch(req).catch(() => caches.match(req, {ignoreSearch: true}))); return; }
   // the app itself: from the phone first (so it opens offline), the network when it isn't saved yet; anything

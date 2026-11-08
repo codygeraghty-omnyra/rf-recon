@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "4ac1b8e615";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "501cd4fe69";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -61,7 +61,7 @@ const RADII = [0.5, 1, 2, 5, 10, 25];
 const MAX_ROWS = 20000;
 
 const S = {db: null, meta: null, pack: null, packs: [], center: null, radius: 5, tab: "map", mode: "area", query: "", rows: [], truncated: false,
-  layerOn: new Set(Object.keys(LAYERS)), fmin: null, fmax: null, text: "", base: "topo", me: null, log: [], shown: 200};
+  layerOn: new Set(Object.keys(LAYERS)), fmin: null, fmax: null, text: "", base: "topo", me: null, log: [], shown: 200, bounds: new Set()};
 
 /* ---------- storage: packs, the field log and settings stay in this phone's browser storage ---------- */
 const idb = (() => {
@@ -292,6 +292,7 @@ function setBase(id) {
   S.base = BASES[id] ? id : "topo";
   kv.set("base", S.base);
   drawBase(navigator.onLine === false && !BASES[S.base].save ? "topo" : S.base);
+  window.RFBounds?.restyle();  // city and town names show only on the satellite map, which doesn't name places itself
 }
 // Street (OpenStreetMap) is for use with signal only: its tile policy forbids keeping tiles for offline use, so the phone
 // never saves them (sw.js). With no signal the map shows Topo until signal returns, without changing the map you picked.
@@ -313,6 +314,27 @@ async function signalCheck() {
   const z = Math.min(map.getZoom(), 18), c = map.project(map.getCenter(), z).divideBy(256).floor();
   try { if ((await fetch(L.Util.template(BASES[S.base].url, {x: c.x, y: c.y, z}), {cache: "no-store", mode: "cors"})).ok) drawBase(S.base); } catch (e) {}
 }
+/* ---------- boundaries: state, county and city / town lines under everything else (boundaries.js, shared with the PC app) ----------
+   Switched in Layers and filters, each alone or all together, and kept on this phone like the map picked. The lines come from
+   the site's copy (full/static/data/boundaries/); the service worker keeps every file fetched, so they show with no signal
+   where they were seen (and, while a layer is on, for the pack's states). */
+const BOUND_KINDS = window.RFBounds ? RFBounds.kinds : [];
+const boundLayers = {};
+if (window.RFBounds) Object.assign(RFBounds, {base: "full/static/data/boundaries/", say: msg => toast(msg), pack: () => S.pack,
+  plainBase: () => S.base === "imagery"});  // the one base here with no place names: city and town names show on it only
+function setBounds(kinds, save = true) {
+  S.bounds = new Set(kinds.filter(k => BOUND_KINDS.includes(k)));
+  if (save) kv.set("bounds", [...S.bounds]);
+  if (!map) return;
+  for (const k of BOUND_KINDS) {
+    const on = S.bounds.has(k), l = boundLayers[k] || (on ? (boundLayers[k] = RFBounds.layer(k)) : null);
+    if (on && !map.hasLayer(l)) { l.restoring = !save; l.addTo(map); }  // put back at start: no "zoom in" toast
+    else if (!on && l && map.hasLayer(l)) map.removeLayer(l);
+  }
+}
+const allBounds = () => BOUND_KINDS.length > 0 && BOUND_KINDS.every(k => S.bounds.has(k));
+const boundChips = () => [["state", "State"], ["county", "County"], ["place", "City / town"], ["all", "All boundaries"]]
+  .map(([k, l]) => `<button type="button" class="chip ${(k === "all" ? allBounds() : S.bounds.has(k)) ? "on" : ""}" data-bound="${k}">${l}</button>`).join("");
 function sitesOf(rows) {
   const m = new Map();
   for (const r of rows) {
@@ -727,6 +749,7 @@ function filterSheet() {
     <div class="field"><label>Or a band</label><div class="chips">${bands.map(([lo, hi, l]) => `<button type="button" class="chip ${S.fmin === lo && S.fmax === hi ? "on" : ""}" data-band="${lo},${hi}">${esc(l)}</button>`).join("")}</div></div>
     <div class="field"><label for="ff_t">Licensee, call sign or city contains</label><input id="ff_t" value="${esc(S.text)}"></div>
     <div class="field"><label>Map</label><div class="chips">${Object.entries(BASES).map(([k, b]) => `<button type="button" class="chip ${S.base === k ? "on" : ""}" data-base="${k}">${esc(b.label)}</button>`).join("")}</div></div>
+    ${BOUND_KINDS.length ? `<div class="field"><label>Boundaries</label><div class="chips">${boundChips()}</div></div>` : ""}
     <div class="row"><button class="btn primary" data-act="apply">Apply</button><button class="btn" data-act="clearf">Clear filters</button></div>`, sh => {
     sh.onclick = e => {
       const c = e.target.closest(".chip"); if (!c) return;
@@ -735,6 +758,12 @@ function filterSheet() {
         $$(".chip[data-band]", sh).forEach(x => x.classList.remove("on")); c.classList.toggle("on", on);
         $("#ff_min").value = on ? lo : ""; $("#ff_max").value = on ? hi : ""; }
       if (c.dataset.base) { $$(".chip[data-base]", sh).forEach(x => x.classList.toggle("on", x === c)); setBase(c.dataset.base); }
+      if (c.dataset.bound) {  // on the map at once, like the map picked: State, County, City / town alone, or All boundaries for the three
+        const k = c.dataset.bound, now = new Set(S.bounds), every = allBounds();
+        if (k === "all") BOUND_KINDS.forEach(x => every ? now.delete(x) : now.add(x)); else if (now.has(k)) now.delete(k); else now.add(k);
+        setBounds([...now]);
+        $$(".chip[data-bound]", sh).forEach(x => x.classList.toggle("on", x.dataset.bound === "all" ? allBounds() : S.bounds.has(x.dataset.bound)));
+      }
     };
   });
 }
@@ -835,12 +864,13 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = 
 
 async function start() {
   DashLook.mount($("#lookSlot"), {onChange: () => drawMap(false), nav: false});  // the kit's display sheet; the phone has its own way back
-  const [base, filters, view, active, logView] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack"), kv.get("logView")]);
+  const [base, filters, view, active, logView, bounds] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack"), kv.get("logView"), kv.get("bounds")]);
   if (base) S.base = base;
   if (logView) S.logView = logView;
   if (filters) { S.layerOn = new Set(filters.layers); S.fmin = filters.fmin; S.fmax = filters.fmax; S.text = filters.text || "";
     $("#filterBtn").classList.toggle("on", S.fmin != null || S.fmax != null || !!S.text || S.layerOn.size < Object.keys(LAYERS).length); }
   initMap();
+  if (Array.isArray(bounds)) setBounds(bounds, false);
   const h = readHash();
   S.radius = h.radius || view?.radius || 5;
   if (!RADII.includes(S.radius)) S.radius = 5;

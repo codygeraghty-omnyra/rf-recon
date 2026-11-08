@@ -1,0 +1,754 @@
+{
+ "source": "US Census Bureau, cartographic boundary files, 1:500,000",
+ "year": 2025,
+ "files": [
+  "cb_2025_us_state_500k.zip",
+  "cb_2025_us_county_500k.zip",
+  "cb_2025_us_place_500k.zip"
+ ],
+ "licence": "Public domain: a work of the US Government (17 U.S.C. 105). Source: US Census Bureau, cartographic boundary files (1:500,000).",
+ "version": "2025-478dc6b836",
+ "built": "2026-11-08",
+ "tolerance_m": {
+  "county": 90.0,
+  "place": 70.0
+ },
+ "digits": 4,
+ "layers": {
+  "state": "states.json.gz",
+  "county": "counties/<ST>.json.gz",
+  "place": "places/<ST>.json.gz"
+ },
+ "states_bytes": 736581,
+ "total_bytes": 10056995,
+ "states": {
+  "AK": {
+   "name": "Alaska",
+   "bbox": [
+    -187.538,
+    51.216,
+    -129.974,
+    71.388
+   ],
+   "counties": 30,
+   "places": 355,
+   "county_bytes": 317751,
+   "place_bytes": 193834
+  },
+  "AL": {
+   "name": "Alabama",
+   "bbox": [
+    -88.473,
+    30.223,
+    -84.889,
+    35.008
+   ],
+   "counties": 67,
+   "places": 594,
+   "county_bytes": 49704,
+   "place_bytes": 287277
+  },
+  "AR": {
+   "name": "Arkansas",
+   "bbox": [
+    -94.618,
+    33.004,
+    -89.641,
+    36.499
+   ],
+   "counties": 75,
+   "places": 626,
+   "county_bytes": 55777,
+   "place_bytes": 125699
+  },
+  "AS": {
+   "name": "American Samoa",
+   "bbox": [
+    -171.09,
+    -14.374,
+    -169.419,
+    -11.047
+   ],
+   "counties": 5,
+   "places": 77,
+   "county_bytes": 2313,
+   "place_bytes": 5736
+  },
+  "AZ": {
+   "name": "Arizona",
+   "bbox": [
+    -114.816,
+    31.332,
+    -109.045,
+    37.004
+   ],
+   "counties": 15,
+   "places": 467,
+   "county_bytes": 24835,
+   "place_bytes": 129877
+  },
+  "CA": {
+   "name": "California",
+   "bbox": [
+    -124.41,
+    32.534,
+    -114.131,
+    42.009
+   ],
+   "counties": 58,
+   "places": 1619,
+   "county_bytes": 103379,
+   "place_bytes": 403836
+  },
+  "CO": {
+   "name": "Colorado",
+   "bbox": [
+    -109.06,
+    36.992,
+    -102.042,
+    41.003
+   ],
+   "counties": 64,
+   "places": 482,
+   "county_bytes": 45195,
+   "place_bytes": 136809
+  },
+  "CT": {
+   "name": "Connecticut",
+   "bbox": [
+    -73.728,
+    40.988,
+    -71.787,
+    42.051
+   ],
+   "counties": 9,
+   "places": 215,
+   "county_bytes": 6301,
+   "place_bytes": 29543
+  },
+  "DC": {
+   "name": "District of Columbia",
+   "bbox": [
+    -77.12,
+    38.792,
+    -76.909,
+    38.995
+   ],
+   "counties": 1,
+   "places": 1,
+   "county_bytes": 495,
+   "place_bytes": 530
+  },
+  "DE": {
+   "name": "Delaware",
+   "bbox": [
+    -75.789,
+    38.451,
+    -75.049,
+    39.839
+   ],
+   "counties": 3,
+   "places": 79,
+   "county_bytes": 2231,
+   "place_bytes": 17577
+  },
+  "FL": {
+   "name": "Florida",
+   "bbox": [
+    -87.635,
+    24.523,
+    -80.031,
+    31.001
+   ],
+   "counties": 67,
+   "places": 958,
+   "county_bytes": 68205,
+   "place_bytes": 290754
+  },
+  "GA": {
+   "name": "Georgia",
+   "bbox": [
+    -85.605,
+    30.358,
+    -80.84,
+    35.001
+   ],
+   "counties": 159,
+   "places": 676,
+   "county_bytes": 117687,
+   "place_bytes": 240567
+  },
+  "GU": {
+   "name": "Guam",
+   "bbox": [
+    144.618,
+    13.234,
+    144.957,
+    13.654
+   ],
+   "counties": 1,
+   "places": 57,
+   "county_bytes": 1468,
+   "place_bytes": 5099
+  },
+  "HI": {
+   "name": "Hawaii",
+   "bbox": [
+    -178.335,
+    18.91,
+    -154.807,
+    28.402
+   ],
+   "counties": 5,
+   "places": 163,
+   "county_bytes": 10488,
+   "place_bytes": 29182
+  },
+  "IA": {
+   "name": "Iowa",
+   "bbox": [
+    -96.639,
+    40.376,
+    -90.14,
+    43.501
+   ],
+   "counties": 99,
+   "places": 1026,
+   "county_bytes": 12468,
+   "place_bytes": 100353
+  },
+  "ID": {
+   "name": "Idaho",
+   "bbox": [
+    -117.243,
+    41.988,
+    -111.044,
+    49.001
+   ],
+   "counties": 44,
+   "places": 236,
+   "county_bytes": 56768,
+   "place_bytes": 57750
+  },
+  "IL": {
+   "name": "Illinois",
+   "bbox": [
+    -91.513,
+    36.97,
+    -87.495,
+    42.508
+   ],
+   "counties": 102,
+   "places": 1461,
+   "county_bytes": 30505,
+   "place_bytes": 339351
+  },
+  "IN": {
+   "name": "Indiana",
+   "bbox": [
+    -88.098,
+    37.772,
+    -84.785,
+    41.761
+   ],
+   "counties": 92,
+   "places": 974,
+   "county_bytes": 24034,
+   "place_bytes": 146858
+  },
+  "KS": {
+   "name": "Kansas",
+   "bbox": [
+    -102.052,
+    36.993,
+    -94.588,
+    40.003
+   ],
+   "counties": 105,
+   "places": 740,
+   "county_bytes": 9509,
+   "place_bytes": 99185
+  },
+  "KY": {
+   "name": "Kentucky",
+   "bbox": [
+    -89.572,
+    36.497,
+    -81.965,
+    39.147
+   ],
+   "counties": 120,
+   "places": 555,
+   "county_bytes": 114740,
+   "place_bytes": 143576
+  },
+  "LA": {
+   "name": "Louisiana",
+   "bbox": [
+    -94.043,
+    28.929,
+    -88.817,
+    33.019
+   ],
+   "counties": 64,
+   "places": 484,
+   "county_bytes": 81909,
+   "place_bytes": 108567
+  },
+  "MA": {
+   "name": "Massachusetts",
+   "bbox": [
+    -73.508,
+    41.238,
+    -69.928,
+    42.887
+   ],
+   "counties": 14,
+   "places": 248,
+   "county_bytes": 13658,
+   "place_bytes": 39788
+  },
+  "MD": {
+   "name": "Maryland",
+   "bbox": [
+    -79.488,
+    37.912,
+    -75.049,
+    39.723
+   ],
+   "counties": 24,
+   "places": 536,
+   "county_bytes": 30393,
+   "place_bytes": 100917
+  },
+  "ME": {
+   "name": "Maine",
+   "bbox": [
+    -71.084,
+    42.978,
+    -66.95,
+    47.46
+   ],
+   "counties": 16,
+   "places": 155,
+   "county_bytes": 35558,
+   "place_bytes": 26731
+  },
+  "MI": {
+   "name": "Michigan",
+   "bbox": [
+    -90.418,
+    41.696,
+    -82.413,
+    48.239
+   ],
+   "counties": 83,
+   "places": 745,
+   "county_bytes": 37711,
+   "place_bytes": 97935
+  },
+  "MN": {
+   "name": "Minnesota",
+   "bbox": [
+    -97.239,
+    43.5,
+    -89.494,
+    49.384
+   ],
+   "counties": 87,
+   "places": 916,
+   "county_bytes": 39858,
+   "place_bytes": 123041
+  },
+  "MO": {
+   "name": "Missouri",
+   "bbox": [
+    -95.775,
+    35.996,
+    -89.099,
+    40.614
+   ],
+   "counties": 115,
+   "places": 1081,
+   "county_bytes": 37561,
+   "place_bytes": 185889
+  },
+  "MP": {
+   "name": "Commonwealth of the Northern Mariana Islands",
+   "bbox": [
+    144.886,
+    14.111,
+    146.065,
+    20.553
+   ],
+   "counties": 4,
+   "places": 135,
+   "county_bytes": 2902,
+   "place_bytes": 9913
+  },
+  "MS": {
+   "name": "Mississippi",
+   "bbox": [
+    -91.655,
+    30.175,
+    -88.098,
+    34.996
+   ],
+   "counties": 82,
+   "places": 427,
+   "county_bytes": 40929,
+   "place_bytes": 66492
+  },
+  "MT": {
+   "name": "Montana",
+   "bbox": [
+    -116.049,
+    44.358,
+    -104.04,
+    49.001
+   ],
+   "counties": 56,
+   "places": 497,
+   "county_bytes": 72288,
+   "place_bytes": 91750
+  },
+  "NC": {
+   "name": "North Carolina",
+   "bbox": [
+    -84.322,
+    33.842,
+    -75.461,
+    36.588
+   ],
+   "counties": 100,
+   "places": 776,
+   "county_bytes": 89078,
+   "place_bytes": 367306
+  },
+  "ND": {
+   "name": "North Dakota",
+   "bbox": [
+    -104.049,
+    45.935,
+    -96.555,
+    49.001
+   ],
+   "counties": 53,
+   "places": 406,
+   "county_bytes": 23053,
+   "place_bytes": 35885
+  },
+  "NE": {
+   "name": "Nebraska",
+   "bbox": [
+    -104.053,
+    40.0,
+    -95.308,
+    43.002
+   ],
+   "counties": 93,
+   "places": 593,
+   "county_bytes": 12632,
+   "place_bytes": 62252
+  },
+  "NH": {
+   "name": "New Hampshire",
+   "bbox": [
+    -72.557,
+    42.697,
+    -70.704,
+    45.305
+   ],
+   "counties": 10,
+   "places": 100,
+   "county_bytes": 7394,
+   "place_bytes": 15480
+  },
+  "NJ": {
+   "name": "New Jersey",
+   "bbox": [
+    -75.559,
+    38.929,
+    -73.894,
+    41.357
+   ],
+   "counties": 21,
+   "places": 700,
+   "county_bytes": 16224,
+   "place_bytes": 84561
+  },
+  "NM": {
+   "name": "New Mexico",
+   "bbox": [
+    -109.05,
+    31.333,
+    -103.002,
+    37.0
+   ],
+   "counties": 33,
+   "places": 528,
+   "county_bytes": 11855,
+   "place_bytes": 103362
+  },
+  "NV": {
+   "name": "Nevada",
+   "bbox": [
+    -120.006,
+    35.002,
+    -114.04,
+    42.002
+   ],
+   "counties": 17,
+   "places": 138,
+   "county_bytes": 8441,
+   "place_bytes": 37941
+  },
+  "NY": {
+   "name": "New York",
+   "bbox": [
+    -79.762,
+    40.496,
+    -71.856,
+    45.016
+   ],
+   "counties": 62,
+   "places": 1293,
+   "county_bytes": 36835,
+   "place_bytes": 172768
+  },
+  "OH": {
+   "name": "Ohio",
+   "bbox": [
+    -84.82,
+    38.403,
+    -80.519,
+    41.977
+   ],
+   "counties": 88,
+   "places": 1265,
+   "county_bytes": 15914,
+   "place_bytes": 243082
+  },
+  "OK": {
+   "name": "Oklahoma",
+   "bbox": [
+    -103.002,
+    33.616,
+    -94.431,
+    37.002
+   ],
+   "counties": 77,
+   "places": 846,
+   "county_bytes": 28521,
+   "place_bytes": 152072
+  },
+  "OR": {
+   "name": "Oregon",
+   "bbox": [
+    -124.566,
+    41.992,
+    -116.464,
+    46.291
+   ],
+   "counties": 36,
+   "places": 426,
+   "county_bytes": 35958,
+   "place_bytes": 96590
+  },
+  "PA": {
+   "name": "Pennsylvania",
+   "bbox": [
+    -80.52,
+    39.72,
+    -74.69,
+    42.27
+   ],
+   "counties": 67,
+   "places": 2003,
+   "county_bytes": 36841,
+   "place_bytes": 209382
+  },
+  "PR": {
+   "name": "Puerto Rico",
+   "bbox": [
+    -67.945,
+    17.883,
+    -65.221,
+    18.516
+   ],
+   "counties": 78,
+   "places": 292,
+   "county_bytes": 37523,
+   "place_bytes": 32037
+  },
+  "RI": {
+   "name": "Rhode Island",
+   "bbox": [
+    -71.863,
+    41.146,
+    -71.121,
+    42.019
+   ],
+   "counties": 5,
+   "places": 36,
+   "county_bytes": 4167,
+   "place_bytes": 6765
+  },
+  "SC": {
+   "name": "South Carolina",
+   "bbox": [
+    -83.354,
+    32.038,
+    -78.547,
+    35.215
+   ],
+   "counties": 46,
+   "places": 475,
+   "county_bytes": 61832,
+   "place_bytes": 194342
+  },
+  "SD": {
+   "name": "South Dakota",
+   "bbox": [
+    -104.058,
+    42.48,
+    -96.437,
+    45.945
+   ],
+   "counties": 66,
+   "places": 485,
+   "county_bytes": 22088,
+   "place_bytes": 52751
+  },
+  "TN": {
+   "name": "Tennessee",
+   "bbox": [
+    -90.31,
+    34.983,
+    -81.647,
+    36.678
+   ],
+   "counties": 95,
+   "places": 504,
+   "county_bytes": 85726,
+   "place_bytes": 197754
+  },
+  "TX": {
+   "name": "Texas",
+   "bbox": [
+    -106.645,
+    25.837,
+    -93.508,
+    36.501
+   ],
+   "counties": 254,
+   "places": 1863,
+   "county_bytes": 182245,
+   "place_bytes": 527560
+  },
+  "UT": {
+   "name": "Utah",
+   "bbox": [
+    -114.053,
+    36.998,
+    -109.042,
+    42.002
+   ],
+   "counties": 29,
+   "places": 334,
+   "county_bytes": 33491,
+   "place_bytes": 77848
+  },
+  "VA": {
+   "name": "Virginia",
+   "bbox": [
+    -83.675,
+    36.541,
+    -75.242,
+    39.466
+   ],
+   "counties": 133,
+   "places": 700,
+   "county_bytes": 111963,
+   "place_bytes": 121916
+  },
+  "VI": {
+   "name": "United States Virgin Islands",
+   "bbox": [
+    -65.085,
+    17.675,
+    -64.566,
+    18.412
+   ],
+   "counties": 3,
+   "places": 10,
+   "county_bytes": 3474,
+   "place_bytes": 1599
+  },
+  "VT": {
+   "name": "Vermont",
+   "bbox": [
+    -73.438,
+    42.727,
+    -71.465,
+    45.017
+   ],
+   "counties": 14,
+   "places": 180,
+   "county_bytes": 7036,
+   "place_bytes": 22536
+  },
+  "WA": {
+   "name": "Washington",
+   "bbox": [
+    -124.755,
+    45.544,
+    -116.916,
+    49.002
+   ],
+   "counties": 39,
+   "places": 639,
+   "county_bytes": 52983,
+   "place_bytes": 131695
+  },
+  "WI": {
+   "name": "Wisconsin",
+   "bbox": [
+    -92.888,
+    42.492,
+    -86.805,
+    47.081
+   ],
+   "counties": 72,
+   "places": 808,
+   "county_bytes": 23561,
+   "place_bytes": 163514
+  },
+  "WV": {
+   "name": "West Virginia",
+   "bbox": [
+    -82.645,
+    37.201,
+    -77.72,
+    40.639
+   ],
+   "counties": 55,
+   "places": 439,
+   "county_bytes": 52573,
+   "place_bytes": 72545
+  },
+  "WY": {
+   "name": "Wyoming",
+   "bbox": [
+    -111.055,
+    40.995,
+    -104.052,
+    45.006
+   ],
+   "counties": 23,
+   "places": 205,
+   "county_bytes": 10213,
+   "place_bytes": 44214
+  }
+ }
+}
