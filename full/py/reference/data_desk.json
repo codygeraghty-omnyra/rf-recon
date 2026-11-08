@@ -54,7 +54,11 @@
    }
   },
   "fcc-uls-daily-change-files": {
-   "note": "Terms as read 2026-10-28 for the FCC's weekly and daily ULS files (US government public data). On 11/8 www.fcc.gov answered 403 to a fetch of its terms page, so it wasn't read again; data.fcc.gov serves the files themselves to DAStastic's own client (fetchkit, conditional requests)."
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.fcc.gov/uls/transactions/daily-weekly"
+   },
+   "note": "Terms read 2026-11-08 by Cody in his own browser (www.fcc.gov answers automated clients 403, so DAStastic doesn't fetch the page): the page lists the daily and weekly files with no terms, copyright notice or use restriction; its footer points to the FCC's general Website Policies & Notices. US government data (17 U.S.C. 105). data.fcc.gov serves the files themselves to DAStastic's own client (fetchkit, conditional requests)."
   }
  }
 }

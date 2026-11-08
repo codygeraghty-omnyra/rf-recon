@@ -437,7 +437,7 @@
   {
    "name": "FCC ULS daily change files",
    "url": "https://www.fcc.gov/uls/transactions/daily-weekly",
-   "what": "Each day's new, changed, cancelled and expired private land mobile licences (l_lp; 800 MHz cellular l_cl where those are loaded) and the land mobile applications filed (a_lp), Monday to Saturday",
+   "what": "Each day's new, changed, cancelled and expired land mobile (private l_lp, commercial l_lc, broadcast auxiliary l_lb), paging (l_pg), coast and aviation ground (l_cg) and 800 MHz cellular (l_cl) licences, each where its weekly file is loaded, and the land mobile applications filed (a_lp), every day of the week",
    "key": "none",
    "cost": "Free",
    "terms": "US government public data",

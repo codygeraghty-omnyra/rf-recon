@@ -8,7 +8,8 @@ changed that day, not only the changed fields (read 11/8: in l_lp_fri each of it
 AN and FR records and its whole history). So a licence in a daily file replaces what the weekly import loaded for it,
 keyed by its unique system identifier (HD field 1), the way ULS keys it.
 
-- Licences: l_lp (private land mobile) over the weekly l_LMpriv.zip, l_cl (800 MHz cellular) over l_cell.zip, each only
+- Licences: l_lp (private land mobile) over the weekly l_LMpriv.zip, l_lc, l_lb, l_pg, l_cg (commercial land mobile,
+  broadcast auxiliary, paging, coast and aviation ground) over theirs, l_cl (800 MHz cellular) over l_cell.zip, each only
   when that weekly file is loaded here. They go through the weekly import's own reader (uls_import.load_zip, tx_rows) with
   the same states, into the same tables: tx, tx_history, uls_contact, and Search's name index. The status is the FCC's
   (HD field 5: A active, C cancelled, E expired, T terminated...): a cancelled or expired licence keeps its rows with that
@@ -42,8 +43,11 @@ from mw_pending import PURPOSE
 from uls_import import dms, find_member, g, iter_records, to_float
 
 BASE = "https://data.fcc.gov/download/pub/uls/daily/"
-DAYS = ("mon", "tue", "wed", "thu", "fri", "sat")
-LICENCES = {"lp": "LMpriv", "cl": "cell"}  # daily code: the weekly file it changes (l_<service>.zip)
+DAYS = ("sun", "mon", "tue", "wed", "thu", "fri", "sat")  # the FCC publishes a file for every day (Sunday too: 11/8)
+LICENCES = {"lp": "LMpriv", "lc": "LMcomm", "lb": "LMbcast", "pg": "paging", "cg": "coast", "cl": "cell"}  # daily code: the
+# weekly file it changes (l_<service>.zip); every one the licence import loads in the same layout (Cody 11/8: the FCC's page
+# lists a daily file for each). Microwave (l_mw: the backhaul links), towers (r_tow: its own layout) and market licences
+# (l_mk: carrier spectrum) feed tables of their own and aren't read here
 APPLICATIONS = {"lp": "LMpriv"}  # a_<code>: read while that weekly licence file is loaded here
 PENDING = "2"
 UA = "DAStastic/2.0 (RF site-survey tool; FCC ULS daily change files)"

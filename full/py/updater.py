@@ -33,7 +33,7 @@ SOURCES = {
     "uls:coast": ("FCC ULS: Marine & aviation ground", "fcc", 168, "Coast and ground stations"),
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
     "uls:cell": ("FCC ULS: Cellular 800 MHz sites", "fcc", 168, "Each carrier's licensed 800 MHz sites: where, which tower, frequencies each way, power (about 24 MB)"),
-    "uls_daily": ("FCC ULS: daily changes (land mobile, cellular)", "fcc", 24, "The FCC's change files, Monday to Saturday: a new or changed private land mobile licence (and 800 MHz cellular site, when loaded) shows the next day instead of after Sunday's full file, and applications filed but not yet granted show apart, marked pending. A few hundred KB a day"),
+    "uls_daily": ("FCC ULS: daily changes (land mobile, paging, coast, cellular)", "fcc", 24, "The FCC's change files, one for each day of the week: a new or changed land mobile (private, commercial, broadcast auxiliary), paging or coast and aviation ground licence (and 800 MHz cellular site), for each of those loaded here, shows the next day instead of after Sunday's full file, and applications filed but not yet granted show apart, marked pending. A few hundred KB a day"),
     "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
     "spectrum": ("FCC carrier spectrum (market licences)", "fcc", 168, "Who holds which block in each market: cellular, PCS, AWS, 600, 700, 3.45 GHz, C-band, CBRS (about 115 MB)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
