@@ -312,9 +312,12 @@ function pullLine(p){
   return `WiGLE refuses this server's address, so Cody's PC fetches it with its own key, every 15 minutes while it's on, and the points stay here: `
     +`${p.waiting?`${p.waiting} area${p.waiting===1?"":"s"} waiting`:"nothing waiting"}, last brought ${esc(p.last_pc||"never")}.`;
 }
-function needsYou(pull){
+function needsYou(pull, people){
   const u=UPD; if(!u) return "";
   const out=[];
+  // item 8 (Cody 11/7: "let me know when Andy, Josh or Josh sign in"): a first Google sign-in in the last week
+  const news=((people&&people.people)||[]).filter(p=>p.google_first&&(Date.now()-Date.parse(p.google_first.replace(" ","T")))<7*864e5)
+    .map(p=>`<b>${esc(p.name)}</b> signed in with Google for the first time, ${esc(p.google_first)}.`);
   for(const [id,s] of Object.entries(u.sources||{})){
     if(!s.enabled || (id==="wigle" && pull)) continue;  // WiGLE through the PC: its own line below
     if(s.access?.needs_key && !s.access.key_saved) out.push(`<b>${esc(s.label)}</b> is on but has no key: add it under Your API keys, or turn it off.`);
@@ -323,7 +326,7 @@ function needsYou(pull){
   if(pull && pull.waiting && pullAge(pull)>24)
     out.push(`<b>WiGLE</b>: ${pull.waiting} area${pull.waiting===1?"":"s"} waiting for Cody's PC, which ${pull.last_pc?`last brought points ${esc(pull.last_pc)}`:"hasn't brought any yet"}. It fetches every 15 minutes while it's on.`);
   return `<div class="panel" id="needsYou"><h3>Needs you here</h3>${out.length?`<ul style="margin:4px 0 0 18px;padding:0">${out.map(x=>`<li>${x}</li>`).join("")}</ul>`
-    :'<p class="hint" style="margin:0">Nothing: every source that\'s on has its key and its last run went through.</p>'}</div>`;
+    :'<p class="hint" style="margin:0">Nothing: every source that\'s on has its key and its last run went through.</p>'}${news.length?`<p class="hint" style="margin:8px 0 0">New: ${news.join(" ")}</p>`:""}</div>`;
 }
 S.views.data = async (v) => {
   if(S.remote){ v.innerHTML=`<p class="status">${S.remote.server?"Data &amp; updates is for the admin login.":"Data &amp; updates stays on Cody's PC."}</p>`; return; }
@@ -331,9 +334,10 @@ S.views.data = async (v) => {
   const gen=S.viewGen;
   try{ [settings, layers]=await Promise.all([api("/api/settings"), api("/api/layers")]); UPD=await api("/api/update/status"); }catch(e){ /* a view login or offline: the panels below say what they couldn't read */ }
   let pull=null; try{ pull=await api("/api/crowd/pull/status"); }catch(e){ /* a copy without the PC fetcher's queue: no line for it */ }
+  let people=null; try{ people=await api("/api/remote"); }catch(e){ /* not the admin, or no remote door: no sign-in news */ }
   if(gen!==S.viewGen) return;  // you moved on while it loaded
   const c=navigator.connection||{};
-  v.innerHTML=`${needsYou(pull)}
+  v.innerHTML=`${needsYou(pull, people)}
   <div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Connection</h3><div id="netCard"></div>
       <p class="hint">Browser reports: ${navigator.onLine?"online":"offline"}${c.type?` · ${esc(c.type)}`:""}${c.effectiveType?` · ${esc(c.effectiveType)}`:""}${c.downlink?` · ~${c.downlink} Mb/s`:""}${c.saveData?" · data saver on":""}</p>
@@ -531,13 +535,18 @@ S.views.data = async (v) => {
     $("#raList").innerHTML=r.people.map(u=>u.role==="fetcher"  // the PC that brings crowd data (ops/crowd_pull.py): a machine, so no role to pick and no password to hand out
       ?`<tr><td>${esc(u.name)}</td><td title="Brings WiGLE data the server can't fetch; reaches nothing else">PC fetcher (a machine)</td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
       <td style="text-align:right;white-space:nowrap"><button data-rarm="${esc(u.name)}">Remove</button></td></tr>`
-      :`<tr><td>${esc(u.name)}${u.ends?`<div class="hint" style="${u.ended?"color:var(--bad)":""}">${u.ended?`ended ${esc(u.ends)}`:`until ${esc(u.ends)}`}</div>`:""}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
-      <td style="text-align:right;white-space:nowrap">${u.ends&&!u.ended?`<button data-raend="${esc(u.name)}" title="Its last day becomes yesterday: it can't sign in, and its open sessions stop">End now</button> `:""}<button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
+      :`<tr><td>${esc(u.name)}${u.ends?`<div class="hint" style="${u.ended?"color:var(--bad)":""}">${u.ended?`ended ${esc(u.ends)}`:`until ${esc(u.ends)}`}</div>`:""}${r.google_on&&u.google?`<div class="hint">Google: ${esc(u.google)}${u.google_first?` · first used ${esc(u.google_first)}`:" · not used yet"}</div>`:""}</td><td><select data-rarole="${esc(u.name)}">${[["view","View only"],["full","Full"],["admin","Admin"],["ahj","AHJ reviewer"]].map(([k,l])=>`<option value="${k}" ${(u.role||"view")===k?"selected":""}>${l}</option>`).join("")}</select></td><td class="mono">${esc(u.added||"")}</td><td class="mono">${esc(u.last||"not yet")}</td>
+      <td style="text-align:right;white-space:nowrap">${u.ends&&!u.ended?`<button data-raend="${esc(u.name)}" title="Its last day becomes yesterday: it can't sign in, and its open sessions stop">End now</button> `:""}${r.google_on?`<button data-ragoogle="${esc(u.name)}" data-email="${esc(u.google||"")}" title="The Google account that signs in as ${esc(u.name)} (Sign in with Google)">Google…</button> `:""}<button data-ranew="${esc(u.name)}">New password</button> <button data-rarm="${esc(u.name)}">Remove</button></td></tr>`).join("")
       ||'<tr><td colspan="5" class="hint">No one yet. Add a person to give them a sign-in.</td></tr>';
     if($("#raCopy")) $("#raCopy").onclick=async()=>{ try{ await navigator.clipboard.writeText(L.url); $("#raMsg").textContent="Link copied."; }catch(e){ $("#raMsg").textContent=L.url; } };
     if($("#raToggle")) $("#raToggle").onclick=async()=>{ $("#raMsg").textContent=L.on?"Turning the link off…":"Turning the link on…";
       try{ await post("/api/remote/link",{on:!L.on}); $("#raMsg").textContent=""; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); };
     $("#raList").querySelectorAll("[data-ranew]").forEach(b=>b.onclick=()=>raAdd(b.dataset.ranew, true));
+    $("#raList").querySelectorAll("[data-ragoogle]").forEach(b=>b.onclick=async()=>{  // item 8: which Google account signs in as this login
+      const e=prompt(`The Google account that signs in as ${b.dataset.ragoogle} (blank to unlink). It must also be a test user in Google Cloud while the app is in Testing.`, b.dataset.email);
+      if(e===null) return;
+      try{ await post("/api/remote/google",{name:b.dataset.ragoogle, email:e.trim()}); $("#raMsg").textContent=e.trim()?`${b.dataset.ragoogle} can sign in with Google as ${e.trim()}.`:`${b.dataset.ragoogle}'s Google sign-in is unlinked.`; }
+      catch(err){ $("#raMsg").textContent=err.message; } raPaint(); });
     $("#raList").querySelectorAll("[data-raend]").forEach(b=>b.onclick=async()=>{  // a temporary login, ended early (item 9)
       try{ await post("/api/remote/ends",{name:b.dataset.raend, ends:"now"}); $("#raMsg").textContent=`${b.dataset.raend}'s login has ended: it can't sign in, and its open sessions have stopped.`; }catch(e){ $("#raMsg").textContent=e.message; } raPaint(); });
     $("#raList").querySelectorAll("[data-rarole]").forEach(s=>s.onchange=async()=>{

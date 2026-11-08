@@ -3782,6 +3782,18 @@
      ]
     },
     {
+     "name": "Sign in with Google",
+     "text": "The sign-in page has Sign in with Google beside the password. A Google account signs in only as the login the admin linked it to (People and logins, Google…), and only while that login hasn't ended; passwords keep working. Data & updates and the people list show each person's first Google sign-in. Not in DAStastic for Android, whose web view Google refuses: there the password signs in.",
+     "where": "server",
+     "src": [
+      "remote.py",
+      "app.py",
+      "static/mission.js",
+      "tests/test_google_signin.py",
+      "d-2026-11-08-0300"
+     ]
+    },
+    {
      "name": "Who has the DAS course",
      "text": "Tick an account to give it the DAS course, and see each one's lessons done, mastery, exams passed, current lesson and last use. Admins start ticked and can be unticked, AHJ reviewer logins can't have it, and unticking keeps progress.",
      "where": "server, pc",

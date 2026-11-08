@@ -3005,7 +3005,8 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/me":  # the remote door answers this itself (RemoteH); the data folder lets a launcher know its own copy
                 return self.send(200, {"remote": False, "data": uls_import.DATA_DIR})
             if p == "/api/remote":  # who can use DAStastic remotely, and the public link (remote.py); door 0 = this copy has none
-                return self.send(200, {"people": remote.users(), "link": remote.link() if REMOTE_PORT else {}, "door": REMOTE_PORT})
+                return self.send(200, {"people": remote.users(), "link": remote.link() if REMOTE_PORT else {}, "door": REMOTE_PORT,
+                                       "google_on": remote.google_on()})
             if p == "/api/remote/course":  # who has the DAS course and how far each has got (admin only: /api/remote is blocked)
                 return self.course_people()
             if p in ("/api/remote/files", "/api/remote/files/download"):  # what the server keeps: read only (serverfiles.py)
@@ -3230,6 +3231,13 @@ class H(BaseHTTPRequestHandler):
                 except ValueError as e:
                     return self.send(400, {"error": str(e)})
                 return self.send(200, {"name": (d.get("name") or "").strip(), "password": pw, "people": remote.users()})
+            if p == "/api/remote/google":  # link a login to a Google address for Sign in with Google ("" unlinks; remote.set_google)
+                d = self.body_json()
+                try:
+                    remote.set_google(d.get("name"), d.get("email") or "")
+                except ValueError as e:
+                    return self.send(400, {"error": str(e)})
+                return self.send(200, {"people": remote.users(), "google_on": remote.google_on()})
             if p == "/api/remote/ends":  # a login's last day: a date, "" for none, or "now" to end it today (remote.set_ends)
                 d = self.body_json()
                 try:
@@ -3519,6 +3527,16 @@ class RemoteH(H):
     def secure(self):  # the public link is https; a test on this PC is plain http
         return not (self.headers.get("Host") or "").startswith(("127.0.0.1", "localhost"))
 
+    def google_button(self):
+        """Sign in with Google shows when it's set up here, and not in DAStastic for Android: Google refuses sign-in inside an
+        app's own web view (its user agent carries RFReconAndroid)."""
+        return remote.google_on() and "RFReconAndroid" not in (self.headers.get("User-Agent") or "")
+
+    def state_cookie(self, value, clear=False):
+        # Lax, so it comes back on Google's top-level redirect to the callback; 10 minutes, only for the sign-in paths
+        return (f"{remote.STATE_COOKIE}={'' if clear else value}; Path=/remote/google; HttpOnly; SameSite=Lax; "
+                f"Max-Age={0 if clear else remote.STATE_S}" + ("; Secure" if self.secure() else ""))
+
     def answer(self, method, handler):
         p = urlparse(self.path).path
         remote.ON.user = None
@@ -3539,9 +3557,26 @@ class RemoteH(H):
                 try:
                     tok = remote.check(name, pw)
                 except ValueError as e:
-                    return self.send(401, remote.login_page(str(e), name), "text/html; charset=utf-8")
+                    return self.send(401, remote.login_page(str(e), name, self.google_button()), "text/html; charset=utf-8")
                 return self.send(303, b"", "text/plain", {"Location": "/", "Set-Cookie": remote.cookie(tok, self.secure())})
-            return self.send(200, remote.login_page(), "text/html; charset=utf-8")
+            return self.send(200, remote.login_page("", "", self.google_button()), "text/html; charset=utf-8")
+        if p == "/remote/google" and method == "GET":  # Sign in with Google (item 8): off to Google, with a state cookie to come back to
+            try:
+                url, state = remote.google_start()
+            except ValueError as e:
+                return self.send(404, remote.login_page(str(e)), "text/html; charset=utf-8")
+            return self.send(302, b"", "text/plain", {"Location": url, "Set-Cookie": self.state_cookie(state)})
+        if p == "/remote/google/callback" and method == "GET":  # Google's answer: the linked login's session, or why not
+            q = parse_qs(urlparse(self.path).query)
+            if q.get("error"):
+                return self.send(401, remote.login_page("Google sign-in was cancelled.", "", self.google_button()), "text/html; charset=utf-8")
+            m = re.search(rf"(?:^|;\s*){remote.STATE_COOKIE}=([^;]+)", self.headers.get("Cookie") or "")
+            try:
+                tok = remote.google_finish((q.get("code") or [""])[0], (q.get("state") or [""])[0], m.group(1) if m else "")
+            except ValueError as e:
+                return self.send(401, remote.login_page(str(e), "", self.google_button()), "text/html; charset=utf-8",
+                                 {"Set-Cookie": self.state_cookie("", clear=True)})
+            return self.send(303, b"", "text/plain", {"Location": "/", "Set-Cookie": remote.cookie(tok, self.secure())})
         if p == "/remote/logout":
             return self.send(303, b"", "text/plain", {"Location": "/remote/login", "Set-Cookie": remote.cookie("", self.secure(), clear=True)})
         if p == "/sw.js":

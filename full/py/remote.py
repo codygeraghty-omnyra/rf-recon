@@ -30,6 +30,9 @@ import shutil
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 PORT = 8790
 SESSION_S = 14 * 86400
@@ -103,7 +106,8 @@ def active():
 
 def users():
     return [{"name": u["name"], "added": u.get("added"), "last": u.get("last"), "role": u.get("role") or "view", "course": _has_course(u),
-             "ends": u.get("ends") or "", "ended": ended(u)} for u in _load().values()]
+             "ends": u.get("ends") or "", "ended": ended(u), "google": u.get("google") or "", "google_first": u.get("google_first") or ""}
+            for u in _load().values()]
 
 
 def role_of(name):
@@ -174,7 +178,8 @@ def add(name, role=None, ends=None):
         keep_ends = old.get("ends", "") if ends is None else ends
         us[name.lower()] = {"name": name, "salt": salt, "hash": _hash(pw, salt), "added": old.get("added") or time.strftime("%Y-%m-%d %H:%M"),
                             "last": old.get("last"), "role": role or old.get("role") or "view", **({"course": old["course"]} if "course" in old else {}),
-                            **({"ends": keep_ends} if keep_ends else {})}
+                            **({"ends": keep_ends} if keep_ends else {}),
+                            **{k: old[k] for k in ("google", "google_first") if old.get(k)}}  # a new password keeps the Google link
         _save(us)
     return pw
 
@@ -242,9 +247,131 @@ def check(name, pw):
         _FAILS.pop(key, None)
     if ended(u):  # said only to someone with the right password
         raise ValueError(f"This login ended on {u['ends']}. Ask Cody if you need it again.")
-    payload = f"{key}|{int(now + SESSION_S)}|{u['salt'][:12]}"
+    return _session(key, u)
+
+
+def _session(key, u):
+    """A signed session cookie value for this login (a password or a Google sign-in): ends with its salt, so a new password
+    ends it."""
+    payload = f"{key}|{int(time.time() + SESSION_S)}|{u['salt'][:12]}"
     sig = hmac.new(_secret(), payload.encode(), hashlib.sha256).hexdigest()
     return base64.urlsafe_b64encode(payload.encode()).decode() + "." + sig
+
+
+# --- Google sign-in (Cody 11/7 item 8: "Add Google OAuth sign-in - configure for Andy, Joe Geraghty, and Josh Trigg ...
+# keep normal log in too"). The OAuth client (Google Cloud project "dastastic", Testing mode, its test users the only ones
+# Google lets through) is google_oauth.json in the data folder, put there by ops/google_oauth_to_server.py. A Google address
+# signs in only as the login the admin linked it to (People and logins); passwords keep working. Google refuses sign-in inside
+# an app's own web view, so DAStastic for Android keeps the password.
+GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN = os.environ.get("DAST_GOOGLE_TOKEN_URL") or "https://oauth2.googleapis.com/token"  # tests point it at a stand-in
+GOOGLE_ISS = ("accounts.google.com", "https://accounts.google.com")
+STATE_COOKIE, STATE_S = "rfr_gstate", 600
+
+
+def google_conf():
+    try:
+        with open(os.path.join(_DIR, "google_oauth.json"), encoding="utf-8") as fh:
+            c = json.load(fh)
+        return c if c.get("client_id") and c.get("client_secret") and c.get("redirect_uris") else None
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def google_on():
+    return google_conf() is not None
+
+
+def google_start():
+    """Where to send the browser, and the state cookie that proves the answer comes back to the same browser."""
+    c = google_conf()
+    if not c:
+        raise ValueError("Google sign-in isn't set up on this server.")
+    state = secrets.token_urlsafe(24)
+    exp = int(time.time() + STATE_S)
+    sig = hmac.new(_secret(), f"g|{state}|{exp}".encode(), hashlib.sha256).hexdigest()
+    q = urllib.parse.urlencode({"client_id": c["client_id"], "redirect_uri": c["redirect_uris"][0], "response_type": "code",
+                                "scope": "openid email profile", "state": state, "prompt": "select_account"})
+    return f"{GOOGLE_AUTH}?{q}", f"{state}.{exp}.{sig}"
+
+
+def _state_ok(state, cookie_value):
+    m = re.fullmatch(r"([A-Za-z0-9_-]{20,64})\.(\d{9,12})\.([0-9a-f]{64})", cookie_value or "")
+    if not m or not state or not hmac.compare_digest(m.group(1), state) or int(m.group(2)) < time.time():
+        return False
+    good = hmac.new(_secret(), f"g|{m.group(1)}|{m.group(2)}".encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(good, m.group(3))
+
+
+def _google_email(code):
+    """Swap the code for Google's ID token, server to server over TLS (so its signature needn't be checked: Google's OpenID
+    guide), and check what it says: our client, Google, not expired, a verified address."""
+    c = google_conf()
+    body = urllib.parse.urlencode({"code": code, "client_id": c["client_id"], "client_secret": c["client_secret"],
+                                   "redirect_uri": c["redirect_uris"][0], "grant_type": "authorization_code"}).encode()
+    req = urllib.request.Request(GOOGLE_TOKEN, body, {"Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            tok = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise ValueError(f"Google didn't accept the sign-in (HTTP {e.code}). Try again.") from None
+    except (OSError, ValueError):
+        raise ValueError("Google couldn't be reached. Try again, or sign in with your password.") from None
+    parts = (tok.get("id_token") or "").split(".")
+    if len(parts) != 3:
+        raise ValueError("Google's answer had no sign-in in it. Try again.")
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (ValueError, UnicodeDecodeError):
+        raise ValueError("Google's answer couldn't be read. Try again.") from None
+    if claims.get("aud") != c["client_id"] or claims.get("iss") not in GOOGLE_ISS or int(claims.get("exp") or 0) < time.time():
+        raise ValueError("That sign-in wasn't for DAStastic. Try again.")
+    if claims.get("email_verified") not in (True, "true") or not claims.get("email"):
+        raise ValueError("Google hasn't verified that address. Sign in with your password.")
+    return claims["email"].strip().lower(), claims.get("name") or ""
+
+
+def google_finish(code, state, state_cookie):
+    """The session cookie for the login a Google address is linked to; raises ValueError with what to tell the person.
+    The first Google sign-in of each login is kept (google_first), for the admin."""
+    if not _state_ok(state, state_cookie):
+        raise ValueError("That sign-in started somewhere else or took too long. Press Sign in with Google again.")
+    email, _gname = _google_email(code)
+    with _LOCK:
+        us = _load()
+        key, u = next(((k, x) for k, x in us.items() if (x.get("google") or "").lower() == email), (None, None))
+        if u is None:
+            raise ValueError(f"{email} isn't linked to a DAStastic login. Ask Cody to link it, or sign in with your password.")
+        if ended(u):
+            raise ValueError(f"This login ended on {u['ends']}. Ask Cody if you need it again.")
+        if not u.get("google_first"):
+            u["google_first"] = time.strftime("%Y-%m-%d %H:%M")
+        u["last"] = time.strftime("%Y-%m-%d %H:%M")
+        _save(us)
+    return _session(key, u)
+
+
+def set_google(name, email):
+    """Link a login to a Google address ("" unlinks it). One address, one login."""
+    email = (email or "").strip().lower()
+    if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise ValueError("That isn't an email address.")
+    with _LOCK:
+        us = _load()
+        key = (name or "").strip().lower()
+        u = us.get(key)
+        if u is None:
+            raise LookupError("No one by that name.")
+        if u.get("role") == "fetcher":
+            raise ValueError("The PC fetcher is a machine: it has no Google account.")
+        other = next((x["name"] for k, x in us.items() if k != key and (x.get("google") or "").lower() == email and email), None)
+        if other:
+            raise ValueError(f"{email} is already linked to {other}.")
+        if email:
+            u["google"] = email
+        else:
+            u.pop("google", None)
+        _save(us)
 
 
 MIN_PW = 10  # a password a person picks for themselves (made ones are 17 random characters)
@@ -395,8 +522,16 @@ APP_HEAD = ('<link rel="manifest" href="/static/app/manifest.webmanifest"><meta 
             '<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});</script>')
 
 
-def login_page(msg="", name=""):
+def login_page(msg="", name="", google=False):
+    """google: show Sign in with Google (set up on this server, and not inside DAStastic for Android, whose web view Google
+    refuses)."""
     err = f'<p class="err">{html.escape(msg)}</p>' if msg else ""
+    gbtn = ('<div class="or"><span>or</span></div><a class="gbtn" href="/remote/google"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">'
+            '<path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/>'
+            '<path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/>'
+            '<path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/>'
+            '<path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.2 0-11.5-4.1-13.4-9.8l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/>'
+            '</svg>Sign in with Google</a>') if google else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sign in · DAStastic (beta)</title>{APP_HEAD}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap" rel="stylesheet">
@@ -417,13 +552,16 @@ button{{margin-top:18px;width:100%;padding:11px;border:0;border-radius:999px;bac
 button:hover{{filter:brightness(1.08)}}
 .err{{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:rgba(220,80,60,.18);border:1px solid rgba(220,80,60,.4)}}
 .foot{{margin:16px 0 0;color:var(--dim);font-size:13px}}
+.or{{display:flex;align-items:center;gap:10px;margin:16px 0 0;color:var(--dim);font-size:13px}} .or::before,.or::after{{content:"";flex:1;border-top:1px solid var(--line)}}
+.gbtn{{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;padding:10px;border-radius:999px;background:#fff;color:#1f1f1f;
+  font:600 15px Urbanist,system-ui,sans-serif;text-decoration:none;transition:filter .2s ease}} .gbtn:hover{{filter:brightness(.95)}}
 </style></head><body><main>
 <h1>DAStastic <b>BETA</b></h1><p class="sub">{"Sign in to DAStastic." if SERVER_URL else "Cody's DAStastic, view and search only."}</p>
 <form method="post" action="/remote/login">
 <label for="n">Name</label><input id="n" name="name" autocomplete="username" required value="{html.escape(name)}" {'' if name else 'autofocus'}>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required {'autofocus' if name else ''}>
-<button type="submit">Sign in</button>{err}</form>
-<p class="foot">No login? Ask Cody for one. Forgot your password? Ask Cody for a new one.</p></main></body></html>"""
+<button type="submit">Sign in</button>{err}</form>{gbtn}
+<p class="foot">No login? Ask Cody for one. Forgot your password? {"Sign in with Google, or ask" if google else "Ask"} Cody for a new one.</p></main></body></html>"""
 
 
 if __name__ == "__main__":  # on the server: make or reset a login without the web page (the first admin)
