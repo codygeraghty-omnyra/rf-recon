@@ -570,6 +570,76 @@
    "updater": [
     "fcc_rules"
    ]
+  },
+  {
+   "name": "Talley product pages",
+   "url": "https://www.talleycom.com/",
+   "what": "Talley's own price, suggested retail, unit, minimum order and pack for each product on its public product pages (no sign-in), kept in DAStastic's parts catalogue as \"Talley (website)\" with each price's date",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Talley's terms page is terms of sale, with no clause on automated access; robots.txt allows product pages (Crawl-delay 5)",
+   "area": "Polite crawl: at most 500 pages a night, 01:30 to 05:00 Pacific, robots.txt honoured, 5 s apart; the parts on jobs first",
+   "status": "Built 2026-11-08 (partcrawl.py); runs in Omnyra's own copy only, never a licensed copy, until a lawyer has read the terms",
+   "updater": [
+    "part_crawl"
+   ]
+  },
+  {
+   "name": "Tessco product pages",
+   "url": "https://www.tessco.com/",
+   "what": "Tessco's own price and stock for each product on its public product pages (schema.org Product data, no sign-in), kept in DAStastic's parts catalogue as \"Tessco (website)\" with each price's date",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Tessco's terms allow its pages to be used \"as a shopping resource\"; robots.txt allows product pages",
+   "area": "Polite crawl: at most 500 pages a night, 01:30 to 05:00 Eastern, robots.txt honoured, 10 s apart; the parts on jobs first",
+   "status": "Built 2026-11-08 (partcrawl.py); runs in Omnyra's own copy only, never a licensed copy, until a lawyer has read the terms",
+   "updater": [
+    "part_crawl"
+   ]
+  },
+  {
+   "name": "Minnesota Repeater Council repeater list",
+   "updater": [],
+   "url": "https://www.mrc.gen.mn.us/",
+   "what": "Minnesota's coordinated amateur repeaters (428 on 2026-11-08, 51 of them DMR with colour codes), as a PDF list and a CSV export with coordinates",
+   "key": "none",
+   "cost": "Free to read",
+   "terms": "\"This list is copyright 2026 by the Minnesota Repeater Council, Inc\" (MN_List.pdf, September 14, 2026); no reuse licence stated",
+   "area": "Minnesota",
+   "status": "Not added: copyrighted, with no reuse licence. Ask the council first (Needs a person)"
+  },
+  {
+   "name": "BrandMeister device list (DMR network)",
+   "updater": [],
+   "url": "https://help.brandmeister.network/",
+   "what": "DMR repeaters and hotspots on the BrandMeister network: call sign, frequencies, colour code, position, last seen (read from its public API, api.brandmeister.network/v2)",
+   "key": "none to read",
+   "cost": "Free",
+   "terms": "No licence or terms of use found on BrandMeister's help or news pages (read 2026-11-08); the wiki's API page refused an automated read",
+   "area": "Worldwide (US masters 3102 to 3104)",
+   "status": "Not added: no published licence. Ask BrandMeister first (Needs a person)"
+  },
+  {
+   "name": "Metro Regional Parcel Dataset (Metropolitan Council)",
+   "updater": [],
+   "url": "https://www.arcgis.com/home/item.html?id=136b28bd0d874076b702ca55b9aafffc",
+   "what": "About 1.14 million parcels in the seven-county Twin Cities metro with building value, use class and year built: large and new buildings for DAS prospects (owner and taxpayer columns are people's: never fetched)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "Public domain under the Minnesota Government Data Practices Act (item page, read 2026-11-08)",
+   "area": "Twin Cities seven-county metro",
+   "status": "Could add: prospects (a building value or year built filter); not wired yet"
+  },
+  {
+   "name": "Ramsey County attributed parcels",
+   "updater": [],
+   "url": "https://www.arcgis.com/home/item.html?id=3115ff609037465796604556843420be",
+   "what": "Ramsey County's 167,851 parcels with business floor area, land use (office 3+ stories, apartments 100+ units) and year built (owner columns are people's: never fetched)",
+   "key": "none",
+   "cost": "Free",
+   "terms": "\"limitations of use ... None\"; acknowledgement of the publisher appreciated (item page, read 2026-11-08)",
+   "area": "Ramsey County, MN (Saint Paul)",
+   "status": "Could add: prospects in Saint Paul, whose permit data stopped in July 2025; not wired yet"
   }
  ]
 }

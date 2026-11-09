@@ -109,6 +109,119 @@
     "url": "https://www.arcgis.com/home/item.html?id=636f8803adbb431aa9324efbee3489e2"
    },
    "note": "Terms read 2026-11-08 on the item page (and its metadata, https://www.arcgis.com/sharing/rest/content/items/636f8803adbb431aa9324efbee3489e2?f=json): a public ArcGIS layer from the FCC's own ArcGIS organisation (YnOQrIGdN9JGtBh4), the one behind the FCC's app Signal Booster Registration Information (https://experience.arcgis.com/experience/558fa854f397424fa188dff89750d4c3); access public, no licence or use restriction on the item. US government data (17 U.S.C. 105). It answers DAStastic's own client (fetchkit) with an ETag and Last-Modified, and takes resultRecordCount (pages of 2,000). People's details (Cody 11/8, \"Keep everything\"): the registrants' named contacts (company_attention, every contact_* field, company_email, company_phone, company_phone_1, signature, signature_title, and the company's street address and ZIP) go in their own table, booster_contact, kept on the server and Cody's PC only (the personal build) and read only by an admin. Never in field packs, the web version or GitHub Pages, the repo's reference/ data, the install kit or logs. The switch that blocks prospect emails is unchanged. Everything else (registration number, position, building address, location description, call signs, frequencies, company name, city and state, dates) is business data and shows anywhere the app shows data."
+  },
+  "talley-product-pages": {
+   "route": "server",
+   "access": "open",
+   "scrub": "default",
+   "cadence_h": 24,
+   "owner": "Cody",
+   "crawl": {
+    "allowed": true,
+    "robots": true,
+    "rate_s": 5,
+    "page_cap": 500
+   },
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.talleycom.com/terms-and-conditions"
+   },
+   "note": "Read 2026-11-08 on Talley's own pages: https://www.talleycom.com/terms-and-conditions is terms of sale (\"Prices are subject to change, without advance notice\"), with no website-use or automated-access clause; https://www.talleycom.com/robots.txt allows /product/ pages with Crawl-delay 5 and lists sitemap.xml (11,605 product pages). Prices are facts. For Omnyra's own buying; a licensed copy doesn't crawl until Josh's or Doug's lawyer has read the terms (Cody 11/8)."
+  },
+  "tessco-product-pages": {
+   "route": "server",
+   "access": "open",
+   "scrub": "default",
+   "cadence_h": 24,
+   "owner": "Cody",
+   "crawl": {
+    "allowed": true,
+    "robots": true,
+    "rate_s": 10,
+    "page_cap": 500
+   },
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.tessco.com/content/terms-and-conditions/"
+   },
+   "note": "Read 2026-11-08 on Tessco's own pages: its terms give \"permission to display, copy, distribute, download, and print ... for the purposes of: (1) using this site as a shopping resource or (2) placing an order with Tessco\" (framing and mirroring prohibited); https://www.tessco.com/robots.txt allows /product/ pages, no Crawl-delay (10 s used). For Omnyra's own buying; a licensed copy doesn't crawl until Josh's or Doug's lawyer has read the terms (Cody 11/8)."
+  },
+  "mn-911-emergency-service-zones": {
+   "name": "Minnesota NG9-1-1 emergency service zones (fire, EMS, law, 911 centre)",
+   "url": "https://gis.data.mn.gov/content/40c4aaacfc7249cba8cafacf07bc8d8c",
+   "status": "In DAStastic from 2026-11-08: a DAS job's Find the AHJ in Minnesota (asked only when pressed)",
+   "terms": "MnGeo: users \"have the right to use it for any purpose\"; as is, no warranty",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://mn.gov/mngeo/gis-data-and-maps/disclaimer.jsp"
+   },
+   "note": "The item's use limitation points to MnGeo's disclaimer page, which says users \"have the right to use it for any purpose\". Counties opt in one by one (59 on the item page 2026-11-08; the opt-in map is linked there): outside them, Find the AHJ says nothing for Minnesota. The comments and contact columns can name a person (a 2024 edit note names who approved it): deskpoint.py never asks for them and the cleaner drops them if sent."
+  },
+  "minnesota-repeater-council-repeater-list": {
+   "access": "form",
+   "owner": "Cody",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.mrc.gen.mn.us/MN_List.pdf"
+   },
+   "person_task": "Ask the Minnesota Repeater Council for written permission to show its coordinated repeater list (the public export.csv) in DAStastic, a commercial tool, with credit. It would give Minnesota's DMR and analog repeaters from the coordinator itself."
+  },
+  "brandmeister-device-list-dmr-network": {
+   "access": "form",
+   "owner": "Cody",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://help.brandmeister.network/"
+   },
+   "person_task": "Ask BrandMeister whether DAStastic may show its public device list (DMR repeaters with colour codes and positions) in a commercial tool, with credit. Its wiki's API page refused an automated read: open https://wiki.brandmeister.network/index.php/API/Halligan_API yourself."
+  },
+  "metro-regional-parcel-dataset-metropolitan-council": {
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.arcgis.com/home/item.html?id=136b28bd0d874076b702ca55b9aafffc"
+   },
+   "note": "Owner, taxpayer and their address columns (OWNER_NAME, OWNER_MORE, OWN_ADD_L1-4, TAX_NAME, TAX_ADD_L1-4) are people's: never fetched. 397 MB zip, or one REST layer per county."
+  },
+  "ramsey-county-attributed-parcels": {
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.arcgis.com/home/item.html?id=3115ff609037465796604556843420be"
+   },
+   "note": "Owner, taxpayer and homestead names and addresses are people's: never fetched."
+  },
+  "logis-permits": {
+   "name": "LOGIS permits (Edina, Minnetonka, Brooklyn Park, Plymouth, Maple Grove, Eden Prairie, Richfield)",
+   "url": "https://gis.logis.org/arcgis/rest/services/LOGIS_eInspections?f=json",
+   "status": "Not added: LOGIS's eInspections service asks for a token",
+   "terms": "Token required (code 499), 2026-11-08",
+   "access": "form",
+   "owner": "Cody",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://gis.logis.org/arcgis/rest/services/LOGIS_eInspections?f=json"
+   },
+   "note": "Seven Hennepin suburbs keep their building permits in LOGIS. Its service answered {\"error\":{\"code\":499,\"message\":\"Token Required\"}}, so it stays refused. Edina's Permit Finder reaches the same server through a stored-credential proxy: not used, as that would go round the gate.",
+   "person_task": "Ask LOGIS (or one member city, Edina or Maple Grove) whether its building permit data has a public feed DAStastic may use for prospects, and under what terms. Nothing is fetched until they say so."
+  },
+  "midwest-builders-exchange": {
+   "name": "Midwest Builders Exchange (MBEX) plan room and project leads",
+   "url": "https://mbex.org/pricing/",
+   "status": "Not added: paid membership",
+   "terms": "Membership: Premium $1,260 a year at 2026 rates ($1,510 from 2027), Basic $420 ($570), plus a $50 first-time fee (pricing page, read 2026-11-08)",
+   "access": "paid",
+   "owner": "Josh",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://mbex.org/pricing/"
+   },
+   "note": "Premium has the Online Plan Room, nightly project emails and the Pre-Plan Pipeline newsletter of Minnesota projects at their earliest stage. Joining in November or December 2026 keeps 2026 rates through 2027 (first-time members). The pricing page says nothing on using the project data in other software.",
+   "person_task": "Decide whether MBEX's Premium membership is worth it for Twin Cities project leads (Mobili-Fi's area), and if so, ask whether its terms let DAStastic read the project data. The year-end rate holds only for joining by 12/31/2026."
+  },
+  "permit:siouxfalls_building_permits": {
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.arcgis.com/home/item.html?id=73b11d64ccc44fdd84d4ac7446676813"
+   }
   }
  }
 }

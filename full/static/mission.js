@@ -276,6 +276,10 @@ const API_KEYS=[
    fields:[["mouser_key","Search API key","36 characters"]], how:"Sign in at mouser.com, API Hub, Search API: the key it gives. Free."},
   {id:"digikey", name:"Digi-Key", what:"online prices, stock and lead times for DAS parts (Materials, Quotes)", src:"part_prices", get:"https://developer.digikey.com/",
    fields:[["digikey_id","Client ID","text"],["digikey_secret","Client secret","from your app"]], how:"developer.digikey.com: make an organization and a production app with Product Information v4; its Client ID and secret. Free."},
+  {id:"element14", name:"Newark (element14)", what:"online prices, stock and lead times for DAS parts (Materials, Quotes), shown live only", src:"part_prices", get:"https://partner.element14.com/",
+   fields:[["element14_key","API key","24 characters"]], how:"Register at partner.element14.com and apply for a Product Search API key. Free. Their terms: no database and nothing kept past 48 hours, so DAStastic shows its prices live and drops them after a day."},
+  {id:"arrow", name:"Arrow", what:"online prices, stock and lead times for DAS parts (Materials, Quotes), shown live only", src:"part_prices", get:"https://developers.arrow.com/api/index.php/site/page?view=requestAPIKey",
+   fields:[["arrow_login","Login","your Arrow login name"],["arrow_key","API key","from Arrow's email"]], how:"Request a Pricing & Availability key on developers.arrow.com (name, company, website, intended use: buying parts). Free. Their terms: nothing kept past 48 hours and no data service, so DAStastic shows its prices live and drops them after a day."},
   {id:"shippo", name:"Shippo", what:"shipping estimates on DAS supplier quotes (UPS, FedEx, USPS rates from each supplier to the job)", get:"https://portal.goshippo.com/api-config/api",
    fields:[["shippo_token","API token","shippo_live_… or shippo_test_…"]], how:"Make a free Shippo account, then Settings, API (or the API portal, Developer keys). A test token works at once, for trying it; a live token, for real prices, is approved by Shippo first. Rate quotes create no label and cost nothing."},
   {id:"fccbdc", name:"FCC Broadband Map", what:"carrier coverage (the Carrier coverage layer and the DAS cellular pre-survey)", src:"bdc", get:"https://broadbandmap.fcc.gov/manage-api-access",
@@ -352,7 +356,7 @@ function deskPanel(dv){
   DESK.v=dv; if(!dv) return '<div id="deskPanel"></div>';  // a place to fill when the desk answers
   const tasks=dv.tasks||[], rows=dv.sources||[], c=dv.counts||{};
   const kind={key:"a key", "sign-up":"a sign-up", form:"a form", permission:"a permission", paid:"paid access", refused:"a refusal"};
-  const task=t=>`<li class="desk-t" data-task="${t.id}" style="margin:0 0 10px"><b>${esc(t.source_name)}</b> · needs ${esc(kind[t.kind]||t.kind)} · for ${esc(t.who)}
+  const task=t=>`<li class="desk-t" data-task="${t.id}" style="margin:0 0 10px;overflow-wrap:anywhere"><b>${esc(t.source_name)}</b> · needs ${esc(kind[t.kind]||t.kind)} · for ${esc(t.who)}
       ${t.status==="done"?`<span class="tag">done ${esc((t.done_at||"").slice(5,16).replace("T"," "))}: trying the source again</span>`:""}${t.seen>1?` <span class="hint">· seen ${t.seen} times</span>`:""}
     <div>${esc(t.why||"")}${t.detail?` <span class="hint">(${esc(t.detail)})</span>`:""}</div>
     ${t.link?`<div><a href="${esc(t.link)}" target="_blank" rel="noopener">${esc(t.link)}</a></div>`:""}

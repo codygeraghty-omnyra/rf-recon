@@ -1272,6 +1272,24 @@
    "title": "Norsat, About us: an independently operated subsidiary of Hytera since July 2017; Sinclair Technologies is its division",
    "url": "https://www.norsat.com/pages/about-us",
    "kind": "vendor"
+  },
+  {
+   "key": "sup_accutech_contact",
+   "title": "Accu-Tech - Contact us: branches (Minneapolis branch in Maple Grove, MN), read 2026-11-08",
+   "url": "https://www.accu-tech.com/contact-us",
+   "kind": "web page"
+  },
+  {
+   "key": "sup_accutech_linecard",
+   "title": "Accu-Tech - Line card, read 2026-11-08",
+   "url": "https://www.accu-tech.com/linecard",
+   "kind": "web page"
+  },
+  {
+   "key": "sup_viking_minneapolis",
+   "title": "Viking Electric - Minneapolis branch and its product categories, read 2026-11-08",
+   "url": "https://www.vikingelectric.com/about/location/minneapolis",
+   "kind": "web page"
   }
  ],
  "cables": [
@@ -4051,6 +4069,29 @@
    "note": "Added as a US DAS/ERCES distributor. Its in-building page describes 'RF & wireless distribution, a division of SCMS Inc.', footer location Dallas, TX, nationwide service; it lists public safety BDA systems for first-responder communications and cites NFPA 1221 and IFC 510 (no UL 2524 mention). Brands listed include G-Wave, SureCall, CommScope, Kaelus, Bird Technologies, Wilson Electronics, Nextivity, TE Connectivity, Westell, Oberon and Antenna Plus. Several of those names are out of date per other entries in this file (CommScope DAS is now ANDREW/Amphenol, SureCall's public safety line is now Potter, Bird no longer sells boosters), so confirm the actual product before ordering.",
    "sources": [
     "sup_solesource_das"
+   ]
+  },
+  {
+   "name": "Accu-Tech (Minneapolis branch, Maple Grove MN)",
+   "kind": "distributor",
+   "makes": "Distributes DAS, ERCES and in-building wireless lines: CommScope (an Amphenol company), Comba, JMA Wireless, ADRF, Nextivity, Potter ERCES (formerly TowerIQ), Wilson Connectivity, SureCall, Corning Optical Communications, RFS, Times Microwave Systems, HUBER+SUHNER, Microlab and RF Industries",
+   "url": "https://www.accu-tech.com/",
+   "public_safety": true,
+   "note": "Twin Cities branch, from its own contact page (2026-11-08): Minneapolis Branch, 9775 85th Ave N, Ste 200, Maple Grove, MN 55369. Its line card has the public safety BDA makers Comba, ADRF, JMA and Potter ERCES; Fiplex (Honeywell), Galtronics and SOLiD are not on it. Added for Mobili-Fi's area (Q3, Cody 11/8).",
+   "sources": [
+    "sup_accutech_contact",
+    "sup_accutech_linecard"
+   ]
+  },
+  {
+   "name": "Viking Electric (Minneapolis branch)",
+   "kind": "distributor",
+   "makes": "Electrical distributor: fire alarm cable and fire alarm MC cable, low-voltage and data cable, wireless networking. No DAS, booster or two-way radio lines listed",
+   "url": "https://www.vikingelectric.com/",
+   "public_safety": false,
+   "note": "For an ERCES job's fire alarm and monitoring cabling, not RF. Branch from its own page (2026-11-08): 451 Industrial Blvd NE, Minneapolis, MN 55413. Added for Mobili-Fi's area (Q3, Cody 11/8).",
+   "sources": [
+    "sup_viking_minneapolis"
    ]
   }
  ],

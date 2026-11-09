@@ -29,6 +29,7 @@ const DAS_PROFILES = {
   "College Station TX": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "College Station handout p.1-2"},
   "Salt Lake City FD (02/2025)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "SLC states no numbers: DAStastic defaults"},
   "Douglas County CO (DCSORS Rev 2.0)": {threshold: null, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, src: "DCSORS Step 1 (PCTEL tools required there)"},
+  "Maple Grove MN (City Code Ch. 18 + MSFC App. P)": {threshold: -95, daq: 3.0, general_pct: 95, critical_pct: 99, battery_h: 12, ul: true, src: "Maple Grove guide p.1-3 (DAQ and critical %: DAStastic defaults)"},
 };
 const DAS_DAQ = ["", "1", "2", "2.5", "3", "3.4", "3.5", "4", "4.5", "5"];
 // uplink bands a PIM product can land in (the PC's PIM tab, static/fieldref.js)

@@ -385,6 +385,7 @@ window.dasMaterials = async (el, j, save) => {
       <datalist id="dmCats">${["Cable","Connector","Component","Antenna","Donor antenna","Tool"].map(x=>`<option value="${x}">`).join("")}</datalist>
       <div id="dmHits"></div><div id="dmLinePick"></div></div>
     ${B.checkPanel()}
+    <div class="panel" style="margin-top:10px" id="dmShop"></div>
     <div class="panel" style="margin-top:10px" id="dmQuotes"></div>
     <div class="panel" style="margin-top:10px"><h3>Parts catalogue <span class="hint">· ${std.all||0} part${std.all===1?"":"s"} kept, ${std.parts.length} standard${std.grants?`, ${std.grants.toLocaleString()} boosters from FCC grants`:""} · your suppliers' price lists, and a spec sheet on each part</span></h3>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:end">
@@ -552,6 +553,7 @@ window.dasMaterials = async (el, j, save) => {
       const key=x=>(x.part||x.item||"").trim().toLowerCase().replace(/\s+/g," ");
       keep(bom.map(x=>{ const h=pick[key(x)]; return h?{...x, supplier:h.supplier, price:h.price, price_at:today(), price_by:/\(online\)$/.test(h.supplier)?"online":"quote"}:x; })); }); };
   quotes();
+  if(window.dasShop) dasShop($("#dmShop"), bom);  // where to shop: ranked suppliers, your picks, a line's sites (dasshop.js)
   if(!r.empty) frCableCalcWire(r, "dmcc");
   $("#dmPick").onchange=e=>{ const c=cat[+e.target.value]; if(!c) return; found=null; $("#dmHits").innerHTML=""; $("#dmCat").value=c.cat; $("#dmItem").value=c.item; $("#dmPart").value=c.part; $("#dmSup").value=c.supplier; $("#dmUnit").value=c.cat==="Cable"?"ft":"ea"; $("#dmQty").focus(); };
   const keep=async b=>{ await save({bom:b}); window.dasBomHold(); render(); };  // held after the save: Tab has landed by then

@@ -2051,6 +2051,33 @@
      ]
     },
     {
+     "name": "Who responds, in Minnesota",
+     "group": "requirements and AHJ",
+     "text": "Find the AHJ answers in Minnesota from the state's own 911 emergency service zones: fire, EMS, law enforcement and the 911 centre at the pin (59 counties, the whole Twin Cities metro); a job near a state line gets both states' answers.",
+     "src": [
+      "d-2026-11-08-2037",
+      "deskpoint.py"
+     ]
+    },
+    {
+     "name": "ARMER booster approvals",
+     "group": "requirements and AHJ",
+     "text": "How a BDA is approved on Minnesota's ARMER (MnDOT notice, Class A registered with the FCC, the county's sub-system administrator in the metro), North Dakota's SIRN and Iowa's ISICS, listed in Requirements and Code check.",
+     "src": [
+      "d-2026-11-08-2037",
+      "static/das.js"
+     ]
+    },
+    {
+     "name": "Maple Grove preset",
+     "group": "requirements and AHJ",
+     "text": "Maple Grove's ERCES numbers and its 15-item packet as a preset (-95 dBm over 95% of each floor, Class A only, 12 h battery, 20 test areas a floor), on the PC and the phone.",
+     "src": [
+      "d-2026-11-08-2037",
+      "static/das.js"
+     ]
+    },
+    {
      "name": "FAA notice for the donor mast",
      "group": "requirements and AHJ",
      "text": "Whether the building plus the donor mast needs FAA notice and FCC antenna structure registration (14 CFR 77.9 as the FCC's TOWAIR applies it), from the FAA's airports and runways, with the airports that count.",
@@ -2539,6 +2566,36 @@
       "prices.py",
       "static/fieldref.js",
       "updater.py"
+     ]
+    },
+    {
+     "name": "Where to shop",
+     "group": "BOM, parts and quotes",
+     "text": "183 DAS suppliers ranked out of 100 from public facts (reasons shown); tick the ones you buy from; for a line, its suppliers side by side, yours first, each opening a search of that supplier's own site.",
+     "src": [
+      "d-2026-11-08-2003",
+      "partshop.py",
+      "static/dasshop.js",
+      "reference/das_suppliers.json"
+     ]
+    },
+    {
+     "name": "Suppliers' prices read at night",
+     "group": "BOM, parts and quotes",
+     "text": "Talley's and Tessco's public product pages read slowly in each one's own quiet hours, robots.txt honoured, kept with their dates; shown on the supplier's card. Off until switched on; Omnyra's own copy only.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-2003",
+      "partcrawl.py"
+     ]
+    },
+    {
+     "name": "Newark and Arrow online prices",
+     "group": "BOM, parts and quotes",
+     "text": "Price, stock and lead time from Newark (element14) and Arrow with a free key each, beside Mouser and Digi-Key; online prices last a day.",
+     "src": [
+      "d-2026-11-08-2003",
+      "prices.py"
      ]
     },
     {
@@ -4611,6 +4668,15 @@
       "d-2026-11-08-1637",
       "boosters.py",
       "updater.py"
+     ]
+    },
+    {
+     "name": "Sioux Falls building permits",
+     "text": "Sioux Falls, SD building permits (CC BY 4.0, daily) for DAS Prospects: new buildings, located; the contractor's name is never fetched.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-2037",
+      "permits.py"
      ]
     },
     {

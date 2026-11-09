@@ -1,0 +1,8 @@
+/* Where to shop (dasshop.js): a line's suppliers side by side, yours first. */
+.ds-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:4px 0 8px}
+.ds-card{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--panel);min-width:0}
+.ds-card.ds-mine{box-shadow:inset 3px 0 0 var(--accent)}
+.ds-card .ds-h{overflow-wrap:anywhere}
+.ds-card .btn{white-space:nowrap}
+@media (max-width:520px){.ds-cards{grid-template-columns:1fr}}
+.ds-card .ds-seen{margin-top:4px}

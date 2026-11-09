@@ -1,0 +1,6950 @@
+{
+ "about": "DAS suppliers: business facts from each supplier's own public pages (the data scout, 2026-11-08), ranked by tools/das_suppliers.py's score. No prices.",
+ "checked": "2026-11-08",
+ "kinds": [
+  "alarm",
+  "antenna",
+  "bda",
+  "cellbooster",
+  "coax",
+  "connector",
+  "das",
+  "enclosure",
+  "fiber",
+  "mounting",
+  "passive",
+  "power",
+  "surge",
+  "test"
+ ],
+ "suppliers": [
+  {
+   "id": "tessco",
+   "name": "Tessco",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US; pickup Hunt Valley MD and Reno NV",
+   "kinds": [
+    "alarm",
+    "antenna",
+    "bda",
+    "coax",
+    "connector",
+    "das",
+    "mounting",
+    "passive",
+    "power",
+    "surge",
+    "test"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote",
+    "service antenna",
+    "donor antenna",
+    "coax plenum",
+    "coax 1/2",
+    "coax 7/8",
+    "connectors",
+    "splitters",
+    "couplers/taps",
+    "surge",
+    "battery/UPS",
+    "annunciator/alarm",
+    "mounting hardware",
+    "test"
+   ],
+   "brands": "Comba, ADRF, G-Wave, Westell, RFS, Ventev, Microlab, PolyPhaser, CommScope",
+   "prices": "yes",
+   "price_route": "public pages (shopping use); punchout/EDI with an account",
+   "api": false,
+   "public_safety": "BDAs (ADRF, Comba, G-Wave, Westell), PS DAS, BBUs, annunciators",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.tessco.com/",
+   "host": "www.tessco.com",
+   "terms_url": "https://www.tessco.com/content/terms-and-conditions/",
+   "terms": "\"permission to display, copy, distribute, download, and print ... for the purposes of: (1) using this site as a shopping resource or (2) placing an order with Tessco\"; framing and mirroring prohibited",
+   "crawl": "polite crawl candidate for the firm's own buying (terms allow shopping use); account for punchout or EDI",
+   "score": 95,
+   "score_why": [
+    "DAS range 40/40 (11 kinds)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 1
+  },
+  {
+   "id": "talley",
+   "name": "Talley (Rexel USA)",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US only (\"Does Talley ship internationally? Not at this time\"); 12 branches",
+   "kinds": [
+    "antenna",
+    "bda",
+    "coax",
+    "connector",
+    "das",
+    "passive",
+    "surge"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "fiber DAS",
+    "service antenna",
+    "donor antenna",
+    "coax plenum",
+    "coax 1/2",
+    "coax 7/8",
+    "connectors",
+    "splitters",
+    "couplers/taps",
+    "surge"
+   ],
+   "brands": "RFS, Microlab, HUBER+SUHNER, Laird/TE, ANDREW, PCTEL",
+   "prices": "yes",
+   "price_route": "public product pages (anonymous prices)",
+   "api": false,
+   "public_safety": "PS 700/800/900 BDAs, fiber DAS, in-building passives, RFS PS coax",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.talleycom.com/",
+   "host": "www.talleycom.com",
+   "terms_url": "https://www.talleycom.com/terms-and-conditions",
+   "terms": "The terms page is terms of sale (\"Prices are subject to change, without advance notice\"); no website-use or automated-access clause found",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 83,
+   "score_why": [
+    "DAS range 28/40 (7 kinds)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 2
+  },
+  {
+   "id": "graybar",
+   "name": "Graybar",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "bda",
+    "coax",
+    "connector",
+    "enclosure",
+    "fiber",
+    "passive",
+    "power",
+    "surge",
+    "test"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "coax",
+    "connectors",
+    "splitters",
+    "couplers/taps",
+    "surge",
+    "fiber",
+    "NEMA 4 enclosure",
+    "battery/UPS",
+    "test"
+   ],
+   "brands": "Westell, Microlab, many",
+   "prices": "login",
+   "price_route": "account API (customer portal; refused) or sign-in / ZIP",
+   "api": false,
+   "public_safety": "Westell PS BDA (UL 2524), ERCES solutions",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.graybar.com/",
+   "host": "www.graybar.com",
+   "terms_url": "https://www.graybar.com/website-terms-of-use",
+   "terms": "\"view and download the Material of this Site only for non-commercial use\"",
+   "crawl": "account route: open a trade account, then API, EDI or price file",
+   "score": 77,
+   "score_why": [
+    "DAS range 36/40 (9 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 3
+  },
+  {
+   "id": "signalbooster",
+   "name": "SignalBooster.com",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "bda",
+    "coax",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "coax plenum",
+    "coax 1/2",
+    "connectors",
+    "splitters",
+    "service antenna"
+   ],
+   "brands": "CommScope/ANDREW PS BDA, SureCall, RFS",
+   "prices": "yes",
+   "price_route": "public pages (rate limited)",
+   "api": false,
+   "public_safety": "ANDREW/CommScope PS BDAs (UL 2524 stated), 2-hour coax, plenum",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.signalbooster.com/",
+   "host": "www.signalbooster.com",
+   "terms_url": "",
+   "terms": "product page answered 429 on the second request, 6 s after the first",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 75,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 4
+  },
+  {
+   "id": "wirelessunits",
+   "name": "WirelessUnits.com",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "bda",
+    "coax",
+    "passive",
+    "test"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "coax plenum",
+    "splitters",
+    "service antenna",
+    "test"
+   ],
+   "brands": "ADRF, GWAVE, Belden, ANDREW, PCTEL",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "ADRF UL 2524 BDAs, GWAVE, Belden plenum",
+   "ps": true,
+   "flag": "",
+   "site": "https://wirelessunits.com/",
+   "host": "wirelessunits.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 75,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 5
+  },
+  {
+   "id": "adi",
+   "name": "ADI Global Distribution",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US, Canada",
+   "kinds": [
+    "alarm",
+    "antenna",
+    "bda",
+    "coax",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "coax plenum",
+    "service antenna",
+    "connectors",
+    "splitters",
+    "couplers/taps",
+    "annunciator/alarm"
+   ],
+   "brands": "Honeywell BDA, Fiplex, Trilogy",
+   "prices": "login",
+   "price_route": "account API (ADI API, dealer account)",
+   "api": false,
+   "public_safety": "Honeywell/Fiplex BDAs, Trilogy AirCell PS cable, NOTIFIER",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.adiglobaldistribution.us/",
+   "host": "www.adiglobaldistribution.us",
+   "terms_url": "",
+   "terms": "Terms page renders by script; no text read",
+   "crawl": "account route: open a trade account, then API, EDI or price file",
+   "score": 65,
+   "score_why": [
+    "DAS range 24/40 (6 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 6
+  },
+  {
+   "id": "digikey",
+   "name": "DigiKey",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure",
+    "fiber",
+    "passive"
+   ],
+   "categories": [
+    "connectors",
+    "coax",
+    "attenuators",
+    "terminations",
+    "splitters",
+    "couplers/taps",
+    "NEMA 4 enclosure",
+    "fiber"
+   ],
+   "brands": "Times, Amphenol RF, RF Industries/Microlab, Hammond",
+   "prices": "yes",
+   "price_route": "official API (free key)",
+   "api": true,
+   "public_safety": "Connectors, coax, Microlab passives",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.digikey.com/",
+   "host": "www.digikey.com",
+   "terms_url": "https://developer.digikey.com/api-user-agreement",
+   "terms": "API agreement: may not \"use the API, DigiKey Data, or Documentation to update or create your own database\"; may not \"aggregate ... with third party content or data without distinction\"; Internal Application only \"to automate and enhance your purchasing of products from DigiKey\"",
+   "crawl": "API",
+   "score": 65,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 7
+  },
+  {
+   "id": "mouser",
+   "name": "Mouser Electronics",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure",
+    "passive",
+    "surge"
+   ],
+   "categories": [
+    "connectors",
+    "coax",
+    "attenuators",
+    "terminations",
+    "splitters",
+    "NEMA 4 enclosure",
+    "surge"
+   ],
+   "brands": "Amphenol RF, Times, TE, Hammond, Bud",
+   "prices": "yes",
+   "price_route": "official API (free key)",
+   "api": true,
+   "public_safety": "Connectors, coax, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.mouser.com/",
+   "host": "www.mouser.com",
+   "terms_url": "https://www.mouser.com/en/apiterms/",
+   "terms": "API: must attribute; no competing use; no mixing with third-party data \"without distinction\" (11/05 excerpt; terms page refused)",
+   "crawl": "API",
+   "score": 65,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 8
+  },
+  {
+   "id": "newark",
+   "name": "Newark (element14 / Avnet)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US, Canada, Mexico",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure",
+    "passive",
+    "test"
+   ],
+   "categories": [
+    "connectors",
+    "coax",
+    "attenuators",
+    "NEMA 4 enclosure",
+    "test"
+   ],
+   "brands": "Amphenol RF, Hammond, many",
+   "prices": "yes",
+   "price_route": "official API (free key)",
+   "api": true,
+   "public_safety": "Connectors, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.newark.com/",
+   "host": "www.newark.com",
+   "terms_url": "https://www.newark.com/terms-of-use-for-api",
+   "terms": "API terms: may not \"create a database by systematically downloading and storing content\" or \"keep cached- copies longer than forty-eight (48) hours\"",
+   "crawl": "API",
+   "score": 65,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 9
+  },
+  {
+   "id": "wesco",
+   "name": "Wesco / Anixter",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US, Canada (Anixter)",
+   "kinds": [
+    "bda",
+    "coax",
+    "connector",
+    "das",
+    "enclosure",
+    "fiber"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote",
+    "coax",
+    "fiber",
+    "connectors",
+    "enclosures"
+   ],
+   "brands": "many",
+   "prices": "login",
+   "price_route": "account: EDI, punchout, flat files (excerpt)",
+   "api": false,
+   "public_safety": "Public safety DAS",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.wesco.com/",
+   "host": "www.wesco.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403; terms not read",
+   "crawl": "account route: open a trade account, then API, EDI or price file",
+   "score": 65,
+   "score_why": [
+    "DAS range 24/40 (6 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 10
+  },
+  {
+   "id": "lcom",
+   "name": "L-com (Infinite Electronics)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US, global",
+   "kinds": [
+    "antenna",
+    "coax",
+    "connector",
+    "enclosure",
+    "fiber",
+    "surge"
+   ],
+   "categories": [
+    "connectors",
+    "coax assemblies",
+    "fiber",
+    "surge",
+    "NEMA 4 enclosure",
+    "service antenna"
+   ],
+   "brands": "L-com",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Connectivity, NEMA enclosures, surge",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.l-com.com/",
+   "host": "www.l-com.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "\"use any robot, spider, scraper or other automated access the Website for any purpose without our express written permission\"; use is \"solely for your personal, noncommercial use\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 64,
+   "score_why": [
+    "DAS range 24/40 (6 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 11
+  },
+  {
+   "id": "ptsupply",
+   "name": "Power & Telephone Supply",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure",
+    "fiber",
+    "mounting",
+    "surge"
+   ],
+   "categories": [
+    "fiber",
+    "coax",
+    "connectors",
+    "enclosures",
+    "mounting hardware",
+    "surge",
+    "batteries"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "none: robots.txt disallows all",
+   "api": false,
+   "public_safety": "Telecom supplies",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.ptsupply.com/",
+   "host": "www.ptsupply.com",
+   "terms_url": "",
+   "terms": "robots.txt disallows everything for unnamed bots, so nothing else was fetched",
+   "crawl": "no crawl (robots.txt disallows all): call or ask for a price file",
+   "score": 64,
+   "score_why": [
+    "DAS range 24/40 (6 kinds)",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 12
+  },
+  {
+   "id": "streakwave",
+   "name": "Streakwave Wireless",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "coax",
+    "connector",
+    "enclosure",
+    "mounting",
+    "surge"
+   ],
+   "categories": [
+    "coax",
+    "connectors",
+    "surge",
+    "donor antenna",
+    "NEMA 4 enclosure",
+    "mounting hardware"
+   ],
+   "brands": "Times, PolyPhaser, Ventev",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Coax, surge, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.streakwave.com/",
+   "host": "www.streakwave.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 64,
+   "score_why": [
+    "DAS range 24/40 (6 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 13
+  },
+  {
+   "id": "alliance",
+   "name": "Alliance Corporation",
+   "kind": "distributor",
+   "country": "CA",
+   "ships_to": "Canada, US",
+   "kinds": [
+    "antenna",
+    "bda",
+    "coax",
+    "connector",
+    "das",
+    "passive",
+    "power",
+    "surge"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote",
+    "service antenna",
+    "coax plenum",
+    "connectors",
+    "splitters",
+    "couplers/taps",
+    "surge",
+    "battery/UPS"
+   ],
+   "brands": "ADRF, SOLiD",
+   "prices": "quote only",
+   "price_route": "quote / account",
+   "api": false,
+   "public_safety": "ADRF PSR NEO, SOLiD; BDAs, backup power",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.alliancecorporation.ca/",
+   "host": "www.alliancecorporation.ca",
+   "terms_url": "",
+   "terms": "No terms page found at the usual paths (404)",
+   "crawl": "RFQ or trade account",
+   "score": 63,
+   "score_why": [
+    "DAS range 32/40 (8 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "distributor 10/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 14
+  },
+  {
+   "id": "unisol",
+   "name": "UNISOL International",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "bda",
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "BDA/repeater"
+   ],
+   "brands": "SOLiD",
+   "prices": "yes",
+   "price_route": "public pages (list prices)",
+   "api": false,
+   "public_safety": "SOLiD PS DAS",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.unisolinternational.com/",
+   "host": "www.unisolinternational.com",
+   "terms_url": "https://www.unisolinternational.com/wp-content/themes/unisol/Unisol-Sales-Terms-and-Conditions.pdf",
+   "terms": "Terms link opened a PDF",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 63,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 15
+  },
+  {
+   "id": "radiogagas",
+   "name": "RadioGagas.com",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "bda"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "two-way radio"
+   ],
+   "brands": "ADRF",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "ADRF UL 2524 BDA",
+   "ps": true,
+   "flag": "",
+   "site": "https://radiogagas.com/",
+   "host": "radiogagas.com",
+   "terms_url": "https://radiogagas.com/page/conditions-of-use",
+   "terms": "licence excludes \"any use of data mining, robots, or similar data gathering and extraction tools\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 59,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 16
+  },
+  {
+   "id": "solesource",
+   "name": "Sole Source Wireless (SCMS)",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "bda",
+    "coax",
+    "fiber",
+    "passive",
+    "surge"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "splitters",
+    "couplers/taps",
+    "service antenna",
+    "coax",
+    "surge",
+    "fiber"
+   ],
+   "brands": "G-Wave, Westell, Nextivity, Wilson, TE",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "PS BDA systems with battery and monitoring",
+   "ps": true,
+   "flag": "",
+   "site": "https://solesourcewireless.com/",
+   "host": "solesourcewireless.com",
+   "terms_url": "",
+   "terms": "No terms page found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 59,
+   "score_why": [
+    "DAS range 24/40 (6 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 17
+  },
+  {
+   "id": "winncom",
+   "name": "Winncom Technologies",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US, worldwide",
+   "kinds": [
+    "antenna",
+    "bda",
+    "das",
+    "passive"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "BDA/repeater",
+    "splitters",
+    "service antenna"
+   ],
+   "brands": "SOLiD, Fiplex",
+   "prices": "login",
+   "price_route": "login account (list prices shown in search excerpts)",
+   "api": false,
+   "public_safety": "SOLiD and Fiplex PS DAS",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.winncom.com/",
+   "host": "www.winncom.com",
+   "terms_url": "",
+   "terms": "home page answered 403; robots.txt blocks many AI bots",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 57,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 18
+  },
+  {
+   "id": "baltic",
+   "name": "Baltic Networks",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure",
+    "surge"
+   ],
+   "categories": [
+    "coax",
+    "connectors",
+    "surge",
+    "NEMA 4 enclosure",
+    "antennas"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public product pages (Shopify)",
+   "api": false,
+   "public_safety": "WISP gear: coax, surge, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.balticnetworks.com/",
+   "host": "www.balticnetworks.com",
+   "terms_url": "https://www.balticnetworks.com/policies/terms-of-service",
+   "terms": "Terms of service read; no robot, spider or scrape clause found",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 19
+  },
+  {
+   "id": "cdw",
+   "name": "CDW",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US, Canada",
+   "kinds": [
+    "cellbooster",
+    "enclosure",
+    "fiber",
+    "power"
+   ],
+   "categories": [
+    "cellular booster",
+    "racks",
+    "UPS",
+    "fiber"
+   ],
+   "brands": "Nextivity, Wilson, APC",
+   "prices": "yes",
+   "price_route": "public pages (rate limited)",
+   "api": false,
+   "public_safety": "Cel-Fi, Wilson, UPS",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.cdw.com/",
+   "host": "www.cdw.com",
+   "terms_url": "",
+   "terms": "terms page answered 429",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 20
+  },
+  {
+   "id": "dxeng",
+   "name": "DX Engineering",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US, global",
+   "kinds": [
+    "coax",
+    "connector",
+    "mounting",
+    "surge"
+   ],
+   "categories": [
+    "coax 1/2",
+    "coax 7/8",
+    "connectors",
+    "surge",
+    "mounting hardware"
+   ],
+   "brands": "Times, PolyPhaser, Andrew/CommScope",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Hardline, connectors, PolyPhaser",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.dxengineering.com/",
+   "host": "www.dxengineering.com",
+   "terms_url": "https://help.dxengineering.com/knowledgebase/article/DX-03732/en-us",
+   "terms": "must not \"Use any robot, spider or other automatic device, process or means to access the Website\"; \"personal, non- commercial use only\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 21
+  },
+  {
+   "id": "honeywell",
+   "name": "Fiplex by Honeywell",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda",
+    "coax",
+    "das",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "fiber DAS",
+    "annunciator/alarm",
+    "battery/UPS",
+    "coax plenum"
+   ],
+   "brands": "Fiplex, Honeywell BDA, Gamewell-FCI, NOTIFIER",
+   "prices": "login",
+   "price_route": "account (Honeywell, ADI)",
+   "api": false,
+   "public_safety": "Fiplex FLEX UL 2524 BDAs, Gamewell-FCI and NOTIFIER BDAs",
+   "ps": true,
+   "flag": "",
+   "site": "https://buildings.honeywell.com/",
+   "host": "buildings.honeywell.com",
+   "terms_url": "https://www.honeywell.com/us/en/legal/terms-and-conditions",
+   "terms": "must not \"use any robot, spider, or other automatic device, process, or means to access the Site for any purpose, including monitoring or copying\"",
+   "crawl": "RFQ or trade account",
+   "score": 56,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 22
+  },
+  {
+   "id": "gigaparts",
+   "name": "GigaParts",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "coax",
+    "connector",
+    "surge"
+   ],
+   "categories": [
+    "coax",
+    "connectors",
+    "donor antenna",
+    "surge"
+   ],
+   "brands": "Times, PolyPhaser, Laird",
+   "prices": "yes",
+   "price_route": "public product pages (JSON-LD)",
+   "api": false,
+   "public_safety": "Coax, connectors, antennas, surge",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.gigaparts.com/",
+   "host": "www.gigaparts.com",
+   "terms_url": "https://www.gigaparts.com/gigaparts-terms-conditions",
+   "terms": "Terms page binds to order and privacy policies; no automated-access clause found on it (community terms not read)",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 23
+  },
+  {
+   "id": "ispsupplies",
+   "name": "ISP Supplies",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure",
+    "surge"
+   ],
+   "categories": [
+    "coax",
+    "connectors",
+    "surge",
+    "enclosures",
+    "antennas"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "Coax, surge, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.ispsupplies.com/",
+   "host": "www.ispsupplies.com",
+   "terms_url": "https://www.ispsupplies.com/terms-and-conditions",
+   "terms": "Terms are sale terms",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 24
+  },
+  {
+   "id": "jem",
+   "name": "JEM Systems",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: scanner",
+    "test rental"
+   ],
+   "brands": "PCTEL",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "PCTEL kits, BDA services",
+   "ps": true,
+   "flag": "",
+   "site": "https://jemsystems.com/",
+   "host": "jemsystems.com",
+   "terms_url": "https://jemsystems.com/terms-and-conditions",
+   "terms": "Terms are sale terms",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 56,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 25
+  },
+  {
+   "id": "launch3",
+   "name": "Launch 3 Direct",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "coax",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax 1/2",
+    "connectors",
+    "splitters",
+    "service antenna"
+   ],
+   "brands": "Trilogy, RFS, Ventev",
+   "prices": "yes",
+   "price_route": "public pages (rate limited)",
+   "api": false,
+   "public_safety": "Trilogy, RFS, Ventev plenum coax $2.50-$3.97/ft (excerpt)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.launch3direct.com/",
+   "host": "www.launch3direct.com",
+   "terms_url": "",
+   "terms": "collection page answered 429",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 26
+  },
+  {
+   "id": "mgs4u",
+   "name": "Max-Gain Systems",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "mounting",
+    "surge"
+   ],
+   "categories": [
+    "coax",
+    "connectors",
+    "surge",
+    "mounting hardware"
+   ],
+   "brands": "Times, Andrew",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Coax, mounts",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.mgs4u.com/",
+   "host": "www.mgs4u.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 56,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 27
+  },
+  {
+   "id": "ventev",
+   "name": "Ventev (Tessco brand)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "coax",
+    "enclosure",
+    "mounting",
+    "passive",
+    "power",
+    "surge"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "coax assemblies",
+    "splitters",
+    "surge",
+    "mounting hardware",
+    "battery/UPS",
+    "service antenna"
+   ],
+   "brands": "Ventev",
+   "prices": "partial",
+   "price_route": "Tessco",
+   "api": false,
+   "public_safety": "Enclosures, passives, plenum cable",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.ventev.com/",
+   "host": "www.ventev.com",
+   "terms_url": "https://www.hubbell.com/hubbell/en/web-terms",
+   "terms": "Hubbell Terms of Use (January 6, 2022) bar using \"manual or automated software, devices, or other processes to 'crawl,' 'scrape,' 'spider'\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 55,
+   "score_why": [
+    "DAS range 28/40 (7 kinds)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 28
+  },
+  {
+   "id": "ebay",
+   "name": "eBay",
+   "kind": "marketplace",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "used test gear",
+    "surplus BDAs and passives"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "API (eBay Browse; developer site refused; cost and licence not read)",
+   "api": true,
+   "public_safety": "Used test gear, surplus BDAs",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.ebay.com/",
+   "host": "www.ebay.com",
+   "terms_url": "",
+   "terms": "www.ebay.com and developer.ebay.com answered 403; API licence not read",
+   "crawl": "API exists; a person reads its licence first (developer site refused)",
+   "score": 54,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "marketplace 0/10",
+    "US 10/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 29
+  },
+  {
+   "id": "ledinc",
+   "name": "LED Inc. (Light Engineered Displays)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm"
+   ],
+   "categories": [
+    "annunciator/alarm"
+   ],
+   "brands": "LED Inc G1212-BDA",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "G1212-BDA annunciator (NFPA 1221 wording)",
+   "ps": true,
+   "flag": "",
+   "site": "https://ledinc.com/",
+   "host": "ledinc.com",
+   "terms_url": "https://ledinc.com/wp-content/uploads/2017/02/terms_conditions_2011.pdf",
+   "terms": "Terms link opened a PDF; no website-use clause found",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 54,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 30
+  },
+  {
+   "id": "polyphaser",
+   "name": "PolyPhaser (Infinite Electronics)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US, global",
+   "kinds": [
+    "surge"
+   ],
+   "categories": [
+    "surge"
+   ],
+   "brands": "PolyPhaser",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Coax surge for LMR/BDA donor lines",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.polyphaser.com/",
+   "host": "www.polyphaser.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "\"use any robot, spider, scraper or other automated access the Website for any purpose without our express written permission\"; use is \"solely for your personal, noncommercial use\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 54,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 31
+  },
+  {
+   "id": "fairview",
+   "name": "Fairview Microwave (Infinite Electronics)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US, global",
+   "kinds": [
+    "antenna",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "connectors",
+    "attenuators",
+    "terminations",
+    "splitters",
+    "couplers/taps",
+    "service antenna"
+   ],
+   "brands": "Fairview",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Passives, adapters, ceiling antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.fairviewmicrowave.com/",
+   "host": "www.fairviewmicrowave.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "\"use any robot, spider, scraper or other automated access the Website for any purpose without our express written permission\"; use is \"solely for your personal, noncommercial use\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 32
+  },
+  {
+   "id": "foxvalley",
+   "name": "Fox Valley Fire & Safety",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "annunciator/alarm"
+   ],
+   "brands": "NOTIFIER",
+   "prices": "partial",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "NOTIFIER BDA",
+   "ps": true,
+   "flag": "",
+   "site": "https://foxvalleyfire.com/",
+   "host": "foxvalleyfire.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 52,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 33
+  },
+  {
+   "id": "pasternack",
+   "name": "Pasternack (Infinite Electronics)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US, global; same-day ship (LinkedIn)",
+   "kinds": [
+    "coax",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "connectors",
+    "attenuators",
+    "terminations",
+    "splitters",
+    "couplers/taps",
+    "coax assemblies"
+   ],
+   "brands": "Pasternack",
+   "prices": "yes",
+   "price_route": "public pages (refused; terms bar it)",
+   "api": false,
+   "public_safety": "Low-PIM plenum jumpers",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.pasternack.com/",
+   "host": "www.pasternack.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "Home page answered a challenge page. Sister sites link Infinite's shared terms, which bar robots: \"use any robot, spider, scraper or other automated access the Website for any purpose without our express written permission\"; use is \"solely for your personal, noncommercial use\"",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 34
+  },
+  {
+   "id": "platt",
+   "name": "Platt Electric Supply",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US West",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "mounting hardware",
+    "fiber"
+   ],
+   "brands": "many electrical",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Electrical",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.platt.com/",
+   "host": "www.platt.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 35
+  },
+  {
+   "id": "powerfulsignal",
+   "name": "Powerful Signal",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "cellbooster",
+    "coax"
+   ],
+   "categories": [
+    "cellular booster",
+    "service antenna",
+    "coax"
+   ],
+   "brands": "Wilson, Cel-Fi, SureCall",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Boosters",
+   "ps": false,
+   "flag": "",
+   "site": "https://powerfulsignal.com/",
+   "host": "powerfulsignal.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 36
+  },
+  {
+   "id": "rfparts",
+   "name": "RF Parts Company",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "surge"
+   ],
+   "categories": [
+    "coax",
+    "connectors",
+    "surge"
+   ],
+   "brands": "Times, Andrew",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "Coax, connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rfparts.com/",
+   "host": "www.rfparts.com",
+   "terms_url": "https://www.rfparts.com/rftransistors/transistor-toshiba-rfm.html",
+   "terms": "Terms link led to a product page; terms not found",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 37
+  },
+  {
+   "id": "rfecomm",
+   "name": "RFE Communications",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda"
+   ],
+   "categories": [
+    "annunciator/alarm",
+    "BDA/repeater"
+   ],
+   "brands": "various",
+   "prices": "partial",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Annunciators",
+   "ps": true,
+   "flag": "",
+   "site": "https://rfecommunications.com/",
+   "host": "rfecommunications.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 52,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 38
+  },
+  {
+   "id": "rsamericas",
+   "name": "RS Americas (ex-Allied Electronics)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "connector",
+    "enclosure",
+    "test"
+   ],
+   "categories": [
+    "connectors",
+    "NEMA 4 enclosure",
+    "batteries",
+    "test"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Connectors, enclosures, batteries",
+   "ps": false,
+   "flag": "",
+   "site": "https://us.rs-online.com/",
+   "host": "us.rs-online.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 39
+  },
+  {
+   "id": "showme",
+   "name": "ShowMe Cables (Infinite)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "enclosure",
+    "fiber"
+   ],
+   "categories": [
+    "fiber",
+    "coax assemblies",
+    "racks"
+   ],
+   "brands": "ShowMe",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Fiber, assemblies",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.showmecables.com/",
+   "host": "www.showmecables.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "\"use any robot, spider, scraper or other automated access the Website for any purpose without our express written permission\"; use is \"solely for your personal, noncommercial use\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 40
+  },
+  {
+   "id": "signalboosters",
+   "name": "SignalBoosters.com",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "cellbooster",
+    "coax"
+   ],
+   "categories": [
+    "coax 1/2",
+    "coax 7/8",
+    "cellular booster",
+    "service antenna"
+   ],
+   "brands": "CommScope HELIAX, Wilson, Cel-Fi",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "HELIAX by the foot",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.signalboosters.com/",
+   "host": "www.signalboosters.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 41
+  },
+  {
+   "id": "solidsignal",
+   "name": "Solid Signal",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "cellbooster",
+    "coax",
+    "passive"
+   ],
+   "categories": [
+    "splitters",
+    "couplers/taps",
+    "coax",
+    "cellular booster"
+   ],
+   "brands": "Microlab, Wilson",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "Microlab, Westell PS tappers (CS05-494-114 $71.00)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.solidsignal.com/",
+   "host": "www.solidsignal.com",
+   "terms_url": "https://www.solidsignal.com/payment-terms",
+   "terms": "Only a payment-terms page found",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 42
+  },
+  {
+   "id": "waveform",
+   "name": "Waveform",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "cellbooster",
+    "passive"
+   ],
+   "categories": [
+    "cellular booster",
+    "splitters",
+    "couplers/taps",
+    "service antenna",
+    "DAS integration"
+   ],
+   "brands": "Microlab, SOLiD, Cel-Fi",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Microlab tappers $95, SOLiD integration",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.waveform.com/",
+   "host": "www.waveform.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 43
+  },
+  {
+   "id": "wilsonamps",
+   "name": "Wilson Amplifiers",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "cellbooster",
+    "coax"
+   ],
+   "categories": [
+    "cellular booster",
+    "service antenna",
+    "coax"
+   ],
+   "brands": "WilsonPro, Cel-Fi",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Boosters",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.wilsonamplifiers.com/",
+   "host": "www.wilsonamplifiers.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 52,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 44
+  },
+  {
+   "id": "comba",
+   "name": "Comba Telecom (CriticalPoint)",
+   "kind": "manufacturer",
+   "country": "US/HK",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda",
+    "das",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote",
+    "fiber DAS",
+    "annunciator/alarm",
+    "battery/UPS"
+   ],
+   "brands": "Comba CriticalPoint",
+   "prices": "partial",
+   "price_route": "quote; Tessco lists Comba with \"Price not available\" (11/05)",
+   "api": false,
+   "public_safety": "CriticalPoint UL 2524 3rd ed. BDAs; APV3 annunciator",
+   "ps": true,
+   "flag": "",
+   "site": "https://combausa.com/",
+   "host": "combausa.com",
+   "terms_url": "",
+   "terms": "No terms page found at the usual paths (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 51,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US/HK 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 45
+  },
+  {
+   "id": "hubersuhner",
+   "name": "HUBER+SUHNER",
+   "kind": "manufacturer",
+   "country": "CH",
+   "ships_to": "Global",
+   "kinds": [
+    "antenna",
+    "connector",
+    "fiber",
+    "surge"
+   ],
+   "categories": [
+    "service antenna",
+    "connectors",
+    "fiber",
+    "surge"
+   ],
+   "brands": "HUBER+SUHNER SENCITY",
+   "prices": "partial",
+   "price_route": "quote / distributors",
+   "api": false,
+   "public_safety": "TETRA 380-405 MHz indoor antennas; no US ERCES listing",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.hubersuhner.com/",
+   "host": "www.hubersuhner.com",
+   "terms_url": "https://www.hubersuhner.com/en/terms-and-conditions",
+   "terms": "Only General Terms of Sale and Supply PDFs (Oct 2024) found",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 51,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "CH 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 46
+  },
+  {
+   "id": "andrew",
+   "name": "ANDREW, an Amphenol company",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global via distributors",
+   "kinds": [
+    "antenna",
+    "bda",
+    "coax",
+    "connector",
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "fiber DAS",
+    "BDA/repeater",
+    "coax 1/2",
+    "coax 7/8",
+    "connectors",
+    "service antenna"
+   ],
+   "brands": "ANDREW (ERA, ION-E, Node A, PSR, HELIAX)",
+   "prices": "quote only",
+   "price_route": "quote only (via distributors)",
+   "api": false,
+   "public_safety": "PSR 700/800 public safety repeaters, called a UL2524 solution (rf_parts.json)",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.andrew.com/",
+   "host": "www.andrew.com",
+   "terms_url": "",
+   "terms": "Terms page is a brand-protection notice; no website-use clause found",
+   "crawl": "RFQ or trade account",
+   "score": 50,
+   "score_why": [
+    "DAS range 20/40 (5 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 47
+  },
+  {
+   "id": "bird",
+   "name": "Bird (Bird RF)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "passive",
+    "test"
+   ],
+   "categories": [
+    "test: cable-antenna analyzer",
+    "test: power",
+    "attenuators",
+    "terminations"
+   ],
+   "brands": "Bird SiteHawk, SignalHawk",
+   "prices": "partial",
+   "price_route": "Bird store / quote",
+   "api": false,
+   "public_safety": "Test gear for ERCES (SiteHawk, SignalHawk)",
+   "ps": true,
+   "flag": "",
+   "site": "https://birdrf.com/",
+   "host": "birdrf.com",
+   "terms_url": "",
+   "terms": "Terms page found but short; no automated-access clause found",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 50,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 48
+  },
+  {
+   "id": "farnell",
+   "name": "Farnell (element14 UK)",
+   "kind": "e-commerce",
+   "country": "UK",
+   "ships_to": "Worldwide (UK)",
+   "kinds": [
+    "connector",
+    "enclosure",
+    "test"
+   ],
+   "categories": [
+    "connectors",
+    "enclosures",
+    "test"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "official API (element14, free key)",
+   "api": true,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://uk.farnell.com/",
+   "host": "uk.farnell.com",
+   "terms_url": "https://uk.farnell.com/terms-of-use-for-api",
+   "terms": "Same API terms as Newark: 48-hour cache, no database",
+   "crawl": "API",
+   "score": 50,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "UK 3/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 49
+  },
+  {
+   "id": "pctel",
+   "name": "PCTEL (Amphenol)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "test"
+   ],
+   "categories": [
+    "test: scanner",
+    "donor antenna",
+    "service antenna"
+   ],
+   "brands": "PCTEL IBflex, SeeHawk",
+   "prices": "partial",
+   "price_route": "PCTEL Store (Shopify) for licences; quote for kits",
+   "api": false,
+   "public_safety": "IBflex public safety test kit, BDA commissioning suite",
+   "ps": true,
+   "flag": "",
+   "site": "https://pctel.com/",
+   "host": "pctel.com",
+   "terms_url": "https://pctel.com/terms-of-use/",
+   "terms": "\"view, browse, download and print the Materials at this site for your personal, non-commercial use\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 50,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 50
+  },
+  {
+   "id": "arrow",
+   "name": "Arrow Electronics",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "connectors",
+    "RF components"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "official API (free key)",
+   "api": true,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.arrow.com/",
+   "host": "www.arrow.com",
+   "terms_url": "https://developers.arrow.com/api/index.php/site/page?view=terms",
+   "terms": "API terms: \"You will not maintain any cached data ... for longer than forty-eight (48) hours\"; \"will not scrape, download, post or transmit data from any Arrow site\"",
+   "crawl": "API",
+   "score": 49,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 51
+  },
+  {
+   "id": "tti",
+   "name": "TTI",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "connectors",
+    "passives"
+   ],
+   "brands": "Amphenol, TE",
+   "prices": "yes",
+   "price_route": "official API (free key, request form)",
+   "api": true,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.tti.com/",
+   "host": "www.tti.com",
+   "terms_url": "https://www.tti.com/content/ttiinc/en/toolbar/tti-api-terms-of-service.html",
+   "terms": "API terms: no caching or databases; \"TTI Data used for quoting may only be stored for a maximum of thirty (30) days\"; no \"trending or price guidance analysis\" (June 2020)",
+   "crawl": "API",
+   "score": 49,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10",
+    "API 5/5"
+   ],
+   "checked": "2026-11-08",
+   "rank": 52
+  },
+  {
+   "id": "5gstore",
+   "name": "5Gstore",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "cellbooster",
+    "test"
+   ],
+   "categories": [
+    "cellular booster",
+    "test"
+   ],
+   "brands": "Nextivity Cel-Fi",
+   "prices": "yes",
+   "price_route": "public pages (challenge)",
+   "api": false,
+   "public_safety": "Cel-Fi, COMPASS XR",
+   "ps": false,
+   "flag": "",
+   "site": "https://5gstore.com/",
+   "host": "5gstore.com",
+   "terms_url": "",
+   "terms": "terms page answered a challenge page",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 53
+  },
+  {
+   "id": "atec",
+   "name": "Advanced Test Equipment Corp (ATEC)",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test rental",
+    "test: PIM",
+    "test: scanner",
+    "test: cable-antenna analyzer"
+   ],
+   "brands": "PCTEL, Anritsu, Kaelus, VIAVI",
+   "prices": "partial",
+   "price_route": "quote (rental)",
+   "api": false,
+   "public_safety": "PCTEL public safety test kit rental $1,849/month (11/05)",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.atecorp.com/",
+   "host": "www.atecorp.com",
+   "terms_url": "https://www.atecorp.com/compliance-standards/iso/iso-16750-2",
+   "terms": "Short general terms; no automated-access clause",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 48,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 54
+  },
+  {
+   "id": "fis",
+   "name": "Fiber Instrument Sales (FIS)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "fiber",
+    "test"
+   ],
+   "categories": [
+    "fiber",
+    "fiber test"
+   ],
+   "brands": "FIS, many",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "Fiber",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.fiberinstrumentsales.com/",
+   "host": "www.fiberinstrumentsales.com",
+   "terms_url": "https://www.fiberinstrumentsales.com/docs/FIS-Standard-Terms-Conditions.pdf",
+   "terms": "Terms link opened a PDF (sale terms)",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 55
+  },
+  {
+   "id": "focenter",
+   "name": "Fiber Optic Center",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "fiber",
+    "test"
+   ],
+   "categories": [
+    "fiber",
+    "fiber test"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Fiber",
+   "ps": false,
+   "flag": "",
+   "site": "https://focenter.com/",
+   "host": "focenter.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 56
+  },
+  {
+   "id": "grainger",
+   "name": "Grainger",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "batteries",
+    "mounting hardware",
+    "tools"
+   ],
+   "brands": "Hoffman, Power-Sonic, many",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Enclosures, batteries",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.grainger.com/",
+   "host": "www.grainger.com",
+   "terms_url": "",
+   "terms": "home page answered 403; robots.txt blocks GPTBot, ClaudeBot and others",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 57
+  },
+  {
+   "id": "mcmaster",
+   "name": "McMaster-Carr",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "mounting hardware",
+    "NEMA 4 enclosure"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages (no terms read)",
+   "api": false,
+   "public_safety": "Hardware, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.mcmaster.com/",
+   "host": "www.mcmaster.com",
+   "terms_url": "",
+   "terms": "Terms link led to the catalogue home; robots.txt blocks ClaudeBot, CCBot and others",
+   "crawl": "terms not read; a person checks the terms first",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 58
+  },
+  {
+   "id": "potter",
+   "name": "Potter Electric Signal (Potter ERCES / TowerIQ)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "annunciator/alarm",
+    "battery/UPS"
+   ],
+   "brands": "Potter ERCES, TowerIQ Guardian",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Potter ERCES (TowerIQ Guardian) UL 2524 BDAs, annunciators",
+   "ps": true,
+   "flag": "",
+   "site": "https://pottersignal.com/",
+   "host": "pottersignal.com",
+   "terms_url": "https://www.pottersignal.com/terms",
+   "terms": "\"print or download one copy ... for your own non-commercial use\" (Terms of Use effective February 5, 2026)",
+   "crawl": "RFQ or trade account",
+   "score": 48,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 59
+  },
+  {
+   "id": "rfwel",
+   "name": "Rfwel Engineering E-Store",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector"
+   ],
+   "categories": [
+    "coax plenum",
+    "connectors",
+    "antennas"
+   ],
+   "brands": "RFS",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "RFS plenum",
+   "ps": false,
+   "flag": "",
+   "site": "https://shop.rfwel.com/",
+   "host": "shop.rfwel.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 60
+  },
+  {
+   "id": "sager",
+   "name": "Sager Electronics",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "connector",
+    "enclosure"
+   ],
+   "categories": [
+    "connectors",
+    "NEMA 4 enclosure",
+    "power"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages",
+   "api": false,
+   "public_safety": "Connectors, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.sager.com/",
+   "host": "www.sager.com",
+   "terms_url": "https://www.sager.com/terms-of-use",
+   "terms": "Terms link opened a 2.7 MB page; not read",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 61
+  },
+  {
+   "id": "zoro",
+   "name": "Zoro (Grainger)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "batteries",
+    "mounting hardware"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Enclosures, batteries",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.zoro.com/",
+   "host": "www.zoro.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 48,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 62
+  },
+  {
+   "id": "surecall",
+   "name": "SureCall",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "cellbooster",
+    "coax"
+   ],
+   "categories": [
+    "cellular booster",
+    "coax plenum",
+    "service antenna"
+   ],
+   "brands": "SureCall",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "PS line sold to Potter",
+   "ps": false,
+   "flag": "",
+   "site": "https://surecall.com/",
+   "host": "surecall.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 47,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 63
+  },
+  {
+   "id": "adrf",
+   "name": "ADRF (Advanced RF Technologies)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda",
+    "das",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote",
+    "battery/UPS",
+    "annunciator/alarm"
+   ],
+   "brands": "ADRF PSR NEO, ADXV",
+   "prices": "quote only",
+   "price_route": "quote (Alliance, Tessco)",
+   "api": false,
+   "public_safety": "PSR NEO UL 2524 3rd ed.",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.adrftech.com/",
+   "host": "www.adrftech.com",
+   "terms_url": "",
+   "terms": "No terms page found at the usual paths (404)",
+   "crawl": "RFQ or trade account",
+   "score": 46,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 64
+  },
+  {
+   "id": "gwave",
+   "name": "G-Wave Solutions (GWAVE)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda",
+    "passive",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "battery/UPS",
+    "annunciator/alarm",
+    "filters"
+   ],
+   "brands": "GWAVE 1-BOX",
+   "prices": "quote only",
+   "price_route": "quote (Tessco, WirelessUnits resell)",
+   "api": false,
+   "public_safety": "1-BOX BDA+battery+annunciator; UL 2524 not confirmed",
+   "ps": true,
+   "flag": "",
+   "site": "https://gwavesolutions.com/",
+   "host": "gwavesolutions.com",
+   "terms_url": "",
+   "terms": "No robots.txt or terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 46,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 65
+  },
+  {
+   "id": "westell",
+   "name": "Westell (Cellular Specialties)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda",
+    "passive",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "battery/UPS",
+    "annunciator/alarm",
+    "splitters",
+    "couplers/taps"
+   ],
+   "brands": "Westell ProtectLink, CSI",
+   "prices": "quote only",
+   "price_route": "quote (Graybar, Tessco)",
+   "api": false,
+   "public_safety": "ProtectLink UL 2524 BDA kits, CS19-BBU 24 h NEMA 4 battery units",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.westell.com/",
+   "host": "www.westell.com",
+   "terms_url": "https://www.westell.com/resources/terms-sale",
+   "terms": "Only Terms of Sale found; prices \"may include tariff surcharges\"",
+   "crawl": "RFQ or trade account",
+   "score": 46,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 66
+  },
+  {
+   "id": "avire",
+   "name": "Avire (RATH, PBE Axell DAS)",
+   "kind": "manufacturer",
+   "country": "US/UK",
+   "ships_to": "US, UK",
+   "kinds": [
+    "alarm",
+    "bda",
+    "das",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote",
+    "battery/UPS",
+    "annunciator/alarm"
+   ],
+   "brands": "RATH SAFE-BBU, Axell",
+   "prices": "login",
+   "price_route": "login / quote",
+   "api": false,
+   "public_safety": "RATH SAFE-BBU 12/24 h LiFePO4 NEMA 4, UL 2524 (excerpt)",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.avire-global.com/",
+   "host": "www.avire-global.com",
+   "terms_url": "https://www.avire-global.com/legal-terms/",
+   "terms": "Legal Terms page has no automated-access clause",
+   "crawl": "RFQ or trade account",
+   "score": 45,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US/UK 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 67
+  },
+  {
+   "id": "rsuk",
+   "name": "RS Components (UK)",
+   "kind": "e-commerce",
+   "country": "UK",
+   "ships_to": "Worldwide (UK)",
+   "kinds": [
+    "connector",
+    "enclosure",
+    "test"
+   ],
+   "categories": [
+    "connectors",
+    "enclosures",
+    "test"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages (terms limit it)",
+   "api": false,
+   "public_safety": "Connectors, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://uk.rs-online.com/",
+   "host": "uk.rs-online.com",
+   "terms_url": "https://uk.rs-online.com/web/content/about-rs/articles/website-conditions-of-use",
+   "terms": "reproduction \"for personal use or internal business use only\"; no \"incorporation ... in any ... electronic retrieval system\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 45,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "UK 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 68
+  },
+  {
+   "id": "dasdeals",
+   "name": "DAS Deals",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "passive"
+   ],
+   "categories": [
+    "splitters",
+    "couplers/taps",
+    "hybrids (often open-box)"
+   ],
+   "brands": "RFI/Microlab",
+   "prices": "yes",
+   "price_route": "public pages (rate limited)",
+   "api": false,
+   "public_safety": "Open-box Microlab passives",
+   "ps": false,
+   "flag": "",
+   "site": "https://dasdeals.com/",
+   "host": "dasdeals.com",
+   "terms_url": "",
+   "terms": "collection page answered 429",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 44,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 69
+  },
+  {
+   "id": "kpperf",
+   "name": "KP Performance Antennas (Infinite)",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna"
+   ],
+   "brands": "KP",
+   "prices": "yes",
+   "price_route": "public pages (Infinite terms)",
+   "api": false,
+   "public_safety": "Donor yagis",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.kpperformance.com/",
+   "host": "www.kpperformance.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "Infinite brand; shared terms bar robots",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 44,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 70
+  },
+  {
+   "id": "masterelec",
+   "name": "Master Electronics / Onlinecomponents.com",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "connectors",
+    "RF components"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "public pages",
+   "api": false,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.onlinecomponents.com/",
+   "host": "www.onlinecomponents.com",
+   "terms_url": "https://www.onlinecomponents.com/downloads/saleterms.pdf",
+   "terms": "Terms link opened a PDF (sale terms)",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 44,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 71
+  },
+  {
+   "id": "pctelstore",
+   "name": "PCTEL Store",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: scanner",
+    "antennas",
+    "licences"
+   ],
+   "brands": "PCTEL",
+   "prices": "yes",
+   "price_route": "public pages (terms limit it)",
+   "api": false,
+   "public_safety": "SeeHawk licences",
+   "ps": false,
+   "flag": "",
+   "site": "https://pctelstore.com/",
+   "host": "pctelstore.com",
+   "terms_url": "https://pctelstore.com/policies/terms-of-service",
+   "terms": "PCTEL terms: \"for your personal, non-commercial use\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 44,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 72
+  },
+  {
+   "id": "rspsupply",
+   "name": "RSP Supply",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: scanner",
+    "test: cable-antenna analyzer",
+    "two-way radio"
+   ],
+   "brands": "PCTEL, Anritsu, Bird",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "PCTEL licences, test gear",
+   "ps": false,
+   "flag": "",
+   "site": "https://rspsupply.com/",
+   "host": "rspsupply.com",
+   "terms_url": "https://rspsupply.com/terms-and-conditions",
+   "terms": "Terms are sale terms (\"In the event of a manufacturer price increase ... Seller will communicate\")",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 44,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 73
+  },
+  {
+   "id": "tequipment",
+   "name": "TEquipment",
+   "kind": "e-commerce",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: cable-antenna analyzer",
+    "test: spectrum analyzer"
+   ],
+   "brands": "Anritsu, Keysight, Siglent",
+   "prices": "yes",
+   "price_route": "public pages (challenge)",
+   "api": false,
+   "public_safety": "Test gear",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.tequipment.net/",
+   "host": "www.tequipment.net",
+   "terms_url": "",
+   "terms": "home page answered a challenge page",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 44,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 74
+  },
+  {
+   "id": "txrx",
+   "name": "TX RX Systems (Indutrade)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "bda",
+    "passive"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "filters",
+    "couplers/taps",
+    "splitters",
+    "hybrids"
+   ],
+   "brands": "TX RX",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Filters, combiners, BDAs",
+   "ps": true,
+   "flag": "",
+   "site": "https://txrx.com/",
+   "host": "txrx.com",
+   "terms_url": "https://txrx.com/terms-of-service/",
+   "terms": "Terms and Conditions (June 2, 2026) are sale terms; no automated-access clause found",
+   "crawl": "RFQ or trade account",
+   "score": 44,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 75
+  },
+  {
+   "id": "altelix",
+   "name": "Altelix",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "power"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "battery/UPS"
+   ],
+   "brands": "Altelix",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "NEMA enclosures with power",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.altelix.com/",
+   "host": "www.altelix.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 43,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 76
+  },
+  {
+   "id": "arc",
+   "name": "ARC Wireless (Arcadian)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "coax"
+   ],
+   "categories": [
+    "service antenna",
+    "donor antenna",
+    "coax assemblies"
+   ],
+   "brands": "ARC",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.arcantenna.com/",
+   "host": "www.arcantenna.com",
+   "terms_url": "https://www.arcantenna.com/policies/terms-of-service",
+   "terms": "\"You may not use any robot, scraper, spider, or other automated means to access or gather the Content\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 43,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 77
+  },
+  {
+   "id": "kendallhoward",
+   "name": "Kendall Howard",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "racks",
+    "mounting hardware"
+   ],
+   "brands": "Kendall Howard",
+   "prices": "yes",
+   "price_route": "public product pages",
+   "api": false,
+   "public_safety": "Racks and wall mounts",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.kendallhoward.com/",
+   "host": "www.kendallhoward.com",
+   "terms_url": "",
+   "terms": "No terms page found at the usual paths (404)",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 43,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 78
+  },
+  {
+   "id": "shireen",
+   "name": "Shireen Inc.",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax assemblies",
+    "connectors"
+   ],
+   "brands": "Shireen",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Plenum coax, $4.50/ft or $2,600/1,000 ft (excerpt)",
+   "ps": false,
+   "flag": "",
+   "site": "https://shireeninc.com/",
+   "host": "shireeninc.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 43,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 79
+  },
+  {
+   "id": "te",
+   "name": "TE Connectivity (Laird External Antennas)",
+   "kind": "manufacturer",
+   "country": "US/CH",
+   "ships_to": "Global",
+   "kinds": [
+    "antenna",
+    "connector"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna",
+    "connectors"
+   ],
+   "brands": "TE, Laird External Antennas",
+   "prices": "partial",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Laird LMR and in-building antennas; no ERCES listing",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.te.com/",
+   "host": "www.te.com",
+   "terms_url": "https://www.te.com/en/policies-agreements/terms-of-use-te-com.html",
+   "terms": "\"You may download Content only for your personal use for non-commercial purposes\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 43,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US/CH 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 80
+  },
+  {
+   "id": "amazon",
+   "name": "Amazon Business",
+   "kind": "marketplace",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "enclosure"
+   ],
+   "categories": [
+    "connectors",
+    "coax",
+    "batteries",
+    "enclosures"
+   ],
+   "brands": "many",
+   "prices": "yes",
+   "price_route": "affiliate-only API (Creators API; PA-API 5 deprecated)",
+   "api": false,
+   "public_safety": "Generic parts",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.amazon.com/",
+   "host": "www.amazon.com",
+   "terms_url": "https://www.amazon.com:443/amazonprime?_encoding=UTF8&pd_rd_w=uHaQp&content-id=amzn1.sym.125f34c2-0e9c-4cff-aa78-c175e6c94056&pf_rd_p=125f34c2-0e9c-4cff-aa78-c175e6c94056&pf_rd_r=607JDETNT150GG4APQ66&pd_rd_wg=EUKHm&pd_rd_r=3b522bfd-32f3-431c-8b95-a9d3aeec7961&ref_=pd_hp_d_r_atf_unk",
+   "terms": "Terms not read; PA-API 5 now answers 403 and points to the Creators API for affiliates (page 11/8)",
+   "crawl": "no route (affiliate-only API)",
+   "score": 42,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices yes 20/20",
+    "marketplace 0/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 81
+  },
+  {
+   "id": "jma",
+   "name": "JMA Wireless",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "connector",
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "fiber DAS",
+    "service antenna",
+    "connectors"
+   ],
+   "brands": "JMA, Quintel, Teko",
+   "prices": "quote only",
+   "price_route": "quote only",
+   "api": false,
+   "public_safety": "PS DAS remotes 700/800/900; UL 2524 not confirmed",
+   "ps": true,
+   "flag": "",
+   "site": "https://jmawireless.com/",
+   "host": "jmawireless.com",
+   "terms_url": "https://jmawireless.com/terms-of-use/",
+   "terms": "materials \"must be used solely for purposes of promoting JMA and its products\"",
+   "crawl": "RFQ or trade account",
+   "score": 42,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 82
+  },
+  {
+   "id": "madeinchina",
+   "name": "Made-in-China.com (marketplace)",
+   "kind": "marketplace",
+   "country": "CN",
+   "ships_to": "Worldwide (CN)",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "passives",
+    "antennas",
+    "coax"
+   ],
+   "brands": "many CN makers",
+   "prices": "yes",
+   "price_route": "marketplace (refused)",
+   "api": false,
+   "public_safety": "Hybrids FOB $10-30 (excerpt); no UL 2524",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.made-in-china.com/",
+   "host": "www.made-in-china.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 42,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices yes 20/20",
+    "marketplace 0/10",
+    "CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 83
+  },
+  {
+   "id": "newmar",
+   "name": "Newmar Power",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "enclosure",
+    "power"
+   ],
+   "categories": [
+    "battery/UPS",
+    "annunciator/alarm",
+    "NEMA 4 enclosure"
+   ],
+   "brands": "Newmar PE UL 2524",
+   "prices": "quote only",
+   "price_route": "quote / distributors",
+   "api": false,
+   "public_safety": "PE series UL 2524 & 924 power enclosures, AP-8000A annunciator (excerpt)",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.newmarpower.com/",
+   "host": "www.newmarpower.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 42,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 84
+  },
+  {
+   "id": "fs",
+   "name": "FS.com",
+   "kind": "e-commerce",
+   "country": "US/CN",
+   "ships_to": "Worldwide; US warehouse",
+   "kinds": [
+    "enclosure",
+    "fiber"
+   ],
+   "categories": [
+    "fiber",
+    "racks",
+    "NEMA 4 enclosure"
+   ],
+   "brands": "FS",
+   "prices": "yes",
+   "price_route": "public pages (challenge)",
+   "api": false,
+   "public_safety": "Fiber jumpers, racks",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.fs.com/",
+   "host": "www.fs.com",
+   "terms_url": "",
+   "terms": "Every page answered 202 with an empty body (bot check)",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 41,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices yes 20/20",
+    "e-commerce 10/10",
+    "US/CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 85
+  },
+  {
+   "id": "guillevin",
+   "name": "Guillevin",
+   "kind": "distributor",
+   "country": "CA",
+   "ships_to": "Canada",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "fiber",
+    "mounting hardware"
+   ],
+   "brands": "many electrical",
+   "prices": "partial",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Electrical",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.guillevin.com/",
+   "host": "www.guillevin.com",
+   "terms_url": "https://www.guillevin.com/pages/legal-notices",
+   "terms": "contents may not be \"copied, duplicated, printed, archived ... without Guillevin's prior consent\"; view \"for use which is strictly private, personal and non-commercial\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 40,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices partial 12/20",
+    "distributor 10/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 86
+  },
+  {
+   "id": "microlab",
+   "name": "Microlab (RF Industries)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US, global via distributors",
+   "kinds": [
+    "passive"
+   ],
+   "categories": [
+    "splitters",
+    "couplers/taps",
+    "hybrids",
+    "filters",
+    "attenuators",
+    "terminations",
+    "DC blocks"
+   ],
+   "brands": "Microlab",
+   "prices": "login",
+   "price_route": "login account; Digi-Key lists 7 couplers and 7 splitters (11/05)",
+   "api": false,
+   "public_safety": "SMART Coupler monitored passives for PS DAS",
+   "ps": true,
+   "flag": "",
+   "site": "https://microlabtech.com/",
+   "host": "microlabtech.com",
+   "terms_url": "https://microlabtech.com/terms-and-conditions.html",
+   "terms": "\"use such information only for your personal, non-commercial informational purpose\" (terms.html)",
+   "crawl": "RFQ or trade account",
+   "score": 40,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 87
+  },
+  {
+   "id": "integra",
+   "name": "Integra Enclosures",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure"
+   ],
+   "brands": "Integra",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "NEMA 4X enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.integraenclosures.com/",
+   "host": "www.integraenclosures.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 39,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 88
+  },
+  {
+   "id": "meca",
+   "name": "MECA Electronics",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "passive"
+   ],
+   "categories": [
+    "splitters",
+    "couplers/taps",
+    "hybrids",
+    "attenuators",
+    "terminations",
+    "DC blocks"
+   ],
+   "brands": "MECA",
+   "prices": "yes",
+   "price_route": "public product pages (Shopify)",
+   "api": false,
+   "public_safety": "DAS splitters, couplers, hybrids, attenuators, loads, DC blocks (US-made)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.e-meca.com/",
+   "host": "www.e-meca.com",
+   "terms_url": "https://e-meca.com/pages/terms",
+   "terms": "Terms page is sale terms (25% restocking charge); no website-use clause found",
+   "crawl": "polite crawl candidate for the firm's own buying; ask for a price file too",
+   "score": 39,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 89
+  },
+  {
+   "id": "minicircuits",
+   "name": "Mini-Circuits",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "passive"
+   ],
+   "categories": [
+    "attenuators",
+    "terminations",
+    "splitters",
+    "couplers/taps",
+    "filters"
+   ],
+   "brands": "Mini-Circuits",
+   "prices": "yes",
+   "price_route": "public pages (terms limit it)",
+   "api": false,
+   "public_safety": "Lab attenuators/loads; not PS-rated",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.minicircuits.com/",
+   "host": "www.minicircuits.com",
+   "terms_url": "https://www.minicircuits.com/homepage/terms_of_use.html",
+   "terms": "may not \"modify, copy, distribute, publish or transmit any Information for any public or commercial purpose\" (March 18, 2015)",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 39,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 90
+  },
+  {
+   "id": "polycase",
+   "name": "Polycase",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure"
+   ],
+   "brands": "Polycase",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "NEMA 4X enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.polycase.com/",
+   "host": "www.polycase.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 39,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 91
+  },
+  {
+   "id": "rfindustries",
+   "name": "RF Industries",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "connectors",
+    "coax assemblies",
+    "splitters",
+    "couplers/taps"
+   ],
+   "brands": "RF Industries, Microlab, Schroff? no",
+   "prices": "partial",
+   "price_route": "distributors (Digi-Key)",
+   "api": false,
+   "public_safety": "Microlab parent; cable assemblies",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rfindustries.com/",
+   "host": "www.rfindustries.com",
+   "terms_url": "https://rfindustries.com/terms-and-conditions/",
+   "terms": "Terms and Conditions (November 2025): \"All prices quoted are subject to change without prior notice\"",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 39,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 92
+  },
+  {
+   "id": "signalhound",
+   "name": "Signal Hound",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: spectrum analyzer"
+   ],
+   "brands": "Signal Hound BB60D",
+   "prices": "yes",
+   "price_route": "public pages (terms limit it)",
+   "api": false,
+   "public_safety": "BB60D analyzer + $295 certificate",
+   "ps": false,
+   "flag": "",
+   "site": "https://signalhound.com/",
+   "host": "signalhound.com",
+   "terms_url": "https://signalhound.com/terms-and-conditions/",
+   "terms": "use \"for your own personal use\"; must not \"Republish material\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 39,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 93
+  },
+  {
+   "id": "transtector",
+   "name": "Transtector (Infinite Electronics)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "surge"
+   ],
+   "categories": [
+    "surge"
+   ],
+   "brands": "Transtector",
+   "prices": "yes",
+   "price_route": "public pages (terms bar it)",
+   "api": false,
+   "public_safety": "Surge",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.transtector.com/",
+   "host": "www.transtector.com",
+   "terms_url": "https://www.infiniteelectronics.com/website-terms-of-service/",
+   "terms": "\"use any robot, spider, scraper or other automated access the Website for any purpose without our express written permission\"; use is \"solely for your personal, noncommercial use\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 39,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 94
+  },
+  {
+   "id": "wilson",
+   "name": "Wilson Connectivity (Zinwave, WilsonPro)",
+   "kind": "manufacturer",
+   "country": "US/UK",
+   "ships_to": "US, UK",
+   "kinds": [
+    "antenna",
+    "bda",
+    "das",
+    "power"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "fiber DAS",
+    "DAS head-end/remote",
+    "battery/UPS",
+    "service antenna"
+   ],
+   "brands": "Zinwave, WilsonPro, weBoost",
+   "prices": "quote only",
+   "price_route": "dealers",
+   "api": false,
+   "public_safety": "Zinwave PS DAS, PSR BDA, UL 2524 certificates; BBU NEMA 3R",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.wilsonconnectivity.com/",
+   "host": "www.wilsonconnectivity.com",
+   "terms_url": "https://www.wilsonconnectivity.com/privacy-policy",
+   "terms": "Only a privacy policy was found from the home page",
+   "crawl": "RFQ or trade account",
+   "score": 39,
+   "score_why": [
+    "DAS range 16/40 (4 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US/UK 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 95
+  },
+  {
+   "id": "borderstates",
+   "name": "Border States",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "mounting hardware",
+    "fiber"
+   ],
+   "brands": "many electrical",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Electrical, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.borderstates.com/",
+   "host": "www.borderstates.com",
+   "terms_url": "https://solutions.borderstates.com/terms-conditions/",
+   "terms": "must not \"Use any robot, spider or other automatic device, process or means to access the Website\"",
+   "crawl": "RFQ or trade account",
+   "score": 38,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 96
+  },
+  {
+   "id": "crescent",
+   "name": "Crescent Electric Supply",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "fiber",
+    "mounting hardware"
+   ],
+   "brands": "many electrical",
+   "prices": "login",
+   "price_route": "login (refused)",
+   "api": false,
+   "public_safety": "Electrical",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.cesco.com/",
+   "host": "www.cesco.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 38,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 97
+  },
+  {
+   "id": "nextivity",
+   "name": "Nextivity (CEL-FI / SHIELD)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US, Canada (ERCES)",
+   "kinds": [
+    "bda",
+    "das"
+   ],
+   "categories": [
+    "BDA/repeater",
+    "DAS head-end/remote"
+   ],
+   "brands": "CEL-FI, SHIELD",
+   "prices": "quote only",
+   "price_route": "resellers",
+   "api": false,
+   "public_safety": "SHIELD public safety BDA/DAS",
+   "ps": true,
+   "flag": "",
+   "site": "https://nextivityinc.com/",
+   "host": "nextivityinc.com",
+   "terms_url": "https://nextivityinc.com/terms-of-use/",
+   "terms": "may not \"'scrape,' 'crawl' or 'spider' any web pages\"",
+   "crawl": "RFQ or trade account",
+   "score": 38,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 98
+  },
+  {
+   "id": "rexelusa",
+   "name": "Rexel USA",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "mounting hardware",
+    "fiber"
+   ],
+   "brands": "many electrical",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Electrical; Talley's parent",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rexelusa.com/",
+   "host": "www.rexelusa.com",
+   "terms_url": "https://www.rexelusa.com/terms",
+   "terms": "Terms link led to the home page",
+   "crawl": "RFQ or trade account",
+   "score": 38,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 99
+  },
+  {
+   "id": "rfs",
+   "name": "RFS Technologies (Amphenol)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US via distributors",
+   "kinds": [
+    "coax",
+    "connector"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax riser",
+    "coax 1/2",
+    "coax 7/8",
+    "connectors",
+    "radiating cable"
+   ],
+   "brands": "RFS CELLFLEX, ClearFill, DragonSkin, RADIAFLEX",
+   "prices": "quote only",
+   "price_route": "quote only (via distributors)",
+   "api": false,
+   "public_safety": "ClearFill red PS coax, DragonSkin 2-hour UL 2196 cable",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.rfstechnologies.com/",
+   "host": "www.rfstechnologies.com",
+   "terms_url": "",
+   "terms": "Terms page links sale and purchasing conditions PDFs only",
+   "crawl": "RFQ or trade account",
+   "score": 38,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 100
+  },
+  {
+   "id": "toweriq",
+   "name": "TowerIQ / DASalert",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm",
+    "bda"
+   ],
+   "categories": [
+    "annunciator/alarm",
+    "BDA/repeater"
+   ],
+   "brands": "DASalert 1221",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "TQ-ANN annunciator now obsolete (excerpt)",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.tower-iq.com/",
+   "host": "www.tower-iq.com",
+   "terms_url": "https://www.pottersignal.com/vendor-terms",
+   "terms": "Redirects to Potter; Potter's terms apply",
+   "crawl": "RFQ or trade account",
+   "score": 38,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 101
+  },
+  {
+   "id": "bearcom",
+   "name": "BearCom",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "bda"
+   ],
+   "categories": [
+    "BDA/repeater (installs)",
+    "two-way radio"
+   ],
+   "brands": "various",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "BDA installs, two-way radio",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.bearcom.com/",
+   "host": "www.bearcom.com",
+   "terms_url": "https://bearcom.com/terms-of-use",
+   "terms": "bars \"data gathering or extraction methods designed to scrape or extract data\" (February 1, 2023)",
+   "crawl": "RFQ or trade account",
+   "score": 36,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 102
+  },
+  {
+   "id": "heilind",
+   "name": "Heilind Electronics",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "connectors"
+   ],
+   "brands": "Amphenol, TE",
+   "prices": "partial",
+   "price_route": "public pages / quote",
+   "api": false,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.heilind.com/",
+   "host": "www.heilind.com",
+   "terms_url": "https://www.heilind.com/cms/wp-content/uploads/FR-1042-Supplier-Purchase-Order-Terms-and-Conditions-HEI-Rev-F.pdf",
+   "terms": "Ecommerce Terms: \"Price and availability ... are subject to change without prior notice\"",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 36,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 103
+  },
+  {
+   "id": "rfmw",
+   "name": "RFMW",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "passive"
+   ],
+   "categories": [
+    "RF components",
+    "attenuators",
+    "terminations",
+    "filters"
+   ],
+   "brands": "many RF",
+   "prices": "partial",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "RF components",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rfmw.com/",
+   "host": "www.rfmw.com",
+   "terms_url": "https://www.rfmw.com/datasheets/rfmw/terms.pdf",
+   "terms": "Terms link had a space in it and failed; a PDF was found",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 36,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 104
+  },
+  {
+   "id": "richardson",
+   "name": "Richardson RFPD (Arrow)",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "RF components",
+    "connectors"
+   ],
+   "brands": "many RF",
+   "prices": "partial",
+   "price_route": "quote / Arrow",
+   "api": false,
+   "public_safety": "RF components",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.richardsonrfpd.com/",
+   "host": "www.richardsonrfpd.com",
+   "terms_url": "https://www.arrow.com/en/support/legal/terms-and-conditions.html",
+   "terms": "Arrow terms: \"you will not use any robot, spider, other automatic device, or manual process to monitor or copy our Site\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 36,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 105
+  },
+  {
+   "id": "hoffman",
+   "name": "nVent (Hoffman, ERICO, Caddy)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "grounding",
+    "mounting hardware"
+   ],
+   "brands": "Hoffman, ERICO, Caddy",
+   "prices": "partial",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "NEMA 4/4X enclosures, ERICO grounding",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.nvent.com/",
+   "host": "www.nvent.com",
+   "terms_url": "https://www.nvent.com/en-us/terms-and-conditions-of-sale",
+   "terms": "may not \"use any robot, spider or other automatic device, process or means to access the Site\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 35,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 106
+  },
+  {
+   "id": "sinclair",
+   "name": "Sinclair Technologies (Norsat, Hytera group)",
+   "kind": "manufacturer",
+   "country": "CA",
+   "ships_to": "Canada, US",
+   "kinds": [
+    "antenna",
+    "bda",
+    "passive"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna",
+    "filters",
+    "BDA/repeater"
+   ],
+   "brands": "Sinclair",
+   "prices": "partial",
+   "price_route": "Shopify store / quote",
+   "api": false,
+   "public_safety": "",
+   "ps": false,
+   "flag": "owned by Hytera via Norsat since 2017 (CBC, Wikipedia). Hytera public-safety equipment is on the FCC Covered List: check prohibited.py before buying",
+   "site": "https://www.sinctech.com/",
+   "host": "www.sinctech.com",
+   "terms_url": "https://www.sinctech.com/policies/terms-of-service",
+   "terms": "Terms are Norsat sale terms (\"Prices shown in the Quote are subject to verification by Norsat\")",
+   "crawl": "hold: Hytera flag; RFQ only after a Covered List check",
+   "score": 35,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 107
+  },
+  {
+   "id": "telewave",
+   "name": "Telewave",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "passive"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna",
+    "filters",
+    "hybrids",
+    "splitters"
+   ],
+   "brands": "Telewave",
+   "prices": "partial",
+   "price_route": "public pages / quote",
+   "api": false,
+   "public_safety": "LMR antennas and filters",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.telewave.com/",
+   "host": "www.telewave.com",
+   "terms_url": "https://www.telewave.com/support/termsandconditions/",
+   "terms": "Terms are sale terms (\"Written price quotations will remain valid for 30 days\")",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 35,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 108
+  },
+  {
+   "id": "accutech",
+   "name": "Accu-Tech (Wesco)",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "fiber"
+   ],
+   "categories": [
+    "fiber",
+    "racks",
+    "structured cabling"
+   ],
+   "brands": "many",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Structured cabling",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.accu-tech.com/",
+   "host": "www.accu-tech.com",
+   "terms_url": "https://www.accu-tech.com/termsofuse",
+   "terms": "\"Gathering data from the Sites through harvesting, screen scraping or other automated means is strictly prohibited\"",
+   "crawl": "RFQ or trade account",
+   "score": 34,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 109
+  },
+  {
+   "id": "dasalert",
+   "name": "DASalert.com",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "alarm"
+   ],
+   "categories": [
+    "annunciator/alarm"
+   ],
+   "brands": "DASalert",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "DASalert 1221 annunciator: IFC 2021 510.4.2.5, NFPA 1225 18.3.2.1 (excerpt)",
+   "ps": true,
+   "flag": "",
+   "site": "https://dasalert.com/",
+   "host": "dasalert.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 34,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 110
+  },
+  {
+   "id": "dragonskin",
+   "name": "DragonSkin (RFS)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "coax plenum (2-hour rated)"
+   ],
+   "brands": "RFS DragonSkin",
+   "prices": "quote only",
+   "price_route": "Tessco / RFS",
+   "api": false,
+   "public_safety": "UL 2196 2-hour standalone PS coax",
+   "ps": true,
+   "flag": "",
+   "site": "https://dragonskincable.com/",
+   "host": "dragonskincable.com",
+   "terms_url": "",
+   "terms": "No robots.txt or terms found",
+   "crawl": "RFQ or trade account",
+   "score": 34,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 111
+  },
+  {
+   "id": "gexpro",
+   "name": "Gexpro",
+   "kind": "distributor",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "mounting hardware"
+   ],
+   "brands": "many electrical",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Electrical",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.gexpro.com/",
+   "host": "www.gexpro.com",
+   "terms_url": "https://www.rexelusa.com/terms",
+   "terms": "Terms link led to the Rexel home page",
+   "crawl": "RFQ or trade account",
+   "score": 34,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices login 6/20",
+    "distributor 10/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 112
+  },
+  {
+   "id": "nedco",
+   "name": "Nedco (Rexel Canada)",
+   "kind": "distributor",
+   "country": "CA",
+   "ships_to": "Canada",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "fiber",
+    "mounting hardware"
+   ],
+   "brands": "many electrical",
+   "prices": "login",
+   "price_route": "login (refused)",
+   "api": false,
+   "public_safety": "Electrical",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.nedco.ca/",
+   "host": "www.nedco.ca",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 34,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices login 6/20",
+    "distributor 10/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 113
+  },
+  {
+   "id": "electrorent",
+   "name": "Electro Rent",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test rental",
+    "used test gear"
+   ],
+   "brands": "Anritsu, Keysight, VIAVI",
+   "prices": "partial",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Test rental",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.electrorent.com/",
+   "host": "www.electrorent.com",
+   "terms_url": "",
+   "terms": "Terms link led to the home page",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 33,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 114
+  },
+  {
+   "id": "times",
+   "name": "Times Microwave Systems (Amphenol)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US, global via distributors",
+   "kinds": [
+    "coax",
+    "connector",
+    "surge"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax riser",
+    "coax 1/2",
+    "connectors",
+    "surge"
+   ],
+   "brands": "Times LMR, LMR-LLPL, LMR-FR",
+   "prices": "login",
+   "price_route": "login account / distributors",
+   "api": false,
+   "public_safety": "LMR-LLPL plenum and LMR-FR riser coax",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.timesmicrowave.com/",
+   "host": "www.timesmicrowave.com",
+   "terms_url": "https://timesmicrowave.com/legal-documents/",
+   "terms": "Legal Documents page lists sale terms; no website-use clause found",
+   "crawl": "RFQ or trade account",
+   "score": 33,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 115
+  },
+  {
+   "id": "trsrentelco",
+   "name": "TRS-RenTelco",
+   "kind": "reseller",
+   "country": "US",
+   "ships_to": "US, Canada",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test rental",
+    "used test gear"
+   ],
+   "brands": "PCTEL, Anritsu, VIAVI",
+   "prices": "partial",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Test rental",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.trsrentelco.com/",
+   "host": "www.trsrentelco.com",
+   "terms_url": "https://www.trsrentelco.com/terms-of-use",
+   "terms": "may not \"Use any robot, spider, site search/retrieval application ... to retrieve, index, 'data mine'\"",
+   "crawl": "no crawl (terms bar robots): RFQ or ask for a price file",
+   "score": 33,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "reseller 7/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 116
+  },
+  {
+   "id": "aaronia",
+   "name": "Aaronia",
+   "kind": "manufacturer",
+   "country": "DE",
+   "ships_to": "Worldwide (DE)",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: spectrum analyzer"
+   ],
+   "brands": "Spectran",
+   "prices": "yes",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "Spectrum analyzers",
+   "ps": false,
+   "flag": "",
+   "site": "https://aaronia.com/",
+   "host": "aaronia.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 32,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "DE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 117
+  },
+  {
+   "id": "citel",
+   "name": "CITEL",
+   "kind": "manufacturer",
+   "country": "FR/US",
+   "ships_to": "US, global",
+   "kinds": [
+    "surge"
+   ],
+   "categories": [
+    "surge"
+   ],
+   "brands": "CITEL",
+   "prices": "yes",
+   "price_route": "CITEL e-shop (terms limit it)",
+   "api": false,
+   "public_safety": "Coax surge",
+   "ps": false,
+   "flag": "",
+   "site": "https://citel.us/",
+   "host": "citel.us",
+   "terms_url": "https://citel.us/en/citel-america-inc-terms-conditions",
+   "terms": "information may be reproduced \"solely for personal reasons\" (Legal Notice); e-shop shows \"current price exclusive of ... shipping\"",
+   "crawl": "no crawl without written permission (terms limit use): RFQ or price file",
+   "score": 32,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "manufacturer 5/10",
+    "FR/US 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 118
+  },
+  {
+   "id": "alliedmoulded",
+   "name": "Allied Moulded Products",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure"
+   ],
+   "brands": "Allied Moulded",
+   "prices": "partial",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "NEMA 4X enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.alliedmoulded.com/",
+   "host": "www.alliedmoulded.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 31,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 119
+  },
+  {
+   "id": "americanfirewire",
+   "name": "American Fire Wire",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "coax plenum (2-hour rated)"
+   ],
+   "brands": "AFW",
+   "prices": "partial",
+   "price_route": "quote / resellers",
+   "api": false,
+   "public_safety": "2-hour coax by ASTM E119 report, not UL 2196 (excerpt)",
+   "ps": false,
+   "flag": "",
+   "site": "https://americanfirewire.com/",
+   "host": "americanfirewire.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 31,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 120
+  },
+  {
+   "id": "bvs",
+   "name": "Berkeley Varitronics Systems",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: scanner"
+   ],
+   "brands": "BVS",
+   "prices": "partial",
+   "price_route": "public pages / quote",
+   "api": false,
+   "public_safety": "Scanners",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.bvsystems.com/",
+   "host": "www.bvsystems.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 31,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 121
+  },
+  {
+   "id": "flukenetworks",
+   "name": "Fluke Networks",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "fiber test"
+   ],
+   "brands": "Fluke Networks",
+   "prices": "partial",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Fiber test",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.flukenetworks.com/",
+   "host": "www.flukenetworks.com",
+   "terms_url": "https://www.flukenetworks.com/about/terms-of-use",
+   "terms": "Terms of Use (September 11, 2009): no automated-access clause found",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 31,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 122
+  },
+  {
+   "id": "keysight",
+   "name": "Keysight",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: cable-antenna analyzer"
+   ],
+   "brands": "FieldFox",
+   "prices": "partial",
+   "price_route": "public pages (refused)",
+   "api": false,
+   "public_safety": "FieldFox",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.keysight.com/",
+   "host": "www.keysight.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 31,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 123
+  },
+  {
+   "id": "saginaw",
+   "name": "Saginaw Control and Engineering",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure"
+   ],
+   "brands": "SCE",
+   "prices": "partial",
+   "price_route": "price lists / distributors",
+   "api": false,
+   "public_safety": "NEMA 4 enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.saginawcontrol.com/",
+   "host": "www.saginawcontrol.com",
+   "terms_url": "https://www.saginawcontrol.com/terms-and-conditions",
+   "terms": "\"Published Price Lists: SCE reserves the right to cancel or adjust prices at any time\"",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 31,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 124
+  },
+  {
+   "id": "solid",
+   "name": "SOLiD (SOLiD Gear, US)",
+   "kind": "manufacturer",
+   "country": "US/KR",
+   "ships_to": "US, Canada",
+   "kinds": [
+    "bda",
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "fiber DAS",
+    "BDA/repeater"
+   ],
+   "brands": "SOLiD ALLIANCE, BARS, Responder",
+   "prices": "quote only",
+   "price_route": "quote (Alliance, Winncom, UNISOL)",
+   "api": false,
+   "public_safety": "ALLIANCE PS DAS, Responder repeater",
+   "ps": true,
+   "flag": "",
+   "site": "https://solid.com/",
+   "host": "solid.com",
+   "terms_url": "",
+   "terms": "Terms link led to a region map",
+   "crawl": "RFQ or trade account",
+   "score": 31,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US/KR 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 125
+  },
+  {
+   "id": "sunwave",
+   "name": "Sunwave Communications",
+   "kind": "manufacturer",
+   "country": "CN",
+   "ships_to": "Global (CN)",
+   "kinds": [
+    "bda",
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "BDA/repeater"
+   ],
+   "brands": "Sunwave",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "DAS, repeaters; no UL 2524 or US listing seen",
+   "ps": true,
+   "flag": "",
+   "site": "https://www.sunwave.com.cn/",
+   "host": "www.sunwave.com.cn",
+   "terms_url": "",
+   "terms": "No robots.txt or terms found",
+   "crawl": "RFQ or trade account",
+   "score": 31,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "public safety lines 15/15",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 126
+  },
+  {
+   "id": "walmart",
+   "name": "Walmart Marketplace",
+   "kind": "marketplace",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [],
+   "categories": [
+    "passives (third-party sellers)"
+   ],
+   "brands": "Microlab",
+   "prices": "yes",
+   "price_route": "not checked",
+   "api": false,
+   "public_safety": "Third-party sellers (Microlab DN-14FD $94.50, excerpt)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.walmart.com/",
+   "host": "www.walmart.com",
+   "terms_url": "",
+   "terms": "TLS error on this PC; not read",
+   "crawl": "not checked (TLS error on this PC)",
+   "score": 30,
+   "score_why": [
+    "DAS range 0/40 (0 kinds)",
+    "prices yes 20/20",
+    "marketplace 0/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 127
+  },
+  {
+   "id": "aflglobal",
+   "name": "AFL",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "fiber",
+    "test"
+   ],
+   "categories": [
+    "fiber",
+    "fiber test"
+   ],
+   "brands": "AFL",
+   "prices": "login",
+   "price_route": "login account",
+   "api": false,
+   "public_safety": "Fiber",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.aflglobal.com/",
+   "host": "www.aflglobal.com",
+   "terms_url": "",
+   "terms": "Terms link pointed to Flickr; not found",
+   "crawl": "RFQ or trade account",
+   "score": 29,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 128
+  },
+  {
+   "id": "crossover",
+   "name": "Crossover Distribution",
+   "kind": "distributor",
+   "country": "CA",
+   "ships_to": "Canada, US",
+   "kinds": [
+    "antenna",
+    "bda",
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "BDA/repeater",
+    "service antenna",
+    "donor antenna"
+   ],
+   "brands": "various",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "DAS, LMR DAS; ISED and FCC submissions help (excerpt)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.crossoverdistribution.com/",
+   "host": "www.crossoverdistribution.com",
+   "terms_url": "https://www.crossoverdistribution.com/disclaimer-and-terms-of-use/",
+   "terms": "Disclaimer and Terms of Use: no automated-access clause found",
+   "crawl": "RFQ or trade account",
+   "score": 28,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "distributor 10/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 129
+  },
+  {
+   "id": "alibaba",
+   "name": "Alibaba.com (marketplace)",
+   "kind": "marketplace",
+   "country": "CN",
+   "ships_to": "Worldwide (CN)",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "passives",
+    "antennas",
+    "coax",
+    "BDAs (not UL 2524)"
+   ],
+   "brands": "many CN makers",
+   "prices": "yes",
+   "price_route": "marketplace pages",
+   "api": false,
+   "public_safety": "No UL 2524 BDAs; passives only",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.alibaba.com/",
+   "host": "www.alibaba.com",
+   "terms_url": "https://error.alibaba.com/error404.htm",
+   "terms": "Terms links returned 404 pages; robots.txt blocks GPTBot and Google-Extended",
+   "crawl": "marketplace: RFQ per seller; low value for ERCES",
+   "score": 27,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices yes 20/20",
+    "marketplace 0/10",
+    "CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 130
+  },
+  {
+   "id": "belden",
+   "name": "Belden",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "coax",
+    "connector",
+    "fiber"
+   ],
+   "categories": [
+    "coax plenum",
+    "fiber",
+    "connectors"
+   ],
+   "brands": "Belden",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "DAS plenum coax (WirelessUnits $4,250/1,000 ft, excerpt)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.belden.com/",
+   "host": "www.belden.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 27,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 131
+  },
+  {
+   "id": "commscope",
+   "name": "CommScope (CCS, Amphenol) / Vistance Networks",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global via distributors",
+   "kinds": [
+    "coax",
+    "connector",
+    "fiber"
+   ],
+   "categories": [
+    "fiber",
+    "coax",
+    "connectors"
+   ],
+   "brands": "CommScope CCS",
+   "prices": "quote only",
+   "price_route": "quote only (via distributors)",
+   "api": false,
+   "public_safety": "None now (PS lines moved to ANDREW)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.commscope.com/",
+   "host": "www.commscope.com",
+   "terms_url": "",
+   "terms": "Terms page is a brand-protection notice; no website-use clause found",
+   "crawl": "RFQ or trade account",
+   "score": 27,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 132
+  },
+  {
+   "id": "oberon",
+   "name": "Oberon",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "enclosure",
+    "mounting"
+   ],
+   "categories": [
+    "mounting hardware",
+    "NEMA 4 enclosure",
+    "service antenna enclosure"
+   ],
+   "brands": "Oberon",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Ceiling antenna enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.oberoninc.com/",
+   "host": "www.oberoninc.com",
+   "terms_url": "https://www.chatsworth.com/en-us/terms-of-use/",
+   "terms": "Chatsworth Products terms: \"only for your personal, non-commercial use\"",
+   "crawl": "RFQ or trade account",
+   "score": 27,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 133
+  },
+  {
+   "id": "panduit",
+   "name": "Panduit",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "enclosure",
+    "fiber",
+    "mounting"
+   ],
+   "categories": [
+    "fiber",
+    "racks",
+    "mounting hardware",
+    "grounding"
+   ],
+   "brands": "Panduit",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Fiber, grounding",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.panduit.com/",
+   "host": "www.panduit.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 27,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 134
+  },
+  {
+   "id": "mobilemark",
+   "name": "Mobile Mark",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna"
+   ],
+   "brands": "Mobile Mark",
+   "prices": "login",
+   "price_route": "login",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.mobilemark.com/",
+   "host": "www.mobilemark.com",
+   "terms_url": "https://www.mobilemark.com/terms-of-use/",
+   "terms": "must not \"Use any robot, spider, or other automated device ... including ... scraping, or consolidating any information\" (Oct 2025)",
+   "crawl": "RFQ or trade account",
+   "score": 25,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 135
+  },
+  {
+   "id": "nws",
+   "name": "NWS (Network Wireless Solutions)",
+   "kind": "distributor",
+   "country": "US/CA",
+   "ships_to": "US, Canada",
+   "kinds": [
+    "coax",
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax 1/2",
+    "coax 7/8",
+    "connectors",
+    "splitters",
+    "couplers/taps"
+   ],
+   "brands": "RFS, Amphenol, RD Microwaves, RF Industries/Microlab",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "2-hour plenum coax, RFS, Microlab",
+   "ps": false,
+   "flag": "",
+   "site": "https://nwsnext.com/",
+   "host": "nwsnext.com",
+   "terms_url": "https://nwsnext.com/terms-of-use/",
+   "terms": "\"Attempting to copy, duplicate, reproduce, sell, trade, or resell our Resources is strictly prohibited\"",
+   "crawl": "RFQ or trade account",
+   "score": 25,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "distributor 10/10",
+    "US/CA 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 136
+  },
+  {
+   "id": "sitepro1",
+   "name": "Site Pro 1 (Valmont)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "mounting"
+   ],
+   "categories": [
+    "mounting hardware"
+   ],
+   "brands": "Site Pro 1",
+   "prices": "login",
+   "price_route": "login (refused)",
+   "api": false,
+   "public_safety": "Mounts",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.sitepro1.com/",
+   "host": "www.sitepro1.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 25,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 137
+  },
+  {
+   "id": "viavi",
+   "name": "VIAVI Solutions",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: cable-antenna analyzer",
+    "test: scanner",
+    "fiber test"
+   ],
+   "brands": "CellAdvisor, OneAdvisor",
+   "prices": "login",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "CellAdvisor, OneAdvisor",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.viavisolutions.com/",
+   "host": "www.viavisolutions.com",
+   "terms_url": "https://www.viavisolutions.com/en-us/corporate/legal/terms-use",
+   "terms": "\"copy materials ... solely for non-commercial use\"",
+   "crawl": "RFQ or trade account",
+   "score": 25,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 138
+  },
+  {
+   "id": "poynting",
+   "name": "Poynting",
+   "kind": "manufacturer",
+   "country": "ZA",
+   "ships_to": "Global (ZA)",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna"
+   ],
+   "brands": "Poynting",
+   "prices": "partial",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://poynting.tech/",
+   "host": "poynting.tech",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 24,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "ZA 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 139
+  },
+  {
+   "id": "rittal",
+   "name": "Rittal",
+   "kind": "manufacturer",
+   "country": "DE/US",
+   "ships_to": "Global",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "racks"
+   ],
+   "brands": "Rittal",
+   "prices": "partial",
+   "price_route": "shop / distributors",
+   "api": false,
+   "public_safety": "NEMA 4 enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rittal.com/",
+   "host": "www.rittal.com",
+   "terms_url": "https://www.rittal.com/us-en_US/Terms---Conditions/Legal-notice",
+   "terms": "Legal notice and privacy only; no automated-access clause found",
+   "crawl": "RFQ or price file (some prices on pages; not a crawl target)",
+   "score": 24,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "DE/US 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 140
+  },
+  {
+   "id": "taoglas",
+   "name": "Taoglas",
+   "kind": "manufacturer",
+   "country": "IE",
+   "ships_to": "Global (IE)",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "service antenna",
+    "donor antenna"
+   ],
+   "brands": "Taoglas",
+   "prices": "partial",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.taoglas.com/",
+   "host": "www.taoglas.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 24,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices partial 12/20",
+    "manufacturer 5/10",
+    "IE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 141
+  },
+  {
+   "id": "dbspectra",
+   "name": "dbSpectra",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "passive"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna",
+    "filters",
+    "hybrids"
+   ],
+   "brands": "dbSpectra",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "LMR antennas, combiners",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.dbspectra.com/",
+   "host": "www.dbspectra.com",
+   "terms_url": "https://www.dbspectra.com/terms-conditions/",
+   "terms": "Terms are purchase/sale terms",
+   "crawl": "RFQ or trade account",
+   "score": 23,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 142
+  },
+  {
+   "id": "emr",
+   "name": "EMR Corporation",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna",
+    "passive"
+   ],
+   "categories": [
+    "filters",
+    "hybrids",
+    "couplers/taps",
+    "donor antenna"
+   ],
+   "brands": "EMR",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Combiners, filters for LMR",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.emrcorp.com/",
+   "host": "www.emrcorp.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 23,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 143
+  },
+  {
+   "id": "siemon",
+   "name": "Siemon",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "enclosure",
+    "fiber"
+   ],
+   "categories": [
+    "fiber",
+    "racks"
+   ],
+   "brands": "Siemon",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Fiber",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.siemon.com/",
+   "host": "www.siemon.com",
+   "terms_url": "",
+   "terms": "Legal index page only",
+   "crawl": "RFQ or trade account",
+   "score": 23,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 144
+  },
+  {
+   "id": "trilogy",
+   "name": "Trilogy Communications (AirCell)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax",
+    "connector"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax riser",
+    "coax 1/2",
+    "coax 7/8",
+    "connectors"
+   ],
+   "brands": "Trilogy AirCell",
+   "prices": "quote only",
+   "price_route": "ADI / distributors",
+   "api": false,
+   "public_safety": "AirCell PS plenum cable (ADI)",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.trilogycoax.com/",
+   "host": "www.trilogycoax.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 23,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 145
+  },
+  {
+   "id": "siretta",
+   "name": "Siretta",
+   "kind": "manufacturer",
+   "country": "UK",
+   "ships_to": "Global (UK)",
+   "kinds": [
+    "antenna",
+    "coax"
+   ],
+   "categories": [
+    "service antenna",
+    "coax assemblies"
+   ],
+   "brands": "Siretta",
+   "prices": "login",
+   "price_route": "login",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.siretta.com/",
+   "host": "www.siretta.com",
+   "terms_url": "https://www.siretta.com/terms-and-conditions/",
+   "terms": "Sale terms",
+   "crawl": "RFQ or trade account",
+   "score": 22,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "UK 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 146
+  },
+  {
+   "id": "exfo",
+   "name": "EXFO",
+   "kind": "manufacturer",
+   "country": "CA",
+   "ships_to": "Global (CA)",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "fiber test",
+    "test: PIM"
+   ],
+   "brands": "EXFO",
+   "prices": "login",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Fiber test",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.exfo.com/",
+   "host": "www.exfo.com",
+   "terms_url": "https://www.exfo.com/en/policies/terms-of-use/",
+   "terms": "\"solely for non-commercial use within your organization to acquire, use, and support EXFO products\"",
+   "crawl": "RFQ or trade account",
+   "score": 21,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices login 6/20",
+    "manufacturer 5/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 147
+  },
+  {
+   "id": "rosenberger",
+   "name": "Rosenberger",
+   "kind": "manufacturer",
+   "country": "DE",
+   "ships_to": "Global",
+   "kinds": [
+    "connector",
+    "fiber",
+    "test"
+   ],
+   "categories": [
+    "connectors",
+    "cable assemblies",
+    "test: PIM",
+    "fiber"
+   ],
+   "brands": "Rosenberger",
+   "prices": "quote only",
+   "price_route": "quote only",
+   "api": false,
+   "public_safety": "None found",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rosenberger.com/",
+   "host": "www.rosenberger.com",
+   "terms_url": "",
+   "terms": "No terms page found at the usual paths (404)",
+   "crawl": "RFQ or trade account",
+   "score": 20,
+   "score_why": [
+    "DAS range 12/40 (3 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "DE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 148
+  },
+  {
+   "id": "airspan",
+   "name": "Airspan Networks (ex-Corning DAS)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "das"
+   ],
+   "categories": [
+    "DAS head-end/remote",
+    "fiber DAS"
+   ],
+   "brands": "Airspan (Corning 6000/6200)",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Ex-Corning DAS; PS status not checked",
+   "ps": false,
+   "flag": "",
+   "site": "https://airspan.com/",
+   "host": "airspan.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 149
+  },
+  {
+   "id": "amphenolrf",
+   "name": "Amphenol RF",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global via distributors",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "connectors",
+    "adapters"
+   ],
+   "brands": "Amphenol RF 4.3-10, NEX10, N",
+   "prices": "quote only",
+   "price_route": "distributors (Digi-Key, Mouser APIs)",
+   "api": false,
+   "public_safety": "4.3-10 and NEX10 low-PIM adapters for DAS",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.amphenolrf.com/",
+   "host": "www.amphenolrf.com",
+   "terms_url": "https://www.amphenolrf.com/en-us/about/terms-and-conditions-of-sale/",
+   "terms": "Only Terms & Conditions of Sale found",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 150
+  },
+  {
+   "id": "antennaplus",
+   "name": "Antenna Plus",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "service antenna"
+   ],
+   "brands": "Antenna Plus",
+   "prices": "unknown",
+   "price_route": "not reached",
+   "api": false,
+   "public_safety": "In-building antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.antennaplus.com/",
+   "host": "www.antennaplus.com",
+   "terms_url": "",
+   "terms": "www.antennaplus.com did not resolve (DNS); domain needs checking",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices unknown 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 151
+  },
+  {
+   "id": "comlinx",
+   "name": "Com-Linx",
+   "kind": "manufacturer",
+   "country": "CA",
+   "ships_to": "Canada",
+   "kinds": [
+    "coax",
+    "connector"
+   ],
+   "categories": [
+    "coax assemblies",
+    "connectors"
+   ],
+   "brands": "Com-Linx",
+   "prices": "quote only",
+   "price_route": "distributors (Crossover)",
+   "api": false,
+   "public_safety": "Assemblies",
+   "ps": false,
+   "flag": "",
+   "site": "https://com-linx.ca/",
+   "host": "com-linx.ca",
+   "terms_url": "",
+   "terms": "No terms found",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 152
+  },
+  {
+   "id": "comprod",
+   "name": "Comprod",
+   "kind": "manufacturer",
+   "country": "CA",
+   "ships_to": "Canada, US",
+   "kinds": [
+    "antenna",
+    "passive"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna",
+    "filters"
+   ],
+   "brands": "Comprod",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "LMR antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.comprod.com/",
+   "host": "www.comprod.com",
+   "terms_url": "",
+   "terms": "connection reset by the server",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 19,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 153
+  },
+  {
+   "id": "coppermountain",
+   "name": "Copper Mountain Technologies",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Worldwide",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: cable-antenna analyzer"
+   ],
+   "brands": "CMT VNAs",
+   "prices": "unknown",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "VNAs",
+   "ps": false,
+   "flag": "",
+   "site": "https://coppermountaintech.com/",
+   "host": "coppermountaintech.com",
+   "terms_url": "https://coppermountaintech.com/policies/",
+   "terms": "\"copy the Content only for your own personal use ... you may not otherwise download or store Content\"",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices unknown 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 154
+  },
+  {
+   "id": "corning",
+   "name": "Corning (fiber; DAS sold to Airspan)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "fiber"
+   ],
+   "categories": [
+    "fiber"
+   ],
+   "brands": "Corning",
+   "prices": "quote only",
+   "price_route": "account / distributors",
+   "api": false,
+   "public_safety": "Fiber only",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.corning.com/",
+   "host": "www.corning.com",
+   "terms_url": "https://www.corning.com/worldwide/en/legal-notices.html",
+   "terms": "\"download one copy ... for your personal, non-commercial home use only\"",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 155
+  },
+  {
+   "id": "ditek",
+   "name": "DITEK",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "surge"
+   ],
+   "categories": [
+    "surge"
+   ],
+   "brands": "DITEK",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Surge",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.diteksurgeprotection.com/",
+   "host": "www.diteksurgeprotection.com",
+   "terms_url": "https://www.diteksurgeprotection.com/terms-of-service/",
+   "terms": "may not use Content \"for commercial purposes or for personal gain\" (May 29, 2018)",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 156
+  },
+  {
+   "id": "enersys",
+   "name": "EnerSys (Alpha)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "Global",
+   "kinds": [
+    "power"
+   ],
+   "categories": [
+    "battery/UPS"
+   ],
+   "brands": "EnerSys, Alpha",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Batteries, Alpha power",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.enersys.com/",
+   "host": "www.enersys.com",
+   "terms_url": "https://www.enersys.com/en-gb/footer-pages/website-terms-of-use-global/",
+   "terms": "must not \"Use any robot, spider, or other automatic device, process, or means to access the Website\"",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 157
+  },
+  {
+   "id": "epiq",
+   "name": "Epiq Solutions",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: scanner"
+   ],
+   "brands": "PRiSM",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "PRiSM P25 scanner",
+   "ps": false,
+   "flag": "",
+   "site": "https://epiqsolutions.com/",
+   "host": "epiqsolutions.com",
+   "terms_url": "https://epiqsolutions.com/terms-of-use?hsLang=en",
+   "terms": "no use \"for any public or commercial purpose\"",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 158
+  },
+  {
+   "id": "powersonic",
+   "name": "Power-Sonic",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "power"
+   ],
+   "categories": [
+    "battery/UPS"
+   ],
+   "brands": "Power-Sonic",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "SLA batteries for BBUs",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.power-sonic.com/",
+   "host": "www.power-sonic.com",
+   "terms_url": "https://www.power-sonic.com/wp-content/uploads/2026/01/Power-Sonic-Terms-and-Conditions-4.1.2025-1.pdf",
+   "terms": "Terms are a PDF",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 159
+  },
+  {
+   "id": "pulselarsen",
+   "name": "Pulse Larsen Antennas",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna"
+   ],
+   "brands": "Pulse Larsen",
+   "prices": "unknown",
+   "price_route": "not reached",
+   "api": false,
+   "public_safety": "LMR antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.pulselarsenantenna.com/",
+   "host": "www.pulselarsenantenna.com",
+   "terms_url": "",
+   "terms": "pulselarsenantenna.com did not resolve",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices unknown 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 160
+  },
+  {
+   "id": "rdmicrowaves",
+   "name": "RD Microwaves",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "passive"
+   ],
+   "categories": [
+    "splitters",
+    "couplers/taps",
+    "hybrids",
+    "filters",
+    "attenuators",
+    "terminations"
+   ],
+   "brands": "RD Microwaves",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "DAS passives",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rdmicrowaves.com/",
+   "host": "www.rdmicrowaves.com",
+   "terms_url": "",
+   "terms": "Terms page empty",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 161
+  },
+  {
+   "id": "upg",
+   "name": "Universal Power Group (UPG)",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "power"
+   ],
+   "categories": [
+    "battery/UPS"
+   ],
+   "brands": "UPG",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "SLA batteries",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.upgi.com/",
+   "host": "www.upgi.com",
+   "terms_url": "",
+   "terms": "No robots.txt or terms found",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 162
+  },
+  {
+   "id": "windycitywire",
+   "name": "Windy City Wire",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "coax plenum",
+    "coax riser"
+   ],
+   "brands": "Windy City Wire",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Plenum DAS coax",
+   "ps": false,
+   "flag": "",
+   "site": "https://windycitywire.com/",
+   "host": "windycitywire.com",
+   "terms_url": "https://cdn.windycitywire.com/resources/legal/Windy_City_Wire-Terms_and_Conditions_of_Sale.pdf",
+   "terms": "Terms are PDFs",
+   "crawl": "RFQ or trade account",
+   "score": 19,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 163
+  },
+  {
+   "id": "ericsson",
+   "name": "Ericsson (ex-Kathrein antennas and filters)",
+   "kind": "manufacturer",
+   "country": "SE",
+   "ships_to": "Global",
+   "kinds": [
+    "antenna",
+    "passive"
+   ],
+   "categories": [
+    "service antenna",
+    "filters"
+   ],
+   "brands": "Ericsson / Kathrein",
+   "prices": "quote only",
+   "price_route": "quote only",
+   "api": false,
+   "public_safety": "None",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.ericsson.com/",
+   "host": "www.ericsson.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403; terms not read",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 16,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "SE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 164
+  },
+  {
+   "id": "kaelus",
+   "name": "Kaelus (Baylin)",
+   "kind": "manufacturer",
+   "country": "SE/US",
+   "ships_to": "Global",
+   "kinds": [
+    "passive",
+    "test"
+   ],
+   "categories": [
+    "test: PIM",
+    "filters"
+   ],
+   "brands": "Kaelus iVA, iPA",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "PIM testers",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.kaelus.com/",
+   "host": "www.kaelus.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 16,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "SE/US 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 165
+  },
+  {
+   "id": "radiall",
+   "name": "Radiall",
+   "kind": "manufacturer",
+   "country": "FR",
+   "ships_to": "Global",
+   "kinds": [
+    "connector",
+    "passive"
+   ],
+   "categories": [
+    "connectors",
+    "attenuators",
+    "terminations"
+   ],
+   "brands": "Radiall",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.radiall.com/",
+   "host": "www.radiall.com",
+   "terms_url": "https://www.radiall.com/privacy",
+   "terms": "Terms and Conditions of Purchase/Sale PDFs",
+   "crawl": "RFQ or trade account",
+   "score": 16,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "FR 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 166
+  },
+  {
+   "id": "raycap",
+   "name": "Raycap",
+   "kind": "manufacturer",
+   "country": "US/DE",
+   "ships_to": "Global",
+   "kinds": [
+    "enclosure",
+    "surge"
+   ],
+   "categories": [
+    "surge",
+    "NEMA 4 enclosure"
+   ],
+   "brands": "Raycap",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Surge, enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.raycap.com/",
+   "host": "www.raycap.com",
+   "terms_url": "https://www.raycap.com/terms-conditions/",
+   "terms": "General Terms and Conditions (sale)",
+   "crawl": "RFQ or trade account",
+   "score": 16,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US/DE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 167
+  },
+  {
+   "id": "spinner",
+   "name": "SPINNER",
+   "kind": "manufacturer",
+   "country": "DE",
+   "ships_to": "Global",
+   "kinds": [
+    "connector",
+    "test"
+   ],
+   "categories": [
+    "connectors",
+    "adapters",
+    "test: PIM accessories"
+   ],
+   "brands": "SPINNER",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.spinner-group.com/",
+   "host": "www.spinner-group.com",
+   "terms_url": "https://www.spinner-group.com/en/company/legal/",
+   "terms": "Legal page lists GTCs for supply (incl. SPINNER ICT Inc.)",
+   "crawl": "RFQ or trade account",
+   "score": 16,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "DE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 168
+  },
+  {
+   "id": "symair",
+   "name": "SYMAIR (Xi'an)",
+   "kind": "manufacturer",
+   "country": "CN",
+   "ships_to": "Worldwide (CN)",
+   "kinds": [
+    "antenna",
+    "passive"
+   ],
+   "categories": [
+    "splitters",
+    "couplers/taps",
+    "hybrids",
+    "attenuators",
+    "terminations",
+    "service antenna"
+   ],
+   "brands": "SYMAIR",
+   "prices": "quote only",
+   "price_route": "quote (inquiry)",
+   "api": false,
+   "public_safety": "Low-PIM 4.3-10 DAS passives; no UL or US listing",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.symair.com/",
+   "host": "www.symair.com",
+   "terms_url": "",
+   "terms": "No terms found (404)",
+   "crawl": "RFQ or trade account",
+   "score": 16,
+   "score_why": [
+    "DAS range 8/40 (2 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 169
+  },
+  {
+   "id": "hammond",
+   "name": "Hammond Manufacturing",
+   "kind": "manufacturer",
+   "country": "CA",
+   "ships_to": "Canada, US",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure",
+    "racks"
+   ],
+   "brands": "Hammond",
+   "prices": "quote only",
+   "price_route": "distributors (Digi-Key, Mouser, Newark APIs)",
+   "api": false,
+   "public_safety": "NEMA 4X enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.hammfg.com/",
+   "host": "www.hammfg.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 15,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 170
+  },
+  {
+   "id": "harger",
+   "name": "Harger",
+   "kind": "manufacturer",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [],
+   "categories": [
+    "grounding"
+   ],
+   "brands": "Harger",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Grounding",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.harger.com/",
+   "host": "www.harger.com",
+   "terms_url": "",
+   "terms": "Terms of Sale PDF only",
+   "crawl": "RFQ or trade account",
+   "score": 15,
+   "score_why": [
+    "DAS range 0/40 (0 kinds)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 171
+  },
+  {
+   "id": "wadeantenna",
+   "name": "Wade Antenna",
+   "kind": "manufacturer",
+   "country": "CA",
+   "ships_to": "Canada",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "donor antenna"
+   ],
+   "brands": "Wade",
+   "prices": "unknown",
+   "price_route": "none: robots.txt disallows all",
+   "api": false,
+   "public_safety": "LMR antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.wadeantenna.com/",
+   "host": "www.wadeantenna.com",
+   "terms_url": "",
+   "terms": "robots.txt disallows everything for unnamed bots",
+   "crawl": "no crawl (robots.txt disallows all): call or ask for a price file",
+   "score": 15,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices unknown 0/20",
+    "manufacturer 5/10",
+    "CA 6/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 172
+  },
+  {
+   "id": "alphawireless",
+   "name": "Alpha Wireless",
+   "kind": "manufacturer",
+   "country": "IE",
+   "ships_to": "Global (IE)",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "service antenna",
+    "donor antenna"
+   ],
+   "brands": "Alpha Wireless",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://alphawireless.com/",
+   "host": "alphawireless.com",
+   "terms_url": "https://alphawireless.com/terms-and-conditions/",
+   "terms": "Sale terms: delivery \"Ex Works\"",
+   "crawl": "RFQ or trade account",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "IE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 173
+  },
+  {
+   "id": "anritsu",
+   "name": "Anritsu",
+   "kind": "manufacturer",
+   "country": "JP/US",
+   "ships_to": "Global",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: cable-antenna analyzer",
+    "test: PIM",
+    "test: scanner"
+   ],
+   "brands": "Site Master, PIM Master",
+   "prices": "quote only",
+   "price_route": "quote / resellers",
+   "api": false,
+   "public_safety": "Site Master, PIM Master",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.anritsu.com/",
+   "host": "www.anritsu.com",
+   "terms_url": "https://www.anritsu.com/en-us/terms-of-use",
+   "terms": "no use \"beyond the scope of personal use or other use expressly permitted by law\"",
+   "crawl": "RFQ or trade account",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "JP/US 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 174
+  },
+  {
+   "id": "eupen",
+   "name": "EUPEN",
+   "kind": "manufacturer",
+   "country": "BE",
+   "ships_to": "Global (BE)",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "coax 1/2",
+    "coax 7/8",
+    "radiating cable"
+   ],
+   "brands": "EUPEN",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Coax, radiating cable",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.eupen.com/",
+   "host": "www.eupen.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "BE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 175
+  },
+  {
+   "id": "fibox",
+   "name": "Fibox",
+   "kind": "manufacturer",
+   "country": "FI/US",
+   "ships_to": "US",
+   "kinds": [
+    "enclosure"
+   ],
+   "categories": [
+    "NEMA 4 enclosure"
+   ],
+   "brands": "Fibox",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "NEMA 4X enclosures",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.fiboxusa.com/",
+   "host": "www.fiboxusa.com",
+   "terms_url": "https://www.fiboxusa.com/terms-of-use/",
+   "terms": "\"download ... for your personal, non-commercial use only\"",
+   "crawl": "RFQ or trade account",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "FI/US 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 176
+  },
+  {
+   "id": "galtronics",
+   "name": "Galtronics (Baylin)",
+   "kind": "manufacturer",
+   "country": "CA/IL",
+   "ships_to": "Global",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "service antenna",
+    "donor antenna"
+   ],
+   "brands": "Galtronics",
+   "prices": "quote only",
+   "price_route": "quote only",
+   "api": false,
+   "public_safety": "380-6000 MHz in-building antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://galtronics.com/",
+   "host": "galtronics.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403; terms not read",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CA/IL 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 177
+  },
+  {
+   "id": "hengxin",
+   "name": "Jiangsu Hengxin Technology",
+   "kind": "manufacturer",
+   "country": "CN",
+   "ships_to": "Global (CN)",
+   "kinds": [
+    "coax"
+   ],
+   "categories": [
+    "coax 1/2",
+    "coax 7/8",
+    "radiating cable"
+   ],
+   "brands": "Hengxin",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Coax",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.hengxin.com/",
+   "host": "www.hengxin.com",
+   "terms_url": "",
+   "terms": "every page answered 405 from a web firewall",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 178
+  },
+  {
+   "id": "panorama",
+   "name": "Panorama Antennas",
+   "kind": "manufacturer",
+   "country": "UK",
+   "ships_to": "Global (UK)",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "service antenna",
+    "donor antenna"
+   ],
+   "brands": "Panorama",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.panorama-antennas.com/",
+   "host": "www.panorama-antennas.com",
+   "terms_url": "",
+   "terms": "robots.txt answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "UK 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 179
+  },
+  {
+   "id": "rohde",
+   "name": "Rohde & Schwarz",
+   "kind": "manufacturer",
+   "country": "DE",
+   "ships_to": "Global",
+   "kinds": [
+    "test"
+   ],
+   "categories": [
+    "test: scanner",
+    "test: cable-antenna analyzer"
+   ],
+   "brands": "TSME, ZNH",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "TSME scanners",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.rohde-schwarz.com/",
+   "host": "www.rohde-schwarz.com",
+   "terms_url": "https://www.rohde-schwarz.com/us/general-information/terms-of-website-use_101516.html",
+   "terms": "\"must not use any part of the content ... for commercial purposes without obtaining a licence\"",
+   "crawl": "RFQ or trade account",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "DE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 180
+  },
+  {
+   "id": "telegaertner",
+   "name": "Telegaertner",
+   "kind": "manufacturer",
+   "country": "DE",
+   "ships_to": "Global",
+   "kinds": [
+    "connector"
+   ],
+   "categories": [
+    "connectors"
+   ],
+   "brands": "Telegaertner",
+   "prices": "quote only",
+   "price_route": "distributors",
+   "api": false,
+   "public_safety": "Connectors",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.telegaertner.com/",
+   "host": "www.telegaertner.com",
+   "terms_url": "",
+   "terms": "home page answered 403",
+   "crawl": "refused; a person checks this site (RFQ meanwhile)",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "DE 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 181
+  },
+  {
+   "id": "tongyu",
+   "name": "Tongyu Communication",
+   "kind": "manufacturer",
+   "country": "CN",
+   "ships_to": "Global (CN)",
+   "kinds": [
+    "antenna"
+   ],
+   "categories": [
+    "donor antenna",
+    "service antenna"
+   ],
+   "brands": "Tongyu",
+   "prices": "quote only",
+   "price_route": "quote",
+   "api": false,
+   "public_safety": "Antennas",
+   "ps": false,
+   "flag": "",
+   "site": "https://www.tongyucom.com/",
+   "host": "www.tongyucom.com",
+   "terms_url": "",
+   "terms": "No robots.txt or terms found",
+   "crawl": "RFQ or trade account",
+   "score": 12,
+   "score_why": [
+    "DAS range 4/40 (1 kind)",
+    "prices quote only 0/20",
+    "manufacturer 5/10",
+    "CN 3/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 182
+  },
+  {
+   "id": "fullerton",
+   "name": "Fullerton Consultants (engineering, not a parts seller)",
+   "kind": "services",
+   "country": "US",
+   "ships_to": "US",
+   "kinds": [],
+   "categories": [
+    "none (services)"
+   ],
+   "brands": "",
+   "prices": "quote only",
+   "price_route": "none (services firm)",
+   "api": false,
+   "public_safety": "None",
+   "ps": false,
+   "flag": "",
+   "site": "https://fullerton-us.com/",
+   "host": "fullerton-us.com",
+   "terms_url": "",
+   "terms": "No terms found",
+   "crawl": "RFQ or trade account",
+   "score": 10,
+   "score_why": [
+    "DAS range 0/40 (0 kinds)",
+    "prices quote only 0/20",
+    "services 0/10",
+    "US 10/10"
+   ],
+   "checked": "2026-11-08",
+   "rank": 183
+  }
+ ]
+}

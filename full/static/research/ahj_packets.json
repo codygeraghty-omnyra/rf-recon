@@ -325,6 +325,25 @@
         {"t": "Signed maintenance agreement before the FCOMM permit", "s": "guidelines", "part": "d", "file": "maint", "hint": "the signed maintenance agreement"},
         {"t": "DIT design approval", "s": "guidelines", "part": "d", "file": "DIT|design approval", "hint": "the DIT design approval"},
         {"t": "Retransmission authorization form", "s": "guidelines", "part": "d", "fill": "consent"}
+      ]},
+    "maple_grove": {"name": "Maple Grove Fire Inspections (MN)", "doc": "Guidelines and Permit Information: Emergency Responder Radio Coverage (4 pages, PDF created 2021-11-30)",
+      "url": "https://www.maplegrovemn.gov/DocumentCenter/View/3793/Emergency-responder-radio-coverage-guide-PDF", "checked": "read 2026-11-08",
+      "items": [
+        {"t": "Floor plans with the proposed system, dimensioned and to scale", "s": "Plan Submittal Requirements, p.3", "part": "d", "fill": "heat_maps"},
+        {"t": "Battery backup calculation sheets", "s": "Plan Submittal Requirements, p.3", "part": "d", "fill": "battery_calc"},
+        {"t": "Manufacturer's data sheets for all equipment", "s": "Plan Submittal Requirements, p.3", "part": "d", "fill": "spec_sheets"},
+        {"t": "Designer's name, business name and contact information", "s": "Plan Submittal Requirements, p.3", "part": "d", "outside": true},
+        {"t": "Email confirming the system meets the Metro Region ARMER standards (Hennepin County Sheriff's Office Communications Division)", "s": "Code Guidance and Plan Submittal, pp.1, 3", "part": "d", "fill": "consent"},
+        {"t": "Class B only: FCC registration before installation, and the AHJ's approval", "s": "Code Guidance, p.2", "part": "d", "fill": "fcc_reg"},
+        {"t": "Plans submitted through ePermits (no paper)", "s": "p.3", "part": "d", "outside": true},
+        {"t": "Test results on floor plans, a grid of 20 test areas per floor", "s": "Plan Submittal Requirements, p.3", "part": "a", "fill": "grid_plan"},
+        {"t": "Talk-out measured at the same grid and critical area locations", "s": "Talk-out testing, p.3", "part": "a", "fill": "ul_grid"},
+        {"t": "Critical areas the fire chief names", "s": "Chapter 18, p.1", "part": "a", "fill": "critical"},
+        {"t": "Gain values of all amplifiers measured and kept on file with the owner", "s": "Talk-out testing, p.3", "part": "a", "fill": "acc:gain"},
+        {"t": "Supervisory signals to a listed fire alarm control unit", "s": "Code Guidance, p.2", "part": "a", "fill": "acc:supervisory"},
+        {"t": "Tests signed by a qualified person (FCC licence, APCO or PCIA certification, or a Minnesota PE)", "s": "Qualifications, p.2", "part": "a", "fill": "signoff"},
+        {"t": "Test equipment calibrated within 6 months before testing", "s": "Qualifications, p.2", "part": "a", "fill": "instruments"},
+        {"t": "Rough-in and final inspections", "s": "Inspections Required, p.3", "part": "a", "outside": true}
       ]}
   }
 }

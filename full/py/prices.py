@@ -7,6 +7,11 @@ these APIs: it stays with each supplier's quote.
 Sources, each with its own free key (Data & updates > Your API keys):
   Mouser    Search API, part number search (https://www.mouser.com/api-hub/)
   Digi-Key  Product Information API v4, client credentials (https://developer.digikey.com/)
+  Newark    element14 Product Search API, manuPartNum search, store www.newark.com (https://partner.element14.com/)
+  Arrow     Pricing & Availability (itemservice v4 search/token), login + key (https://developers.arrow.com/)
+Their answers are shown live and never kept as price history: their terms bar a database (Digi-Key, Mouser, element14)
+and caching past 48 hours (Arrow, element14), so an online quote lasts a day (das.drop_old_online; Cody 11/8: "do
+whatever is legal"). Each answer is labelled with its source, never mixed with another's.
 Many DAS passives (RFS, Microlab, CommScope) are sold through RF distributors without APIs: their prices come from
 the suppliers' price lists (imported, or re-read from a link on a schedule: das.refresh_price_lists).
 """
@@ -111,6 +116,64 @@ def parse_digikey(d, part, qty=1):
              "lead_days": lead * 7 if lead is not None else None, "moq": None, "url": p.get("ProductUrl") or "", "breaks": breaks}]
 
 
+def element14(key, part, qty=1, store="www.newark.com"):
+    """element14's manufacturer part number search (Newark in the US; Farnell is store uk.farnell.com): the same shape as
+    mouser()."""
+    q = urllib.parse.urlencode({"term": f"manuPartNum:{part}", "storeInfo.id": store, "resultsSettings.offset": 0,
+                                "resultsSettings.numberOfResults": 10, "resultsSettings.responseGroup": "medium",
+                                "callInfo.responseDataFormat": "JSON", "callInfo.apiKey": key})
+    req = urllib.request.Request(f"https://api.element14.com/catalog/products?{q}", headers={"Accept": "application/json", "User-Agent": UA})
+    return parse_element14(_json(req), part, qty, store)
+
+
+def parse_element14(d, part, qty=1, store="www.newark.com"):
+    wrap = next((v for k, v in (d or {}).items() if k.endswith("SearchReturn") and isinstance(v, dict)), {})
+    out = []
+    for p in wrap.get("products") or []:
+        breaks = [(_num(b.get("from")), _num(b.get("cost"))) for b in p.get("prices") or []]
+        st = p.get("stock") or {}
+        lead = _num(st.get("leastLeadTime"))
+        sku = p.get("sku") or ""
+        out.append({"source": "Newark" if "newark" in store else "Farnell", "part": p.get("translatedManufacturerPartNumber") or part,
+                    "maker": p.get("brandName") or p.get("vendorName") or "", "unit_price": price_for(breaks, qty),
+                    "stock": _num(st.get("level")) or _num(p.get("inv")) or 0, "lead_days": lead, "moq": None,
+                    "url": f"https://{store}/search?st={urllib.parse.quote(sku)}" if sku else "", "breaks": breaks})
+    return out
+
+
+def arrow(login, key, part, qty=1):
+    """Arrow's Pricing & Availability search by part number (itemservice v4): the same shape as mouser(), one offer per
+    Arrow source that prices the part."""
+    q = urllib.parse.urlencode({"login": login, "apikey": key, "search_token": part, "rows": 10})
+    req = urllib.request.Request(f"https://api.arrow.com/itemservice/v4/en/search/token?{q}", headers={"Accept": "application/json", "User-Agent": UA})
+    return parse_arrow(_json(req), part, qty)
+
+
+def _res(rs, *kinds):
+    return next((r.get("uri") for k in kinds for r in rs or [] if r.get("type") == k and r.get("uri")), "")
+
+
+def parse_arrow(d, part, qty=1):
+    out = []
+    for blk in ((d or {}).get("itemserviceresult") or {}).get("data") or []:
+        for p in blk.get("PartList") or []:
+            purl = _res(p.get("resources"), "cloud_part_detail", "part_detail")
+            for site in ((p.get("InvOrg") or {}).get("webSites") or []):
+                for src in site.get("sources") or []:
+                    if (src.get("currency") or "USD") != "USD":
+                        continue
+                    for sp in src.get("sourceParts") or []:
+                        breaks = [(_num(b.get("minQty")), _num(b.get("price"))) for b in ((sp.get("Prices") or {}).get("resaleList") or [])]
+                        if not breaks:
+                            continue
+                        weeks = _num(sp.get("arrowLeadTime")) or _num(sp.get("mfrLeadTime"))
+                        out.append({"source": "Arrow", "part": p.get("partNum") or part, "maker": (p.get("manufacturer") or {}).get("mfrName", ""),
+                                    "unit_price": price_for(breaks, qty), "stock": sum(_num(a.get("fohQty")) or 0 for a in sp.get("Availability") or []),
+                                    "lead_days": weeks * 7 if weeks else None, "moq": _num(sp.get("minimumOrderQuantity")),
+                                    "url": _res(sp.get("resources"), "detail") or purl, "breaks": breaks})
+    return out
+
+
 def sources(creds):
     """The online sources this copy has keys for: [(name, lookup(part, qty))]."""
     out = []
@@ -118,6 +181,10 @@ def sources(creds):
         out.append(("Mouser", lambda part, qty: mouser(creds["mouser_key"], part, qty)))
     if creds.get("digikey_id") and creds.get("digikey_secret"):
         out.append(("Digi-Key", lambda part, qty: digikey(creds["digikey_id"], creds["digikey_secret"], part, qty)))
+    if creds.get("element14_key"):
+        out.append(("Newark", lambda part, qty: element14(creds["element14_key"], part, qty)))
+    if creds.get("arrow_login") and creds.get("arrow_key"):
+        out.append(("Arrow", lambda part, qty: arrow(creds["arrow_login"], creds["arrow_key"], part, qty)))
     return out
 
 

@@ -9,10 +9,10 @@
 const CC_READ = { read: "read", excerpt: "search excerpt", "not found": "not found" };
 const CC_LEVEL = { no_mandate: "cc-bad", local: "cc-warn", discretion: "cc-warn", required: "cc-ok", unknown: "cc-warn" };
 // past research by state, so a job in that state sees what we already hold (name fragments of DAS_PROFILES and DAS_LICENSEES)
-const CC_HELD = { AZ: /Chandler/, CA: /Sacramento|San Diego|LA County|Santa Clara|Riverside|OCSD|California/, CO: /Colorado Springs|Denver|Douglas/, FL: /Florida|Miami-Dade|Osceola|Broward/,
+const CC_HELD = { AZ: /Chandler/, IA: /Iowa/, MN: /Minnesota|Maple Grove/, ND: /North Dakota/, CA: /Sacramento|San Diego|LA County|Santa Clara|Riverside|OCSD|California/, CO: /Colorado Springs|Denver|Douglas/, FL: /Florida|Miami-Dade|Osceola|Broward/,
   MD: /Maryland/, MI: /Michigan/, NC: /Charlotte|Durham/, NV: /Clark County/, NY: /NYC|FDNY/, OH: /Ohio/, SC: /Charleston/, TX: /McKinney|Prosper|College Station/, UT: /Murray|Salt Lake/,
   VA: /Fairfax/, WA: /Seattle|PSERN/ };
-const CC_PACKET = { CA: ["san_diego", "la_county", "santa_clara", "riverside"], CO: ["colorado_springs", "denver", "douglas"], FL: ["miami_dade", "osceola"], NC: ["charlotte", "durham"],
+const CC_PACKET = { MN: ["maple_grove"], CA: ["san_diego", "la_county", "santa_clara", "riverside"], CO: ["colorado_springs", "denver", "douglas"], FL: ["miami_dade", "osceola"], NC: ["charlotte", "durham"],
   NV: ["clark"], NY: ["fdny"], TX: ["college_station"], UT: ["murray", "slc"], WA: ["seattle"], AZ: ["phoenix"], VA: ["fairfax"] };
 const CC_DEADLINE = { CA: "OCSD", WA: "Seattle SFC 510", SC: "Charleston SC", NV: "Clark County FPAN", CO: "Douglas County CO", NY: "NYC FDNY ARCS (3 RCNY 510-01)" };
 let CC_RES = null;  // the research files, read once

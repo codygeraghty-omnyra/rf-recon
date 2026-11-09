@@ -2463,10 +2463,25 @@ def list_rfqs(con, jid):
             for r in con.execute("SELECT * FROM das_rfq WHERE job_id=? ORDER BY id DESC", (jid,))]
 
 
+ONLINE_KEEP_S = 24 * 3600  # online prices last a day: the distributors' API terms bar a database (Digi-Key, Mouser, element14)
+                            # and caching past 48 hours (Arrow, element14); TTI's past 30 days (Cody 11/8: "do whatever is legal")
+
+
+def drop_old_online(con, rid=None):
+    """The "<source> (online)" quotes older than a day, gone; a fresh look (Price online) brings them back."""
+    cut = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - ONLINE_KEEP_S))
+    n = con.execute("DELETE FROM das_quote WHERE supplier LIKE '% (online)' AND COALESCE(updated_at,'') < ?" + (" AND rfq_id=?" if rid else ""),
+                    (cut, rid) if rid else (cut,)).rowcount
+    if n:
+        con.commit()
+    return n
+
+
 def get_rfq(con, rid):
     r = con.execute("SELECT * FROM das_rfq WHERE id=?", (rid,)).fetchone()
     if not r:
         raise LookupError("That request for quote was deleted.")
+    drop_old_online(con, rid)
     q = {**dict(r), "lines": json.loads(r["lines"] or "[]"), "suppliers": json.loads(r["suppliers"] or "[]")}
     q["quotes"] = [dict(x) for x in con.execute("SELECT supplier, key, unit_price, qty, lead_days, note FROM das_quote WHERE rfq_id=?", (rid,))]
     q["terms"] = {x["supplier"]: dict(x) for x in con.execute("SELECT * FROM das_rfq_supplier WHERE rfq_id=?", (rid,))}

@@ -2540,6 +2540,22 @@ class H(BaseHTTPRequestHandler):
                 if mx:
                     self.job_gate(con, int(mx.group(1)), "view" if method == "GET" else "edit")
                 return self.send(*dasx.handle(con, method, p, qs, self.body_json))
+            if p.startswith("/api/das/shop"):  # where to shop: the ranked suppliers, this copy's picks, a line's sites (partshop.py)
+                import partshop
+                if p == "/api/das/shop" and method == "GET":
+                    picked = get_setting(partshop.PICKED, []) or []
+                    doc = partshop.load()
+                    return self.send(200, {"suppliers": partshop.ranked(picked, fstr(qs, "kind"), fstr(qs, "q")), "picked": picked,
+                                           "kinds": doc.get("kinds", []), "checked": doc.get("checked", ""), "total": len(doc.get("suppliers", []))})
+                if p == "/api/das/shop/where" and method == "GET":
+                    line = {k: fstr(qs, k) for k in ("cat", "item", "part", "maker", "note")}
+                    import partcrawl
+                    seen = partcrawl.seen_for(con, line["part"]) if line["part"] else {}  # what this copy read on suppliers' own sites
+                    return self.send(200, partshop.where_to_look(line, get_setting(partshop.PICKED, []) or [], int(fnum(qs, "n", 8)), seen))
+                if p == "/api/das/shop/pick" and method == "POST":
+                    d = self.body_json()
+                    return self.send(200, {"picked": partshop.pick(get_setting, set_setting, str(d.get("id") or ""), bool(d.get("on")), con)})
+                return self.send(404, {"error": "No such page."})
             if p.startswith("/api/das/monitor"):  # BDA monitoring: SNMP traps per job, off until an admin turns it on (snmpwatch.py)
                 import snmpwatch
                 return self.send(*snmpwatch.handle(con, method, p, qs, self.body_json))

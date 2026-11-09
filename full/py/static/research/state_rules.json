@@ -1,6 +1,6 @@
 {
  "about": "Fire code and ERCES rule by state. A lead, not an answer: the AHJ confirms it. status says how far each was read. Built by tools/build_state_rules.py.",
- "checked": "2026-11-05",
+ "checked": "2026-11-08",
  "labels": {
   "no_mandate": "No mandate: state law bars requiring one",
   "local": "Local only: nothing statewide",
@@ -352,26 +352,26 @@
    "fire_code": {
     "base": "IFC",
     "edition": "2024 (adopted with amendments by Iowa DIAL; NFPA 101 2012 still referenced for some health care)",
-    "effective": "not confirmed",
+    "effective": "2025-09-10 (ARC 9472C), amended by ARC 0246D effective 2026-06-03",
     "statewide": "partial: state rules in IAC 661 Ch. 201; local adoption not verified",
-    "state_amendments": "IAC 661 Chapter 201 (ARC 9472C adopted and filed; ARC 9047C notice); authority Iowa Code 10A.511",
-    "source": "https://rules.iowa.gov/Notice/Details/9472C",
-    "status": "excerpt"
+    "state_amendments": "Iowa Admin. Code 481-280.8(1): the 2024 IFC with amendments a to p (the rules moved from 661 ch. 201 to 481 ch. 280, IAC Supplement 11/26/25)",
+    "source": "https://www.legis.iowa.gov/docs/iac/chapter/481.280.pdf",
+    "status": "read"
    },
    "erces": {
     "rule": "follows model code",
-    "citation": "IFC 2024 Sec. 510 via IAC 661-201; no Iowa amendment found",
-    "summary": "The regulatory analysis says no substantive changes other than adopting the 2024 IFC. We found no Iowa amendment to Section 510, but we read only summaries, not the rule text.",
+    "citation": "IFC 2024 Sec. 510 via Iowa Admin. Code 481-280.8(1); no amendment touches Chapter 5",
+    "summary": "Iowa adopts the 2024 IFC with amendments a to p: the administration sections 103 to 115 and sections in chapters 3, 4, 8, 9, 10 and 11. None touches Chapter 5, so Section 510 stands as the model code wrote it. Read in the rule text on the Legislature's site 2026-11-08.",
     "thresholds": "Model-code triggers - not read",
-    "source": "https://rules.iowa.gov/Notice/Details/9472C",
-    "status": "excerpt"
+    "source": "https://www.legis.iowa.gov/docs/iac/chapter/481.280.pdf",
+    "status": "read"
    },
    "local_amendments": "Not verified.",
-   "ahj": "State Fire Marshal (Iowa Dept. of Inspections, Appeals and Licensing, Division of Fire Marshal) with local fire officials - split not verified.",
+   "ahj": "State Fire Marshal (Iowa Dept. of Inspections, Appeals and Licensing, Division of Fire Marshal) with local fire officials - split not verified. Radio: ISICS; a BDA on it is notified on the ISICS Board's BDA Installation Notification Form (Requirements, licensee processes).",
    "fire_marshal": "https://dps.iowa.gov/divisions/state-fire-marshal",
    "pending": "None found.",
    "blocked": [],
-   "checked": "2026-11-05"
+   "checked": "2026-11-08"
   },
   "ID": {
    "name": "Idaho",
@@ -674,12 +674,12 @@
     "source": "https://www.revisor.mn.gov/rules/7511.7900/",
     "status": "read"
    },
-   "local_amendments": "Yes. Rule 7511.0101 (IFC 101.6.1, read): any jurisdiction that adopts the code may adopt rules 'more restrictive than this code when the rules are necessary to protect life or property'; governing body adopts by ordinance. 101.6 lets local government amend Chapter 1 administration. The 2020 ICC copy of Chapter 5 says appendices are enforceable only if adopted locally (excerpt, ICC page not opened).",
-   "ahj": "Split. Local fire code official (city/county fire chief or fire marshal) enforces where the jurisdiction has adopted the code; State Fire Marshal Division handles state-owned/state-licensed buildings and jurisdictions without local enforcement (not verified in text). Per-city check required: Shakopee City Code 130.07, read 2026-11-05, adopts Appendices B to G and doesn't list Appendix P.",
+   "local_amendments": "Yes. Rule 7511.0101 (IFC 101.6.1, read): any jurisdiction that adopts the code may adopt rules 'more restrictive than this code when the rules are necessary to protect life or property'; governing body adopts by ordinance. 101.6 lets local government amend Chapter 1 administration. The 2020 ICC copy of Chapter 5 says appendices are enforceable only if adopted locally (excerpt, ICC page not opened). Maple Grove City Code Chapter 18 (in its Fire Inspections guide, read 2026-11-08) requires coverage for the regional radio system on a new building, a change of use or an addition over 20%, and lets the fire chief require it in existing A, E and I buildings.",
+   "ahj": "Split. Local fire code official (city/county fire chief or fire marshal) enforces where the jurisdiction has adopted the code; State Fire Marshal Division handles state-owned/state-licensed buildings and jurisdictions without local enforcement (not verified in text). Per-city check required: Shakopee City Code 130.07, read 2026-11-05, adopts Appendices B to G and doesn't list Appendix P. Twin Cities, read 2026-11-08: Minneapolis (the city adopts the state code without Appendix P, and its fire permit pages list no radio coverage permit) and Saint Paul (DSI Fire Engineering lists no radio coverage permit; whether its Legislative Code adopts Appendix P wasn't read) publish no ERCES rule; Bloomington adopts Appendix P; Maple Grove has its own Chapter 18 rule and guide (the Maple Grove preset in Requirements). Find the AHJ names the fire department at the address from the state's 911 emergency service zones. Radio: ARMER, the statewide 800 MHz P25 system. MnDOT holds its licences and wants notice of every ARMER booster; in the metro the county's ARMER sub-system administrator approves a BDA (Minneapolis runs its own sub-system) under MESB Metro 1.8.1 (Requirements, licensee processes).",
    "fire_marshal": "https://dps.mn.gov/divisions/sfm",
-   "pending": "2024 IFC rulemaking under Minn. R. ch. 7511: DLI docket says effective date TBD; the Fire Code TAG report (nov 2025, a later version dated July 2026 per search excerpt) recommends adopting the 2024 IFC with changes. Whether the new Minnesota ERCES appendix keeps opt-in status is not known. No MN bill limiting ERCES found.",
+   "pending": "2024 IFC rulemaking under Minn. R. ch. 7511: the DLI docket (read 2026-11-08) lists the Request for Comments of 2026-02-02 and every later step as 'To be determined', and the State Fire Marshal's fire code page (read 2026-11-08) says the 2020 code is in force. DLI's July 2026 TAG report recommends adopting the 2024 IFC with amendments; its 9 pages don't mention section 510 or radio coverage. The Fire Code TAG's notes of 2025-09-11 accepted FCCP 4 so that 2024 IFC 510 design and performance rules apply 'when a jurisdiction voluntarily adopts requirements for these systems'. Whether the new Minnesota ERCES appendix keeps opt-in status is not known. No MN bill limiting ERCES found.",
    "blocked": [],
-   "checked": "2026-11-05"
+   "checked": "2026-11-08"
   },
   "MO": {
    "name": "Missouri",
@@ -1164,26 +1164,26 @@
    "fire_code": {
     "base": "IFC (plus NFPA 101 for State Fire Marshal plan review)",
     "edition": "2015 (ARSD 61:15); a 2021 claim by one blog is unconfirmed",
-    "effective": "2016-10-17 (secondary)",
+    "effective": "2016-10-17 (43 SDR 56, in the rule's history)",
     "statewide": "partial (State Fire Marshal enforces for certain occupancies; others by local adoption)",
-    "state_amendments": "ARSD 61:15:01 with state modifications, amendments and deletions",
-    "source": "https://sdlegislature.gov/rules/administrative/61%3A15",
-    "status": "excerpt"
+    "state_amendments": "ARSD 61:15:01:01 adopts the IBC, IFC and IMC 2015; 61:15:01:02 deletes IFC 102.5, 103 to 106.4 and 903.2.6",
+    "source": "https://sdlegislature.gov/api/Rules/Rule/61:15:01.html?all=true",
+    "status": "read"
    },
    "erces": {
     "rule": "follows model code",
-    "citation": "ARSD 61:15 and IFC 2015 Section 510",
-    "summary": "State rule adopts the IFC 2015; whether SD amended or deleted Section 510 was not read. Cities with their own newer IFC adoptions may require ERCES.",
+    "citation": "IFC 2015 Sec. 510 via ARSD 61:15:01:01; not deleted by 61:15:01:02",
+    "summary": "South Dakota adopts the 2015 IFC and deletes only sections 102.5, 103 to 106.4 and 903.2.6, so Section 510 stands. ARSD 61:15:01:16 lets cities and fire officials adopt alternatives only for IFC chapters 20, 21, 24 to 27, 29, 32 and 51, not Chapter 5. No rule in the chapter mentions radio coverage. Read in the rule text on the Legislature's site 2026-11-08.",
     "thresholds": "Not found.",
-    "source": "https://sdlegislature.gov/rules/administrative/61%3A15",
-    "status": "excerpt"
+    "source": "https://sdlegislature.gov/api/Rules/Rule/61:15:01.html?all=true",
+    "status": "read"
    },
-   "local_amendments": "Cities and counties adopt codes locally; ICC says jurisdictions may amend the state codes (excerpt).",
+   "local_amendments": "Cities and counties adopt codes locally; ICC says jurisdictions may amend the state codes (excerpt). ARSD 61:15:01:16 (read 2026-11-08): local alternatives only for IFC chapters 20, 21, 24 to 27, 29, 32 and 51.",
    "ahj": "Split: State Fire Marshal for schools, daycares, state-licensed healthcare and similar; local fire departments elsewhere.",
    "fire_marshal": "https://dps.sd.gov/state-fire-marshal",
    "pending": "None found.",
    "blocked": [],
-   "checked": "2026-11-05"
+   "checked": "2026-11-08"
   },
   "TN": {
    "name": "Tennessee",

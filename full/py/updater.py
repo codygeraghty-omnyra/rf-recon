@@ -61,6 +61,7 @@ SOURCES = {
     "tiles": ("Map tiles + terrain for mission areas", "reference", 720, "The four USGS base maps (to zoom 16; shaded relief to zoom 13) and terrain for each mission area, kept for use with no signal (about 1.3 GB an area; tiles already kept aren't fetched again)"),
     "das_prospects": ("DAS prospect lists (schools, colleges, hospitals, malls, arenas, hotels, high-rises and more)", "reference", 720, "Buildings that often need emergency responder radio coverage, with phones, websites and emails where published: NCES schools, IPEDS colleges, CMS hospitals (US government, public domain); malls, stadiums and arenas, hotels, venues, casinos, airports, transit, government buildings, warehouses and parking garages from Overture Maps places (CDLA-Permissive-2.0 / Apache-2.0 / CC0); high-rises around each mission area from Overture buildings (ODbL)"),
     "part_prices": ("DAS part prices (price list links, Mouser, Digi-Key)", "reference", 168, "Each supplier's price list re-read from its link, and the online prices of the parts on open requests for quote (Mouser and Digi-Key, with your keys)"),
+    "part_crawl": ("Supplier prices from their websites (Talley, Tessco)", "reference", 1, "Talley's and Tessco's public product pages, read slowly at night in each one's own quiet hours (01:30 to 05:00 its time, at most 500 pages, robots.txt honoured, stopped by the first refusal); prices kept with their dates under \"<supplier> (website)\"; the parts on your jobs first. Omnyra's own copy only (partcrawl.py)"),
     "helium": ("Helium IoT hotspots", "crowd", 168, "Active LoRaWAN hotspots (no key; reads the whole network, about 190 MB a pass)"),
     "usfa_fd": ("USFA fire department registry (DAS AHJ guess)", "reference", 720, "27,117 fire departments and 8,092 stations with addresses, phones and websites, for a DAS job's AHJ guess (US government; about 12 MB; frozen since June 2026)"),
     "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
@@ -683,6 +684,18 @@ class Updater:
                 self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=len(lists) + len(open_q),
                            message=f"{len(lists)} price list link{'s' if len(lists) != 1 else ''} re-read; {len(open_q)} open request{'s' if len(open_q) != 1 else ''}"
                                    + (f" priced online ({', '.join(srcs)})" if srcs else " (no Mouser or Digi-Key key saved)"))
+            elif job == "part_crawl":  # suppliers' product pages at night (partcrawl.py): starts each site's reader in its window, returns at once
+                import das as dasmod
+                import partcrawl
+
+                def connect():
+                    c = sqlite3.connect(self.db, timeout=60)
+                    c.row_factory = sqlite3.Row
+                    dasmod.migrate(c)
+                    return c
+                r = partcrawl.start_due(connect, uls_import.DATA_DIR, dasmod, log=lambda m: self._mark(ids, message=str(m)[:200]))
+                self._mark(ids, state="ok", last_checked=now(), last_updated=now(),
+                           message=r.get("note") or ("reading " + ", ".join(r["started"]) if r["started"] else "waiting: " + "; ".join(r["waiting"])))
             elif job == "tiles":  # base maps and terrain kept for each mission area (tilecache.py)
                 import tilecache
                 areas = self.active_area()

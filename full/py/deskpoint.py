@@ -4,7 +4,10 @@
   measured; CC BY 4.0, credit ORNL and FEMA). Heights are in metres and patchy (none in Wilmington NC); its rows say
   how they were checked (VAL_METHOD), and "Unverified" is shown as such.
 - who responds at the point: the state 911 (NG911) response boundaries, fire, EMS, law and the 911 centre, where a
-  state publishes them openly: Wisconsin ("free and open for use by the public") and Kentucky (CC0).
+  state publishes them openly: Wisconsin ("free and open for use by the public"), Kentucky (CC0) and Minnesota (MnGeo's
+  emergency service zones from the counties that opted in, 59 with the whole Twin Cities metro: "the right to use it for
+  any purpose"). Minnesota's zones carry every responder in one row, a column each; the row's comments and contact
+  columns, which can name a person, are never asked for, and the cleaner drops them if a server sends them anyway.
 - the nearest fire/EMS and police stations at their real positions: USGS National Structures (US public domain,
   credit asked), in place of the USFA registry's ZIP-centre guesses.
 
@@ -18,7 +21,7 @@ import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
-from datadesk import fetchkit, persons
+from datadesk import clean, fetchkit, persons
 
 UA = "DAStastic data desk (open data lookups for DAS jobs; contact via omnyra.ai)"
 STRUCT = "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/USA_Structures_View/FeatureServer/0/query"
@@ -26,6 +29,7 @@ USGS = "https://carto.nationalmap.gov/arcgis/rest/services/structures/MapServer/
 USGS_LAYERS = {16: "Fire or EMS station", 18: "Police station"}
 WI = "https://services3.arcgis.com/GoOAGCoqFEhZEh7f/arcgis/rest/services/WI_NG911_GIS_Service_Polygons_and_Road_Centerline_Data_v2/FeatureServer/{}/query"
 KY = "https://services3.arcgis.com/ghsX9CKghMvyYjBU/arcgis/rest/services/{}/FeatureServer/{}/query"
+MN = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/bdry_emerg_serv_zones_open/FeatureServer/1/query"
 RESPONDERS = {  # state: (registry id, [(what, url)]), and a box around the state: outside it, the state isn't asked
     "WI": ("wi-911-response-boundaries", (42.49, -92.89, 47.31, -86.25),
            [("Fire", WI.format(3)), ("EMS", WI.format(2)), ("Law", WI.format(4)), ("911 centre", WI.format(6))]),
@@ -33,6 +37,13 @@ RESPONDERS = {  # state: (registry id, [(what, url)]), and a box around the stat
            [("Fire", KY.format("Ky_911_RSB_Fire_gdb", 4)), ("EMS", KY.format("Ky_911_RSB_EMS_gdb", 5)),
             ("Law", KY.format("Ky_911_RSB_Law_gdb", 3)), ("911 centre", KY.format("Ky_911_PSAP_Boundaries_gdb", 6))]),
 }
+# a state whose emergency service zones carry every responder in one layer: one row per zone, a column per role
+ZONES = {
+    "MN": ("mn-911-emergency-service-zones", (43.49, -97.24, 49.39, -89.48), MN,
+           [("Fire", "fire_name"), ("EMS", "ems_name"), ("Law", "law_name"), ("911 centre", "wrln_psap")]),
+}
+# the zone's own id is required (a row without one is quarantined, not shown); people can be named in these columns
+ZONE_PROFILE = {"required": ["esz_id"], "id": "esz_id", "personal": ["comments", "gis911poc", "edit_org"]}
 SOURCES = {
     "usa-structures": {"id": "usa-structures", "name": "FEMA/ORNL USA Structures", "url": "https://www.arcgis.com/home/item.html?id=0ec8512ad21e4bb987d7e848d14e7e24",
                        "credit": "USA Structures, Oak Ridge National Laboratory and FEMA (CC BY 4.0)"},
@@ -42,6 +53,9 @@ SOURCES = {
     "ky-911-response-boundaries": {"id": "ky-911-response-boundaries", "name": "Kentucky 911 response boundaries",
                                    "url": "https://services3.arcgis.com/ghsX9CKghMvyYjBU/arcgis/rest/services",
                                    "credit": "Kentucky 911 response boundaries (CC0)"},
+    "mn-911-emergency-service-zones": {"id": "mn-911-emergency-service-zones", "name": "Minnesota NG9-1-1 emergency service zones",
+                                       "url": "https://gis.data.mn.gov/content/40c4aaacfc7249cba8cafacf07bc8d8c",
+                                       "credit": "Minnesota NG9-1-1 emergency service zones, compiled by MnGeo from the counties that opted in"},
     "usgs-national-structures": {"id": "usgs-national-structures", "name": "USGS National Structures",
                                  "url": "https://carto.nationalmap.gov/arcgis/rest/services/structures/MapServer",
                                  "credit": "USGS National Structures Dataset (U.S. public domain)"},
@@ -85,11 +99,40 @@ def building(f, lat, lon):
             "checked": a.get("VAL_METHOD") or "", "inside": inside}
 
 
-def responders(f, lat, lon):
-    """Who responds at the point, by the state's own 911 boundaries; [] where the state doesn't publish them openly."""
+def _inside(box, lat, lon):
+    return box[0] <= lat <= box[2] and box[1] <= lon <= box[3]
+
+
+def zones(f, lat, lon, st):
+    """Who responds at the point from a state whose zones hold every role in one row (Minnesota). Rows go through the
+    Data desk's cleaner: a row without its id is quarantined, the same zone twice counts once, and the columns that can
+    name a person are dropped even if the server sends them."""
+    sid, box, url, cols = ZONES[st]
+    q = {"geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint", "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
+         "outFields": ",".join(["esz_id", "co_name"] + [c for _, c in cols]), "returnGeometry": "false"}
+    rows = [{k.lower(): v for k, v in (r.get("attributes") or {}).items()} for r in _query(f, url, q)]
+    src = SOURCES[sid]
+    got = clean.run(rows, ZONE_PROFILE, {"id": sid, "name": src["name"], "url": src["url"], "terms": src["credit"]}, time.strftime("%Y-%m-%d %H:%M"))
+    out, seen = [], set()
+    for what, col in cols:  # role by role, so a point on a zone line lists its two fire departments together
+        for a in got["kept"]:
+            name = str(a.get(col) or "").strip()
+            if name and (what, name) not in seen:
+                seen.add((what, name))
+                out.append({"what": what, "name": name, "phone": "", "state": st, "source": sid})
+    return out
+
+
+def responders(f, lat, lon, only=None):
+    """Who responds at the point, by the state's own 911 boundaries; [] where the state doesn't publish them openly.
+    only: one state (each state is its own Data desk source, asked on its own)."""
     out = []
+    for st in ZONES:
+        if (only and st != only) or not _inside(ZONES[st][1], lat, lon):
+            continue
+        out += zones(f, lat, lon, st)
     for st, (sid, box, layers) in RESPONDERS.items():
-        if not (box[0] <= lat <= box[2] and box[1] <= lon <= box[3]):
+        if (only and st != only) or not _inside(box, lat, lon):
             continue
         q = {"geometry": f"{lon},{lat}", "geometryType": "esriGeometryPoint", "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
              "outFields": "DsplayName,Agency_ID,ServiceNum", "returnGeometry": "false"}
@@ -130,8 +173,8 @@ def lookup(con, lat, lon, fetcher=None):
     persons.ensure(con)
 
     jobs = [("usa-structures", lambda: building(f, lat, lon), "building")]
-    jobs += [(sid, lambda: responders(f, lat, lon), "responders")
-             for sid in {RESPONDERS[st][0] for st, (_, box, _) in RESPONDERS.items() if box[0] <= lat <= box[2] and box[1] <= lon <= box[3]}]
+    states = {st: v[0] for st, v in {**RESPONDERS, **ZONES}.items() if _inside(v[1], lat, lon)}  # a point can sit in two boxes (Duluth: WI's too)
+    jobs += [(sid, lambda st=st: responders(f, lat, lon, only=st), "responders") for st, sid in states.items()]
     jobs.append(("usgs-national-structures", lambda: stations(f, lat, lon), "stations"))
     with ThreadPoolExecutor(max_workers=len(jobs)) as ex:  # every source at once; tasks are filed after, on this thread (sqlite)
         futs = [(sid, key, ex.submit(fn)) for sid, fn, key in jobs]
@@ -146,7 +189,10 @@ def lookup(con, lat, lon, fetcher=None):
         except Exception as e:  # unreachable or a bad answer: said, not filed as a person task
             res["failed"].append(f"{src['name']}: {type(e).__name__}: {str(e)[:120]}")
             continue
-        res[key] = v
+        if key == "responders":  # one source per state: each adds its own
+            res[key] += v
+        else:
+            res[key] = v
         if v:
             res["credits"].append(src["credit"])
     return res

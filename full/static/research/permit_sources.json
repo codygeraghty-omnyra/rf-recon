@@ -2,11 +2,11 @@
  "updated": "2026-11-04",
  "note": "Open building-permit and certificate-of-occupancy datasets RF Recon's permits.py reads (Building permits and certificates of occupancy, in Data & updates). Terms read on each provider's own page on the date shown; 'open' means the terms clearly allow reuse including commercial use, and only those are on by default. permits.py selects only the mapped fields, so the columns in personal_fields (people's names) are never fetched. Research: ops/docs-build/research/permits-research.md.",
  "counts": {
-  "sources": 52,
-  "usable": 52,
-  "open_enabled_by_default": 24,
-  "not_usable": 28,
-  "places_checked": 68
+  "sources": 53,
+  "usable": 53,
+  "open_enabled_by_default": 25,
+  "not_usable": 38,
+  "places_checked": 96
  },
  "sources": [
   {
@@ -2362,6 +2362,49 @@
    "open": false,
    "notes": "Rolling two-year window (4,143 rows). This server rejects DATE/TIMESTAMP literals: use NewIssueDate >= '2025-01-01'. APPLICDATE is a number like 20241031. PERMIT_TYPE: BLDC commercial 892, BLDG residential 2927, DEMR/DEMC demolitions. Text fields are space-padded. OWNER_* columns hold people's names and mailing addresses; S.C. Code 30-2-50 bars using personal information obtained from public bodies for commercial solicitation, so never select them.",
    "enabled_default": false
+  },
+  {
+   "id": "siouxfalls_building_permits",
+   "name": "Building Permits (City of Sioux Falls)",
+   "place": "Sioux Falls, SD",
+   "state": "SD",
+   "level": "city",
+   "publisher": "City of Sioux Falls",
+   "api": "arcgis",
+   "endpoint": "https://gis.siouxfalls.gov/arcgis/rest/services/Data/Community/MapServer/3",
+   "portal_url": "https://www.arcgis.com/home/item.html?id=73b11d64ccc44fdd84d4ac7446676813",
+   "fields": {
+    "permit_id": "PERMITNUMBER",
+    "type": "PERMITTYPE",
+    "work_class": "WORKCLASS",
+    "status": "PERMITSTATUS",
+    "filed": "APPLYDATE",
+    "issued": "ISSUEDATE",
+    "final": "FINALIZEDATE",
+    "address": "MAINADDRESS",
+    "value": "VALUATION",
+    "units": "DwellingUnits"
+   },
+   "location": "geometry",
+   "date_field": "ISSUEDATE",
+   "date_format": "epoch_ms",
+   "where": "PERMITTYPE = 'Commercial Building' AND WORKCLASS IN ('New','New - Apartment','Addition','Remodel/Renovation','Build Out','White Box','Shell','Change in Use')",
+   "co_dataset": false,
+   "personal_fields": [
+    "contractor_name"
+   ],
+   "update": "daily (newest ISSUEDATE 2026-11-04 when read 2026-11-08)",
+   "rows_since_2025": 25067,
+   "license": "CC BY 4.0: the item's licence reads \"The City of Sioux Falls provides open data licensed under the Creative Commons Attribution 4.0 International License.\"",
+   "license_url": "https://creativecommons.org/licenses/by/4.0/",
+   "terms_url": "https://www.arcgis.com/home/item.html?id=73b11d64ccc44fdd84d4ac7446676813",
+   "attribution": "Required (CC BY 4.0): City of Sioux Falls",
+   "commercial_use": "allowed",
+   "marketing_restriction": "none found",
+   "rate_limit": "No published rate limit found; the city's own ArcGIS Server (MapServer layer with Query), maxRecordCount 1000, paged with resultOffset; outSR 4326 answers.",
+   "open": true,
+   "notes": "183,266 rows. Since 2025: Residential Building 18,363, Commercial Building 6,704; the where matches 1,938 of those. Commercial WORKCLASS since 2025: Electrical 1582, Mechanical 1127, Remodel/Renovation 1097, Plumbing 1025, Repair 553, Foundation 168, White Box 162, New - Apartment 161, New 157, Change in Use 131, Build Out 126, Addition 96, Shell 8. Residential new-build classes use an en dash ('New – Single Family'), commercial 'New - Apartment' a hyphen. No description or occupancy column. contractor_name is the only column naming anyone: never fetched. Licence and fields read 2026-11-08 on the item and the layer. The first source outside the Twin Cities for Mobili-Fi's area (Q3, Cody 11/8): South Dakota adopts IFC 2015 with 510 (state_rules.json). One permit can sit on many rows (Permit-CB-362632-2025 on 141, one address): the pull keeps one per permit. First run 2026-11-08 on a throwaway copy: 2,012 rows since 2024-11-09, 1,235 permits kept (292 new buildings, 65 additions, 321 major alterations), every one with a location, in 5 s.",
+   "enabled_default": true
   }
  ],
  "not_usable": [
@@ -2447,7 +2490,7 @@
   },
   {
    "place": "Saint Paul, MN",
-   "why": "'Building Permits Dataset' and 'Approved Building Permits' stopped at 2025-06-30 (layer last edited 2025-07-01), though licensed public domain. The 'Certificate of Occupancy - Commercial/Residential' layers are the fire-inspection CofO program (renewal grades), not new-construction COs, also last edited 2025-07.",
+   "why": "'Building Permits Dataset' and 'Approved Building Permits' stopped at 2025-06-30 (layer last edited 2025-07-01), though licensed public domain. The 'Certificate of Occupancy - Commercial/Residential' layers are the fire-inspection CofO program (renewal grades), not new-construction COs, also last edited 2025-07. Checked again 2026-11-08: still frozen (Building_Permits_ last edited 2025-07-01). Permitting moved to Tyler EPL ('PAULIE'); its GIS service holds reference layers only, no permits.",
    "url": "https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/Building_Permits_/FeatureServer/0"
   },
   {
@@ -2462,7 +2505,7 @@
   },
   {
    "place": "Hennepin County, MN",
-   "why": "No county permit dataset found in ArcGIS or Hub search. Minneapolis is covered by minneapolis_ccs_permits; other Hennepin cities were not searched one by one.",
+   "why": "No county permit dataset found in ArcGIS or Hub search. Minneapolis is covered by minneapolis_ccs_permits; other Hennepin cities were not searched one by one. Checked again 2026-11-08: the county's Hub search for 'permit' finds nothing.",
    "url": ""
   },
   {
@@ -2504,6 +2547,56 @@
    "place": "South Carolina (statewide)",
    "why": "No statewide permit or CO dataset found. Note S.C. Code 30-2-50 (Family Privacy Protection Act) bars knowingly obtaining or using personal information from a state agency for commercial solicitation.",
    "url": "https://www.scstatehouse.gov/code/t30c002.php"
+  },
+  {
+   "place": "Twin Cities seven-county metro (Metropolitan Council survey)",
+   "why": "Non-residential and residential permit layers from the Council's yearly survey of city building officials: public domain under the Minnesota Government Data Practices Act, but each row has a YEAR only (newest 2025, published 2026-06-25), and permits.py needs a date. 877 non-residential rows in 2025, 42 of them 50,000 sq ft or more, with the building's name and floor area. Usable once a year-only date is read.",
+   "url": "https://arcgis.metc.state.mn.us/data1/rest/services/structure/Other_Structure_Public/FeatureServer/1"
+  },
+  {
+   "place": "Dakota County, MN",
+   "why": "'Building Permits (web layer)' holds only TAXPIN, PLAT, THEYEAR and a use code: no permit number, date or value. Item licence empty.",
+   "url": "https://gis2.co.dakota.mn.us/arcgis/rest/services/DCGIS_OL_LandUse_LandDevelopment/MapServer/32"
+  },
+  {
+   "place": "Ramsey, Washington, Anoka and Carver Counties, MN",
+   "why": "No permit dataset in ArcGIS Online search or the counties' Hub searches ('permit': nothing), 2026-11-08.",
+   "url": "https://data-ramseygis.opendata.arcgis.com"
+  },
+  {
+   "place": "Edina, Minnetonka, Brooklyn Park, Plymouth, Maple Grove, Eden Prairie and Richfield, MN (LOGIS)",
+   "why": "Their permits sit in LOGIS's eInspections service, which answers 'Token Required' (499). Stays refused: a Needs a person task asks LOGIS. Edina's Permit Finder reaches it through a stored-credential proxy, not used.",
+   "url": "https://gis.logis.org/arcgis/rest/services/LOGIS_eInspections?f=json"
+  },
+  {
+   "place": "St. Louis Park, MN",
+   "why": "Permits layer (10,012 rows) last edited 2018-01-22.",
+   "url": "https://services.arcgis.com/4lIwEMiZ9qRQrLvh/arcgis/rest/services/Permits/FeatureServer/0"
+  },
+  {
+   "place": "Lakeville, Maple Grove, Woodbury, Brooklyn Park and St. Louis Park, MN (development projects)",
+   "why": "Current lists of development projects (Lakeville 131 rows, Maple Grove 121, Woodbury 63, Brooklyn Park 29, St. Louis Park 72), not permit feeds. Licences empty or a disclaimer only, so commercial use is unclear, and they carry developers' and staff names, phones and emails.",
+   "url": "https://services2.arcgis.com/lUR6upI2RKmjdugJ/arcgis/rest/services/Development_Projects_Hosted/FeatureServer/0"
+  },
+  {
+   "place": "Bloomington, Eagan, Burnsville, Blaine, Coon Rapids, Roseville, Maplewood and Golden Valley, MN",
+   "why": "No permit or certificate-of-occupancy layer in ArcGIS Online searches, the cities' own services or their Hubs, 2026-11-08.",
+   "url": ""
+  },
+  {
+   "place": "Fargo, ND",
+   "why": "No city layer. The only one found is a realtor's upload of 2025 permits (1,579 rows, no licence).",
+   "url": "https://services2.arcgis.com/82iS1Pc7dgs3LFZv/arcgis/rest/services/2025_Building_Permits_Fargo/FeatureServer/0"
+  },
+  {
+   "place": "Des Moines, IA",
+   "why": "No permit layer in ArcGIS Online search; the city's organisation shows zoning only.",
+   "url": ""
+  },
+  {
+   "place": "Madison, WI",
+   "why": "The city's Hub finds only 2017 parking-permit layers for 'permit'; no building permit dataset.",
+   "url": "https://data-cityofmadison.opendata.arcgis.com"
   }
  ],
  "paid": [
@@ -2650,6 +2743,22 @@
    "redistribution": "License is non-transferable and non-sublicensable (s.4); no clear resale right.",
    "notes": "Bid-lead tool, not permit data. Finds the GC / electrical sub on a project that will need ERCES before it bids.",
    "verified": true
+  },
+  {
+   "name": "Midwest Builders Exchange (MBEX)",
+   "url": "https://mbex.org/",
+   "pricing_url": "https://mbex.org/pricing/",
+   "price": "Premium $1,260 a year at 2026 rates ($840 access + $420 dues), $1,510 from 2027; Basic $420 ($570 from 2027); $50 first-time application fee. Joining in November or December 2026 keeps 2026 rates through 2027.",
+   "free_tier": "none",
+   "coverage": "Minnesota and nearby regions: an online plan room, nightly new-project emails and the Pre-Plan Pipeline newsletter of projects at their earliest stage",
+   "fields": "projects, plans, specs, addenda, companies (not read: members only)",
+   "co_data": false,
+   "api": "none seen",
+   "terms_url": "https://mbex.org/pricing/",
+   "commercial_use": "unclear: the pricing page says nothing on using the data in other software",
+   "redistribution": "unclear",
+   "notes": "For Josh (a Needs a person task). Twin Cities construction leads before permits are filed; Finance & Commerce is the trade daily (price not shown on its page).",
+   "verified": "2026-11-08"
   }
  ],
  "paid_notes": [
@@ -3475,6 +3584,50 @@
    "url": "https://codes.iccsafe.org/content/FLEBC2023P2/chapter-6-classification-of-work",
    "checked": "2026-11-04",
    "verified": true
+  },
+  {
+   "ahj": "Minneapolis, MN",
+   "code": "Minneapolis Code of Ordinances § 173.380 (adopts the Minnesota State Fire Code) and § 173.420 (its amendments); the city's fire protection permits page",
+   "section": "No Appendix P adoption found; no radio coverage permit",
+   "rule": "Minneapolis adopts the Minnesota State Fire Code with its own amendments; neither section mentions Appendix P (read on Municode 2026-11-04), so the state's optional ERCES appendix isn't adopted in the text read. The city's fire protection permits page (updated 2026-06-11, read 2026-11-08) lists permits for sprinkler, standpipe, fire pump, private hydrant, fire alarm and smoke control systems, and none for radio coverage. The fire code official can still ask for coverage on a building. Minneapolis runs its own ARMER sub-system (SECB glossary), so a BDA on its talkgroups goes to the city's sub-system administrator (MESB Metro 1.8.1), with notice to MnDOT.",
+   "threshold": "None found in the city code read or on the city's permit pages.",
+   "at": "permit",
+   "url": "https://www.minneapolismn.gov/business-services/licenses-permits-inspections/fire-permits/fire-protection-permits/",
+   "checked": "2026-11-08",
+   "verified": true
+  },
+  {
+   "ahj": "Saint Paul, MN",
+   "code": "2020 Minnesota State Fire Code, enforced by the Department of Safety and Inspections (Fire Engineering page)",
+   "section": "Appendix P adoption not read; no radio coverage permit",
+   "rule": "DSI's Fire Engineering page (edited 2026-10-07, read 2026-11-08) reviews kitchen hood, sprinkler, fire alarm, smoke control and special suppression systems and lists fire alarm, sprinkler/standpipe, smoke control and special extinguishing permits, and none for radio coverage. It cites the 2020 Minnesota State Fire Code. Whether Saint Paul's Legislative Code adopts Appendix P wasn't read: the code is on Municode, which a person opens. Saint Paul's 911 centre is Ramsey County's (the state's emergency service zones), and metro ARMER sub-systems follow the counties with Minneapolis the one city running its own (SECB glossary), so a BDA here goes to Ramsey County's sub-system administrator (MESB Metro 1.8.1).",
+   "threshold": "Not known until the Legislative Code is read.",
+   "at": "permit",
+   "url": "https://www.stpaul.gov/departments/safety-inspections/building-and-construction/construction-permits-and-inspections/fire-engineering",
+   "checked": "2026-11-08",
+   "verified": false
+  },
+  {
+   "ahj": "Maple Grove, MN",
+   "code": "Maple Grove City Code Chapter 18 and the Minnesota State Fire Code Appendix P, in Fire Inspections' 'Guidelines and Permit Information: Emergency Responder Radio Coverage' (PDF created 2021-11-30)",
+   "section": "Chapter 18 as quoted in the guide, p.1; permit under 2020 MSFC 105.7.6",
+   "rule": "\"no person shall erect, construct, change the use of or provide addition of more than twenty (20) percent to, any building or structure or any part thereof, or cause the same to be done which fails to support adequate radio coverage for the Minnesota Regional Radio Communications System\". Adequate coverage: -95 dBm average over 95 percent of each floor, measured 30 to 36 inches above the floor, plus critical areas the fire chief names. A construction permit is needed to install or modify a system, and the plan set carries an email confirming the system conforms to the Metro Region ARMER standards (MESB 1.8.1, reviewed by the Hennepin County Sheriff's Office Communications Division).",
+   "threshold": "New buildings, a change of use, or an addition of more than 20%.",
+   "at": "permit",
+   "url": "https://www.maplegrovemn.gov/DocumentCenter/View/3793/Emergency-responder-radio-coverage-guide-PDF",
+   "checked": "2026-11-08",
+   "verified": true
+  },
+  {
+   "ahj": "Maple Grove, MN",
+   "code": "Maple Grove City Code Chapter 18 (in the Fire Inspections guide)",
+   "section": "Chapter 18 as quoted in the guide, p.1",
+   "rule": "\"Existing A, E, and I occupancies regardless of square footage and percentage of addition or modification, where it has been determined by the fire chief or fire chief's designee that a structure or area of a structure fails to support adequate radio coverage for the Minnesota Allied Radio Matrix for Emergency Response (ARMER) Radio System ... the fire chief or fire chief's designees can require in-building radio amplification\".",
+   "threshold": "Existing assembly, educational and institutional buildings, at the fire chief's finding, whatever their size.",
+   "at": "existing",
+   "url": "https://www.maplegrovemn.gov/DocumentCenter/View/3793/Emergency-responder-radio-coverage-guide-PDF",
+   "checked": "2026-11-08",
+   "verified": true
   }
  ],
  "trigger_notes": [
@@ -3504,7 +3657,8 @@
   "South Carolina: the state adopts IFC with Building Codes Council modifications; no state modification to IFC 510 or Chapter 11 appears in the 2024 index (https://llr.sc.gov/bcc/PDFfiles/2024%20Final%20Modification%20Index%20with%20Hyperlinks.pdf). 2024 SC Fire Code implementation date is January 1, 2027 (https://llr.sc.gov/bcc/PDFfiles/2024%20Code%20Adoption%20Notice.pdf). No Columbia or Greenville ERCES amendment or bulletin was found; Charleston's bulletin is guidance on the state code, not a local amendment.",
   "Florida: 633.202(18)(i) bars local AHJs from enforcing anything more stringent than the FFPC and the statute on requirement, design or installation of an enhancement system, so Florida counties and cities should match the state triggers. The 9th Edition FFPC (NFPA 1 2024) takes effect 12/31/2026; the 8th Edition (NFPA 1 2021) is in force on 2026-11-04.",
   "NFPA 1225 (2022) Chapter 18 and 20.3.10.1 (Georgia OCI copy, https://oci.georgia.gov/document/document/nfpa-1225-chapter-18/download, a state agency posting, not NFPA): 18.5 requires testing per 20.3.10 and 20.3.10.1; 20.3.10.1.1 'All new systems shall be initially acceptance tested'; 18.7.3 allows an AHJ renewable permit. No alteration or remodel retest rule was found in the chapter 18 text read, so NFPA 1225 adds no alteration trigger beyond what the adopting fire code says.",
-  "Third-party copies: UpCodes copies (DC Fire Code 2017, NC 2024 chapter 5 cross-check, SC 2021/2024) and ICC copies are treated as verified per the task rule. No vendor-hosted copy is used as a trigger source here; vendor and search-excerpt claims were left out or noted as unverified. The das_market.json summary's Minnesota and Virginia lines were search excerpts; both are now read on the publisher's page (revisor.mn.gov 7511.0510 / 7511.7900; ICC VACC2021P1 918)."
+  "Third-party copies: UpCodes copies (DC Fire Code 2017, NC 2024 chapter 5 cross-check, SC 2021/2024) and ICC copies are treated as verified per the task rule. No vendor-hosted copy is used as a trigger source here; vendor and search-excerpt claims were left out or noted as unverified. The das_market.json summary's Minnesota and Virginia lines were search excerpts; both are now read on the publisher's page (revisor.mn.gov 7511.0510 / 7511.7900; ICC VACC2021P1 918).",
+  "Minnesota, read 2026-11-08 (Q3, Mobili-Fi's area): Minneapolis's and Saint Paul's own fire permit pages list no radio coverage permit (Minneapolis fire protection permits, updated 2026-06-11; Saint Paul DSI Fire Engineering, edited 2026-10-07). Maple Grove's Fire Inspections guide is the fullest Twin Cities local rule found: City Code Chapter 18 (new buildings, a change of use, additions over 20%; existing A, E and I occupancies at the fire chief's finding), -95 dBm over 95% of each floor, Class A only (Class B registered with the FCC and approved by the AHJ), 12 h battery, a +3.2 dBm per channel test level, and an email from the Hennepin County Sheriff's Office Communications Division, the ARMER sub-system administrator, in the plan set. ARMER: MnDOT holds the licences, wants notice of every indoor and outdoor ARMER booster and wants Class A boosters registered with the FCC too (ECN memo 2017-02-28, in Central MN standard 1.8.1); in the metro the sub-system administrator approves (MESB Metro 1.8.1, revised 2019-04-11). The SECB approved a statewide BDA standard in January 2026 (Central MN ESB minutes, 2026-01-28); its text wasn't found published. The DLI docket for the 2024-IFC-based fire code still shows everything after the 2026-02-02 Request for Comments as 'To be determined'."
  ],
  "checked_urls": [
   "http://maps.wakegov.com/agso/OpenData/TermsOfUse.html",
@@ -3568,6 +3722,14 @@
   "https://www.nyc.gov/opendata/get-started/what-is-open-data-",
   "https://www.phoenixopendata.com/pages/open-data-policy (403)",
   "https://www.phoenixopendata.com/pages/terms-of-use (403)",
-  "https://www.scstatehouse.gov/code/t30c002.php"
+  "https://www.scstatehouse.gov/code/t30c002.php",
+  "https://www.arcgis.com/home/item.html?id=73b11d64ccc44fdd84d4ac7446676813",
+  "https://www.minneapolismn.gov/business-services/licenses-permits-inspections/fire-permits/fire-protection-permits/",
+  "https://www.stpaul.gov/departments/safety-inspections/building-and-construction/construction-permits-and-inspections/fire-engineering",
+  "https://www.maplegrovemn.gov/DocumentCenter/View/3793/Emergency-responder-radio-coverage-guide-PDF",
+  "https://mn-mesb.org/wp-content/uploads/Metro-1.8.1-AC-1.pdf",
+  "https://mnecb.org/DocumentCenter/View/105",
+  "https://dli.mn.gov/node/8221",
+  "https://mbex.org/pricing/"
  ]
 }
