@@ -522,10 +522,20 @@ APP_HEAD = ('<link rel="manifest" href="/static/app/manifest.webmanifest"><meta 
             '<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});</script>')
 
 
+def _licence():
+    try:
+        import licence
+        return licence.load(_DIR) if _DIR else None
+    except Exception:  # the sign-in page never fails on a bad licence file
+        return None
+
+
 def login_page(msg="", name="", google=False):
     """google: show Sign in with Google (set up on this server, and not inside DAStastic for Android, whose web view Google
     refuses)."""
     err = f'<p class="err">{html.escape(msg)}</p>' if msg else ""
+    lic = _licence()  # a business's own copy says whose it is (licence.py)
+    whose = f"{html.escape(lic['licensee'])}'s DAStastic" if lic else ""
     gbtn = ('<div class="or"><span>or</span></div><a class="gbtn" href="/remote/google"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">'
             '<path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/>'
             '<path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 2.9-2.2 5.4-4.7 7.1l7.6 5.9c4.4-4.1 6.9-10.1 6.9-17.5z"/>'
@@ -556,7 +566,7 @@ button:hover{{filter:brightness(1.08)}}
 .gbtn{{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;padding:10px;border-radius:999px;background:#fff;color:#1f1f1f;
   font:600 15px Urbanist,system-ui,sans-serif;text-decoration:none;transition:filter .2s ease}} .gbtn:hover{{filter:brightness(.95)}}
 </style></head><body><main>
-<h1>DAStastic <b>BETA</b></h1><p class="sub">{"Sign in to DAStastic." if SERVER_URL else "Cody's DAStastic, view and search only."}</p>
+<h1>DAStastic <b>BETA</b></h1><p class="sub">{f"Sign in to {whose}." if whose else "Sign in to DAStastic." if SERVER_URL else "Cody's DAStastic, view and search only."}</p>
 <form method="post" action="/remote/login">
 <label for="n">Name</label><input id="n" name="name" autocomplete="username" required value="{html.escape(name)}" {'' if name else 'autofocus'}>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required {'autofocus' if name else ''}>

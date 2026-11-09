@@ -16,7 +16,7 @@ import zipfile
 
 CYCLE_PAGE = "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/"
 CSV_URL = "https://nfdc.faa.gov/webContent/28DaySub/extra/{cycle}_{topic}_CSV.zip"
-TOPICS = ("FRQ", "NAV", "ILS")
+TOPICS = ("FRQ", "NAV", "ILS", "APT")  # APT: airports and runways, for a DAS job's FAA notice check (towair.py)
 UA = {"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"}
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS faa(id INTEGER PRIMARY KEY, ident TEXT, name TEXT, kind TEXT, use TEXT, freq_mhz REAL,
@@ -120,6 +120,14 @@ def run(con, data_dir, fetch=True, log=print):
     con.execute("INSERT OR REPLACE INTO meta VALUES('faa_built_at', ?)", (time.strftime("%Y-%m-%d %H:%M"),))
     con.commit()
     log(f"  FAA: {len(rows):,} aviation frequencies")
+    try:  # airports and runways for the FAA notice check (towair.py): its failure never stops the frequencies
+        import towair
+        zp = towair.zip_path(data_dir)
+        if zp:
+            n = towair.load(con, zp)
+            log(f"  FAA: {n['airports']:,} airports, {n['runways']:,} runways")
+    except Exception as e:
+        log(f"  FAA airports not loaded: {type(e).__name__}: {str(e)[:120]}")
     return len(rows)
 
 

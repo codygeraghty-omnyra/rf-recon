@@ -26,12 +26,13 @@ const LAYERS = {
   repeaterbook:{label:"RepeaterBook", color:"#1f6feb"}, custom:{label:"Imported layers", color:"#bf8700"},
   ttn:{label:"LoRaWAN gateways (TTN)", color:"#0a7c66"}, satnogs:{label:"SatNOGS ground stations", color:"#6639ba"},
   wspr:{label:"WSPR stations", color:"#b35900"}, pskreporter:{label:"PSKReporter", color:"#a40e26"},
-  psap:{label:"911 call centres (FCC, 2017)", color:"#d1242f"}, fss:{label:"Satellite earth stations (FCC)", color:"#0b6e99"},
+  psap:{label:"911 call centres (FCC registry)", color:"#d1242f"}, proposed:{label:"Proposed towers (FCC, FAA)", color:"#8250df"}, fss:{label:"Satellite earth stations (FCC)", color:"#0b6e99"},
+  boosters:{label:"Signal boosters (FCC registered)", color:"#4d7c0f"},  // off until ticked (boosters.py): Class B registrations, business fields only
   meshtastic:{label:"Meshtastic mesh radios", color:"#67ea94"}, helium:{label:"Helium IoT hotspots", color:"#474dff"}};
 
 // the filter rail's three source groups (rail.js), in their fixed order; the ATAK frames follow the same split (mapstyle.js)
 const SOURCE_GROUPS = [
-  ["licensed", "Licensed & registered", ["uls","uls_hist","broadcast","noaa","faa","towers","psap","fss"]],
+  ["licensed", "Licensed & registered", ["uls","uls_hist","broadcast","noaa","faa","towers","proposed","psap","fss","boosters"]],
   ["crowd", "Crowd & networks", ["wigle","opencellid","repeaterbook","ttn","helium","meshtastic","satnogs","wspr","pskreporter"]],
   ["mine", "Mine", ["captures","custom"]]];
 const LICENSED = new Set(SOURCE_GROUPS[0][2]);  // FCC and other government records, not crowd reports
@@ -64,7 +65,7 @@ function classGroup(r){ if(r.layer==="towers") return "Towers"; if(r.layer!=="ul
   const c=r.station_class||""; if(c==="FB2"||c==="FB4") return "Repeaters"; if(c.startsWith("FB")) return "Base stations"; if(c.startsWith("FX")) return "Fixed / control"; if(c.startsWith("MO")) return "Mobiles"; return "Other"; }
 // the same groups by a key the server can read: it doesn't know the source labels, so anything but a licence goes by its layer
 const classKey = r => r.layer==="uls"||r.layer==="uls_hist"||r.layer==="towers" ? classGroup(r) : r.layer;
-const typeOf = r => r.layer==="towers" ? "Tower / structure" : r.layer==="psap" ? "911 call centre" : (r.sig_type || "Unknown");
+const typeOf = r => r.layer==="towers" ? "Tower / structure" : r.layer==="proposed" ? "Proposed tower / structure" : r.layer==="psap" ? "911 call centre" : r.layer==="boosters" ? "Signal booster (FCC registered)" : (r.sig_type || "Unknown");
 const colorOf = r => r.layer==="towers" ? "#57606a" : (S.lib[r.sig_type]?.color || LAYERS[r.layer]?.color || "#8c959f");
 const erpOf = r => r.erp_w ?? r.power_out_w;
 const levelOf = r => r.dbm ?? r.est_rx_dbm;

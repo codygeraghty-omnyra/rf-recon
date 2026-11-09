@@ -18,6 +18,8 @@ PROFILES = {
     "default": {"required": [], "point": False, "us": False, "freq": None, "id": None, "near_m": 0, "personal": []},
     "points": {"required": ["lat", "lon"], "point": True, "us": False, "freq": None, "id": "id", "near_m": 100, "personal": []},
     "us_points": {"required": ["lat", "lon"], "point": True, "us": True, "freq": None, "id": "id", "near_m": 100, "personal": []},
+    # a registry's own records (signal booster registrations): each needs its id, and two at one spot are two (one per floor)
+    "registrations": {"required": ["id", "lat", "lon"], "point": True, "us": True, "freq": None, "id": "id", "near_m": 0, "personal": []},
     "frequencies": {"required": ["freq_mhz"], "point": False, "us": False, "freq": "freq_mhz", "id": "id", "near_m": 0, "personal": []},
     "permit": {"required": [], "point": False, "us": True, "freq": None, "id": "permit_id", "near_m": 0,
                "personal": ["owner", "owner_name", "applicant", "applicant_name", "contractor_phone", "phone", "email", "contact"]},

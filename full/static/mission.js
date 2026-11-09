@@ -9,7 +9,7 @@ async function loadMission(id, applyArea){
   const m=await api("/api/missions/"+id); S.mission=m; S.missionId=m.id;
   try{ const t=await api(`/api/missions/${id}/tracks`); S.mission.tracks=t.tracks; }catch(e){ /* no tracks for this mission yet: the map draws none */ }
   $("#missionName").textContent=`${m.name} · ${m.status}`;
-  const lay=m.settings.layers||{}; S.layerSolo=S.layerPrev=null; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !(k==="uls_hist"&&!lay[k])));
+  const lay=m.settings.layers||{}; S.layerSolo=S.layerPrev=null; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !((k==="uls_hist"||k==="boosters")&&!lay[k])));  // history and boosters: only when ticked
   S.layerDef=new Set(S.layerOn);  // the mission's sources are its defaults: the filter rail's Clear comes back to them
   $("#hideMobile").checked=m.settings.fixed_sites_only!==false;
   if(applyArea && m.lat!=null){ setMode("point"); $("#loc").value=`${m.lat}, ${m.lon}`; $("#radius").value=m.radius_mi||5; $("#radiusSlider").value=m.radius_mi||5; }
@@ -17,7 +17,7 @@ async function loadMission(id, applyArea){
 window.missionBoot = async () => {
   // signed in through the remote door (remote.py): view and full logins are "remote" (no Data & updates, no keys);
   // an admin login (the server's owner) gets everything, plus a Sign out button
-  try{ const me=await api("/api/me"); S.me=me.remote?me:null; S.remote=me.remote&&me.role!=="admin"?me:null; }catch(e){ S.remote=null; S.me=null; }
+  try{ const me=await api("/api/me"); S.me=me.remote?me:null; S.remote=me.remote&&me.role!=="admin"?me:null; window.phoneBoot&&phoneBoot(me); }catch(e){ S.remote=null; S.me=null; }
   if(S.remote){
     document.body.classList.add("remote"); if(S.tab==="data") setTab("map");
     $("#netLed").className="led on"; $("#netText").textContent=`${S.remote.role==="full"?"Signed in":"View only"} · ${S.remote.user}`;
@@ -268,6 +268,8 @@ const API_KEYS=[
    fields:[["wigle_name","API name","text"],["wigle_token","API token","32 characters"]], how:"Account → API token: the name and the token. Non-commercial use only."},
   {id:"opencellid", name:"OpenCelliD", what:"cell towers for the map and Cell sites", src:"opencellid", get:"https://my.opencellid.org/dashboard",
    fields:[["opencellid_key","Access token","pk.…"]], how:"The access token on your account page. 1,000 requests a day; CC BY-SA 4.0."},
+  {id:"apidatagov", name:"api.data.gov", what:"the FCC rules watch: new filings in the dockets that change DAS work", src:"fcc_rules", get:"https://api.data.gov/signup/",
+   fields:[["api_data_gov_key","API key","40 characters"]], how:"Sign up with your name and email; the key comes by email at once. Free."},
   {id:"aisstream", name:"aisstream", what:"live ships (the Ships map overlay)", get:"https://aisstream.io/apikeys",
    fields:[["aisstream_key","API key","40 characters"]], how:"Sign in, then API Keys. Ships stream only while the overlay is on."},
   {id:"mouser", name:"Mouser", what:"online prices, stock and lead times for DAS parts (Materials, Quotes)", src:"part_prices", get:"https://www.mouser.com/api-hub/",
@@ -337,6 +339,15 @@ const NY={pull:null, people:null};  // what Needs you was drawn with, so paintSo
 // desk try the source again, and the task closes only when the source answers. Below it, every source as it stands.
 const DESK={v:null};
 const DESK_STATE={fresh:"var(--good)", stale:"var(--warn)", failed:"var(--bad)", "needs a key":"var(--warn)", "never fetched":"var(--warn)", off:"inherit"};
+// the FCC rules watch (fccrules.py): filings the FCC put out in the last 30 days in the dockets that change DAS work
+function rulesPanel(rv){
+  if(!rv) return '<div id="rulesPanel"></div>';
+  const f=rv.filings||[];
+  return `<div class="panel" id="rulesPanel"><h3>FCC rules watch <span class="hint">· new filings in the last ${rv.days} days, in ${Object.keys(rv.dockets||{}).length} dockets</span></h3>
+    ${f.length?`<div class="tw" style="max-height:320px"><table><thead><tr><th>Date</th><th>Docket</th><th>Type</th><th>Filed by</th><th>Document</th></tr></thead><tbody>${f.map(x=>`<tr><td>${esc(x.disseminated)}</td><td title="${esc(x.about)}">${esc(x.docket)}<div class="hint">${esc(x.about)}</div></td><td>${esc(x.type)}</td><td>${esc(x.filers)}</td><td>${x.link?`<a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title||"the filing")} ↗</a>`:esc(x.title)}</td></tr>`).join("")}</tbody></table></div>`
+      :'<p class="hint" style="margin:0">Nothing new in the last 30 days, or the watch hasn\'t run yet (it needs your api.data.gov key).</p>'}
+    <p class="hint" style="margin:6px 0 0">${esc(rv.attribution||"")}</p></div>`;
+}
 function deskPanel(dv){
   DESK.v=dv; if(!dv) return '<div id="deskPanel"></div>';  // a place to fill when the desk answers
   const tasks=dv.tasks||[], rows=dv.sources||[], c=dv.counts||{};
@@ -402,7 +413,7 @@ S.views.data = async (v) => {
   // the desk is drawn as it was last time and filled in when it answers: the tab doesn't wait for it (11/8, a slower tab fails)
   if(gen!==S.viewGen) return;  // you moved on while it loaded
   const c=navigator.connection||{};
-  v.innerHTML=`${needsYou(pull, people)}${deskPanel(DESK.v)}
+  v.innerHTML=`${needsYou(pull, people)}${deskPanel(DESK.v)}${rulesPanel(null)}
   <div class="grid2" style="margin-top:0">
     <div class="panel"><h3>Connection</h3><div id="netCard"></div>
       <p class="hint">Browser reports: ${navigator.onLine?"online":"offline"}${c.type?` · ${esc(c.type)}`:""}${c.effectiveType?` · ${esc(c.effectiveType)}`:""}${c.downlink?` · ~${c.downlink} Mb/s`:""}${c.saveData?" · data saver on":""}</p>
@@ -670,6 +681,7 @@ S.views.data = async (v) => {
   // time and slowed the tab (11/8, measured: median 640 ms against 460); drawn last time's way meanwhile
   api("/api/update/desk").catch(()=>null).then(dv=>{ if(gen!==S.viewGen||!dv) return; const p=$("#deskPanel"); if(!p) return;
     p.outerHTML=deskPanel(dv); wireDesk(); const ny=$("#needsYou"); if(ny) ny.outerHTML=needsYou(NY.pull, NY.people); });
+  api("/api/update/rules").catch(()=>null).then(rv=>{ if(gen!==S.viewGen||!rv) return; const p=$("#rulesPanel"); if(p) p.outerHTML=rulesPanel(rv); });
   $("#netCheck").onclick=async()=>{ $("#netCard").innerHTML='<p class="hint">Checking…</p>'; UPD=await post("/api/net/hint?check=1",{type:c.type||null,effectiveType:c.effectiveType||null}); paintNet(); paintSources(); };
   const cfg=async body=>{ UPD=await post("/api/update/config",body); paintNet(); paintSources(); };
   $("#uAuto").onchange=e=>cfg({auto:e.target.checked});

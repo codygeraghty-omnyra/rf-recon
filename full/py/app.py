@@ -64,9 +64,11 @@ sys.path.insert(0, HERE)
 import ais  # noqa: E402
 import artemis  # noqa: E402
 import bdc  # noqa: E402
+import boosters  # noqa: E402
 import fccid  # noqa: E402
 import finder  # noqa: E402
 import keystore  # noqa: E402
+import licence  # noqa: E402
 import kitupdate  # noqa: E402
 import basemaps  # noqa: E402
 import takpush  # noqa: E402
@@ -371,6 +373,14 @@ def has_table(con, name):
     return con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
 
 
+def phone_ready(role):
+    """Whether the Phone button shows: the copy's phone is set up and the login is full or admin (None: Cody's PC)."""
+    if role not in (None, "full", "admin"):
+        return False
+    import phone
+    return bool(phone.config(uls_import.DATA_DIR))
+
+
 def decorate(f, area):
     """distance, bearing, est level"""
     if area["point"] and f.get("lat") is not None:
@@ -410,7 +420,7 @@ def agency_key(r):
 
 def row_type(r):
     """typeOf in core.js."""
-    return {"towers": "Tower / structure", "psap": "911 call centre"}.get(r.get("layer")) or r.get("sig_type") or "Unknown"
+    return {"towers": "Tower / structure", "psap": "911 call centre", "boosters": "Signal booster (FCC registered)"}.get(r.get("layer")) or r.get("sig_type") or "Unknown"
 
 
 def class_key(r):
@@ -661,6 +671,29 @@ def query_area(qs):
             f = fss.feature(r)
             if keep(f):
                 out.append(f)
+    if "proposed" in layers and area["point"] and has_table(con, "tower_app"):  # proposed towers: FCC applications and FAA studies (towerapps.py)
+        import towerapps
+        for d in towerapps.proposed(con, area["sql"], area["args"]):
+            if d["kind"] == "application":
+                label = f"Proposed tower: {d['purpose_text']}, {d['status_text']}"
+                det = {"FCC file": d["file_number"], "Registration": d["reg"] or "new", "Applicant": d["applicant"] or "",
+                       "Height above ground": f"{d['agl_m']} m" if d["agl_m"] is not None else "", "Structure": d["struct_type"],
+                       "Received": d["received"], "FAA study": d["faa_study"], "Where": ", ".join(x for x in (d["city"], d["state"]) if x),
+                       "Source": "FCC antenna structure applications (daily file)"}
+                f = {"fid": f"proposed:{d['file_number']}", "label": label, "lat": d["lat"], "lon": d["lon"], "city": d["city"], "state": d["state"]}
+            else:
+                label = f"Proposed structure under FAA study {d['study']}"
+                det = {"FAA study": d["study"], "Sponsor": d["sponsor"] or "", "Height above ground": f"{d['agl_m']} m" if d["agl_m"] is not None else "",
+                       "Issued": d["issued"], "Determination expires": d["expires"], "Where": ", ".join(x for x in (d["city"], d["state"]) if x),
+                       "Source": "FAA determinations in the FCC's daily tower files"}
+                f = {"fid": f"faa:{d['study']}", "label": label, "lat": d["lat"], "lon": d["lon"], "city": d["city"], "state": d["state"]}
+            f.update(layer="proposed", category="Proposed tower or structure", sig_type=None, freq_mhz=None,
+                     details=json.dumps({k: v for k, v in det.items() if v}))
+            if keep(f):
+                if freq_on and not keep_nofreq:
+                    set_aside["proposed"] = set_aside.get("proposed", 0) + 1
+                else:
+                    out.append(f)
     if "psap" in layers and area["point"] and has_table(con, "psap"):  # 911 call centres, placed at their town's centre
         where, args = [area["sql"]], list(area["args"])
         if text:  # "sheriff" still finds a sheriff's 911 centre
@@ -675,6 +708,21 @@ def query_area(qs):
             if keep(f):
                 if freq_on and not keep_nofreq:
                     set_aside["psap"] = set_aside.get("psap", 0) + 1
+                else:
+                    out.append(f)
+    if "boosters" in layers and area["point"] and has_table(con, "booster"):  # Class B boosters registered with the FCC: business fields only (boosters.py)
+        where, args = [area["sql"]], list(area["args"])
+        if fmin is not None:
+            where.append("(freq_hi >= ? OR freq_hi IS NULL)"); args.append(fmin)
+        if fmax is not None:
+            where.append("(freq_lo <= ? OR freq_lo IS NULL)"); args.append(fmax)
+        if text:
+            where.append("(company LIKE ? OR callsigns LIKE ? OR booster_id LIKE ? OR address LIKE ? OR city LIKE ? OR location LIKE ?)"); args += [f"%{text}%"] * 6
+        for r in con.execute(f"SELECT {', '.join(boosters.COLS)} FROM booster WHERE {' AND '.join(where)} LIMIT 3000", args):
+            f = boosters.feature(r)
+            if keep(f):
+                if freq_on and f["freq_lo_mhz"] is None and not keep_nofreq:  # no frequency the FCC's text gives: left off, counted
+                    set_aside["boosters"] = set_aside.get("boosters", 0) + 1
                 else:
                     out.append(f)
     con.close()
@@ -2010,6 +2058,24 @@ class H(BaseHTTPRequestHandler):
         b = self.raw_body()
         return json.loads(b or b"{}")
 
+    def booster_admin(self, con):
+        """Whether this person may read the booster registrants' contacts: an admin login, or this PC's own window, on a
+        copy that keeps them (boosters.py); never a team login, never the web version."""
+        return self.team()[0] is None and sys.platform != "emscripten" and boosters.has_table(con, "booster_contact")
+
+    def booster_contact_route(self, qs):
+        """The people on one booster registration (boosters.contact), for an admin only. The first lock is the door's:
+        /api/remote is blocked for every login but an admin (remote.BLOCKED). This is the second: a team login and the
+        web version get 404, as if it weren't there. The answer is never logged."""
+        con = db()
+        try:
+            if not self.booster_admin(con):
+                return self.send(404, {"error": "not found"})
+            c = boosters.contact(con, fstr(qs, "id"))
+            return self.send(200, c) if c else self.send(404, {"error": "No contact is kept for that registration on this copy."})
+        finally:
+            con.close()
+
     def files_route(self, p, qs):
         """Server files (serverfiles.py). /api/remote is already blocked for everyone but an admin; this is the second
         lock, and it shuts this PC's own port, which has no sign-in."""
@@ -2289,6 +2355,48 @@ class H(BaseHTTPRequestHandler):
         except ValueError as e:
             return self.send(400, {"error": str(e)})
 
+    def phone_route(self, method, p, qs):
+        """The Phone window (phone.py): its settings as the page may see them, the texts and calls with the demo list's
+        numbers, a text, a call via your cell, and your cell. A full or admin login, or Cody's PC: a view login reads
+        nothing here, the texts included."""
+        import phone
+        login = getattr(remote.ON, "login", None)
+        if login and remote.role_of(login) not in ("full", "admin"):
+            return self.send(403, {"error": "The phone is for full and admin logins."})
+        c = phone.config(uls_import.DATA_DIR)
+        if p == "/api/phone" and method == "GET":
+            return self.send(200, dict(phone.public_of(c, login), licence=licence.public(uls_import.DATA_DIR)))
+        if not c:
+            return self.send(409, {"error": "The phone isn't set up on this copy."})
+        try:
+            if method == "GET" and p == "/api/phone/threads":
+                return self.send(200, {"threads": phone.threads(c)})
+            if method == "GET" and p == "/api/phone/thread":
+                return self.send(200, {"messages": phone.thread(c, fstr(qs, "n"))})
+            if method == "GET" and p == "/api/phone/calls":
+                return self.send(200, {"calls": phone.calls(c)})
+            if method == "GET" and p == "/api/phone/contacts":  # the DAS contacts with a phone number
+                con = db()
+                try:
+                    rows = das.list_contacts(con)
+                finally:
+                    con.close()
+                out = [{"id": r["id"], "name": r.get("name") or "", "org": r.get("org") or "", "phone": phone.e164(r.get("phone")),
+                        "listed": phone.e164(r.get("phone")) in c["allow"]} for r in rows if phone.e164(r.get("phone"))]
+                return self.send(200, {"contacts": out})
+            if method == "POST" and p == "/api/phone/text":
+                d = self.body_json()
+                return self.send(200, phone.send_text(c, d.get("to"), d.get("body")))
+            if method == "POST" and p == "/api/phone/call":
+                return self.send(200, phone.call_via_cell(c, login or "", self.body_json().get("to")))
+            if method == "POST" and p == "/api/phone/cell":
+                return self.send(200, {"cell": phone.set_cell(uls_import.DATA_DIR, login or "", self.body_json().get("cell"))})
+        except ValueError as e:
+            return self.send(400, {"error": str(e)})
+        except RuntimeError as e:
+            return self.send(502, {"error": str(e)})
+        return self.send(404, {"error": "No such page."})
+
     def notes_route(self, method, p, qs):
         """Notes (notes.py): the list, a new note, its recordings and photos (sent one by one as the request body), a
         file to play or show, and delete. Someone on the remote link sees and adds only their own and can't delete."""
@@ -2474,6 +2582,12 @@ class H(BaseHTTPRequestHandler):
                     if action == "files":
                         import intake
                         return self.send(200, intake.labelled(das.list_files(jid, job["name"], con)))
+                    if action == "boosters":  # registered Class B boosters at the building and within the pre-survey radius (boosters.py)
+                        jd = job["data"] or {}
+                        if jd.get("lat") is None or jd.get("lon") is None:
+                            raise ValueError("Set the building's location first.")
+                        radius = float((jd.get("presurvey") or {}).get("radius") or 15)
+                        return self.send(200, dict(boosters.at_job(con, float(jd["lat"]), float(jd["lon"]), radius), contacts=self.booster_admin(con)))
                     if action == "bomreview":  # the Materials tab's list: groups, wrong-part warnings, price moves, what's missing, the outputs
                         import dasbom
                         return self.send(200, dasbom.review(con, job))
@@ -2584,6 +2698,7 @@ class H(BaseHTTPRequestHandler):
                 rows = prospects.with_permits(uls_import.DATA_DIR, rows, lat, lon, fnum(qs, "radius", 10), kinds, *pset)
                 vis = dashist.visible(con, *self.team())
                 pl = [x if vis is None or x.get("job_id") in vis else dict(x, job_id=None) for x in prospects.permit_finish(das.with_pipeline(con, rows))]
+                pl = boosters.attach(con, pl)  # a registered booster at the building: an existing system (boosters.py)
                 return self.send(200, {"prospects": pl, "counts": {**prospects.counts(uls_import.DATA_DIR), **prospects.permit_counts(uls_import.DATA_DIR, *pset)},
                                        "sources": {k: {"name": v.get("name"), "license": v.get("license")} for k, v in prospects.SOURCES.items()}})
             if p == "/api/das/prospects/need":  # RF need per prospect, an estimate (need.py, 11/4); a GET, so view logins see it
@@ -2769,6 +2884,8 @@ class H(BaseHTTPRequestHandler):
                 jid = fnum(qs, "job")
                 bld = ((das.job_row(con, int(jid)) or {}).get("data") or {}) if jid is not None and fnum(qs, "loss") is None else None
                 res = das.presurvey(con, lat, lon, fnum(qs, "radius", 15), fnum(qs, "loss"), fnum(qs, "threshold", -95), building=bld)
+                # registered Class B boosters within the radius on these systems' channels, shown apart from them (boosters.py)
+                res["boosters"] = boosters.for_presurvey(con, lat, lon, fnum(qs, "radius", 15), res["systems"], fstr(qs, "chosen").split(","))
                 # beside the free-space levels, the realistic ones: Hata + terrain where cached (coverage.py, 11/4)
                 return self.send(200, coverage.presurvey_realistic(con, res, lat, lon, fstr(qs, "env") or "suburban"))
             if p == "/api/das/nsi":  # the USACE National Structure Inventory for the job's building (nsi.py; a small box, never bulk)
@@ -2998,6 +3115,8 @@ class H(BaseHTTPRequestHandler):
                 return self.intake_route("GET", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
                 return self.notes_route("GET", p, qs)
+            if p == "/api/phone" or p.startswith("/api/phone/"):  # the Phone window (phone.py)
+                return self.phone_route("GET", p, qs)
             if p in EXTRA_ROUTES:
                 return self.extra_route("GET", p, qs)
             if p in ("/", "/index.html"):
@@ -3055,7 +3174,8 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/bdc/carriers":  # the carriers with coverage in a box, for the carrier heatmap's picker
                 return self.send(200, {"carriers": bdc.carriers(uls_import.DATA_DIR, *(fnum(qs, k) for k in ("s", "n", "w", "e")))})
             if p == "/api/me":  # the remote door answers this itself (RemoteH); the data folder lets a launcher know its own copy
-                return self.send(200, {"remote": False, "data": uls_import.DATA_DIR})
+                return self.send(200, {"remote": False, "data": uls_import.DATA_DIR, "licence": licence.public(uls_import.DATA_DIR),
+                                       "phone": phone_ready(None)})
             if p == "/api/remote":  # who can use DAStastic remotely, and the public link (remote.py); door 0 = this copy has none
                 return self.send(200, {"people": remote.users(), "link": remote.link() if REMOTE_PORT else {}, "door": REMOTE_PORT,
                                        "google_on": remote.google_on()})
@@ -3063,6 +3183,8 @@ class H(BaseHTTPRequestHandler):
                 return self.course_people()
             if p in ("/api/remote/files", "/api/remote/files/download"):  # what the server keeps: read only (serverfiles.py)
                 return self.files_route(p, qs)
+            if p == "/api/remote/booster-contact":  # a booster registrant's contact: an admin's only (booster_contact_route)
+                return self.booster_contact_route(qs)
             if p == "/api/meta":
                 con = db()
                 meta = {r["k"]: r["v"] for r in con.execute("SELECT k, v FROM meta")}
@@ -3182,6 +3304,13 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/update/status":
                 UPD.refresh_net_if_stale()  # the page polls this every 15 s
                 return self.send(200, UPD.snapshot())
+            if p == "/api/update/rules":  # the FCC rules watch (fccrules.py, Cody 11/8): the DAS dockets' filings of the last 30 days
+                import fccrules
+                dc = db()
+                try:
+                    return self.send(200, fccrules.recent(dc))
+                finally:
+                    dc.close()
             if p == "/api/update/desk":  # the Data desk (desk.py, Cody 11/8): each source watched, and what needs a person
                 import desk
                 dc = db()
@@ -3267,6 +3396,8 @@ class H(BaseHTTPRequestHandler):
                 return self.intake_route("POST", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
                 return self.notes_route("POST", p, qs)
+            if p == "/api/phone" or p.startswith("/api/phone/"):  # the Phone window (phone.py)
+                return self.phone_route("POST", p, qs)
             if p in EXTRA_ROUTES:
                 return self.extra_route("POST", p, qs)
             if p == "/api/kit/update":  # a newer install-kit zip: its files over this copy's, then the launcher restarts us
@@ -3657,6 +3788,8 @@ class RemoteH(H):
                 return self.send(401, remote.login_page(str(e), "", self.google_button()), "text/html; charset=utf-8",
                                  {"Set-Cookie": self.state_cookie("", clear=True)})
             return self.send(303, b"", "text/plain", {"Location": "/", "Set-Cookie": remote.cookie(tok, self.secure())})
+        if p == "/login" and method == "GET":  # the business's website links its Employee login here (licence.py)
+            return self.send(303, b"", "text/plain", {"Location": "/" if user else "/remote/login"})
         if p == "/remote/logout":
             return self.send(303, b"", "text/plain", {"Location": "/remote/login", "Set-Cookie": remote.cookie("", self.secure(), clear=True)})
         if p == "/sw.js":
@@ -3674,7 +3807,8 @@ class RemoteH(H):
                 return self.send(303, b"", "text/plain", {"Location": "/remote/login"})
             return self.send(401, {"error": "Signed out: reload the page to sign in again."})
         if p == "/api/me":
-            return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL), "course": remote.has_course(user)})
+            return self.send(200, {"remote": True, "user": user, "role": role, "server": bool(remote.SERVER_URL), "course": remote.has_course(user),
+                                   "licence": licence.public(uls_import.DATA_DIR), "phone": phone_ready(role)})
         if p == PASSWORD_PATH:  # change your own password (remote.change_password): your other sessions end, this one carries on
             if method != "POST" or role == "fetcher":  # the PC fetcher's password is sealed on the PC: a new one is made with --setup
                 return self.send(405 if method != "POST" else 403, {"error": "Not here."})

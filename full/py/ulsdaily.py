@@ -435,6 +435,24 @@ def apply_applications(con, path, states, asof=None, sha=None, log=print):
 
 # ---------------------------------------------------------------- one run
 
+def apply_proposed(con, kind, path, states, asof=None, sha=None, log=print):
+    """One a_tow (applications) or d_tow (FAA determinations) daily file into the proposed towers (towerapps.py), in one
+    transaction with its ledger row."""
+    import towerapps
+    asof = asof or uls_import.file_created(path) or ""
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        r = towerapps.apply(con, kind, path, states, asof, log)
+        con.execute("INSERT OR REPLACE INTO main.uls_daily_log VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (os.path.basename(path), asof, "tower_" + kind, sha or _sha(path), "", now, r["items"], r["gone"], r["kept"], ""))
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
+    return dict(r, kind=kind)
+
+
 def weekly_marker(built, towers_built):
     """What the day's changes went over: the licences' weekly load and the towers'. The updater runs the source again
     when either moves (updater._due)."""
@@ -466,7 +484,7 @@ def run(db_path, data_dir, log=print, force=False, opener=None, resolve=None):
             return {"skipped": "nothing to change yet: the daily files change the private land mobile and cellular licences, "
                                "and neither weekly file is loaded here"}
         names = [f"l_{c}_{d}.zip" for c in lic for d in DAYS] + [f"a_{c}_{d}.zip" for c in app for d in DAYS]
-        names += [f"r_tow_{d}.zip" for d in DAYS] if tw else []
+        names += [f"{k}_tow_{d}.zip" for k in ("r", "a", "d") for d in DAYS] if tw else []  # registrations, applications, FAA
         log(f"checking {len(names)} FCC daily files")
         got = fetch(names, folder, log, opener, resolve)
         states, built = states_of(m), m.get("built_at") or ""
@@ -500,6 +518,12 @@ def run(db_path, data_dir, log=print, force=False, opener=None, resolve=None):
                 dlstop.check()
                 log(f"applying {os.path.basename(p)}")
                 tow_done.append(apply_towers(con, p, states, tbuilt, a, s, log))
+            prop_done = []
+            for kind, prefix in (("apps", "a_tow"), ("faa", "d_tow")):  # proposed towers (towerapps.py): each day's file once
+                done = {tuple(r) for r in con.execute("SELECT file, asof, sha FROM uls_daily_log WHERE kind=?", ("tower_" + kind,))}
+                for a, p, s in _from([x for x in on_disk(prefix) if x[0]], done, force):
+                    dlstop.check()
+                    prop_done.append(apply_proposed(con, kind, p, states, a, s, log))
         for c in app:
             files = [x for x in on_disk(f"a_{c}") if x[0]]
             done = {tuple(r) for r in con.execute("SELECT file, asof, sha FROM uls_daily_log WHERE kind='applications'")}
@@ -523,6 +547,9 @@ def run(db_path, data_dir, log=print, force=False, opener=None, resolve=None):
                      f"to the FCC's file of {lic_done[-1]['asof'][:10]}")
     elif lic:
         parts.append("licences: nothing newer than what's applied" + (f" (FCC daily files to {newest[:10]})" if newest else ""))
+    if tw and prop_done:
+        parts.append(f"proposed towers: {sum(x['kept'] for x in prop_done if x['kind'] == 'apps'):,} applications and "
+                     f"{sum(x['kept'] for x in prop_done if x['kind'] == 'faa'):,} FAA studies here from {len(prop_done)} file{'s' if len(prop_done) != 1 else ''}")
     if tow_done:
         t_in, t_new, t_out = (sum(x[k] for x in tow_done) for k in ("rows_in", "new", "rows_out"))
         parts.append(f"{len(tow_done)} tower file{'s' if len(tow_done) != 1 else ''} applied: {t_in:,} tower{'s' if t_in != 1 else ''} "

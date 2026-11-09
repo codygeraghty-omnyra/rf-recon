@@ -92,6 +92,9 @@ KINDS = {
     "grid": {"label": "Grid test results", "act": "press"}, "sweep": {"label": "Sweep", "act": "press"}, "price_list": {"label": "Price list", "act": "press"},
     "quote": {"label": "Supplier quote", "act": "press"}, "pattern": {"label": "Antenna pattern", "act": "press"}, "capture": {"label": "Capture", "act": "press"},
     "layer": {"label": "Map layer", "act": "press"},
+    # the FCC's own files a person downloads (fcc.gov refuses automated clients): one press, an admin's, and DAStastic reads them
+    "psap_registry": {"label": "FCC 911 call centre registry", "act": "press"},
+    "prohibited_list": {"label": "FCC prohibited entities list", "act": "press"},
     # these can't be placed from the file alone: the press keeps a copy in Files, and the job's own tab places the readings
     "walk": {"label": "Walk log", "act": "press", "tab": "grid"}, "compass": {"label": "COMPASS report", "act": "press", "tab": "grid"},
     "noise": {"label": "Noise log", "act": "press", "tab": "commission"}, "gain": {"label": "BDA gain table", "act": "press", "tab": "commission"},
@@ -106,7 +109,7 @@ KINDS = {
     "fieldpack": {"label": "Field pack", "act": "own", "tab": "data", "home": "the web version or DAStastic lite, on the device it's for"},
 }
 PRESS_TO_TAB = {k: v["tab"] for k, v in KINDS.items() if v["act"] == "press" and v.get("tab")}
-FIRM_KINDS = {"contacts", "price_list", "pattern", "capture", "layer"}  # need no job
+FIRM_KINDS = {"contacts", "price_list", "pattern", "capture", "layer", "psap_registry", "prohibited_list"}  # need no job
 PICKABLE = [k for k, v in KINDS.items() if v["act"] != "own"]
 LOCK = threading.Lock()
 
@@ -919,6 +922,11 @@ def recognise(name, path, sc):
                     return out("layer", .9, "A GeoJSON map layer", points=len(j.get("features") or []))
             if re.search(r"^\s*0\s*\r?\n\s*SECTION", text[:400]) or ext == "dxf":
                 return out("dxf", .95, "A DXF drawing", note="Open the Design tab to bring its walls in.")
+            if re.match(r'\s*"?FCC Master PSAP Registry as of', text[:300]):
+                return out("psap_registry", .99, "The FCC's 911 Master PSAP Registry", note="An admin's press makes it the 911 call centre list.")
+            if re.match(r"\s*Entity Name,Also Known As,Source List,Country,Date Added,FR Citation", text[:300]):
+                return out("prohibited_list", .99, "The FCC's prohibited entities list (47 CFR 2.902)",
+                           note="An admin's press makes it the list makers are checked against.")
             import captures
             if captures.detect(name, raw) == "sweep":
                 return out("capture", .9, "An rtl_power sweep")
@@ -2142,7 +2150,55 @@ def _apply_layer(con, it, job, body, ctx):
     return f"Map layer {name}: {n} points", [{"op": "layer", "name": name}]
 
 
-APPLY = {"grid": _apply_grid, "sweep": _apply_sweep, "price_list": _apply_price, "quote": _apply_quote, "pattern": _apply_pattern, "capture": _apply_capture, "layer": _apply_layer}
+def _reference_text(it, ctx, what):
+    if ctx.role not in (None, "admin"):
+        raise ValueError(f"Only an admin can replace {what}: it's for the whole app.")
+    with open(held(it["id"]), "rb") as fh:
+        raw = fh.read()
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252")
+
+
+def _undo_reference(con, which):
+    """An imported FCC registry or list taken back: its copy in the data folder goes, so the one shipped with DAStastic is read."""
+    import prohibited
+    import psap
+    mod = psap if which == "psap_registry" else prohibited
+    p = mod.imported_path()
+    if os.path.exists(p):
+        os.remove(p)
+    if mod is psap:
+        psap.SOURCE_DATE = psap._as_of(psap.current_path()) or psap.SOURCE_DATE
+        psap.run(con)
+        return f"the 911 call centres are back to the registry as of {psap.SOURCE_DATE}"
+    with prohibited._lock:
+        prohibited._index = None
+    return f"the prohibited list is back to the one as of {prohibited.about()['as_of']}"
+
+
+def _apply_psap(con, it, job, body, ctx):
+    """The FCC's 911 registry, downloaded by a person: kept in the data folder and the 911 call centres rebuilt from it."""
+    import psap
+    doc = psap.registry_doc(_reference_text(it, ctx, "the 911 registry"), it["name"])
+    psap.save_import(doc)
+    n = psap.run(con)
+    return f"911 call centres: {n:,} from the FCC's registry as of {doc['as_of']}", [{"op": "reference", "id": "psap_registry"}]
+
+
+def _apply_prohibited(con, it, job, body, ctx):
+    """The FCC's prohibited entities list, downloaded by a person: kept in the data folder and read from now on."""
+    import prohibited
+    text = _reference_text(it, ctx, "the prohibited entities list")
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", it["name"] or "")
+    rows = prohibited.parse_list(text)
+    prohibited.save_import(prohibited.list_doc(rows, m.group(1) if m else today()))
+    return f"FCC prohibited entities: {len(rows):,} entries", [{"op": "reference", "id": "prohibited_list"}]
+
+
+APPLY = {"grid": _apply_grid, "sweep": _apply_sweep, "price_list": _apply_price, "quote": _apply_quote, "pattern": _apply_pattern, "capture": _apply_capture, "layer": _apply_layer,
+         "psap_registry": _apply_psap, "prohibited_list": _apply_prohibited}
 
 
 def apply_item(con, iid, body, ctx):
@@ -2393,6 +2449,8 @@ def _undo(con, it, ctx, force=False):
             ctx.uncapture(o["id"])
         elif op == "layer" and ctx.unlayer:
             ctx.unlayer(o["name"])
+        elif op == "reference":  # the FCC's 911 registry or prohibited list: back to the copy shipped with DAStastic
+            left.append(_undo_reference(con, o["id"]))
         elif op == "firm":
             import dasfirm
             said = dasfirm.undo_cert(con, o)

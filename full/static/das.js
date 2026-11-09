@@ -230,6 +230,24 @@ const DAS_CHECKS = [  // the dates a job is tracked by; a date means done
 // consent and booster registration, the fire alarm panel link, UL 2524, IFC 510 wording) stay off it. A job with both
 // technologies keeps both. Mirrored in das.py cell_only (the board's Needs you, the lifecycle)
 const DAS_PS_ONLY_CHECKS = ["consent", "fcc_reg", "monitoring"];
+// The FCC registration step, confirmed (Cody 11/8): under the date, what the FCC's own registry says about this building,
+// asked once the Overview is drawn. A registration there fills the date on a press; none says where to register.
+const FCC_REG_SITE = "https://signalboosters.fcc.gov/";
+function dasFccReg(el, j, d){
+  if(!el || d.lat == null) return;
+  const where = `Register a Class B booster at <a href="${FCC_REG_SITE}" target="_blank" rel="noopener">signalboosters.fcc.gov ↗</a>.`;
+  api(`/api/das/jobs/${j.id}/boosters`).then(r => {
+    if(!el.isConnected) return;
+    if(!r.loaded){ el.innerHTML = `The FCC's booster registry isn't on this copy yet (Data & updates). ${where}`; return; }
+    const here = r.at_building || [], b = here[0], have = (d.checks || {}).fcc_reg;
+    if(!b){ el.innerHTML = `Not in the FCC's booster registry at this building${have ? " yet: it's read weekly, so a new registration shows within a week" : ""}. ${where}`; return; }
+    el.innerHTML = `In the FCC's registry at this building: <b>${esc(b.booster_id)}</b>, registered ${esc(b.registered || "")} by ${esc(b.company || "")}`
+      + `${here.length > 1 ? ` (and ${here.length - 1} more)` : ""}${b.m != null ? `, ${b.m} m from the pin` : ""}.`
+      + (!have && b.registered ? ` <button class="sm" id="fccRegUse">Use this date</button>` : "");
+    const u = el.querySelector("#fccRegUse"), inp = document.querySelector('[data-ck="fcc_reg"]');
+    if(u && inp) u.onclick = () => { inp.value = String(b.registered).slice(0, 10); inp.dispatchEvent(new Event("change", {bubbles: true})); };
+  }).catch(() => {});
+}
 function dasCellOnly(d){ const sc=dasScope(d||{}); return sc.cell&&!sc.ps; }  // one rule: dasScope
 const dasChecksFor = cellOnly => cellOnly ? DAS_CHECKS.filter(([k])=>!DAS_PS_ONLY_CHECKS.includes(k)) : DAS_CHECKS;
 // the cellular result: every required carrier and layer on every floor (dascell.js cellFloorVerdicts); null = not complete
@@ -586,6 +604,7 @@ function dasOverview(el, j, save){
         <label>Value ($)<input data-k="value" type="number" value="${d.value??""}" style="width:110px"></label></div></div>
     <div class="panel"><h3>Compliance <span class="hint">· a date means done${dasCellOnly(d)?"; a cellular job: the carriers' approvals are under Pre-survey":""}</span></h3>
       ${dasChecksFor(dasCellOnly(d)).map(([k,l])=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:4px 0"><span>${ck[k]?"✅":"⬜"} ${esc(l)}</span><input type="date" data-ck="${k}" value="${esc(ck[k]||"")}"></div>`).join("")}
+      ${dasCellOnly(d)?"":'<div id="doFccReg" class="hint" style="margin:4px 0 0"></div>'}
       <p style="margin:8px 0 0">Annual retest due: <b class="mono">${esc(d.retest_due||"–")}</b>${d.retest_due?` <span class="hint">(${daysTo(d.retest_due)} days)</span>`:""} <span class="hint">· set from the acceptance date, one year on</span>${d.retest_due&&window.rfMail?` <button class="sm" id="doRetestMail" title="Email the owner to book the annual retest, from your own mailbox">✉ Remind the owner</button>`:""}</p></div>
     ${dasLifePanel(d, j.lifecycle)}
     <div class="panel" id="doMon" style="display:none"></div>
@@ -644,6 +663,7 @@ function dasOverview(el, j, save){
   dasPinCheck($("#doPinWarn"), j, async hit=>{ j=await save({lat:hit.lat,lon:hit.lon}); render(); });
   dasLifeWire(el, () => j, async patch => { j = await save(patch); render(); });
   window.dasMonitor?.($("#doMon"), j, async patch => (j = await save(patch)));  // BDA monitoring by SNMP trap (dasmonitor.js, snmpwatch.py)
+  dasFccReg($("#doFccReg"), j, d);  // is the booster in the FCC's registry yet (boosters.py, Cody 11/8)
   window.dasCertRegister?.($("#doCerts"), j, async patch => { j = await save(patch); render(); });  // calibration certificates (dasahj.js)
   window.dasCertReader?.($("#doRead"), j, async patch => { const was = j; j = await save(patch); if (j !== was) render(); return j !== was; });  // a certificate's own words, proposed (dasread.js)
   window.dasFirmPick?.($("#doFirm"), j);  // instruments and testers kept once (dasfirm.js)
@@ -869,7 +889,8 @@ async function dasPresurvey(el, j, save){
   const lossAuto=ps.loss_auto===true||(ps.loss==null&&DAS.loss[d.construction]==null);
   const P={radius:ps.radius||15, loss:lossAuto?null:(ps.loss??DAS.loss[d.construction]??14), loss_auto:lossAuto, threshold:ps.threshold||DASJ.threshold||-95, env:ps.env||"suburban"};
   el.innerHTML='<p class="status">Finding the public safety systems around the building…</p>';
-  let r; try{ r=await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${P.radius}&${P.loss==null?`job=${j.id}`:`loss=${P.loss}`}&threshold=${P.threshold}&env=${P.env}`); if(P.loss==null) P.loss=r.loss_db; }
+  // chosen: the ticked systems, so the registered boosters listed apart are the ones on their channels (boosters.py)
+  let r; try{ r=await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${P.radius}&${P.loss==null?`job=${j.id}`:`loss=${P.loss}`}&threshold=${P.threshold}&env=${P.env}${(ps.include||[]).length?`&chosen=${encodeURIComponent(ps.include.join(","))}`:""}`); if(P.loss==null) P.loss=r.loss_db; }
   catch(e){ if(!el.isConnected) return; el.innerHTML=`<p class="status err">${esc(e.message)}</p><div id="psCell" style="margin-top:10px"></div>`; window.dasCellPresurvey?.($("#psCell"), j, save); return; }  // the carriers need no FCC data
   if(!el.isConnected) return;  // a newer draw took over while this one waited
   const inc=new Set(ps.include||[]), any=inc.size>0;
@@ -936,6 +957,7 @@ async function dasPresurvey(el, j, save){
         <td>${p.dist_mi!=null?`${num(p.dist_mi,2)} mi`:""}<div class="hint">${esc([p.city,p.state].filter(Boolean).join(", "))}</div></td>
         <td class="mono"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.file_number)}</a></td></tr>`; }).join("")}</tbody></table></div>
       <p class="hint">An application can change or be refused before it's granted: ask the licensee before designing for it. From the FCC's daily application files${r.pending_since?` since ${esc(r.pending_since.slice(0,10))}`:""}.</p></div>`:""}
+    ${window.dasPsBoosters?window.dasPsBoosters(r.boosters, P.radius):""}
     <div id="psX" style="margin-top:10px"></div>
     <div id="psCell" style="margin-top:10px"></div>`;
   window.dasCellPresurvey?.($("#psCell"), j, save);  // the commercial carriers here (dascell.js)

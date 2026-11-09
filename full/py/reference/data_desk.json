@@ -80,6 +80,35 @@
     "url": "https://www.fcc.gov/engineering-technology/prohibited-entities-list"
    },
    "note": "fcc.gov refuses automated clients, so a person downloads the list's CSV from that page (Cody did 11/8: 3,735 entries) and tools/prohibited_list.py reads it into reference/prohibited_entities.json. The Covered List's wording and categories come from the FCC's public notice DA 26-1181 (30 Oct 2026, docs.fcc.gov, which answers DAStastic)."
+  },
+  "fcc-contours-api": {
+   "name": "FCC Contours API (FM and TV contours)",
+   "url": "https://geo.fcc.gov/api/contours/",
+   "route": "server",
+   "status": "In DAStastic from 2026-11-08: a DAS job's Strong broadcast at the building (asked only when pressed; each contour kept 30 days)",
+   "terms": "FCC API Terms of Service: use to search, display and analyze FCC data; the app shows \"This product uses the FCC Data API but is not endorsed or certified by the FCC\"; the FCC may limit or block heavy use; the user indemnifies the FCC",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.fcc.gov/reports-research/developers/api-terms-service"
+   },
+   "note": "Cody accepted the FCC's API terms for DAStastic himself on 11/8 (\"dont need josh just do it\"); he read them in his own browser (www.fcc.gov refuses automated clients). geo.fcc.gov answers DAStastic's own client, no key."
+  },
+  "fcc-ecfs-filings-rules-watch": {
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.fcc.gov/reports-research/developers/api-terms-service"
+   },
+   "owner": "Cody",
+   "note": "Cody accepted the FCC's API terms for DAStastic himself on 11/8 (\"dont need josh just do it\"). The key is his, free from api.data.gov."
+  },
+  "fcc-signal-booster-registrations-class-b": {
+   "route": "server",
+   "scrub": "registrations",
+   "terms_checked": {
+    "date": "2026-11-08",
+    "url": "https://www.arcgis.com/home/item.html?id=636f8803adbb431aa9324efbee3489e2"
+   },
+   "note": "Terms read 2026-11-08 on the item page (and its metadata, https://www.arcgis.com/sharing/rest/content/items/636f8803adbb431aa9324efbee3489e2?f=json): a public ArcGIS layer from the FCC's own ArcGIS organisation (YnOQrIGdN9JGtBh4), the one behind the FCC's app Signal Booster Registration Information (https://experience.arcgis.com/experience/558fa854f397424fa188dff89750d4c3); access public, no licence or use restriction on the item. US government data (17 U.S.C. 105). It answers DAStastic's own client (fetchkit) with an ETag and Last-Modified, and takes resultRecordCount (pages of 2,000). People's details (Cody 11/8, \"Keep everything\"): the registrants' named contacts (company_attention, every contact_* field, company_email, company_phone, company_phone_1, signature, signature_title, and the company's street address and ZIP) go in their own table, booster_contact, kept on the server and Cody's PC only (the personal build) and read only by an admin. Never in field packs, the web version or GitHub Pages, the repo's reference/ data, the install kit or logs. The switch that blocks prospect emails is unchanged. Everything else (registration number, position, building address, location description, call signs, frequencies, company name, city and state, dates) is business data and shows anywhere the app shows data."
   }
  }
 }

@@ -125,6 +125,29 @@ def route(con, method, p, qs, body):
         if j["data"].get("lat") is None:
             raise ValueError("Set the building's location first.")
         return 200, deskpoint.lookup(con, float(j["data"]["lat"]), float(j["data"]["lon"]))
+    if what == "towair" and jid:  # does the donor mast need FAA notice and FCC registration (towair.py, Cody 11/8)
+        import terrain
+        import towair
+        j = _job(con, jid)
+        if j["data"].get("lat") is None:
+            raise ValueError("Set the building's location first.")
+        if not con.execute("SELECT 1 FROM sqlite_master WHERE name='faa_airport'").fetchone():
+            raise LookupError("The FAA's airport list isn't on this copy yet: Data & updates, FAA aviation, Update now.")
+        bldg = float((qs.get("bldg_m") or [0])[0] or 0)
+        mast = float((qs.get("mast_m") or [3])[0] or 0)
+        if not 0 < bldg + mast < 700:
+            raise ValueError("Give the building's height and the mast's, in metres.")
+        lat, lon = float(j["data"]["lat"]), float(j["data"]["lon"])
+        ground = terrain.elevation(lat, lon)
+        if ground is None:
+            raise ValueError("The ground elevation there couldn't be read (terrain tiles need a connection once).")
+        return 200, dict(towair.check(con, lat, lon, ground, bldg + mast), bldg_m=bldg, mast_m=mast, ground_m=round(ground, 1))
+    if what == "bcast" and jid:  # FM and TV stations strong at the building, from the FCC's Contours API (bcastcover.py, Cody 11/8)
+        import bcastcover
+        j = _job(con, jid)
+        if j["data"].get("lat") is None:
+            raise ValueError("Set the building's location first.")
+        return 200, bcastcover.lookup(con, float(j["data"]["lat"]), float(j["data"]["lon"]))
     if what == "code" and jid:
         import codecheck
         j = _job(con, jid)

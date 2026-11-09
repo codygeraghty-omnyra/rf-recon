@@ -75,6 +75,7 @@ def save_config(data_dir, c):
     c["reply_salt"] = old.get("reply_salt") or c.get("reply_salt") or secrets.token_hex(16)
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", c.get("bucket") or ""):
         raise ValueError("The bucket name must be lower-case letters, digits and hyphens (no dots: the address is checked by TLS).")
+    c["send_as"] = sorted({d.strip().lower() for d in (c.get("send_as") or []) if re.fullmatch(r"[a-z0-9.-]+\.[a-z]{2,24}", d.strip().lower())})
     for k in ("from_address",):
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]{2,24}", c.get(k) or ""):
             raise ValueError(f"{k} isn't an email address.")
@@ -87,7 +88,15 @@ def save_config(data_dir, c):
 def public_of(c):
     c = c or {}
     return {"ready": all(c.get(k) for k in NEEDED), "from": c.get("from_address") or "", "reply_domain": c.get("reply_domain") or "",
-            "prospects": bool(c.get("prospects"))}
+            "prospects": bool(c.get("prospects")), "send_as": list(c.get("send_as") or [])}
+
+
+def own_from(c, person):
+    """The person's own address when their domain is one SES signs for (send_as: added by ops/ses_setup.py --do sendas
+    once the domain's DKIM records are in and SES has verified it), else None: then it's "<name> via DAStastic"."""
+    addr = (person or {}).get("address") or ""
+    dom = addr.rsplit("@", 1)[-1].lower() if "@" in addr else ""
+    return addr if dom and dom in {d.lower() for d in (c or {}).get("send_as") or []} else None
 
 
 def public(data_dir):
@@ -155,10 +164,12 @@ def reply_address(c, login):
 
 
 def build(c, login, person, to, subject, text, attachments=(), in_reply_to=None, cc=None):
-    """One email from DAStastic for a person: From "<name> via DAStastic", Reply-To them and DAStastic, Bcc them."""
+    """One email from DAStastic for a person: From "<name> via DAStastic" (or the person themselves, when their domain
+    is verified in SES: own_from), Reply-To them and DAStastic, Bcc them."""
     name = (person.get("name") or "").strip()
-    msg = mailbox.build({"name": f"{name} {VIA_NAME}" if name else "DAStastic", "address": c["from_address"]}, to, subject, text,
-                        attachments=attachments, in_reply_to=in_reply_to, cc=cc)
+    own = own_from(c, person)
+    sender = {"name": name, "address": own} if own else {"name": f"{name} {VIA_NAME}" if name else "DAStastic", "address": c["from_address"]}
+    msg = mailbox.build(sender, to, subject, text, attachments=attachments, in_reply_to=in_reply_to, cc=cc)
     msg["Reply-To"] = ", ".join([email.utils.formataddr((name, person["address"])),
                                  email.utils.formataddr(("DAStastic (files your reply)", reply_address(c, login)))])
     msg["Bcc"] = person["address"]

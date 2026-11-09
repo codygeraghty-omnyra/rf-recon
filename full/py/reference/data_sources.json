@@ -422,6 +422,19 @@
    ]
   },
   {
+   "name": "FCC signal booster registrations (Class B)",
+   "url": "https://www.arcgis.com/home/item.html?id=636f8803adbb431aa9324efbee3489e2",
+   "what": "Every Class B signal booster registered with the FCC (47 CFR 90.219(d)(5)): where it is, the building's address and description, its call signs and frequencies, the company and the dates. The registrants' named contacts are kept apart (booster_contact), on the server and Cody's PC only, for the admin",
+   "key": "none",
+   "cost": "Free",
+   "terms": "US government data (FCC); the item carries no licence text",
+   "area": "Bulk: the FCC's public ArcGIS layer, pages of 2,000 (about 10 requests), checked weekly and downloaded only when the layer changed",
+   "status": "In DAStastic from 2026-11-08, on by default: a DAS job's Existing system (registered at the building, and within the pre-survey's radius), the pre-survey (boosters on the systems' channels), DAS Prospects (existing system) and the map's layer Signal boosters (FCC registered)",
+   "updater": [
+    "fcc_boosters"
+   ]
+  },
+  {
    "name": "FCC ULS microwave applications (a_micro.zip)",
    "url": "https://www.fcc.gov/uls/transactions/daily-weekly",
    "what": "Microwave links filed but not yet granted (application status 2, pending)",
@@ -539,6 +552,24 @@
    "terms": "US government work: the registry says the general public can use the data; FEMA: free of copyright, may be copied and distributed (read 2026-11-04). Frozen: no updates after June 2026 (NERIS is the current list)",
    "area": "Whole US (about 12 MB)",
    "status": "In DAStastic from 2026-11-04: a DAS job's AHJ guess (the fire departments covering the address)"
+  },
+  {
+   "name": "FCC ECFS filings (rules watch)",
+   "url": "https://publicapi.fcc.gov/ecfs/filings",
+   "what": "New filings (comments, ex partes, orders, notices) in the dockets that change DAS and ERCES work: signal boosters (WT 10-4), 4.9 GHz (WP 07-100), T-band (PS 13-42), the Covered List (WC 18-89), equipment authorization integrity (ET 24-136), NG911 (PS 21-479), 911 location (PS 07-114)",
+   "key": "Free api.data.gov key",
+   "keys": [
+    "api_data_gov_key"
+   ],
+   "cost": "Free",
+   "terms": "FCC API Terms of Service (accepted by Cody for DAStastic 11/8); attribution shown with the filings",
+   "signup": "https://api.data.gov/signup/",
+   "where_key": "Data & updates, Keys",
+   "area": "Daily, the newest 25 filings per docket",
+   "status": "In DAStastic from 2026-11-08, on by default: waits for the api.data.gov key",
+   "updater": [
+    "fcc_rules"
+   ]
   }
  ]
 }

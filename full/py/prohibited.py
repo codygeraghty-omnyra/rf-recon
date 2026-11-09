@@ -16,6 +16,8 @@ Two strengths, so a common name isn't called prohibited on a guess:
 Countries (the foreign adversaries) and categories (routers, power inverters...) are never matched as names. The list
 is read once and kept; a match is a dictionary lookup.
 """
+import csv
+import io
 import json
 import os
 import re
@@ -79,7 +81,7 @@ def _load():
             return _index
         idx, meta = {}, {}
         try:
-            with open(LIST_FILE, encoding="utf-8") as fh:
+            with open(current_path(), encoding="utf-8") as fh:
                 doc = json.load(fh)
         except (OSError, ValueError):
             doc = {"rows": []}
@@ -134,3 +136,72 @@ def check(maker=None, text=None):
     names = {c["name"].lower() for c in listed}
     same = [e for e in same_name(maker) if not any(n in e["name"].lower() for n in names)] if maker else []
     return {"listed": listed, "same_name": same, "category": category(text) if text else []}
+
+
+# ---------------------------------------------------------------- the FCC's CSV, as a person downloads it (tools/prohibited_list.py, Intake)
+PAGE = "https://www.fcc.gov/engineering-technology/prohibited-entities-list"
+COLS = ["Entity Name", "Also Known As", "Source List", "Country", "Date Added", "FR Citation"]
+
+
+def parse_list(text):
+    """[[name, [aka...], [lists...], country, date_added, cite]] from the FCC's CSV; refuses anything else."""
+    rows = list(csv.reader(io.StringIO(text.replace("�", "§"))))
+    if not rows or [c.strip() for c in rows[0][:len(COLS)]] != COLS:
+        raise ValueError("not the FCC's prohibited entities list: header " + ", ".join(COLS))
+    out = []
+    for r in rows[1:]:
+        r = [c.strip() for c in r[:len(COLS)]] + [""] * (len(COLS) - len(r[:len(COLS)]))
+        name, aka, lists, country, added, cite = r
+        if not name:
+            continue
+        out.append([name, [a.strip() for a in aka.split(";") if a.strip()], [x.strip() for x in lists.split(";") if x.strip()],
+                    country, added, cite])
+    if len(out) < 1000:
+        raise ValueError(f"only {len(out)} entities read: not the whole list")
+    return out
+
+
+def list_doc(rows, as_of):
+    return {"source": "FCC consolidated list of prohibited entities (47 CFR 2.902)", "page": PAGE, "as_of": as_of,
+            "terms": "US government public data", "columns": ["name", "aka", "lists", "country", "added", "cite"], "rows": rows}
+
+
+def imported_path():
+    """Where an imported list is kept: the data folder, which a deploy never touches (Intake, Cody 11/8)."""
+    import uls_import
+    return os.path.join(uls_import.DATA_DIR, "reference", "prohibited_entities.json")
+
+
+def _date_of(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            m = re.search(r'"as_of":"(\d{4}-\d{2}-\d{2})"', fh.read(4000))
+        return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
+def current_path():
+    """The list read: an imported one (Intake) when it's newer than the one shipped with the app, else the shipped one."""
+    try:
+        p = imported_path()
+    except Exception:
+        return LIST_FILE
+    return p if os.path.exists(p) and _date_of(p) > _date_of(LIST_FILE) else LIST_FILE
+
+
+def save_import(doc):
+    """Keep an imported list (newer than what's here, or refused) and make it the one read."""
+    global _index
+    have = _date_of(current_path())
+    if (doc.get("as_of") or "") < have:
+        raise ValueError(f"This list is as of {doc.get('as_of')}; DAStastic already has the one as of {have}.")
+    p = imported_path()
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p + ".part", "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(doc, fh, ensure_ascii=False, separators=(",", ":"))
+        fh.write("\n")
+    os.replace(p + ".part", p)
+    with _lock:
+        _index = None  # read again on the next check
+    return p

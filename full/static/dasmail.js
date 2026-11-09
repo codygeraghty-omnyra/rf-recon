@@ -394,9 +394,9 @@ window.rfMail = (() => {
       const by = new Map(); for (const m of r.mail) { if (!by.has(m.tag)) by.set(m.tag, []); by.get(m.tag).push(m); }
       const what = t => /^Q/.test(t) ? "Quote request" : /^P-/.test(t) ? "Prospect" : / PLANS/.test(t) ? "Plans request" : / CONSENT/.test(t) ? "Consent" : / AHJ/.test(t) ? "AHJ" : "Job mail";
       box.innerHTML = by.size ? `<div class="panel"><h3 style="margin-top:0">Conversations <span class="hint">· newest first; replies file themselves</span></h3>
-        <table><thead><tr><th>What</th><th>With</th><th>Last</th><th>Status</th><th>Tag</th></tr></thead><tbody>${[...by].map(([t, ms]) => { const last = ms[0], inb = ms.filter(m => m.direction === "in"); const [b] = badge(last.status);
+        <div class="tw wrap"><table><thead><tr><th>What</th><th>With</th><th>Last</th><th>Status</th><th>Tag</th></tr></thead><tbody>${[...by].map(([t, ms]) => { const last = ms[0], inb = ms.filter(m => m.direction === "in"); const [b] = badge(last.status);
           return `<tr><td>${esc(what(t))}${last.job_id ? ` <a href="#" data-mjob="${last.job_id}">job ${last.job_id}</a>` : ""}</td><td>${esc([...new Set(ms.map(m => m.counterpart))].join(", "))}</td>
-            <td class="hint" data-v="${esc(last.ts || "")}">${esc(when(last.ts))}</td><td>${inb.length ? esc(b) : "waiting for a reply"}</td><td class="mono hint">[RFR ${esc(t)}]</td></tr>`; }).join("")}</tbody></table></div>`
+            <td class="hint" data-v="${esc(last.ts || "")}">${esc(when(last.ts))}</td><td>${inb.length ? esc(b) : "waiting for a reply"}</td><td class="mono hint">[RFR ${esc(t)}]</td></tr>`; }).join("")}</tbody></table></div></div>`
         : `<p class="hint">No DAStastic emails yet. Send one from a quote request, a prospect, a job's plans request, consent letters or the AHJ report.</p>`;
       box.querySelectorAll("[data-mjob]").forEach(a => a.onclick = e => { e.preventDefault(); S.das.job = +a.dataset.mjob; S.das.sub = "overview"; S.views.das($("#view")); });
     };

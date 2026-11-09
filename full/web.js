@@ -6,6 +6,7 @@
 (() => {
 window.welcome = null;  // the PC's first run downloads FCC files; here the first run is loading a pack (Packs tab)
 delete LAYERS.repeaterbook; S.layerOn.delete("repeaterbook");  // off on the PC too (its policy discourages multi-source tools)
+delete LAYERS.boosters; S.layerOn.delete("boosters");  // the FCC's booster registrations load on the PC and the server, not into packs
 const chip = document.createElement("button");
 chip.className = "hbtn"; chip.id = "packChip"; chip.title = "Data pack"; chip.textContent = "▣ Pack";
 $("#missionChip").after(chip);

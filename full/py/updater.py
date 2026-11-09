@@ -34,6 +34,7 @@ SOURCES = {
     "uls:micro": ("FCC ULS: Microwave", "fcc", 168, "Point-to-point links (large file)"),
     "uls:cell": ("FCC ULS: Cellular 800 MHz sites", "fcc", 168, "Each carrier's licensed 800 MHz sites: where, which tower, frequencies each way, power (about 24 MB)"),
     "uls_daily": ("FCC ULS: daily changes (land mobile, paging, coast, cellular, towers)", "fcc", 24, "The FCC's change files, one for each day of the week: a new or changed antenna structure (tower) registration, where the tower file is loaded, and a new or changed land mobile (private, commercial, broadcast auxiliary), paging or coast and aviation ground licence (and 800 MHz cellular site), for each of those loaded here, shows the next day instead of after Sunday's full file, and applications filed but not yet granted show apart, marked pending. A few hundred KB a day"),
+    "fcc_rules": ("FCC rules watch (ECFS filings)", "fcc", 24, "New filings in the FCC dockets that change DAS and ERCES work: signal boosters, the 4.9 GHz band, the T-band, the Covered List, equipment authorization, NG911 and 911 location. Needs a free api.data.gov key"),
     "mw_pending": ("FCC microwave applications (pending)", "fcc", 168, "Links filed but not yet granted (about 445 MB download)"),
     "spectrum": ("FCC carrier spectrum (market licences)", "fcc", 168, "Who holds which block in each market: cellular, PCS, AWS, 600, 700, 3.45 GHz, C-band, CBRS (about 115 MB)"),
     "asr": ("FCC Antenna Structures (towers)", "fcc", 168, "Registered towers and heights"),
@@ -46,6 +47,7 @@ SOURCES = {
     "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs a RepeaterBook token, which Your API keys doesn't take (RepeaterBook's policy discourages tools that mix sources)"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
+    "fcc_boosters": ("FCC signal booster registrations (Class B)", "fcc", 168, "Every Class B signal booster registered with the FCC (47 CFR 90.219(d)(5)), about 18,400: where it is, its call signs and frequencies, the company and the date, for DAS jobs, Prospects and the map. Checked weekly and downloaded only when the FCC's list changed (about 10 requests). The registrants' named contacts are kept apart, on this PC and the server only, for the admin"),
     "psap": ("FCC 911 PSAP registry (911 call centres)", "reference", 720, "About 8,900 call centres at town level, from the FCC's registry of 30 Oct 2026 (a person downloads it from fcc.gov: tools/psap_registry.py)"),
     "grantee": ("FCC equipment grantee codes", "reference", 2160, "Every company code that starts an FCC ID, with its name and address: the FCC's own current list from the DAStastic site (FCC open data of March 2021 if the site can't be reached)"),
     "artemis": ("Artemis signal database (waterfalls and audio)", "reference", 720, "A waterfall picture and an audio clip for each Signal ID Wiki signal, shown beside its matches (Ares Valley; about 300 MB; checked monthly, downloaded only when there's a new release)"),
@@ -64,7 +66,7 @@ SOURCES = {
     "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
 }
 DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:cell", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
-                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic", "uls_daily"}
+                   "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic", "uls_daily", "fcc_rules", "fcc_boosters"}
 # psap: placed at town centres from the place list the licence import builds; uls_daily: the day's changes go over the
 # weekly licences and towers, so after either rebuild in the same batch
 AFTER_ULS = {"psap", "uls_daily"}
@@ -290,7 +292,7 @@ class Updater:
             out = {sid: meta.get("built_at") for sid in SOURCES if sid.startswith("uls:") and f"l_{sid[4:]}.zip" in loaded}
             out.update(asr=meta.get("towers_built_at"), bcast=meta.get("bcast_built_at"), nwr=meta.get("nwr_built_at"),
                        faa=meta.get("faa_built_at"), psap=meta.get("psap_built_at"),
-                       fss=meta.get("fss_built_at"), mw_pending=meta.get("mw_pending_built_at"),
+                       fss=meta.get("fss_built_at"), mw_pending=meta.get("mw_pending_built_at"), fcc_boosters=meta.get("boosters_built_at"),
                        uls_daily=(meta.get("uls_daily_at") or "")[:16] or None)
             con = sqlite3.connect(self.crowd, timeout=5)
             out["sigwiki"] = con.execute("SELECT MAX(fetched_at) FROM sigwiki").fetchone()[0]
@@ -510,6 +512,13 @@ class Updater:
                     self._mark(ids, state="skipped", message=r["skipped"], last_checked=now())
                     return
                 self._mark(ids, state="ok", message=r["message"], last_checked=now(), last_updated=now(), rows=r["rows"], weekly=r["weekly"])
+            elif job == "fcc_rules":  # the FCC rules watch (fccrules.py): new filings in the DAS dockets, by the ECFS API
+                import fccrules
+                key = (self.get("creds", {}) or {}).get("api_data_gov_key")
+                if not key:
+                    raise RuntimeError("add your api.data.gov key (free) on Data & updates, Keys")
+                r = fccrules.run(self.db, key)
+                self._mark(ids, state="ok", message=r["message"], last_checked=now(), last_updated=now(), rows=r["rows"])
             elif job == "asr":
                 import towers
                 rm = remote_modified(towers.URL)
@@ -598,6 +607,19 @@ class Updater:
                 finally:
                     con.close()
                 self._mark(ids, state="ok", message=f"{n:,} earth stations", last_checked=now(), last_updated=now(), rows=n)
+            elif job == "fcc_boosters":  # Class B signal boosters registered with the FCC (boosters.py): only when the FCC's list changed
+                import boosters
+                con = sqlite3.connect(self.db, timeout=60)
+                try:
+                    r = boosters.run(con, force=force, log=lambda m: self._mark(ids, message=str(m)[:200]))
+                finally:
+                    con.close()
+                if r.get("unchanged"):
+                    self._mark(ids, state="ok", message=f"already current: {r['rows']:,} registrations, the FCC's data as of {r['as_of']}", last_checked=now())
+                else:
+                    self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=r["rows"],
+                               message=f"{r['rows']:,} registrations, the FCC's data as of {r['as_of']}"
+                                       + (f"; {r['quarantined']} set aside (no position in the US, or no registration number)" if r["quarantined"] else ""))
             elif job == "bdc_extra":  # the rest of the FCC Broadband Data Collection that helps RF work (bdc_extra.py)
                 import bdc_extra
                 r = bdc_extra.run(uls_import.DATA_DIR, self.get("creds", {}) or {}, log=lambda m: self._mark(ids, message=m))

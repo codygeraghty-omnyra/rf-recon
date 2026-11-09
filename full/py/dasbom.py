@@ -550,9 +550,28 @@ def line_warnings(d, x, c, bom_names):
     return out
 
 
+WMTS_SOURCE = {"kind": "code", "label": "FCC Wireless Medical Telemetry Service, WMTS (47 CFR Part 95; 608-614 MHz)", "url": "",
+               "text": "Hospital patient monitors use WMTS at 608-614 MHz, registered with the WMTS coordinator (ASHE). The 600 MHz "
+                       "downlink (617-652 MHz) starts 3 MHz above it."}
+
+
+def hospital_600(d, c):
+    """A hospital DAS that carries the 600 MHz downlink sits next to its own patient monitors (WMTS, 608-614 MHz)."""
+    bt = str(d.get("building_type") or ((d.get("guided") or {}).get("answers") or {}).get("building_type") or "")
+    occ = str((((d.get("ahj_here") or {}).get("building")) or {}).get("occupancy") or "")
+    hospital = "hospital" in bt.lower() or "medical" in bt.lower() or "hospital" in occ.lower()
+    carries = any(b["lo"] < 652 and b["hi"] > 617 for b in c.get("bands") or [])
+    if not (hospital and carries):
+        return []
+    return [_warn("freq", "This is a hospital and the system carries the 600 MHz downlink (617 to 652 MHz), 3 MHz above the "
+                          "hospital's own patient monitors (WMTS, 608 to 614 MHz). Before it's turned on: ask the hospital's clinical "
+                          "engineering which WMTS channels it uses, check the booster's emissions below 617 MHz, and test the monitors "
+                          "with the DAS on.", WMTS_SOURCE)]
+
+
 def job_warnings(d, lines, c):
-    """What's wrong with the list as a whole: a band no booster or donor antenna covers."""
-    out = []
+    """What's wrong with the list as a whole: a band no booster or donor antenna covers; a hospital carrying 600 MHz."""
+    out = hospital_600(d, c)
     for kinds, what in ((("booster", "headend", "remote"), "booster"), (("donor_ant",), "donor antenna")):
         have = [x for x in lines if kind_of(x) in kinds]
         known = [freq_ranges(x, x.get("codes"), (x.get("catalogue") or {}).get("grant"))[0] for x in have]

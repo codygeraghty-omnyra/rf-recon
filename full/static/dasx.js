@@ -7,6 +7,7 @@
    - the existing-system (legacy booster) audit (dasaudit.py)
    - a first AHJ guess from the USFA fire department registry and the Census place (ahj.py)
    - tunnels near the building, and tunnels as prospects (tunnels.py, OpenStreetMap, ODbL)
+   - Class B boosters registered with the FCC at the building, around it and on the pre-survey's channels (boosters.py)
    Every finding says where it came from. Needs core.js (api, post, esc, $, S, num, fmtF, render) and das.js (dasSay,
    dasConsent, dasConsentText, dasBand, today, fileSafe, dasDl, csvOf). */
 
@@ -409,17 +410,17 @@ window.dasAudit = async (el, j, save) => {
   const d = j.data || {}, L = d.legacy || {};
   const keep = async patch => { j = await save({ legacy: { ...(j.data.legacy || {}), ...patch } }); window.dasAudit(el, j, save); };
   if(!L.flag){
-    el.innerHTML = `<div class="panel"><h3>Existing system</h3>
+    el.innerHTML = `<div id="dxRegBox"></div><div class="panel"><h3>Existing system</h3>
       <p>For a building that already has a booster (BDA) or ERCES: an annual retest, a takeover, a system that stopped working, or an FCC interference notice. The audit checks it against today's rules (47 CFR 90.219 consent, Class A / B and registration, Band 14, ESMR), its listing and its tests, and puts the findings on the AHJ report.</p>
       <button class="primary" id="laOn">This building has an existing system: audit it</button></div>`;
-    $("#laOn").onclick = () => keep({ flag: true }); return;
+    $("#laOn").onclick = () => keep({ flag: true }); dxBoosters($("#dxRegBox"), j); return;
   }
   el.innerHTML = '<p class="hint">Reading the audit…</p>';
   let a; try{ a = await api(`/api/das/x/audit/${j.id}`); }catch(e){ if(el.isConnected) el.innerHTML = `<p class="status err">${esc(e.message)}</p>`; return; }
   if(!el.isConnected) return;
   const sel = (k, l) => `<label>${l}<select data-lg="${k}">${DX_LEG_SEL[k].map(v => `<option ${v === (L[k] || "unknown") ? "selected" : ""}>${v}</option>`).join("")}</select></label>`;
   const inp = (k, l, w, ph = "", type = "text") => `<label>${l}<input data-lg="${k}" type="${type}" value="${esc(L[k] || "")}" placeholder="${esc(ph)}" style="width:${w}px"></label>`;
-  el.innerHTML = `<div class="grid2" style="margin-top:0">
+  el.innerHTML = `<div id="dxRegBox"></div><div class="grid2" style="margin-top:0">
     <div class="panel"><h3>The existing booster <span class="hint">· from its label, its settings or its last test report</span></h3>
       <div class="row" style="gap:8px;flex-wrap:wrap">${inp("installed", "Installed (year)", 90, "2012")}${inp("maker", "Maker", 150)}${inp("model", "Model", 150)}
         <label>FCC ID<input data-lg="fcc_id" value="${esc(L.fcc_id || "")}" style="width:150px"></label>${L.fcc_id ? `<a href="https://fccid.io/${encodeURIComponent(L.fcc_id)}" target="_blank" rel="noopener" style="align-self:end">its grant</a>` : ""}</div>
@@ -437,6 +438,50 @@ window.dasAudit = async (el, j, save) => {
   el.querySelectorAll("[data-lg]").forEach(i => i.onchange = () => keep({ [i.dataset.lg]: i.value === "unknown" ? "" : i.value.trim() }));
   el.querySelectorAll("[data-lc]").forEach(c => c.onchange = () => keep({ checks: { ...((j.data.legacy || {}).checks || {}), [c.dataset.lc]: c.checked ? today() : "" } }));
   $("#laOff").onclick = e => { e.preventDefault(); keep({ flag: false }); };
+  dxBoosters($("#dxRegBox"), j);  // registered with the FCC at the building and around it (boosters.py)
+};
+
+/* ---------- registered with the FCC (boosters.py): Class B boosters at the building, around it, and on the pre-survey's channels ---------- */
+const dxDist = m => m < 1000 ? `${m} m` : `${num(m / 1609.344, 1)} mi`;
+const dxBoostLine = (b, extra = "") => `<div style="border-top:1px solid var(--line);padding:5px 0"><b class="mono">${esc(b.booster_id)}</b> · registered ${esc(b.registered || "?")} by <b>${esc(b.company || "?")}</b>${b.company_place ? ` <span class="hint">(${esc(b.company_place)})</span>` : ""} · ${dxDist(b.m)}${extra}
+  <div class="hint">${b.callsigns.length ? `Call signs ${esc(b.callsigns.join(", "))} · ` : ""}${esc(b.frequencies || "no frequencies on the registration")}</div>
+  ${b.location || b.address ? `<div class="hint">${esc([b.location, b.address].filter(Boolean).join(" · "))}</div>` : ""}</div>`;
+const dxBoostSrc = B => `From the FCC's signal booster registrations${B.source?.as_of ? `, data as of ${esc(B.source.as_of)}` : ""} · <a href="${esc(B.source?.url || "")}" target="_blank" rel="noopener">the FCC's registrations</a>`;
+// the registrant's own contact, for an admin (the server says who may: B.contacts). Plain text: nothing here sends mail
+const dxBoostWho = c => { const C = c.company || {}, P = c.contact || {}, line = (k, v) => v ? `<div><span class="hint">${k}:</span> ${esc(v)}</div>` : "";
+  return `<div style="margin:4px 0 2px;padding:4px 10px;border-left:3px solid var(--warn)">${line("Company", [C.attention && `Attn: ${C.attention}`, C.address].filter(Boolean).join(" · "))}${line("Company email", C.email)}${line("Company phone", (C.phones || []).join(", "))}
+    ${line("Contact", [P.name, P.company, P.address].filter(Boolean).join(" · "))}${line("Contact email", P.email)}${line("Contact phone", P.phone)}${line("Signed", c.signed)}<div class="hint">${esc(c.note)}</div></div>`; };
+
+window.dasPsBoosters = (B, radius) => {
+  if (!B || !B.loaded) return "";  // not on this copy (the web version, or not downloaded yet): the Existing system tab says so
+  const whose = B.chosen ? "the chosen systems'" : "these systems'", list = B.list || [];
+  if (!list.length) return `<div class="panel" id="psBoosters" style="margin-top:10px"><h3>Registered signal boosters <span class="hint">· none within ${radius} mi on ${whose} channels</span></h3><p class="hint" style="margin:0">${dxBoostSrc(B)}</p></div>`;
+  return `<div class="panel" id="psBoosters" style="margin-top:10px"><h3>Registered signal boosters on ${whose} channels <span class="hint">· ${B.n.toLocaleString()} Class B booster${B.n === 1 ? "" : "s"} registered with the FCC within ${radius} mi, nearest first${B.n > list.length ? `, the nearest ${list.length} listed` : ""} · not part of the systems above or the channel plan</span></h3>
+    <div style="max-height:360px;overflow:auto">${list.map(b => dxBoostLine(b, `${b.at_building ? ' <span class="tag w">At this building</span>' : ""}<div class="hint">Passes channels of ${esc(b.systems.join(", "))}${b.systems_n > b.systems.length ? ` +${b.systems_n - b.systems.length} more` : ""}</div>`)).join("")}</div>
+    <p class="hint" style="margin:6px 0 0">Each one retransmits these agencies' channels near the building: a donor, isolation and interference question for a new system, and someone to coordinate with. ${dxBoostSrc(B)}</p></div>`;
+};
+
+const dxBoosters = async (el, j) => {
+  if (!el) return;
+  const d = j.data || {};
+  if (d.lat == null) { el.innerHTML = ""; return; }
+  const key = [j.id, d.lat, d.lon, (d.presurvey || {}).radius || 15].join("|");
+  let B = DX.boost?.key === key ? DX.boost.B : null;
+  if (!B) {
+    el.innerHTML = '<div class="panel" id="dxReg" style="margin-bottom:10px"><h3>Registered with the FCC</h3><p class="hint">Looking for FCC booster registrations here…</p></div>';
+    try { B = await api(`/api/das/jobs/${j.id}/boosters`); DX.boost = { key, B }; }
+    catch (e) { if (el.isConnected) el.innerHTML = `<div class="panel" id="dxReg" style="margin-bottom:10px"><h3>Registered with the FCC</h3><p class="hint">${esc(e.message)}</p></div>`; return; }
+    if (!el.isConnected) return;
+  }
+  if (!B.loaded) { el.innerHTML = `<div class="panel" id="dxReg" style="margin-bottom:10px"><h3>Registered with the FCC</h3><p class="hint" style="margin:0">The FCC's signal booster registrations aren't on this copy${(S.das?.folder || "").startsWith("/rfr/") ? ": they load on the PC and the server, not in the web version" : `. They download in Data &amp; updates ("FCC signal booster registrations (Class B)")`}.</p></div>`; return; }
+  const who = b => B.contacts ? `<div data-who><button class="sm" data-bc="${esc(b.booster_id)}" title="The registrant's own contact on the FCC registration. Admins only: kept on the server and Cody's PC">Registrant contact</button></div>` : "";
+  el.innerHTML = `<div class="panel" id="dxReg" style="margin-bottom:10px"><h3>Registered with the FCC <span class="hint">· Class B signal boosters (47 CFR 90.219(d)(5)), within ${B.at_m} m of the pin</span></h3>
+    ${B.at_building.length ? B.at_building.map(b => dxBoostLine(b) + who(b)).join("") : `<p style="margin:0">${esc(B.note)}</p>`}
+    ${B.within_n ? `<details style="margin-top:6px"><summary>${B.within_n.toLocaleString()} more within ${B.radius_mi} mi (the pre-survey's radius)${B.within_n > B.within.length ? `: the nearest ${B.within.length}` : ""}</summary>${B.within.map(b => dxBoostLine(b) + who(b)).join("")}</details>` : `<p class="hint" style="margin:6px 0 0">No other registration within ${B.radius_mi} mi.</p>`}
+    <p class="hint" style="margin:6px 0 0">${dxBoostSrc(B)}</p></div>`;
+  el.querySelectorAll("[data-bc]").forEach(btn => btn.onclick = async () => { const box = btn.parentElement; btn.disabled = true;
+    try { box.innerHTML = dxBoostWho(await api(`/api/remote/booster-contact?id=${encodeURIComponent(btn.dataset.bc)}`)); }
+    catch (e) { box.innerHTML = `<span class="hint">${esc(e.message)}</span>`; } });
 };
 
 /* ---------- what open data says is at the job (deskpoint.py, Cody 11/8): the building, who responds, the nearest stations ---------- */
@@ -454,6 +499,28 @@ const dxHere = H => {
     ${(H.credits || []).length ? `<p class="hint" style="margin:4px 0 0">${esc(H.credits.join(" · "))}; looked ${esc(H.at)}.</p>` : ""}</div>`;
 };
 
+/* ---------- FAA notice for the donor mast (towair.py, Cody 11/8): 14 CFR 77.9, as the FCC's TOWAIR applies it ---------- */
+const dxTowair = T => {
+  if(!T) return "";
+  const a = (T.airports || []).slice(0, 3).map(x => `<div class="hint">${esc(x.ident)} ${esc(x.name)} · ${esc(x.what)} · ${x.distance_ft.toLocaleString()} ft away · ${esc(x.slope)} limit ${x.limit_ft.toLocaleString()} ft, the mast's top ${x.top_ft.toLocaleString()} ft above sea level${x.over ? " · <b>over</b>" : ""}</div>`).join("");
+  return `<div style="margin-top:6px"><b>${T.notice ? "FAA notice needed, and FCC antenna structure registration" : "No FAA notice needed"}</b>
+    <span class="hint">· building ${T.bldg_m} m + mast ${T.mast_m} m = ${T.agl_ft} ft above ground, on ground ${T.ground_ft} ft above sea level</span>
+    ${(T.reasons || []).map(r => `<div>${esc(r)}</div>`).join("")}${a}
+    <p class="hint" style="margin:4px 0 0">${esc(T.rule)}. ${esc(T.caveat)} <a href="${esc(T.towair)}" target="_blank" rel="noopener">FCC TOWAIR ↗</a> · <a href="${esc(T.faa_tool)}" target="_blank" rel="noopener">FAA Notice Criteria Tool ↗</a></p></div>`;
+};
+
+/* ---------- strong broadcast at the building (bcastcover.py, Cody 11/8): FM and TV stations whose strong contour covers it ---------- */
+const dxBcast = B => {
+  if(!B) return "";
+  const list = B.strong || [];
+  return `<div style="margin-top:6px">${list.length ? list.map(x => `<div style="border-top:1px solid var(--line);padding:5px 0"><b>${esc(x.call_sign || "")}</b> <span class="hint">· ${esc(x.service)} · ${x.km} km${x.erp_kw ? ` · ${x.erp_kw} kW ERP` : ""}</span>
+      <div>${x.blanketing ? `Inside its 115 dBu blanketing contour: overload of the BDA's input and mixing products are likely; plan filtering at the donor and check the BDA's out-of-band rejection.` : `Inside its ${x.field_dbu} dBu contour: strong out-of-band signal at the building; check the BDA's rejection at this frequency.`}</div></div>`).join("")
+      : `<p class="hint" style="margin:4px 0 0">No FM or TV station's strong contour covers the building${B.near ? ` (${B.near} station${B.near === 1 ? "" : "s"} nearby checked)` : " (none nearby in this copy's broadcast list)"}.</p>`}
+    ${(B.refused || []).length ? `<p class="status err" style="margin:4px 0 0">${esc(B.refused.join("; "))}. It's on Data &amp; updates, Needs a person.</p>` : ""}
+    ${(B.failed || []).length ? `<p class="hint" style="margin:4px 0 0">Not reached this time: ${esc(B.failed.slice(0, 3).join("; "))}</p>` : ""}
+    <p class="hint" style="margin:4px 0 0">FCC contours (115 and 100 dBu for FM, 100 dBu for TV), looked ${esc(B.at || "")}. ${esc(B.attribution || "")}</p></div>`;
+};
+
 /* ---------- AHJ guess (Overview) ---------- */
 window.dasAhjGuess = (el, j, save) => {
   const d = j.data || {}, G = d.ahj_guess;
@@ -463,7 +530,13 @@ window.dasAhjGuess = (el, j, save) => {
       <button class="sm" data-ahj="${i}">Use as AHJ</button></div></div>`;
   el.innerHTML = `<div class="row" style="gap:8px;align-items:center;margin-top:6px"><button id="ahjGo" title="Fire departments covering this address, from the USFA National Fire Department Registry and the Census place the building is in">Suggest the AHJ (USFA fire department list)</button><span class="hint" id="ahjMsg"></span></div>
     <div id="ahjOut">${G ? `${G.list.length ? G.list.slice(0, 4).map(card).join("") : '<p class="hint">No department matched this address.</p>'}<p class="hint">${esc(G.where || "")} · ${esc(G.source || "")}, looked ${esc(G.at)}. ${esc(G.note || "")}</p>` : ""}</div>
-    <div id="ahjHere">${dxHere(d.ahj_here)}</div>`;
+    <div id="ahjHere">${dxHere(d.ahj_here)}</div>
+    <div class="row" style="gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button id="twGo">FAA notice for the donor mast</button>
+      <label class="inl">Building <input id="twB" type="number" min="0" step="0.5" style="width:5em" value="${esc(String(d.towair?.bldg_m ?? d.ahj_here?.building?.height_m ?? ""))}"> m</label>
+      <label class="inl">Mast <input id="twM" type="number" min="0" step="0.5" style="width:4em" value="${esc(String(d.towair?.mast_m ?? 3))}"> m</label><span id="twMsg" class="hint"></span></div>
+    <div id="twOut">${dxTowair(d.towair)}</div>
+    <div class="row" style="gap:8px;align-items:center;margin-top:10px"><button id="bcGo">Strong broadcast at the building</button><span id="bcMsg" class="hint">FM and TV stations whose strong contour covers it, from the FCC</span></div>
+    <div id="bcOut">${dxBcast(d.bcast_here)}</div>`;
   const go = async () => { if(d.lat == null){ alert("Set the building's location first."); return; } const b = $("#ahjGo"), msg = $("#ahjMsg"); b.disabled = true; msg.textContent = "Looking…";
     const here = api(`/api/das/x/here/${j.id}`).catch(e => ({ error: e.message }));  // the building, who responds, stations (deskpoint.py)
     const keepHere = async () => { const h = await here; if(!h.error) j = await save({ ahj_here: h }); return h; };
@@ -479,6 +552,13 @@ window.dasAhjGuess = (el, j, save) => {
     catch(e){ const h = await keepHere().catch(() => ({})); if(!h.error && h.at) window.dasAhjGuess(el, j, save);
       const b2 = $("#ahjGo"), m2 = $("#ahjMsg"); if(b2) b2.disabled = false; if(m2) m2.textContent = e.message; } };
   $("#ahjGo").onclick = go;
+  $("#twGo").onclick = async () => { if(d.lat == null){ alert("Set the building's location first."); return; } const b = $("#twGo"), msg = $("#twMsg"); b.disabled = true; msg.textContent = "Checking…";
+    try{ const r = await api(`/api/das/x/towair/${j.id}?bldg_m=${encodeURIComponent($("#twB").value || 0)}&mast_m=${encodeURIComponent($("#twM").value || 0)}`);
+      j = await save({ towair: r }); window.dasAhjGuess(el, j, save); }
+    catch(e){ b.disabled = false; msg.textContent = e.message; } };
+  $("#bcGo").onclick = async () => { if(d.lat == null){ alert("Set the building's location first."); return; } const b = $("#bcGo"), msg = $("#bcMsg"); b.disabled = true; msg.textContent = "Asking the FCC…";
+    try{ const r = await api(`/api/das/x/bcast/${j.id}`); j = await save({ bcast_here: r }); window.dasAhjGuess(el, j, save); }
+    catch(e){ b.disabled = false; msg.textContent = e.message; } };
   el.querySelectorAll("[data-ahj]").forEach(b => b.onclick = async () => { const x = G.list[+b.dataset.ahj];
     try{ const c = await window.dasAhjContact(x);
       await save({ ahj: x.name, contacts: { ...(j.data.contacts || {}), ahj: c.id } });

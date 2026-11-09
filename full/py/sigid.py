@@ -50,6 +50,10 @@ LIBRARY = {
     "Microwave link":    ("Fixed", "varies", "Microwave", "#6e7781"),
     "Amateur":           ("Amateur", "varies", "Amateur", "#6e7781"),
     "GMRS/FRS":          ("Personal", "12.5-20 kHz FM", "GMRS", "#6e7781"),
+    "Medical telemetry (WMTS)": ("Medical", "narrowband telemetry", "WMTS", "#d1242f"),
+    "Medical implant (MedRadio)": ("Medical", "up to 300 kHz", "MedRadio", "#d1242f"),
+    "Rail PTC (ITCR)":   ("Rail", "25 kHz data", "Positive Train Control", "#7d4e00"),
+    "C-V2X":             ("Vehicle", "10-20 MHz LTE sidelink", "C-V2X", "#0550ae"),
     "Unknown":           ("Unknown", "", "", "#8c959f"),
 }
 
@@ -96,6 +100,12 @@ BAND_PLAN = [
     (5150.0, 5895.0, "U-NII 5 GHz", ["Wi-Fi"]),
     (5925.0, 7125.0, "6 GHz", ["Wi-Fi", "Microwave link"]),
     (2700.0, 3100.0, "S-band radar", ["Radar"]),
+    (608.0, 614.0, "WMTS medical telemetry (hospitals)", ["Medical telemetry (WMTS)"]),
+    (1395.0, 1400.0, "WMTS medical telemetry (hospitals)", ["Medical telemetry (WMTS)"]),
+    (1427.0, 1432.0, "WMTS medical telemetry (hospitals)", ["Medical telemetry (WMTS)"]),
+    (401.0, 406.0, "MedRadio (medical implants)", ["Medical implant (MedRadio)"]),
+    (217.0, 220.0, "220 MHz rail PTC / land mobile", ["Rail PTC (ITCR)", "Analog FM"]),
+    (5895.0, 5925.0, "5.9 GHz ITS (C-V2X)", ["C-V2X"]),
     (617.0, 652.0, "600 MHz (B71 DL)", ["LTE", "5G NR"]),
     (663.0, 698.0, "600 MHz (B71 UL)", ["LTE", "5G NR"]),
     (698.0, 758.0, "700 MHz lower/upper C", ["LTE"]),
@@ -143,7 +153,15 @@ def band_info(mhz):
 
 # Who allows transmitting in a band when no site license matches (US, 47 CFR and NTIA). First match wins,
 # so narrow allocations sit above the wide ones they fall inside. Used to find signals nothing explains.
-AUTHORITY = [
+AUTHORITY = [  # the services added 11/8 sit first: Maritime's 156-162 MHz below would take BETRS's 157.77-158.67 MHz
+    (608.0, 614.0, "Medical (Part 95 WMTS; registered with the WMTS coordinator, ASHE)", "Wireless Medical Telemetry: hospital patient monitors"),
+    (1395.0, 1400.0, "Medical (Part 95 WMTS; registered with the WMTS coordinator, ASHE)", "Wireless Medical Telemetry"),
+    (1427.0, 1432.0, "Medical (Part 95 WMTS; registered with the WMTS coordinator, ASHE)", "Wireless Medical Telemetry"),
+    (401.0, 406.0, "Medical (Part 95 MedRadio)", "Medical implants and body-worn devices"),
+    (5895.0, 5925.0, "Vehicles (Part 90 ITS)", "C-V2X roadside and vehicle units"),
+    (217.0, 220.0, "Rail (Part 80/90, 220 MHz)", "Positive Train Control and 220 MHz land mobile"),
+    (152.03, 152.81, "Rural radiotelephone (Part 22; BETRS)", "BETRS rural telephone links and paging"),
+    (157.77, 158.67, "Rural radiotelephone (Part 22; BETRS)", "BETRS rural telephone links"),
     (162.400, 162.5501, "NOAA Weather Radio", "NOAA's own transmitters"),
     (161.9625, 162.0375, "Maritime (by rule)", "AIS"),
     (156.0, 162.0375, "Maritime (by rule)", "Marine VHF: ship stations are licensed by rule"),

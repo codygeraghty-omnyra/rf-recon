@@ -2051,6 +2051,36 @@
      ]
     },
     {
+     "name": "FAA notice for the donor mast",
+     "group": "requirements and AHJ",
+     "text": "Whether the building plus the donor mast needs FAA notice and FCC antenna structure registration (14 CFR 77.9 as the FCC's TOWAIR applies it), from the FAA's airports and runways, with the airports that count.",
+     "src": [
+      "d-2026-11-08-1637",
+      "towair.py",
+      "static/dasx.js"
+     ]
+    },
+    {
+     "name": "Strong broadcast at the building",
+     "group": "requirements and AHJ",
+     "text": "FM and TV stations whose strong contour (FM 115 dBu blanketing, 100 dBu; TV 100 dBu) covers the building, from the FCC's Contours API, with what each means for a BDA.",
+     "src": [
+      "d-2026-11-08-1637",
+      "bcastcover.py",
+      "static/dasx.js"
+     ]
+    },
+    {
+     "name": "Registered with the FCC",
+     "group": "requirements and AHJ",
+     "text": "The Class B boosters registered with the FCC at the building (within 75 m) and within the pre-survey radius, from the FCC's own registry; the registration date confirmed under the job's compliance date; the registrant's contact for the admin only.",
+     "src": [
+      "d-2026-11-08-1637",
+      "boosters.py",
+      "static/das.js"
+     ]
+    },
+    {
      "name": "What's at the address",
      "group": "requirements and AHJ",
      "text": "Find the AHJ also shows the building at the pin (use, floor area, height, how it was checked: USA Structures), who responds there by the state's 911 boundaries (fire, EMS, law, 911 centre: Wisconsin and Kentucky) and the nearest fire, EMS and police stations where each really is (USGS). Asked only when pressed, kept on the job.",
@@ -4171,6 +4201,31 @@
      ]
     },
     {
+     "name": "Email from the Phone window",
+     "text": "One button opens Gmail in a new tab.",
+     "src": [
+      "d-2026-11-08-1810",
+      "static/phonewin.js"
+     ]
+    },
+    {
+     "name": "AI receptionist (on show)",
+     "text": "How the AI receptionist would answer the business's line: greeting, hours, what it answers, who it puts callers through to. Not set up; answers no calls.",
+     "src": [
+      "d-2026-11-08-1810",
+      "static/phonewin.js"
+     ]
+    },
+    {
+     "name": "Phone window",
+     "text": "Texts, calls (via your own cell), a keypad and contacts in one window from the top bar, through Omnyra's texting line, to the copy's own list of numbers; full and admin logins.",
+     "src": [
+      "d-2026-11-08-1810",
+      "phone.py",
+      "static/phonewin.js"
+     ]
+    },
+    {
      "name": "Share with Cody",
      "text": "Share with Cody, pressed twice, emails a note to Cody as a numbered DAStastic report with its files; each person's send code comes in their link. A team login's note on the server goes straight to Cody's copy.",
      "src": [
@@ -4516,6 +4571,46 @@
       "updater.py",
       "d-2026-11-08-1346",
       "d-2026-11-08-1410"
+     ]
+    },
+    {
+     "name": "FCC files through Intake",
+     "text": "The FCC's 911 registry and prohibited entities list, downloaded from its pages by a person, applied by an admin's press in Intake; Undo goes back to the shipped copies.",
+     "src": [
+      "d-2026-11-08-1637",
+      "intake.py",
+      "psap.py",
+      "prohibited.py"
+     ]
+    },
+    {
+     "name": "FCC rules watch",
+     "text": "New filings in seven FCC dockets that change DAS work, from the FCC's ECFS API, daily with a free api.data.gov key.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-1637",
+      "fccrules.py",
+      "static/mission.js"
+     ]
+    },
+    {
+     "name": "Proposed towers",
+     "text": "Tower applications not yet built and structures under FAA study, from the FCC's daily tower files; a map source off until ticked.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-1637",
+      "towerapps.py",
+      "ulsdaily.py"
+     ]
+    },
+    {
+     "name": "FCC signal booster registrations",
+     "text": "The FCC's Class B booster registry (18,368 registrations), weekly when the FCC changes it; business fields everywhere, contacts on the server and Cody's PC for the admin only.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-08-1637",
+      "boosters.py",
+      "updater.py"
      ]
     },
     {
@@ -4937,6 +5032,16 @@
       "d-2026-11-04-late",
       "remote.py",
       "dashist.py"
+     ]
+    },
+    {
+     "name": "Licensed copies",
+     "text": "A business's own copy of DAStastic: its own logins, jobs, contacts and settings, its name on the sign-in page and in the top bar, and its website's Employee login straight to the sign-in.",
+     "where": "server",
+     "src": [
+      "d-2026-11-08-1810",
+      "licence.py",
+      "remote.py"
      ]
     },
     {
