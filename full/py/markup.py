@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS map_markup(id INTEGER PRIMARY KEY, scope TEXT NOT NUL
     kind TEXT NOT NULL, geometry TEXT NOT NULL, label TEXT, color TEXT, note TEXT, created_by TEXT, created_at TEXT, updated_at TEXT);
 CREATE INDEX IF NOT EXISTS map_markup_scope ON map_markup(scope, scope_id);
 """
+TABLES = ("map_markup",)  # the nightly my-work backup takes them (app.USER_TABLES)
 SCOPES = ("mission", "job", "scratch")
 KINDS = {"point": "Point", "line": "LineString", "area": "Polygon"}
 COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")

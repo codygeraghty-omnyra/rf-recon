@@ -85,6 +85,7 @@ import faa  # noqa: E402
 import fieldpack  # noqa: E402
 import geo  # noqa: E402
 import course  # noqa: E402
+import markup  # noqa: E402
 import network  # noqa: E402
 import serverfiles  # noqa: E402
 import notes  # noqa: E402
@@ -831,7 +832,7 @@ def coverage_args(qs):
 # ---------------------------------------------------------------- backup of your own work
 
 BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at DAStastic\backups in Drive (shared)
-USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES
+USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES + markup.TABLES
 NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: DAStastic\notes in Drive)
 
 
@@ -3119,6 +3120,8 @@ class H(BaseHTTPRequestHandler):
         """A read-only share link (dashist.py): the review page, its data and its files, for as long as the link lives and
         share links are on. Anything else here answers 404, signed out or not."""
         m = re.match(r"^/share/([A-Za-z0-9_-]{32,64})(?:/(data|file|review\.js|das\.js))?$", p)
+        # no-referrer here on purpose: the link's token is in the URL. Every answer below must pass hdr, because the door's
+        # default is same-origin since 11/10 (security review: a new share path that forgets it would send its token as Referer)
         hdr = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}
         if not m or not self.share_on():
             return self.send(404, {"error": "not found"}, extra=hdr)
@@ -3793,8 +3796,10 @@ class RemoteH(H):
             raw = body.encode() if isinstance(body, str) else body  # the app's page installs as an app (remote.APP_HEAD)
             if b"</head>" in raw and b"manifest.webmanifest" not in raw:
                 body = raw.replace(b"</head>", remote.APP_HEAD.encode() + b"</head>", 1)
+        # same-origin, not no-referrer (11/10): nothing goes to other sites either way, but under no-referrer a browser sends
+        # a plain form's post with Origin "null", so the sign-in form failed from_here on a framed copy (Andy, 11/9)
         hdrs = dict({"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff",
-                     "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
+                     "Referrer-Policy": "same-origin", "Cache-Control": "no-store"}
                     if ctype.startswith(("application/json", "text/html")) else
                     {"X-Content-Type-Options": "nosniff"}, **(extra or {}))
         anc = remote.frame_ancestors() if ctype.startswith("text/html") else []
@@ -3816,7 +3821,11 @@ class RemoteH(H):
             send this copy signed-in reads;
           - a change (not a GET or HEAD) must carry this copy's own Origin. With no Origin it goes on only with no
             Sec-Fetch-Site either: not a browser (the PC fetcher, a script). Every browser on https sends one, so an Origin
-            taken off on the way can't let another site's form through.
+            taken off on the way can't let another site's form through;
+          - Origin "null" goes on only from this copy's own page by the browser's word (Sec-Fetch-Site same-origin). That's
+            a plain form's post from a page under Referrer-Policy no-referrer, as every page here was until 11/10: the sign-in
+            form, refused here on Andy's copy on 11/9. A page can't set Sec-Fetch-Site, and a walled-off page (a stored file,
+            an opaque origin) is cross-site to the browser, so "null" from anywhere else is still refused.
         On every other copy it's always true: nothing changes."""
         if not remote.frame_ancestors():
             return True
@@ -3826,6 +3835,8 @@ class RemoteH(H):
         if method in ("GET", "HEAD"):
             return True
         origin = self.headers.get("Origin")
+        if origin == "null":
+            return site == "same-origin"
         if origin is not None:
             return origin == ("https://" if self.secure() else "http://") + (self.headers.get("Host") or "")
         return site is None

@@ -1058,7 +1058,9 @@ async function dasPresurvey(el, j, save){
       return a?{...x, licensee:`${x.licensee} · donor: aim ${dasDeg(a.true_deg)} true${a.mag_deg!=null?` / ${dasDeg(a.mag_deg)} magnetic`:""}${a.elev!=null?`, ${a.elev>=0?"+":""}${num(a.elev,1)}° up`:""} from the roof`}:x; }); };
   $("#psTak").onclick=()=>RFTak.save({rows:takRows(), center:[d.lat,d.lon], radius:P.radius, name:`DAStastic - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
     outline:d.building?.outline?{name:`${j.name} outline`, points:d.building.outline}:null});
-  if(typeof L!=="undefined"){ const map=L.map("psMap",{preferCanvas:true}); map._rfScope=()=>({scope:"job", id:j.id, name:`job “${j.name}”`}); addMapLayers(map);  // its drawings stay with the job (markup.js) L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name}).addTo(map);
+  if(typeof L!=="undefined"){ const map=L.map("psMap",{preferCanvas:true});
+    map._rfScope=()=>({scope:"job", id:j.id, name:`job “${j.name}”`});  // its drawings stay with the job (markup.js)
+    addMapLayers(map); L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name}).addTo(map);
     if(d.building?.outline) L.polygon(d.building.outline,{color:"#f0a020", weight:2, fillOpacity:.15}).bindTooltip(dasBuildingLine(d.building)).addTo(map);
     const pts=[[d.lat,d.lon]];
     for(const s of (inc.size?chosen:r.systems.slice(0,25))) for(const st of s.sites.slice(0,3)){ pts.push([st.lat,st.lon]);
