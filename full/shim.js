@@ -1043,7 +1043,9 @@ window.fetch = async (input, opts) => {
 const USGS = id => `https://basemap.nationalmap.gov/arcgis/rest/services/${id}/MapServer/tile/{z}/{y}/{x}`;
 const TILES = {"osm": "https://tile.openstreetmap.org/{z}/{x}/{y}.png", "usgs-imagery": USGS("USGSImageryOnly"), "usgs-imagery-topo": USGS("USGSImageryTopo"),
   "usgs-topo": USGS("USGSTopo"), "usgs-relief": USGS("USGSShadedReliefOnly"),
-  "esri-imagery": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"};
+  "esri-imagery": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?blankTile=false"};
+// the base maps' own tile layer (core.js RfTiles) asks this for each /tiles/ address, as the factory below does for the rest
+window.RFTileSrc = url => { const m = /^\/tiles\/([^/]+)\//.exec(url || ""); return m && TILES[m[1]] || url; };
 const WM = 20037508.342789244;
 const CountyLines = L.TileLayer.extend({getTileUrl(c) {  // TIGERweb draws county and state lines for any box
   const z = this._getZoomForUrl(), size = 2 * WM / 2 ** z, minx = -WM + c.x * size, maxy = WM - c.y * size;

@@ -160,6 +160,27 @@ def ended(u):
     return bool(u.get("ends")) and time.strftime("%Y-%m-%d") > u["ends"]
 
 
+# --- Admins only (Cody 11/9: "make me the only one with access at the moment", then "add that to the github and the
+# server for admins only", Andy's licensed copy first). While admins_only.json is in the data folder, only an admin login
+# signs in or stays signed in; every other login (full, view, ahj, fetcher) is turned away and keeps its password, role and
+# Google link for when it comes off (ops/licensed_copy.py --do admins_only_on / admins_only_off). The file being there is
+# what counts, whatever it holds, so a damaged file still keeps the copy closed. Share links and the public verify page
+# are their own switches (dashist.py, das.public_verify_on), not logins: this doesn't touch them.
+ADMINS_ONLY_FILE = "admins_only.json"
+
+
+def admins_only():
+    return bool(_DIR) and os.path.exists(os.path.join(_DIR, ADMINS_ONLY_FILE))
+
+
+def shut_out(u):
+    """Whether this login is kept out right now by admins_only (any role but admin, while it's on)."""
+    return (u.get("role") or "view") != "admin" and admins_only()
+
+
+ADMINS_ONLY_SAY = "This DAStastic is open to admins only for now. Ask Cody when it opens again."
+
+
 def add(name, role=None, ends=None):
     """Add a person (or give them a new password; their role and last day stay unless given). Returns the password: shown
     once, never stored. ends: a last day ("YYYY-MM-DD"), "" for none, None to keep what they had."""
@@ -247,6 +268,8 @@ def check(name, pw):
         _FAILS.pop(key, None)
     if ended(u):  # said only to someone with the right password
         raise ValueError(f"This login ended on {u['ends']}. Ask Cody if you need it again.")
+    if shut_out(u):  # the same: a wrong password never learns the copy is admins only
+        raise ValueError(ADMINS_ONLY_SAY)
     return _session(key, u)
 
 
@@ -344,6 +367,8 @@ def google_finish(code, state, state_cookie):
             raise ValueError(f"{email} isn't linked to a DAStastic login. Ask Cody to link it, or sign in with your password.")
         if ended(u):
             raise ValueError(f"This login ended on {u['ends']}. Ask Cody if you need it again.")
+        if shut_out(u):
+            raise ValueError(ADMINS_ONLY_SAY)
         if not u.get("google_first"):
             u["google_first"] = time.strftime("%Y-%m-%d %H:%M")
         u["last"] = time.strftime("%Y-%m-%d %H:%M")
@@ -407,10 +432,17 @@ def change_password(name, current, new):
 
 
 def user_of(cookie_header):
-    """The signed-in person's name, or None."""
-    m = re.search(rf"(?:^|;\s*){COOKIE}=([A-Za-z0-9_=-]+)\.([0-9a-f]{{64}})", cookie_header or "")
-    if not m:
-        return None
+    """The signed-in person's name, or None. Every login cookie sent is tried in turn: a copy shown in a frame can be sent two
+    (the dash's partitioned one and the top-level one, frame_ancestors), and the first may be out of date."""
+    for m in re.finditer(rf"(?:^|;\s*){COOKIE}=([A-Za-z0-9_=-]+)\.([0-9a-f]{{64}})", cookie_header or ""):
+        name = _session_user(m)
+        if name:
+            return name
+    return None
+
+
+def _session_user(m):
+    """The name for one login cookie (a match of user_of's pattern), or None."""
     try:
         payload = base64.urlsafe_b64decode(m.group(1)).decode()
     except (ValueError, UnicodeDecodeError):
@@ -421,6 +453,8 @@ def user_of(cookie_header):
     u = _load().get(key)
     if not u or not exp.isdigit() or int(exp) < time.time() or u["salt"][:12] != salt or ended(u):  # an ended login's sessions end too
         return None
+    if shut_out(u):  # admins only: a session made before it came on ends now too
+        return None
     if not u.get("last") or u["last"] < time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - 300)):
         with _LOCK:  # when they were last here, written at most every 5 minutes
             us = _load()
@@ -430,9 +464,40 @@ def user_of(cookie_header):
     return u["name"]
 
 
+# --- Shown inside DaDougieDash (Cody 11/9: "embed it in the dash", Andy's licensed copy first; "take the Omnyra gate off but
+# keep the firewall/router/switch"). frame.json in the data folder names the pages that may show this copy in a frame:
+#   {"ancestors": ["http://127.0.0.1:8796", "http://localhost:8796"]}
+# With no file (every copy but the ones it's put on: ops/licensed_copy.py --do frame_on) nothing changes. With it:
+#   - its pages say Content-Security-Policy: frame-ancestors 'self' and those addresses (X-Frame-Options: DENY stays, for
+#     a browser that doesn't read frame-ancestors; a stored file opened inline gets app.opened_safely's walled-off policy
+#     in this one's place, so it can't be framed at all);
+#   - the login cookie comes twice over https: the usual SameSite=Lax one, and a Partitioned, SameSite=None one, so a login
+#     made inside the frame sticks (a partitioned cookie counts only under the top-level site it was set in: the dash);
+#   - another site's request goes on only as a page load, and a change must come from this copy's own pages: SameSite=Lax
+#     was what stopped another site's form, and the second cookie doesn't (app.py RemoteH.from_here).
+FRAME_FILE = "frame.json"
+_ANCESTOR = re.compile(r"https?://[a-z0-9.-]+(:\d{1,5})?")  # whole entry only (fullmatch): a trailing newline never passes
+
+
+def frame_ancestors():
+    """The addresses allowed to frame this copy (frame.json), each a bare scheme://host[:port]; [] when it's off."""
+    if not _DIR:
+        return []
+    try:
+        with open(os.path.join(_DIR, FRAME_FILE), encoding="utf-8") as fh:
+            got = json.load(fh).get("ancestors") or []
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [a for a in got if isinstance(a, str) and _ANCESTOR.fullmatch(a)] if isinstance(got, list) else []
+
+
 def cookie(value, secure, clear=False):
-    return (f"{COOKIE}={'' if clear else value}; Path=/; HttpOnly; SameSite=Lax; Max-Age={0 if clear else SESSION_S}"
-            + ("; Secure" if secure else ""))
+    """The login cookie's Set-Cookie value, or two of them (a list) on a copy shown in a frame, over https."""
+    head, age = f"{COOKIE}={'' if clear else value}; Path=/; HttpOnly; ", f"Max-Age={0 if clear else SESSION_S}"
+    lax = head + "SameSite=Lax; " + age + ("; Secure" if secure else "")
+    if not (secure and frame_ancestors()):
+        return lax
+    return [lax, head + "SameSite=None; Secure; Partitioned; " + age]
 
 
 TAILSCALE = next((p for p in (shutil.which("tailscale"), r"C:\Program Files\Tailscale\tailscale.exe") if p and os.path.exists(p)), None)

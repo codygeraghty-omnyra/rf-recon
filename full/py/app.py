@@ -1838,7 +1838,9 @@ TILE_SOURCES = {  # id -> URL template; {bbox} sources are ArcGIS exports render
     "usgs-imagery-topo": _USGS.format("USGSImageryTopo"),
     "usgs-topo": _USGS.format("USGSTopo"),
     "usgs-relief": _USGS.format("USGSShadedReliefOnly"),
-    "esri-imagery": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    # blankTile=false: a tile Esri doesn't have is a 404, not its grey "Map data not yet available" image, so the map
+    # draws the zoom above instead (core.js RfTiles; zoom 20 is there in some places only, measured 11/10)
+    "esri-imagery": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?blankTile=false",
     "counties": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/export"
                 "?bbox={bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&dpi=96&f=image",
 }
@@ -1880,7 +1882,8 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         for k, v in opened_safely(ctype, extra).items():
-            self.send_header(k, v)
+            for one in (v if isinstance(v, list) else [v]):  # a list: the header more than once (two login cookies, remote.cookie)
+                self.send_header(k, one)
         self.end_headers()
         self.wfile.write(body)
 
@@ -2955,6 +2958,44 @@ class H(BaseHTTPRequestHandler):
         finally:
             con.close()
 
+    def markup_route(self, method, p, qs):
+        """Drawings on the maps (markup.py, Cody 11/10): a mission's, a DAS job's (its access list: view to see, edit to
+        change), or this copy's scratch ones. GET /api/markup lists, /api/markup/export gives KML or GeoJSON; POST
+        /api/markup saves one, /api/markup/delete removes one. A view-only login can't POST (remote.refused)."""
+        import markup
+        con = db()
+        try:
+            markup.ensure(con)
+            d = self.body_json() if method == "POST" else {}
+            scope, sid = markup.scope_of(d.get("scope") or fstr(qs, "scope") or "scratch", d.get("scope_id", fstr(qs, "id")))
+            if scope == "job":
+                self.job_gate(con, sid, "edit" if method == "POST" else "view")
+            elif scope == "mission" and not con.execute("SELECT 1 FROM mission WHERE id=?", (sid,)).fetchone():
+                raise LookupError(f"Mission {sid} was deleted. Reload to see the current ones.")
+            if method == "GET" and p == "/api/markup":
+                return self.send(200, {"scope": scope, "scope_id": sid, "items": markup.listing(con, scope, sid)})
+            if method == "GET" and p == "/api/markup/export":
+                rows = markup.listing(con, scope, sid)
+                name = re.sub(r"[^\w .-]+", "", fstr(qs, "name") or "")[:80].strip() or f"DAStastic drawings - {scope} {sid}"
+                if (fstr(qs, "format") or "kml") == "geojson":
+                    return self.attach(json.dumps(markup.geojson(rows), indent=1).encode(), f"{name}.geojson", "application/geo+json")
+                return self.attach(markup.kml(rows, name).encode("utf-8"), f"{name}.kml", "application/vnd.google-earth.kml+xml")
+            if method == "POST" and p == "/api/markup":
+                who = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"
+                return self.send(200, markup.save(con, {**d, "scope": scope, "scope_id": sid}, who))
+            if method == "POST" and p == "/api/markup/delete":
+                markup.delete(con, d.get("id"), scope, sid)
+                return self.send(200, {"ok": True})
+            return self.send(404, {"error": "not found"})
+        except LookupError as e:
+            return self.send(404, {"error": str(e)})
+        except dashist.NotAllowed as e:
+            return self.send(403, {"error": str(e)})
+        except ValueError as e:
+            return self.send(400, {"error": str(e)})
+        finally:
+            con.close()
+
     # ------------------------------------------------ per-job access (dashist.py): team logins see the jobs shared with them
     def team(self):
         """The signed-in team login answering now and its role, or (None, None) for the admin and the PC's own window."""
@@ -3127,6 +3168,8 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, fh.read(), "text/html; charset=utf-8")
             if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("GET", p, qs)
+            if p == "/api/markup" or p.startswith("/api/markup/"):  # drawings on the maps (markup.py)
+                return self.markup_route("GET", p, qs)
             if p == "/api/intake" or p.startswith("/api/intake/"):  # the one drop spot (intake.py)
                 return self.intake_route("GET", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
@@ -3408,6 +3451,8 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.startswith(("/api/das/", "/api/mail/")):  # mail lives beside the DAS jobs it files into
                 return self.das_route("POST", p, qs)
+            if p == "/api/markup" or p.startswith("/api/markup/"):  # drawings on the maps (markup.py)
+                return self.markup_route("POST", p, qs)
             if p == "/api/intake" or p.startswith("/api/intake/"):  # the one drop spot (intake.py)
                 return self.intake_route("POST", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
@@ -3508,6 +3553,8 @@ class H(BaseHTTPRequestHandler):
                     for t in ("mission", "mission_log", "observation", "capture_point", "track_point", "capture"):
                         col = "id" if t == "mission" else "mission_id"
                         con.execute(f"DELETE FROM {t} WHERE {col}=?", (mid,))
+                    import markup
+                    markup.drop_scope(con, "mission", mid)  # its drawings on the maps
                     con.commit(); con.close()
                     if get_setting("active_mission") == mid:
                         set_setting("active_mission", None)
@@ -3746,13 +3793,42 @@ class RemoteH(H):
             raw = body.encode() if isinstance(body, str) else body  # the app's page installs as an app (remote.APP_HEAD)
             if b"</head>" in raw and b"manifest.webmanifest" not in raw:
                 body = raw.replace(b"</head>", remote.APP_HEAD.encode() + b"</head>", 1)
-        return super().send(code, body, ctype, dict({"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff",
-                                                     "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
-                                                    if ctype.startswith(("application/json", "text/html")) else
-                                                    {"X-Content-Type-Options": "nosniff"}, **(extra or {})))
+        hdrs = dict({"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff",
+                     "Referrer-Policy": "no-referrer", "Cache-Control": "no-store"}
+                    if ctype.startswith(("application/json", "text/html")) else
+                    {"X-Content-Type-Options": "nosniff"}, **(extra or {}))
+        anc = remote.frame_ancestors() if ctype.startswith("text/html") else []
+        if anc:  # shown inside DaDougieDash (remote.FRAME_FILE): those pages may frame it, and no other
+            fa = "frame-ancestors 'self' " + " ".join(anc)
+            csp = hdrs.get("Content-Security-Policy")
+            hdrs["Content-Security-Policy"] = csp if csp and "frame-ancestors" in csp else (f"{csp}; {fa}" if csp else fa)
+        return super().send(code, body, ctype, hdrs)
 
     def secure(self):  # the public link is https; a test on this PC is plain http
         return not (self.headers.get("Host") or "").startswith(("127.0.0.1", "localhost"))
+
+    def from_here(self, method):
+        """On a copy shown in a frame (remote.frame_ancestors), whether a request may go on. Its second login cookie is
+        SameSite=None, so this is what stops another site's request from riding it (security review 11/9):
+          - from another site (Sec-Fetch-Site cross-site or same-site): only a page load, a GET or HEAD with Sec-Fetch-Mode
+            navigate (the dash opening it in its frame, a link, Google's return). Never a fetch, an image, a script or a
+            form post: on 127.0.0.1 every port shares the dash's cookie partition, so a page on any of them could otherwise
+            send this copy signed-in reads;
+          - a change (not a GET or HEAD) must carry this copy's own Origin. With no Origin it goes on only with no
+            Sec-Fetch-Site either: not a browser (the PC fetcher, a script). Every browser on https sends one, so an Origin
+            taken off on the way can't let another site's form through.
+        On every other copy it's always true: nothing changes."""
+        if not remote.frame_ancestors():
+            return True
+        site = self.headers.get("Sec-Fetch-Site")
+        if site in ("cross-site", "same-site"):
+            return method in ("GET", "HEAD") and self.headers.get("Sec-Fetch-Mode") == "navigate"
+        if method in ("GET", "HEAD"):
+            return True
+        origin = self.headers.get("Origin")
+        if origin is not None:
+            return origin == ("https://" if self.secure() else "http://") + (self.headers.get("Host") or "")
+        return site is None
 
     def google_button(self):
         """Sign in with Google shows when it's set up here, and not in DAStastic for Android: Google refuses sign-in inside an
@@ -3768,6 +3844,9 @@ class RemoteH(H):
         p = urlparse(self.path).path
         remote.ON.user = None
         remote.ON.login = None
+        if not self.from_here(method):  # another site's request, on a copy shown in a frame: refused before anything is read
+            self.raw_body()
+            return self.send(403, {"error": "Changes come only from DAStastic's own pages."})
         user = remote.user_of(self.headers.get("Cookie"))
         role = remote.role_of(user) if user else None
         # what the handler itself reads: a note's words and files (anyone signed in), and every change by a full or admin login

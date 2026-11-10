@@ -285,14 +285,57 @@ const USGS="USGS The National Map";
 // (OpenStreetMap's tile policy and Esri's licence forbid keeping tiles for offline use): with no signal the map shows
 // NO_SIGNAL_BASE until signal returns, without changing the map you picked.
 const NO_SIGNAL_BASE="Topo (USGS)";
+const ESRI="Esri, Vantor, Earthstar Geographics";
+// Sharper maps (Cody 11/10). Measured 11/10: Esri's imagery has zoom 19 everywhere and 20 in some places (Wilmington and
+// Jacksonville NC, not Minneapolis or rural Minnesota); USGS imagery, topo and relief stop at 16 (17 answers "not found").
+//   maxNativeZoom: the deepest zoom asked for. fallback: the deepest zoom every place has; a deeper tile that isn't there
+//     (the proxy asks Esri with blankTile=false, so it's a 404, not Esri's grey "not yet available" tile) is cut from
+//     its parent at that zoom and scaled, instead of a gap.
+//   hidpi: on a sharp screen (2x and up) the next zoom's tiles at half size, so 256-pixel tiles aren't stretched.
+//     Imagery and relief only: on a map with printed labels (Topo, Satellite + labels) it also halves the labels (seen
+//     11/10: Topo at 14 gained street names but every label at half size), so those keep normal tiles.
+//     Not OpenStreetMap: its volunteer servers ask for no heavy use.
+//   above: on the USGS satellite map, Esri's imagery from zoom 17, where USGS has nothing; with no signal USGS's
+//     stretched tiles still show underneath.
+const ESRI_ABOVE={src:"esri-imagery", from:17, maxNativeZoom:20, fallback:19, attribution:ESRI};
 const BASEMAPS={
   "Street (OpenStreetMap)":{src:"osm", maxZoom:19, attribution:"© OpenStreetMap contributors", online:true},
-  "Satellite (USGS)":{src:"usgs-imagery", maxNativeZoom:16, maxZoom:19, attribution:USGS},
+  "Satellite (USGS)":{src:"usgs-imagery", maxNativeZoom:16, maxZoom:21, hidpi:true, above:[ESRI_ABOVE], attribution:USGS},
   "Satellite + labels (USGS)":{src:"usgs-imagery-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
-  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:19, maxZoom:19, attribution:"Esri, Vantor, Earthstar Geographics", online:true},
+  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:20, fallback:19, maxZoom:21, hidpi:true, attribution:ESRI, online:true},
   "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
-  "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:19, attribution:USGS},
+  "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:19, hidpi:true, attribution:USGS},
 };
+const HIDPI=(window.devicePixelRatio||1)>=1.5;
+const RfTiles=L.TileLayer.extend({
+  initialize(url, o){ o={...o};
+    if(window.RFTileSrc) url=RFTileSrc(url);  // the web version: straight from the source (web/shim.js)
+    if(/^https?:/.test(url)) o.crossOrigin="anonymous";  // so a fallback tile can be drawn on a canvas
+    if(o.hidpi&&HIDPI){ o.tileSize=128; o.zoomOffset=1; if(o.maxNativeZoom!=null) o.maxNativeZoom-=1; }
+    delete o.hidpi; L.TileLayer.prototype.initialize.call(this, url, o); },
+  createTile(coords, done){ const t=L.TileLayer.prototype.createTile.call(this, coords, done);
+    t._rf={x:coords.x, y:coords.y, z:this._getZoomForUrl()}; return t; },  // with hidpi, x and y are already the asked zoom's
+  _tileOnError(done, tile, e){ const c=tile._rf, fb=this.options.fallback, fail=()=>L.TileLayer.prototype._tileOnError.call(this, done, tile, e);
+    if(fb==null || !c || c.z<=fb || tile._rfTried) return fail();
+    tile._rfTried=true; const k=2**(c.z-fb), px=Math.floor(c.x/k), py=Math.floor(c.y/k), img=new Image();
+    const src=L.Util.template(this._url, {s:"a", r:"", x:px, y:py, z:fb});
+    if(/^https?:/.test(src)) img.crossOrigin="anonymous";
+    img.onload=()=>{ try{ const n=256, sub=n/k, cv=document.createElement("canvas"); cv.width=cv.height=n;
+        const g=cv.getContext("2d"); g.imageSmoothingQuality="high";
+        // one source pixel of the neighbours around the cut, so the scaled edges blend with the next tile (without it a
+        // faint seam showed between two fallback tiles, 11/10)
+        const sx=(c.x-px*k)*sub, sy=(c.y-py*k)*sub, x0=Math.max(0,sx-1), y0=Math.max(0,sy-1), x1=Math.min(n,sx+sub+1), y1=Math.min(n,sy+sub+1), f=n/sub;
+        g.drawImage(img, x0, y0, x1-x0, y1-y0, (x0-sx)*f, (y0-sy)*f, (x1-x0)*f, (y1-y0)*f);
+        tile.src=cv.toDataURL("image/jpeg", .92); }  // its load ends the tile as loaded, so it never counts as no signal
+      catch(err){ fail(); } };
+    img.onerror=fail; img.src=src; },
+});
+function baseLayer({src, url, online, above, ...opt}){  // url: a map you imported
+  const main=new RfTiles(url||`/tiles/${src}/{z}/{x}/{y}.png`, opt);
+  if(!above) return main;
+  return L.layerGroup([main, ...above.map(a=>new RfTiles(`/tiles/${a.src}/{z}/{x}/{y}.png`,
+    {minZoom:a.from, maxNativeZoom:a.maxNativeZoom, fallback:a.fallback, maxZoom:opt.maxZoom, hidpi:opt.hidpi, attribution:a.attribution, zIndex:2}))]);
+}
 // microwave backhaul (FCC licensed links), loaded for the area in view and again as the map moves
 const MwLinks=L.LayerGroup.extend({
   onAdd(map){ L.LayerGroup.prototype.onAdd.call(this, map); this._map=map; this._load=()=>{ clearTimeout(this._t); this._t=setTimeout(()=>this.load(), 350); };
@@ -336,12 +379,15 @@ function mapPrefs(){
 function addMapLayers(map){
   if(window.rfZoomBar) rfZoomBar(map);  // − / + and the wheel-zoom lock on every map (zoombar.js, Cody 11/4)
   const pref=mapPrefs(), bases={}, overs={};
-  for(const [name,{src,url,online,...opt}] of Object.entries(BASEMAPS)) bases[name]=L.tileLayer(url||`/tiles/${src}/{z}/{x}/{y}.png`,opt);  // url: a map you imported
+  for(const [name,cfg] of Object.entries(BASEMAPS)) bases[name]=baseLayer(cfg);
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
   if(window.RFBounds) RFBounds.link(map, overs);  // All boundaries switches the other three (boundaries.js)
   bases[pref.base].addTo(map);
   for(const n of pref.overlays) overs[n].addTo(map);
   L.control.layers(bases, overs, {position:"topleft"}).addTo(map);  // layers on the left, the zoom bar on the right (Cody 11/4)
+  if(window.RFMeasure) RFMeasure.add(map);  // the ruler, under the layers (measure.js, Cody 11/10)
+  if(window.RFMarkup) RFMarkup.add(map);  // Draw: points, lines and areas kept with the mission or job (markup.js)
+  if(window.RFMapExport) RFMapExport.add(map);  // save the view as a sharp PNG (mapexport.js)
   let unloading=false;  // map.remove() (leaving the tab) removes every layer; that isn't a choice to save
   map.on("unload",()=>{ unloading=true; });
   const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
@@ -443,7 +489,8 @@ function drawMap(rows){
     map.fitBounds(L.latLng(S.center).toBounds(rm*2.1));
   } else if(sites.size) map.fitBounds([...sites.values()].map(rs=>[rs[0].lat,rs[0].lon]));
   else map.setView([39.5,-98.35],4);
-  map.on("click", e=>{ if(S.mode!=="point" || S.pinLocked) return; $("#loc").value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`; runSearch(); });
+  // measuring (measure.js): a click is a point, not the pin
+  map.on("click", e=>{ if(S.mode!=="point" || S.pinLocked || map._rfMeasuring) return; $("#loc").value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`; runSearch(); });
   if(S.heatImg) addHeatLayer();
   if(window.emitAfterDraw) window.emitAfterDraw();
 }

@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "b61c04762e";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "a942c71f0b";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -281,9 +281,10 @@ const pinIcon = () => L.divIcon({className: "pin", iconSize: [30, 40], iconAncho
 function initMap() {
   map = L.map("map", {preferCanvas: true, zoomControl: false, renderer: canvas, worldCopyJump: true}).setView([39.5, -98.35], 4);
   if (window.rfZoomBar) rfZoomBar(map);  // − / + and the wheel-zoom lock (zoombar.js), for the phone app on a computer
+  if (window.RFMeasure) RFMeasure.add(map, {position: "bottomleft"});  // the ruler (measure.js, Cody 11/10): bottom left, as the header and search bar cover the map's top
   setBase(S.base);
   dots = L.layerGroup().addTo(map);
-  map.on("click", e => { closeSuggest(); setCenter([e.latlng.lat, e.latlng.lng], false); });
+  map.on("click", e => { if (map._rfMeasuring) return; closeSuggest(); setCenter([e.latlng.lat, e.latlng.lng], false); });  // measuring: a tap is a point
   addEventListener("offline", noSignal);
   addEventListener("online", signalCheck);
   setInterval(signalCheck, 30000);

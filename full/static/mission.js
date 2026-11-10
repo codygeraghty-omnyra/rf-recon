@@ -5,8 +5,8 @@ const BAND_LABELS=["VHF Low","6m","72-76 MHz","Aviation VHF","VHF High","VHF TV/
 const STATUSES=["Planning","Active","Paused","Complete"];
 
 async function loadMission(id, applyArea){
-  if(!id){ S.mission=null; S.missionId=null; $("#missionName").textContent="No mission"; return; }
-  const m=await api("/api/missions/"+id); S.mission=m; S.missionId=m.id;
+  if(!id){ S.mission=null; S.missionId=null; $("#missionName").textContent="No mission"; if(window.RFMarkup) RFMarkup.refresh(); return; }
+  const m=await api("/api/missions/"+id); S.mission=m; S.missionId=m.id; if(window.RFMarkup) RFMarkup.refresh();  // the maps show this mission's drawings
   try{ const t=await api(`/api/missions/${id}/tracks`); S.mission.tracks=t.tracks; }catch(e){ /* no tracks for this mission yet: the map draws none */ }
   $("#missionName").textContent=`${m.name} · ${m.status}`;
   const lay=m.settings.layers||{}; S.layerSolo=S.layerPrev=null; S.layerOn=new Set(Object.keys(LAYERS).filter(k=>lay[k]!==false && !((k==="uls_hist"||k==="boosters")&&!lay[k])));  // history and boosters: only when ticked
@@ -500,12 +500,15 @@ S.views.data = async (v) => {
       ${API_KEYS.map(k=>{ const saved=keySaved(settings,k), s=k.src&&UPD?.sources?.[k.src];
         const last=s?.state==="error"?` · Last try failed: ${esc(s.message||"")}`:s?.last_updated?` · Last fetch ${esc(s.last_updated)}${s.message?`: ${esc(s.message)}`:""}`:"";
         const viaPc=k.id==="wigle"&&saved&&pull, refused=saved&&!viaPc&&s?.state==="error"&&REFUSED.test(s.message||"");
-        const stand=!saved?"Not set":viaPc?"✓ Saved · via Cody's PC":refused?"Saved, refused":"✓ Saved";
+        // part of a two-box key saved (Cody 11/10: autofill saved a Digi-Key Client ID with no secret, and with no Remove
+        // the card couldn't clear it): say so, and offer Remove
+        const part=!saved&&k.fields.some(([f])=>settings.creds[f]);
+        const stand=!saved?(part?"Part saved":"Not set"):viaPc?"✓ Saved · via Cody's PC":refused?"Saved, refused":"✓ Saved";
         return `<div style="border-top:1px solid var(--line);padding:10px 0 4px">
         <div class="row" style="justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
           <div><b>${esc(k.name)}</b> <span class="tag ${saved&&!refused?"v":""}"${refused?' style="color:var(--bad)"':""}>${stand}</span> <span class="hint">· ${esc(k.what)}</span></div>
-          <div class="row" style="gap:12px"><a href="${esc(k.get)}" target="_blank" rel="noopener">${saved?"Your account ↗":"Get a key ↗"}</a>${saved?`<a href="#" data-kclear="${k.id}">Remove</a>`:""}</div></div>
-        <div class="row" style="margin-top:6px">${k.fields.map(([f,label,ph])=>`<label class="grow">${esc(label)}<input data-cred="${f}" type="${ph==="text"?"text":"password"}" autocomplete="off"
+          <div class="row" style="gap:12px"><a href="${esc(k.get)}" target="_blank" rel="noopener">${saved?"Your account ↗":"Get a key ↗"}</a>${saved||part?`<a href="#" data-kclear="${k.id}">Remove</a>`:""}</div></div>
+        <div class="row" style="margin-top:6px">${k.fields.map(([f,label,ph])=>`<label class="grow">${esc(label)}<input data-cred="${f}" type="${ph==="text"?"text":"password"}" autocomplete="${ph==="text"?"off":"new-password"}" data-lpignore="true" data-1p-ignore
           placeholder="${saved?"saved: type to replace":esc(ph==="text"?"":ph)}"></label>`).join("")}</div>
         <p class="hint" style="margin:4px 0 0">${esc(k.how)}${last}</p>${viaPc?`<p class="hint" style="margin:4px 0 0">${pullLine(pull)}</p>`:""}${DAS_USES[k.src]?dasNote(DAS_USES[k.src]):""}</div>`; }).join("")}
       <div class="row" style="margin-top:10px;align-items:center"><button class="primary" id="k_save">Save keys</button><span class="hint" id="k_msg"></span></div>
@@ -708,8 +711,19 @@ S.views.data = async (v) => {
     catch(e){ m.textContent=e.message; } b.disabled=false; };
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
   $("#uBdcStates").onchange=e=>post("/api/settings",{bdc_states:e.target.value});
-  $("#k_save").onclick=async()=>{ const creds={}; v.querySelectorAll("[data-cred]").forEach(i=>{ if(i.value.trim()) creds[i.dataset.cred]=i.value.trim(); });
-    if(!Object.keys(creds).length){ $("#k_msg").textContent="Type a key first."; return; }
+  // Only a box a person typed, pasted or dropped into is saved (Cody 11/10): the browser's autofill put the sign-in email into
+  // every plain-text box (WiGLE's API name, Digi-Key's Client ID) and Save sent them all. Autofill fires input events but
+  // never a trusted keydown, paste or drop, so those mark a box as the person's own.
+  v.querySelectorAll("[data-cred]").forEach(i=>{ const mark=()=>{ i.dataset.typed="1"; };
+    i.addEventListener("keydown",e=>{ if(e.isTrusted&&(e.key.length===1||e.key==="Backspace"||e.key==="Delete")) mark(); });
+    i.addEventListener("paste",mark); i.addEventListener("drop",mark); });
+  // and a box the browser filled by itself is emptied, so it doesn't look like a saved key (11/10: the sign-in email sat in
+  // WiGLE's API name box); autofill lands a moment after the page draws, so it's checked twice
+  const unfill=()=>v.querySelectorAll("[data-cred]").forEach(i=>{ let auto=false; try{ auto=i.matches(":autofill"); }catch(e){ try{ auto=i.matches(":-webkit-autofill"); }catch(e2){} }
+    if(auto&&!i.dataset.typed) i.value=""; });
+  setTimeout(unfill, 400); setTimeout(unfill, 1500);
+  $("#k_save").onclick=async()=>{ const creds={}; v.querySelectorAll("[data-cred]").forEach(i=>{ if(i.dataset.typed&&i.value.trim()) creds[i.dataset.cred]=i.value.trim(); });
+    if(!Object.keys(creds).length){ $("#k_msg").textContent="Type or paste a key first (a box your browser filled in by itself isn't saved)."; return; }
     try{ await post("/api/settings",{creds}); S.views.data(v); }catch(e){ $("#k_msg").textContent=e.message; } };
   v.querySelectorAll("[data-kclear]").forEach(a=>a.onclick=async e=>{ e.preventDefault(); const k=API_KEYS.find(x=>x.id===a.dataset.kclear);  // two presses, like Remove elsewhere
     if(a.dataset.sure!=="1"){ a.dataset.sure="1"; a.textContent="Press again to remove"; setTimeout(()=>{ if(a.isConnected){ a.dataset.sure=""; a.textContent="Remove"; } },4000); return; }

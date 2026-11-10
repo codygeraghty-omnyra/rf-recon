@@ -19,7 +19,10 @@ import uls_import
 _USGS = "https://basemap.nationalmap.gov/arcgis/rest/services/{}/MapServer/tile/{{z}}/{{y}}/{{x}}"
 # source id (as app.py's TILE_SOURCES) -> (URL, deepest zoom kept)
 MAPS = {"usgs-imagery": (_USGS.format("USGSImageryOnly"), 16), "usgs-imagery-topo": (_USGS.format("USGSImageryTopo"), 16),
-        "usgs-topo": (_USGS.format("USGSTopo"), 16), "usgs-relief": (_USGS.format("USGSShadedReliefOnly"), 13)}
+        # relief to 16 like the others (Cody 11/10, sharper maps): USGS serves it to 16 (17 answers "not found", checked
+        # 11/10) and the map shows it to 16, but until now only 13 was kept, so with no signal it went blank above 13.
+        # Its tiles are small (3-4 KB at 14-16, read 11/10): about 30 MB more for a 15-mile area.
+        "usgs-topo": (_USGS.format("USGSTopo"), 16), "usgs-relief": (_USGS.format("USGSShadedReliefOnly"), 16)}
 UA = "RF-Recon/2.0 (site-survey tool; area tile cache for no-signal use)"
 WORKERS = 4  # polite: USGS states no rate limit
 

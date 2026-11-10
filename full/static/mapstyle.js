@@ -12,6 +12,9 @@ const MS_BUILTIN = {  // the tile addresses behind the built-in maps, for export
   "Topo (USGS)": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
   "Terrain relief (USGS)": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/{z}/{y}/{x}",
 };
+// each built-in map's deepest zoom, so ATAK doesn't ask for tiles the source doesn't have (USGS answers "not found"
+// above 16, checked 11/10; until then the export said 19 for all of them). ATAK stretches the last zoom past it.
+const MS_BUILTIN_MAX = {"Satellite (USGS)": 16, "Satellite + labels (USGS)": 16, "Topo (USGS)": 16, "Terrain relief (USGS)": 16};
 try{ S.mapStyle = localStorage.getItem("rfr.mapStyle") || "standard"; }catch(e){ S.mapStyle = "standard"; }
 S.ownMaps = [];
 const msName = m => `Mine: ${m.name}`;
@@ -82,7 +85,7 @@ function msDialog(){
   $$("#dlgBody [data-rm]").forEach(b => b.onclick = async () => { const r = await post(`/api/basemaps/delete?id=${encodeURIComponent(b.dataset.rm)}`);
     if(BASEMAPS[mapPrefs().base]?.own) mapPrefs().base = "Street (OpenStreetMap)"; msRegister(r.maps); msSave(); msDialog(); });
   $$("#dlgBody [data-xml]").forEach(b => b.onclick = () => { const m = own.find(x=>x.id===b.dataset.xml); msDl(m.name, msXml(m.name, m.url, m.min, m.max)); });
-  $$("#dlgBody [data-bxml]").forEach(b => b.onclick = () => msDl(`DAStastic - ${b.dataset.bxml}`, msXml(`DAStastic - ${b.dataset.bxml}`, MS_BUILTIN[b.dataset.bxml])));
+  $$("#dlgBody [data-bxml]").forEach(b => b.onclick = () => msDl(`DAStastic - ${b.dataset.bxml}`, msXml(`DAStastic - ${b.dataset.bxml}`, MS_BUILTIN[b.dataset.bxml], 0, MS_BUILTIN_MAX[b.dataset.bxml] ?? 19)));
 }
 
 /* ---------- ATAK style: symbol frames (MIL-STD-2525 affiliation shapes) ---------- */

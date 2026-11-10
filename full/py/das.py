@@ -527,6 +527,8 @@ def delete_job(con, jid):
     con.execute("DELETE FROM das_file WHERE job_id=?", (jid,))
     dashist.ensure(con)
     dashist.forget(con, jid)  # its history, access list and share links
+    import markup
+    markup.drop_scope(con, "job", jid)  # its drawings on the maps
     con.execute("DELETE FROM das_job WHERE id=?", (jid,))
     con.commit()
 
