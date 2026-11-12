@@ -118,7 +118,7 @@ const viewsSave = v => { try { localStorage.setItem(VIEWS_KEY, JSON.stringify(v)
 // what's on now, without where: a view works at any pin
 function viewLink() {
   const h = new URLSearchParams(location.hash.slice(1));
-  for (const k of ["lat", "lon", "r", "place", "state", "county", "mode", "mv", ...JOB_KEYS]) h.delete(k);  // a view is filters, not a job or a map view
+  for (const k of ["lat", "lon", "r", "place", "state", "county", "mode", "mv", "enb", ...JOB_KEYS]) h.delete(k);  // a view is filters, not a job, a map view or an eNB looked up
   return h.toString();
 }
 function viewApply(link, then) {
@@ -169,19 +169,33 @@ function paintSuggest(online) {
   box.hidden = false;
   box.querySelectorAll("[data-i]").forEach(el => el.onmousedown = e => { e.preventDefault(); choosePlace(sug.items[+el.dataset.i]); });
 }
+// on the Towers tab an eNB or gNB number is looked up, not geocoded (towers.js RFTowers.enbOf, Cody 11/12): "eNB 812442", "gNB
+// 1234567", or a bare 6 or 7 digit number ("812,442" too). A bare 5 digits is a ZIP and fewer a house number: geocoded as before
+const enbIn = q => S.tab === "towers" && window.RFTowers && RFTowers.enbOf ? RFTowers.enbOf(q) : null;
 async function lookup(q) {
   const seq = ++sug.seq;
+  // a lookup's row comes first; under a bare number the geocoder's matches still show ("eNB 8…" is no address: it isn't asked)
+  const enb = enbIn(q), row = enb && { kind: "enb", enb, label: `${enb.label}: look it up`, sub: `${RFTowers.enbCarsTxt()} in this copy's crowd data` };
+  const show = (items, online) => { sug.items = items; sug.active = items.length ? 0 : -1; sug.q = q; sug.picked = false; paintSuggest(online); return items; };
+  if (row && !enb.bare) return show([row]);
   const near = S.center ? `&lat=${S.center[0]}&lon=${S.center[1]}` : "";
   try {
     const r = await api(`/api/geocode?q=${encodeURIComponent(q)}${near}`);
     if (seq !== sug.seq || $("#loc").value.trim() !== q) return null;
-    sug.items = r.results; sug.active = sug.items.length ? 0 : -1; sug.q = q; sug.picked = false; paintSuggest(r.online);
-    return r.results;
-  } catch (e) { return null; }
+    return show(row ? [row, ...r.results] : r.results, r.online);
+  } catch (e) { return row && seq === sug.seq && $("#loc").value.trim() === q ? show([row]) : null; }
+}
+// the lookup (towers.js), the pin left where it is: the box shows the pin's own spot again, as after ＋ Mark
+function enbGo(e) {
+  const q = $("#loc").value.trim(); clearTimeout(sug.timer); sug.seq++; closeSuggest();
+  if (!RFTowers.enb(e)) return;
+  const k = S.locSearched;
+  if ($("#loc").value.trim() === q) { $("#loc").value = k ? k.v : ""; $("#locLabel").textContent = k ? k.label : ""; S.placeLabel = k ? k.place : null; $("#locWrap").classList.remove("typed"); }
 }
 async function choosePlace(r) {
   closeSuggest();
   if (!r) return;
+  if (r.kind === "enb") return enbGo(r.enb);
   if (r.kind === "county" && r.state && r.county) {  // a county is searched as the county, not a circle round its middle
     setMode("county");
     $("#state").value = r.state;
@@ -225,6 +239,7 @@ $("#locWrap").addEventListener("keydown", async e => {
     if (parseLoc(q) || !q) return;  // coordinates: the normal search runs
     e.preventDefault(); e.stopPropagation();
     const pick = listPick(q); if (pick) return choosePlace(pick);
+    const enb = enbIn(q); if (enb) return enbGo(enb);  // typed fast and Enter: the lookup, before its list is in
     clearTimeout(sug.timer);  // typed fast and hit Enter: the best match for this text (the box's own lookup would void this one)
     // and only if nothing newer has happened since: a slow answer moved the pin over a search typed after it (follow-up review 11/11)
     const n = ++sug.enters, gen = S.searchGen;
@@ -352,7 +367,9 @@ window.writeUrlState = replace => {
   const was = new URLSearchParams(location.hash.slice(1)), moved = k => (was.get(k) || "") !== (h.get(k) || "");
   const step = moved("tab") || moved("job") || moved("sjob") || (was.has("sec") && moved("sec")) || (was.has("step") && moved("step"));
   if (!replace && was.get("tab") && step) { history.pushState(null, "", next); window.dispatchEvent(new Event("hashchange")); }  // the kit's Back button rechecks on hashchange
-  else history.replaceState(null, "", next);
+  // the step keeps its own state (the Towers tab's {twTower}: a tower or an eNB lookup opened on a phone, a step Back takes off) when its
+  // link is written again on the same tab; it was set to null, so ✕, ← All towers and Run the report here missed the step (review 11/12)
+  else history.replaceState(moved("tab") ? null : history.state, "", next);
 };
 // Back and Forward move between tabs, a DAS job's sections and Start's steps
 window.addEventListener("popstate", () => {
@@ -380,6 +397,8 @@ window.applyUrlState = boot => {
   if (h.has("expr")) S.filterExpr = h.get("expr");
   if (h.get("heat")) S.heat.kind = h.get("heat");
   if (h.has("carriers") && window.RFTowers) RFTowers.fromLink(h.get("carriers"));  // the Towers tab's carriers (towers.js)
+  // and the eNB or gNB it looked up, as DAStastic opens: kept open through the first report at the link's own pin
+  if (boot && h.get("enb") && window.RFTowers && RFTowers.enbFromLink) RFTowers.enbFromLink(h.get("enb"), !!(h.get("lat") && h.get("lon")));
   if (h.has("src")) { S.layerOn = new Set(h.get("src").split(",").filter(l => LAYERS[l])); S.layerSolo = S.layerPrev = null; }
   // a link's map view (mv=lat,lon,zoom): the Map tab restores it instead of fitting the link's own search (core.js
   // drawLayers). Read only as DAStastic opens (boot), and only when the link carries a search: an mv left on a page with no

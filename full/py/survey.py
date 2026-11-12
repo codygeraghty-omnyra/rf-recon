@@ -1,8 +1,12 @@
 """
 Survey mapping (Cody 11/10: "survey war mapping... colour coded like the tiles of the heat map"): a drive or walk survey's
 cellular readings, each with where and when it was taken, kept with a mission, a DAS job, or this copy alone ("scratch", id 0)
-as the maps' drawings are (markup.py). static/survey.js turns them into coloured grid tiles; the evidence a tower takes from
-them ("Seen on site") and the exports come next.
+as the maps' drawings are (markup.py). static/survey.js turns them into coloured grid tiles and the Towers tab's "Seen on site".
+
+Evidence (plan 11/10, section 8): a recording's Stop and an import write one survey_cell row per serving cell the run heard
+(evidence()): the tower engine counts them as heard on site (carrier, technology, site ID, when, best RSRP) and never as a
+place. They are the run's, kept with it: never in captures.py's tables, where every login's captures layer, the capture
+routes, the Signals report and Cell sites read them as where a site is (review 11/12, round 2).
 
 Where they live: the main database, never crowd.db. A person's track must not mix with share-alike crowd data, and it goes
 with the job's access list (app.py job_gate: view to see, edit to change; a view-only login can't send anything).
@@ -10,7 +14,7 @@ with the job's access list (app.py job_gate: view to see, edit to change; a view
   survey_run      one recording or one imported file: its scope, name, source (android, gnettrack, scanner, csv), device,
                   its "keep within N miles of the site" (keep_mi and that centre: every reading it stores is trimmed by it),
                   whether the instrument was calibrated (a phone never is), first and last reading, how many, the box they
-                  cover, the file's hash (an import can't come in twice), the capture written for it, who made it
+                  cover, the file's hash (an import can't come in twice), who made it (capture_id: unused since 11/12)
   survey_reading  one cell heard at one moment: ts (ms, UTC), lat, lon, acc (m), speed (m/s), plmn ("310-410"), carrier,
                   tech (LTE or NR), band ("66", "n71"), chan (EARFCN or NR-ARFCN), pci, tac, cid (LTE ECI or the raw NR NCI),
                   site (the eNB, ECI >> 8; a gNB only when the source names it: its bit length varies by operator), serving
@@ -39,7 +43,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS survey_run(id INTEGER PRIMARY KEY AUTOINCREMENT, scope TEXT NOT NULL, scope_id INTEGER NOT NULL DEFAULT 0, name TEXT,
     source TEXT NOT NULL, device TEXT, calibrated INTEGER NOT NULL DEFAULT 0, started_at INTEGER, ended_at INTEGER,
     readings INTEGER NOT NULL DEFAULT 0, bbox TEXT, src_hash TEXT, capture_id INTEGER, created_by TEXT, created_at TEXT,
-    keep_mi REAL, keep_lat REAL, keep_lon REAL);
+    keep_mi REAL, keep_lat REAL, keep_lon REAL, client_key TEXT);
 CREATE INDEX IF NOT EXISTS survey_run_scope ON survey_run(scope, scope_id);
 CREATE UNIQUE INDEX IF NOT EXISTS survey_run_src ON survey_run(scope, scope_id, src_hash) WHERE src_hash IS NOT NULL;
 CREATE TABLE IF NOT EXISTS survey_reading(run_id INTEGER NOT NULL, ts INTEGER NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL,
@@ -47,6 +51,10 @@ CREATE TABLE IF NOT EXISTS survey_reading(run_id INTEGER NOT NULL, ts INTEGER NO
     cid INTEGER, site INTEGER, serving INTEGER NOT NULL DEFAULT 1, rsrp REAL, rsrq REAL, sinr REAL, ta INTEGER);
 CREATE UNIQUE INDEX IF NOT EXISTS survey_reading_key ON survey_reading(run_id, ts, tech, IFNULL(plmn, ''), IFNULL(carrier, ''), IFNULL(band, ''),
     IFNULL(chan, -1), IFNULL(pci, -1), IFNULL(cid, -1), serving);
+CREATE TABLE IF NOT EXISTS survey_cell(run_id INTEGER NOT NULL, tech TEXT NOT NULL, plmn TEXT NOT NULL, cid INTEGER NOT NULL, tac INTEGER,
+    carrier TEXT, pci INTEGER, chan INTEGER, best_rsrp REAL, best_ts INTEGER, lat REAL, lon REAL, first_ts INTEGER, last_ts INTEGER,
+    moments INTEGER, readings INTEGER, PRIMARY KEY(run_id, tech, plmn, cid));
+CREATE INDEX IF NOT EXISTS survey_cell_ll ON survey_cell(lat, lon);
 """
 # the unique key is (run_id, ts, tech, plmn, carrier, band, chan, pci, cid, serving) with a missing value counted as one value:
 # SQLite treats every NULL as different in a plain UNIQUE, so two readings with no PCI would both go in. Band, carrier and cell
@@ -55,7 +63,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS survey_reading_key ON survey_reading(run_id, t
 # A run's id is never used again (AUTOINCREMENT): a deleted newest run's id went to the next run, and a phone still sending
 # to the old one (a queued batch, a retry, a Stop) wrote into it past that recording's keep_mi, trimmed it or deleted it
 # (review 11/10, round 2). Changed in place for the same reason.
-TABLES = ("survey_run", "survey_reading")  # the nightly my-work backup takes them (app.USER_TABLES)
+TABLES = ("survey_run", "survey_reading", "survey_cell")  # the nightly my-work backup takes them (app.USER_TABLES)
 SCOPES = ("mission", "job", "scratch")
 SOURCES = ("android", "gnettrack", "phone", "scanner", "csv")  # phone: a phone app's log with each cell's role (Network Cell Info,
 PHONES = ("android", "gnettrack", "phone")  # NetMonster...) a phone is never calibrated: its readings are indicative, never a
@@ -71,6 +79,21 @@ MI_M = 1609.344
 
 def ensure(con):
     con.executescript(SCHEMA)
+    # client_key (11/12): a recording's own id, sent with every create, so a create whose answer was lost, or two at once
+    # (a Stop and a retry, two pages), make one run. A copy whose table came before it gets the column added
+    if not any(r[1] == "client_key" for r in con.execute("PRAGMA table_info(survey_run)")):
+        con.executescript("ALTER TABLE survey_run ADD COLUMN client_key TEXT;")
+    con.executescript("CREATE UNIQUE INDEX IF NOT EXISTS survey_run_client ON survey_run(scope, scope_id, client_key) WHERE client_key IS NOT NULL;")
+    # round 1's evidence went into captures.py's tables (fmt "survey", its notes "survey run N: ..."): out of them, where every
+    # login read it as a place (review 11/12, round 2); backfill() (app.py's start) writes their survey_cell rows
+    if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='capture'").fetchone():
+        old = [x[0] for x in con.execute("SELECT id FROM capture WHERE fmt='survey' AND notes LIKE 'survey run %: one point per serving cell%'")]
+        for c in old:
+            con.execute("DELETE FROM capture_point WHERE capture_id=?", (c,))
+            con.execute("DELETE FROM capture WHERE id=?", (c,))
+        if old:
+            con.execute("UPDATE survey_run SET capture_id=NULL")
+            con.commit()
 
 
 def _now():
@@ -397,20 +420,41 @@ def _get(con, scope, sid, rid):
 
 def create(con, d, who=""):
     """A new run in its scope: {scope, scope_id, name, source, device, calibrated, readings (a first batch, optional), keep_mi
-    (only readings within that many miles of the site are ever stored; lat and lon: the centre for scratch)}."""
+    (only readings within that many miles of the site are ever stored; lat and lon: the centre for scratch), client_key}.
+    client_key: the recording's own id (static/surveyrec.js). A run with it in this scope already is that run, answered again
+    (existing: true, the batch added to it): a phone whose create got through but whose answer was lost, or a Stop and a retry
+    in flight together, made a second, empty run that never ended (review 11/12)."""
     scope, sid = scope_of(d.get("scope"), d.get("scope_id"))
+    key = str(d.get("client_key") or "").strip()[:80] or None
+    if key:
+        old = con.execute("SELECT id FROM survey_run WHERE scope=? AND scope_id=? AND client_key=?", (scope, sid, key)).fetchone()
+        if old:
+            return _again(con, scope, sid, old[0], d.get("readings"))
     source = d.get("source") or "android"
     if source not in SOURCES:
         raise ValueError(f"A survey comes from {', '.join(SOURCES)}.")
     name = str(d.get("name") or "").strip()[:MAX_NAME] or f"Survey {time.strftime('%Y-%m-%d %H:%M')}"
     cal = 1 if d.get("calibrated") and source not in PHONES else 0
     keep = _keep(con, scope, sid, d.get("keep_mi"), (d.get("lat"), d.get("lon")))
-    rid = con.execute("INSERT INTO survey_run(scope, scope_id, name, source, device, calibrated, src_hash, created_by, created_at, keep_mi, keep_lat, keep_lon)"
-                      " VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (scope, sid, name, source, str(d.get("device") or "")[:120], cal, d.get("src_hash"),
-                                                           who or "", _now(), *keep)).lastrowid
+    try:
+        rid = con.execute("INSERT INTO survey_run(scope, scope_id, name, source, device, calibrated, src_hash, created_by, created_at, keep_mi, keep_lat, keep_lon,"
+                          " client_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (scope, sid, name, source, str(d.get("device") or "")[:120], cal, d.get("src_hash"),
+                                                                             who or "", _now(), *keep, key)).lastrowid
+    except sqlite3.IntegrityError:
+        con.rollback()
+        old = con.execute("SELECT id FROM survey_run WHERE scope=? AND scope_id=? AND client_key=?", (scope, sid, key)).fetchone() if key else None
+        if not old:
+            raise
+        return _again(con, scope, sid, old[0], d.get("readings"))  # the same recording's other create got in first
     got = add(con, scope, sid, rid, d.get("readings") or []) if d.get("readings") else {"added": 0, "duplicates": 0, "dropped": {}, "trimmed": 0}
     con.commit()
     return {**run_info(con, scope, sid, rid), **{k: got[k] for k in ("added", "duplicates", "dropped", "trimmed")}}
+
+
+def _again(con, scope, sid, rid, readings):
+    """A create for a recording already made: that run, with the create's batch added (kept once, as an append)."""
+    got = add(con, scope, sid, rid, readings) if readings else {"added": 0, "duplicates": 0, "dropped": {}, "trimmed": 0}
+    return {**run_info(con, scope, sid, rid), **{k: got[k] for k in ("added", "duplicates", "dropped", "trimmed")}, "existing": True}
 
 
 def add(con, scope, sid, rid, readings):
@@ -495,6 +539,7 @@ def readings(con, scope, sid, rid, since=None, limit=None):
 
 def delete_run(con, scope, sid, rid):
     _get(con, scope, sid, rid)
+    con.execute("DELETE FROM survey_cell WHERE run_id=?", (int(rid),))
     con.execute("DELETE FROM survey_reading WHERE run_id=?", (int(rid),))
     con.execute("DELETE FROM survey_run WHERE id=?", (int(rid),))
     con.commit()
@@ -509,6 +554,8 @@ def drop_scope(con, scope, scope_id):
         return
     where = "scope IN (?, ?) AND scope_id=?"
     args = (scope, _hidden(scope), int(scope_id))
+    if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='survey_cell'").fetchone():
+        con.execute(f"DELETE FROM survey_cell WHERE run_id IN (SELECT id FROM survey_run WHERE {where})", args)
     con.execute(f"DELETE FROM survey_reading WHERE run_id IN (SELECT id FROM survey_run WHERE {where})", args)
     con.execute(f"DELETE FROM survey_run WHERE {where}", args)
 
@@ -609,13 +656,90 @@ def stop(con, scope, sid, rid, keep_mi=None, at=None):
         gone = trim(con, r["id"], (r["keep_lat"], r["keep_lon"]), r["keep_mi"])
     last = con.execute("SELECT MAX(ts) FROM survey_reading WHERE run_id=?", (r["id"],)).fetchone()[0]
     con.execute("UPDATE survey_run SET ended_at=? WHERE id=?", (last or int(time.time() * 1000), r["id"]))
+    evidence(con, r["id"])
     con.commit()
     return {**run_info(con, scope, sid, r["id"]), "trimmed": gone}
+
+
+# ---------------------------------------------------------------- evidence: what the tower engine reads of a run
+
+def evidence(con, rid):
+    """A run's evidence for the tower engine (plan 11/10, section 8): one survey_cell row per serving cell it heard, the primary
+    or a carrier-aggregation leg, LTE or NR, with its network and cell ID: how many moments and readings, the first and last
+    time, the strongest RSRP and that reading's own time and place (a place and a time the phone had together: review 11/12,
+    round 2). The place only says which report a cell was heard near (heard()); it never places a site or picks its tower.
+    Written again by every Stop and import (the run's rows replaced, by the run's own id); part of the caller's transaction,
+    so it commits nothing. A neighbour is never one; a run with no serving cell named has none. -> how many cells."""
+    rid = int(rid)
+    con.execute("DELETE FROM survey_cell WHERE run_id=?", (rid,))
+    where = "run_id=? AND serving>0 AND cid IS NOT NULL AND plmn LIKE '___-%' AND tech IN ('LTE', 'NR')"
+    # SQLite's MAX() alone in a query takes the other columns from the row it picked: the strongest reading's place and time
+    best = {(x["tech"], x["plmn"], x["cid"]): x for x in con.execute(
+        f"SELECT tech, plmn, cid, carrier, MAX(rsrp) AS rsrp, ts, lat, lon, chan, pci, tac FROM survey_reading WHERE {where} GROUP BY tech, plmn, cid", (rid,))}
+    seen = {(x["tech"], x["plmn"], x["cid"]): x for x in con.execute(
+        f"SELECT tech, plmn, cid, COUNT(DISTINCT ts) AS n, COUNT(*) AS k, MIN(ts) AS t0, MAX(ts) AS t1, MAX(tac) AS tac FROM survey_reading WHERE {where} GROUP BY tech, plmn, cid", (rid,))}
+    rows = []
+    for k, b in best.items():
+        n = seen[k]
+        rows.append((rid, b["tech"], b["plmn"], b["cid"], b["tac"] if b["tac"] is not None else n["tac"], b["carrier"], b["pci"], b["chan"],
+                     b["rsrp"], b["ts"], b["lat"], b["lon"], n["t0"], n["t1"], n["n"], n["k"]))
+    con.executemany("INSERT INTO survey_cell(run_id, tech, plmn, cid, tac, carrier, pci, chan, best_rsrp, best_ts, lat, lon, first_ts, last_ts, moments, readings) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+    return len(rows)
+
+
+def heard(con, south, north, west, east, jobs=None, mission=None):
+    """The survey evidence heard in a box, for the tower engine: one dict per serving cell per run, from the runs the caller
+    may see. jobs: the DAS job ids its login can open (dashist.visible; None for every job): another job's run, its name, its
+    places and times, never reach a login its access list leaves out (review 11/12, round 2). mission: only that mission's
+    runs (as cells.gather reads only its captures). Never a hidden import's. No survey table yet: none."""
+    if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='survey_cell'").fetchone():
+        return []
+    where, args = ["c.lat BETWEEN ? AND ? AND c.lon BETWEEN ? AND ?", "r.scope NOT LIKE ?"], [south, north, west, east, f"{HIDDEN}%"]
+    if mission is not None:
+        where.append("r.scope='mission' AND r.scope_id=?")
+        args.append(int(mission))
+    elif jobs is not None:
+        jl = sorted(int(j) for j in jobs)
+        where.append(f"(r.scope<>'job' OR r.scope_id IN ({','.join('?' * len(jl)) or 'NULL'}))")
+        args += jl
+    q = (f"SELECT c.*, r.name AS run_name, r.source, r.scope, r.scope_id, r.src_hash FROM survey_cell c JOIN survey_run r ON r.id=c.run_id "
+         f"WHERE {' AND '.join(where)} ORDER BY c.run_id")
+    # the same readings counted once (review 11/12, round 3: one log imported into scratch and into a job doubled a tower's heard
+    # on site): one run per file (its hash, the first run that has it), and one row per cell heard over the same span with the
+    # same count and best (a run's CSV imported back as a run of its own). Readings that only partly overlap still count twice
+    out, files, cells = [], {}, set()
+    for x in con.execute(q, args):
+        x = dict(x)
+        if x["src_hash"] and files.setdefault(x["src_hash"], x["run_id"]) != x["run_id"]:
+            continue
+        k = (x["tech"], x["plmn"], x["cid"], x["first_ts"], x["last_ts"], x["readings"], x["best_rsrp"])
+        if k in cells:
+            continue
+        cells.add(k)
+        out.append(x)
+    return out
+
+
+def backfill(con):
+    """Evidence for every run that ended before survey_cell was written (round 1's runs, whose captures ensure() took out, and
+    every run made where survey.py wrote none): each ended, visible run with readings and no survey_cell rows gets them, once
+    (review 11/12, round 3: they waited for a Stop a finished run never gets, and an import can't come in again). A run whose
+    readings name no cell has none and is looked at again at the next start. -> how many runs got rows."""
+    if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='survey_cell'").fetchone():
+        return 0
+    rids = [x[0] for x in con.execute("SELECT id FROM survey_run WHERE ended_at IS NOT NULL AND readings>0 AND scope NOT LIKE ? "
+                                      "AND id NOT IN (SELECT DISTINCT run_id FROM survey_cell) ORDER BY id", (f"{HIDDEN}%",))]
+    got = sum(1 for rid in rids if evidence(con, rid))
+    con.commit()
+    return got
 
 
 # ---------------------------------------------------------------- files: G-NetTrack Pro, a scanner's CSV, the template
 
 MB = 1 << 20
+# the made-up sample's files (static/survey.js sample, csv and kml) say so in their first lines: never imported as real readings
+SAMPLE_MARK = b"SAMPLE: made-up data"
 MAX_IMPORT = 256 * MB  # a log read in pieces as it arrives: an 8-hour scanner drive at 50 rows a second is about 140 MB
 MAX_WHOLE = 16 * MB    # a log read whole (old Excel, JSON, KML, GPX, a COMPASS report): its rows sit in memory, about 25 times the file;
                        # a KMZ's KML is held to it unpacked (zipped, its size said nothing: review 11/10, round 2)
@@ -625,7 +749,8 @@ HIDDEN = "import"      # an import's run until its last row is in ("import:job",
 STALE_S = 86400        # a hidden run this old is what a copy stopped mid-import left: the next import, start or backup deletes it
 # what the nightly my-work backup copies of each survey table (app.backup_user_data): never an import still hidden
 BACKUP_WHERE = {"survey_run": f"scope NOT LIKE '{HIDDEN}%'",
-                "survey_reading": f"run_id IN (SELECT id FROM main.survey_run WHERE scope NOT LIKE '{HIDDEN}%')"}
+                "survey_reading": f"run_id IN (SELECT id FROM main.survey_run WHERE scope NOT LIKE '{HIDDEN}%')",
+                "survey_cell": f"run_id IN (SELECT id FROM main.survey_run WHERE scope NOT LIKE '{HIDDEN}%')"}
 
 
 def _hidden(scope):
@@ -1976,6 +2101,9 @@ def import_file(con, scope, scope_id, name, raw, who="", utc_offset=None, keep_m
     body = _Upload(raw, size)
     buf = io.BufferedReader(body, 1 << 16)
     head = buf.peek(1 << 16)
+    if SAMPLE_MARK in head[:8192]:  # the sample saved from the map and imported back was kept as a real scanner run (review 11/12)
+        raise ValueError("This is DAStastic's made-up sample survey (its file says \u201cSAMPLE: made-up data\u201d): it isn't imported as real readings. "
+                         "Load the sample from the \u25a6 Survey menu instead.")
     with contextlib.ExitStack() as hold:  # the scratch copy of a workbook goes when the import ends, kept or refused
         kind, excel = _kind(name, head), None
         if kind == "xlsx":  # from a scratch copy beside the database (a zip is read from its end), a row at a time
@@ -2072,6 +2200,7 @@ def import_file(con, scope, scope_id, name, raw, who="", utc_offset=None, keep_m
             con.execute("UPDATE survey_run SET scope=?, src_hash=?, source=?, calibrated=?, ended_at=(SELECT MAX(ts) FROM survey_reading WHERE run_id=?) WHERE id=?",
                         (scope, h, log["source"], 1 if calibrated and log["source"] not in PHONES else 0, rid, rid))  # a pending role column decides late
             _restat(con, rid)
+            evidence(con, rid)
             con.commit()
         except BaseException:
             _discard(con, rid)

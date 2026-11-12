@@ -368,6 +368,9 @@ const wkLocalTime = ms => { const t=new Date(ms), p=x=>String(x).padStart(2,"0")
 const wkClock = ms => isFinite(ms) ? new Date(ms).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"}) : "–";
 // DAStastic for Android's radio: there, and a call to it (its answers are JSON text; a refusal is {error, message})
 const wkPhone = () => { try{ return !!(window.RFRadio&&window.RFRadio.available()); }catch(e){ return false; } };
+// the bridge's log has one owner (review 11/12): a drive survey recording from the map (surveyrec.js) is never stopped or drained
+// here, and the walk waits for it; the survey waits for a walk the same way
+const wkSurveyOwns = () => { try{ return !!(window.RFSurveyRec&&RFSurveyRec.owns()); }catch(e){ return false; } };
 const wkPhoneCall = (fn, ...a) => { try{ const v=window.RFRadio[fn](...a); return typeof v==="string"?JSON.parse(v):v; }
   catch(e){ return {error:"bridge", message:`The phone's signal couldn't be read (${e.message}).`}; } };
 const wkPhoneTxt = r => `${r.carrier} ${r.tech==="NR"?"5G NR":"LTE"}${has(r.band)?` band ${r.band}`:""}${has(r.rsrp)?` RSRP ${r.rsrp} dBm${has(r.rsrp_raw)?` (the phone read ${r.rsrp_raw})`:""}`:""}${has(r.sinr)?` SINR ${r.sinr} dB`:""}`;
@@ -771,12 +774,19 @@ function wkMount(panel, j0, save, ctx){
   $p("#wkVals")?.addEventListener("click", e=>{ const b=e.target.closest("[data-wv]"); if(b){ U.vals=b.dataset.wv; remount(); } });
   $p("#wkGo")?.addEventListener("click", ()=>{
     if(U.walking){ U.walking=false; const k=(fw.wps||[]).filter(w=>w.leg===U.leg).length; note(`Walk, floor ${f.name}: walked with ${k} taps, ${wkClock(U.t0)} to ${wkClock(Date.now())}`);
-      const pd=phone?phoneDrain():null; remount(); say(`Walk stopped: ${k} tap${k===1?"":"s"}. ${pd?pd.msg:"Import the log to place its readings."}`); return; }
+      const pd=phone&&!wkSurveyOwns()?phoneDrain():null; remount(); say(`Walk stopped: ${k} tap${k===1?"":"s"}. ${pd?pd.msg:"Import the log to place its readings."}`); return; }
+    if(phone&&wkSurveyOwns()){ say("The phone is recording a drive survey (the map's \u25a6 Survey): its log is the survey's. Stop the survey first, then Start walk.");
+      const x=$p("#wkSaid"); if(x&&!$p("#wkStopSv")) x.insertAdjacentHTML("afterend", ' <button type="button" id="wkStopSv">\u25a0 Stop the survey</button>');
+      // said stopped only when it was: with no recording on this page (a reload here) it said so and the phone kept the survey's log
+      // (review 11/12, round 2); RFSurveyRec.stop now stops the bridge's survey log too, and says whether it stopped anything
+      const b=$p("#wkStopSv"); if(b) b.onclick=async()=>{ b.disabled=true; const ok=await RFSurveyRec.stop("Stopped for the DAS walk test."); b.remove();
+        say(ok?"The survey stopped (its readings stay with it). Press Start walk.":"The phone's survey log didn't stop from here: open the map's ▦ Survey and press ■ Stop, then Start walk."); };
+      return; }
     let ph=null; if(phone){ wkPhoneCall("stop"); wkPhoneCall("drain"); ph=wkPhoneCall("start", 2000); }  // a fresh log for this walk
     U.walking=true; U.leg=Math.max(-1, ...(fw.wps||[]).map(w=>w.leg??0))+1; U.t0=Date.now(); U.floor=f.name; remount();
     say(`Walking: tap where you are now, then at each turn and every few steps.${ph?ph.error?` The phone isn't logging: ${ph.message}`:" The phone is logging its own signal (cellular, indicative).":""}`); });
   // the phone still logging with no walk on this page (the page was reloaded mid-walk): its readings go on this floor's taps by time
-  if(phone&&!U.walking&&U.mode==="cont"&&wkPhoneCall("logging")===true){ const pd=phoneDrain(); say(`The phone was still logging from a walk this page lost track of. ${pd.msg}`); }
+  if(phone&&!U.walking&&U.mode==="cont"&&!wkSurveyOwns()&&wkPhoneCall("logging")===true){ const pd=phoneDrain(); say(`The phone was still logging from a walk this page lost track of. ${pd.msg}`); }
   if(U.mode==="cont"&&U.walking){ const tick=()=>{ const c=$p("#wkClock"); if(!c||!c.isConnected||!U.walking) return clearInterval(iv); const s=Math.floor((Date.now()-U.t0)/1000);
       c.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")} · ${(fw.wps||[]).filter(w=>w.leg===U.leg).length} taps`; }; const iv=setInterval(tick, 1000); tick(); }
   const doUndo=()=>{ const st=undo(); if(!st.length) return; const rev=fw.rev||0; fw=JSON.parse(st.pop()); fw.rev=rev+1; sel=null; spot=null; $p("#wkForm").innerHTML=""; persist(); say("Undone."); };

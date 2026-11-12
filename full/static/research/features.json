@@ -147,11 +147,12 @@
     },
     {
      "name": "Cellular jobs from Start",
-     "text": "Start's answer on what the job covers decides public safety, cellular or both. A cellular job ticks no public safety agencies and fetches the area's cell sites for the report.",
+     "text": "Start's answer on what the job covers decides public safety, cellular or both. A cellular job ticks no public safety agencies, and its report shows each carrier's 3 closest towers, topping up fresh cells by itself where the tower engine says one is due.",
      "src": [
       "d-2026-11-06-0100",
       "static/start.js",
-      "static/das.js"
+      "static/das.js",
+      "static/towers.js"
      ]
     },
     {
@@ -493,6 +494,79 @@
       "d-2026-10-29",
       "artemis.py",
       "static/core.js"
+     ]
+    },
+    {
+     "name": "Survey squares on the map",
+     "text": "▦ Survey beside the ruler and Draw, on the Towers tab's map and the Map tab's, paints a drive or walk survey as squares coloured like the walk test: red weak, amber on the pass line, green good, hatched below the line, faint under 3 moments, each square its weakest carrier. The pass lines are the open DAS job's cellular target, else Common. The map never moves by itself: Zoom to run and a square's Zoom to do.",
+     "where": "server, pc",
+     "src": [
+      "static/surveymap.js",
+      "static/survey.js",
+      "static/rfscale.js"
+     ]
+    },
+    {
+     "name": "Survey legend and chips",
+     "text": "The legend shows RSRP, RSRQ, SINR or Best server, filters by carrier, band and technology (the Towers tab's carrier chips filter the squares too), sets the square size (25 to 200 m by zoom, or one picked), names any required carrier the run never measured, and saves the readings shown as CSV, KML or KMZ.",
+     "where": "server, pc",
+     "src": [
+      "static/surveymap.js",
+      "static/survey.js"
+     ]
+    },
+    {
+     "name": "A square's readings",
+     "text": "A square clicked opens beside the map with the map held still: per carrier and band its readings, median, best and worst RSRP, RSRQ and SINR, PCIs, serving sites and the tower each is on, the time span and the device. Readings CSV saves that square's readings; Only this site shows one site's squares.",
+     "where": "server, pc",
+     "src": [
+      "static/surveymap.js",
+      "static/survey.js"
+     ]
+    },
+    {
+     "name": "Import a survey log",
+     "text": "▦ Survey › Import a file takes a G-NetTrack Pro log, a scanner's CSV or Excel export (PCTEL and others) or the template, every row, into the open job, mission or this copy, then offers Zoom to run. ⇩ Template gives the columns with four example readings, and a CSV saved from the map imports back.",
+     "where": "server, pc",
+     "src": [
+      "static/surveymap.js",
+      "survey.py",
+      "app.py"
+     ]
+    },
+    {
+     "name": "Record a survey on Android",
+     "text": "On DAStastic for Android 1.3, ▦ Survey › Record logs the phone's signal every 2 seconds with GPS and paints the squares as you go, with a status line (time, readings, serving cell, GPS accuracy, battery, uploads waiting). Readings wait on the phone with no signal and go up in batches when it's back, an earlier recording's with the next Record, and Stop says on the map whether every reading reached the server; a run the server refuses isn't tried again and its readings are offered as a CSV. The screen stays on, it stops at 15% battery (and says so), Follow me keeps the dot in view above a results sheet without zooming, and the phone records for the survey or the DAS walk test, never both.",
+     "where": "android",
+     "src": [
+      "static/surveyrec.js",
+      "static/survey.js"
+     ]
+    },
+    {
+     "name": "Seen on site",
+     "text": "With a survey on the Towers map, each tower's tiles say whether the run's serving cells named it (Seen on site, and Verified on site from 3 moments), when, by whom and the best RSRP, and the best RSRP within 100 m of the site. A carrier the run never measured says Not measured by this run, and it follows a recording as it goes. The printed tower report adds a Site survey section as the run was when Print was pressed: the squares around the site, each tower seen or not, the bands and PCIs heard, and that phone readings are indicative. A recording's Stop and an import also give the tower engine the run's serving cells as heard on site, never as where a site or tower is, and only for logins that can open the run's job.",
+     "where": "server, pc",
+     "src": [
+      "static/towers.js",
+      "static/survey.js",
+      "static/surveymap.js"
+     ]
+    },
+    {
+     "name": "Sample survey",
+     "text": "Sample survey (not a real site) loads made-up readings where the map is, for a demo on any copy. It's labelled SAMPLE, never saved, never listed with the real runs, and never marks a tower seen.",
+     "src": [
+      "static/survey.js",
+      "static/surveymap.js"
+     ]
+    },
+    {
+     "name": "Map images with the survey",
+     "text": "A map saved as an image draws the survey squares again at its own resolution and carries their legend.",
+     "src": [
+      "static/mapexport.js",
+      "static/surveymap.js"
      ]
     }
    ]
@@ -865,12 +939,13 @@
     },
     {
      "name": "Towers with their carriers",
-     "text": "Under the graph, each FCC tower in the area with its owner, height and distance, every carrier's cell sites and cells on it, and the bands each carrier is licensed for there. Click a tower for its sites, cells and channel numbers.",
+     "text": "Under the graph, each tower in the area as the tower engine places it (an estimate where the crowd's cells match no structure) with its owner, height and distance, every carrier's cell sites and cells on it, and the bands each carrier is licensed for there. Click a tower for its sites, cells and channel numbers.",
      "src": [
       "d-2026-11-07-0100",
       "static/cellall.js",
       "static/cells.js",
-      "d-2026-11-07-1225"
+      "d-2026-11-07-1225",
+      "towerfuse.py"
      ]
     }
    ]
@@ -1095,11 +1170,12 @@
     },
     {
      "name": "Fills in by itself",
-     "text": "An area with no cells kept gets OpenCelliD's cells within about 3 miles of the pin, once, and says why when it can't. An area fetched in the last month isn't asked again, and every login shares 25 areas a day.",
+     "text": "Where the tower engine says a top-up is due (no OpenCelliD fetch covered the spot in the last month, and no fresh country file has cells near it), OpenCelliD's cells within about 3 miles come in by themselves, once, and it says why when they can't. Never for a view-only login or a copy with no key; top-ups share 800 requests a day.",
      "src": [
       "d-2026-11-06-1500",
       "static/cells.js",
-      "cells.py"
+      "cells.py",
+      "static/towers.js"
      ]
     },
     {
@@ -1112,10 +1188,11 @@
     },
     {
      "name": "Filters, By site, By tower",
-     "text": "Operator, Technology and a Find box (cell ID, eNB, tower owner) narrow the list, under a line counting sites, cells, tower matches and towers nearby. By tower lists each FCC tower with every carrier's sites, cells and licensed bands.",
+     "text": "Operator, Technology and a Find box (cell ID, eNB, tower owner) narrow the list, under a line counting sites, cells, tower matches and towers nearby. By tower lists each tower the tower engine places, registered, licensed, mapped or estimated (○, with how far off it may be), with every carrier's sites, cells and licensed bands.",
      "src": [
       "d-2026-11-06-1700",
-      "static/cells.js"
+      "static/cells.js",
+      "towerfuse.py"
      ]
     },
     {
@@ -1219,6 +1296,15 @@
      "src": [
       "d-2026-11-07-0100",
       "static/cellall.js"
+     ]
+    },
+    {
+     "name": "An eNB by its number",
+     "text": "On the Towers tab, eNB 812442, gNB 1234567 or a bare 6 or 7 digit number in the box finds that site in the crowd data for the carrier picked, or all three: its cells and samples, the tower the engine puts it on, its distance and bearing from the pin and whether it's one of the report's 3 closest, with Run the report here, Street View and a CellMapper link. The map stays where it is, and a link opens the lookup again.",
+     "src": [
+      "static/towers.js",
+      "static/search.js",
+      "towerfuse.py"
      ]
     }
    ]
@@ -1876,12 +1962,13 @@
     },
     {
      "name": "Cellular carriers at the building",
-     "text": "For AT&T, Verizon, T-Mobile, FirstNet and any carrier measured: Broadband Map coverage, the closest known cell site within 5 mi, a rooftop donor reading against a −85 dBm target and −95 dBm minimum, and the approval path with asked and consent dates.",
+     "text": "The 3 closest towers per carrier with distance, compass and degrees, type, height, bands and the verdict, estimates marked. For AT&T, Verizon, T-Mobile, FirstNet and any carrier measured: Broadband Map coverage, a rooftop donor reading against a −85 dBm target and −95 dBm minimum, and the approval path with asked and consent dates.",
      "group": "pre-survey and screening",
      "src": [
       "d-2026-11-05-0300",
       "d-2026-11-02",
-      "static/dascell.js"
+      "static/dascell.js",
+      "static/towers.js"
      ]
     },
     {
@@ -1921,12 +2008,13 @@
      ]
     },
     {
-     "name": "Find cell sites here",
-     "text": "When no cell site is known around the building, Find cell sites here loads OpenCelliD's crowd-mapped cells about 3 miles around the pin and keeps them for next time.",
+     "name": "Towers on the pre-survey",
+     "text": "⎙ Tower report prints the tower report for the job's pin with its address and the ✓ Seen / ✗ Not seen marked on each tower, which are kept on the job and show on the Discovery report. Fresh cells come in by themselves where the tower engine says a top-up is due, never for a view-only login.",
      "group": "pre-survey and screening",
      "src": [
       "d-2026-11-05-0300",
-      "static/dascell.js"
+      "static/dascell.js",
+      "static/towers.js"
      ]
     },
     {

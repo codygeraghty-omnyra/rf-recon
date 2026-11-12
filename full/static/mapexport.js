@@ -2,7 +2,9 @@
    emails, looking as it does on screen (labels, dots and lines in proportion) but sharper. The map isn't touched: each
    tile layer's tiles for the view are fetched again at the zoom that gives that many pixels (Esri where it has the zoom,
    the zoom above where it doesn't, as on the map), then what's drawn over them is copied on at the same scale: the dot
-   and line canvases, SVG, images (heatmaps), markers and labels (labels as text, so they're sharp too). Underneath, a
+   and line canvases, SVG, images (heatmaps), markers and labels (labels as text, so they're sharp too); a canvas with a redraw
+   hook (canvas._rfDraw(g, k, map): the survey squares, surveymap.js) is drawn again at k, and the map's legends (map._rfLegends,
+   each painting itself at k and saying how tall it was) go in its bottom right, clear of a scale bar. Underneath, a
    footer: the place, the date, the scale and the map's credits (the tile sources' terms ask for them).
    PC app and web version (the tiles come through this copy, so the canvas can read them; the web version relies on the
    sources' CORS, and a tile that can't be read is left out). */
@@ -109,11 +111,17 @@
         if(n.classList.contains("leaflet-tooltip")) drawLabel(g, n, r, k);
         else if(n.classList.contains("leaflet-marker-icon")) await drawMarker(g, n, box, k);
         else if(n.tagName === "IMG" && n.complete && n.naturalWidth) g.drawImage(n, r.x, r.y, r.w, r.h);
+        else if(n.tagName === "CANVAS" && typeof n._rfDraw === "function"){ g.save(); n._rfDraw(g, k, map); g.restore(); }  // drawn again at k, sharp
         else if(n.tagName === "CANVAS") g.drawImage(n, r.x, r.y, r.w, r.h);
         else if(n.tagName.toLowerCase() === "svg") g.drawImage(await svgImage(n), r.x, r.y, r.w, r.h);
       }catch(err){ /* a piece that can't be read is left out; the rest is drawn */ }
       g.globalAlpha = 1;
     }
+    // the map's legends (map._rfLegends: the survey tiles', surveymap.js), bottom right, the first lowest: each paints itself at k
+    // with its right edge at x and its bottom at ly, and says how tall it was. A legend is a control, outside the panes, so the
+    // image had the colours and not what they mean. The bottom left is a scale bar's (the tower report stamps one there)
+    let ly = H - 10 * k;
+    for(const lg of map._rfLegends ? [...map._rfLegends] : []){ try{ g.save(); const h = lg(g, k, W - 10 * k, ly); g.restore(); if(h > 0) ly -= h + 6 * k; }catch(err){ g.restore(); /* a legend that can't draw is left out */ } }
     g.restore();
     // the footer: what and where, the date, the scale and the map's credits
     g.fillStyle = "#14130f"; g.fillRect(0, H, W, FOOT); g.textBaseline = "middle"; g.font = `${Math.round(11 * k)}px system-ui, sans-serif`;

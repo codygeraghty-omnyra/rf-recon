@@ -83,6 +83,7 @@
     .rf-mk-say { position: absolute; z-index: 1002; left: 50%; bottom: 34px; transform: translateX(-50%); max-width: calc(100% - 40px); display: flex; gap: 8px; align-items: center;
       padding: 6px 8px 6px 12px; border-radius: 10px; background: rgba(20,20,20,.92); color: #fff; font: 12.5px/1.35 system-ui, sans-serif; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
     .rf-res-on-sheet > .rf-mk-say { bottom: calc(var(--rf-res-hpx, 0px) + 12px); }
+    .rf-mk-say[hidden] { display: none; }
     .rf-mk-say button { font: inherit; padding: 3px 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; cursor: pointer; }
     .rf-mk-f { display: block; margin: 2px 0 8px; font-size: 12px; color: var(--ink-2, var(--muted, #666)); }
     .rf-mk-f input, .rf-mk-f textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; font: inherit; font-size: 13px; color: var(--ink, inherit); }
@@ -317,7 +318,10 @@
         lyr.on("click", ev => { const m = this._map;  // bubblingMouseEvents:false keeps it off the map, so a tool on gets it here
           if(m._rfMeasuring){ m.fire("click", {latlng: ev.latlng, layerPoint: ev.layerPoint, containerPoint: ev.containerPoint, originalEvent: ev.originalEvent}); return; }
           this._sel = it.id; this.open(); this._render(); });
-        lyr.addTo(g); } },
+        lyr.addTo(g);
+        // an area goes to the back of its canvas: on the Map tab the dots share it (core.js), and a click is the topmost shape's,
+        // so a dot inside an area is the dot's and the area's elsewhere. Every change draws them all again, so it holds after one
+        if(it.kind === "area" && lyr.bringToBack) lyr.bringToBack(); } },
     _show(){ const pn = this._panel; if(pn.hidden) return; const s = scopeOf(this._map), sel = this._items.find(i => i.id === this._sel);
       // no taller than the map, clear of its bottom-left readout and scale (seen 11/10 on a 600-pixel map), scrolling inside
       pn.style.maxHeight = `${Math.max(160, this._map.getSize().y - 230)}px`;

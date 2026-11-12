@@ -426,25 +426,32 @@ const THRESHOLD = -95;
 async function discoveryData(j) {
   const d = j.data, ok = async p => { try { return await p; } catch (e) { return {_error: e.message}; } };
   if (d.lat == null || d.lon == null)  // every line below is read from a place: the report says so and the job is still saved
-    return {noPin: true, ps: {}, ahj: {suggestions: [], error: "The AHJ comes from the address."}, bdc: {}, cells: {sites: []}, spec: {}, systems: [], top: [], lead: [], contacts: {}, deciding: null};
+    return {noPin: true, ps: {}, ahj: {suggestions: [], error: "The AHJ comes from the address."}, bdc: {}, towers: null, spec: {}, systems: [], top: [], lead: [], contacts: {}, deciding: null};
   // the outline isn't on this report, and OpenStreetMap's public servers can take 40 s from the server (measured 11/5: 29-43 s, every
   // other call here 2 s or less). Asked and not waited for, so it's already kept when Plans or the Overview wants it. Not saved on the
   // job from here: a save behind the person's back moves the job's revision and their next save is refused
   api(`/api/das/building?lat=${d.lat}&lon=${d.lon}`).catch(() => {});
-  let [ps, ahj, bdc, cells, spec] = await Promise.all([
+  // the towers: the tower engine's report at the pin (towers.js, GET /api/towers), each carrier's 3 closest. It read the one
+  // nearest crowd site per carrier, and fetched OpenCelliD only where no site was kept; a top-up now runs by the engine's rule
+  // once the report is on screen (stepDiscovery)
+  const [ps, ahj, bdc, towers, spec] = await Promise.all([
     ok(api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=15&job=${j.id}&threshold=${THRESHOLD}&env=suburban`)),
-    ok(api(`/api/das/x/ahj/${j.id}`)), ok(api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`)), ok(api(`/api/cells?lat=${d.lat}&lon=${d.lon}&radius=5`)),
+    ok(api(`/api/das/x/ahj/${j.id}`)), ok(api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`)),
+    ok(window.RFTowers ? RFTowers.load(d.lat, d.lon) : Promise.reject(new Error("the tower report isn't on this page"))),
     ok(api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`))]);
-  // a cellular job needs the sites: fetched once for an area and kept, as the Cellular panel's button does
-  if (gOf(d).answers?.scope !== "Public safety radio" && !(cells.sites || []).length) {
-    const got = await ok(post("/api/cells/fetch", {lat: d.lat, lon: d.lon}));
-    if (got.rows) cells = await ok(api(`/api/cells?lat=${d.lat}&lon=${d.lon}&radius=5`));
-  }
   const systems = ps.systems || [], top = systems.filter(s => s.tier === 1), deciding = decidingSystem(systems, ahj, spec);
   const lead = [...(deciding ? [deciding] : []), ...(top.length ? top : systems).filter(s => s !== deciding)].slice(0, 8);
   let contacts = {};
   if (lead.length) { const r = await ok(api(`/api/das/x/contacts?calls=${encodeURIComponent(lead.map(s => s.call_sign).join(","))}`)); contacts = r.contacts || {}; }
-  return {ps, ahj, bdc, cells, spec, systems, top, lead, contacts, deciding};
+  return {ps, ahj, bdc, towers, spec, systems, top, lead, contacts, deciding};
+}
+// the report's towers: each carrier's 3 closest with distance, compass, type, height, its bands and its verdict (RFTowers.jobHtml),
+// the ✓/✗ the Pre-survey keeps on the job (cellular.towers_verified) as words, and what a top-up did
+function towersBlock(R, j) {
+  if (!window.RFTowers) return "";
+  const tw = R.towers;
+  if (!tw || tw._error) return `<p class="hint" id="stTowersWhy">${esc(RFTowers.errTxt({message: (tw && tw._error) || "not read"}))}</p>`;
+  return `<h5 style="margin:12px 0 0">Towers: the 3 closest per carrier</h5>${RFTowers.jobHtml(tw, {marks: ((j.data || {}).cellular || {}).towers_verified || {}, msg: RFTowers.topupNote(tw, R.towerRun)})}`;
 }
 // the system that decides, by the rule RF need uses (need.py point_levels): the strongest in the best tier here, preferring one
 // licensed to an agency named like the building's town. Counting every agency within 15 miles overclaims: most don't serve it.
@@ -501,11 +508,11 @@ function discoveryHtml(j, R) {
   const d = j.data, a = gOf(d).answers || {}, sc = a.scope, ps = sc !== "Cellular", cell = sc !== "Public safety radio";
   R.answers = a;
   const [head, line] = verdictOf(R, !ps), bands = bandsLine(R);
-  const suggest = (R.ahj.suggestions || []).slice(0, 3), near = {};
-  for (const s of R.cells.sites || []) { const k = carrierName(s.operator); if (!near[k] || s.dist_mi < near[k].dist_mi) near[k] = s; }
+  const suggest = (R.ahj.suggestions || []).slice(0, 3);
+  const near = ((R.towers && R.towers.carriers) || []).filter(c => (c.towers || []).length).map(c => c.carrier);  // a carrier with a tower here
   // the state's FCC coverage isn't on this copy (or couldn't be read): said once, not "None reported" for every carrier (UX review 11/8 #7)
   const covOff = !!R.bdc && (R.bdc.loaded === false || !!R.bdc._error);
-  const held = (R.spec && R.spec.carriers) || [], cov = (R.bdc && R.bdc.carriers) || [], names = [...new Set([...cov.map(c => carrierName(c.brand)), ...held.map(c => carrierName(c.brand)), ...Object.keys(near)])].filter(n => CELL_CARRIERS.map(carrierName).includes(n));
+  const held = (R.spec && R.spec.carriers) || [], cov = (R.bdc && R.bdc.carriers) || [], names = [...new Set([...cov.map(c => carrierName(c.brand)), ...held.map(c => carrierName(c.brand)), ...near])].filter(n => CELL_CARRIERS.map(carrierName).includes(n));
   const rows = [["Building", [a.building_type, a.floors_up && `${floorsSaid(a.floors_up, a.floors_up_n)} floors up`, a.floors_down && a.floors_down !== "None" && `${floorsSaid(a.floors_down, a.floors_down_n)} below ground`, a.area && `${fmt(a.area)} sq ft`, a.construction && builtOf(a.construction)].filter(Boolean).join(" · ")], ["Why now", a.why], ["Covers", sc]];
   return `${printHead(j, "Discovery report")}
     <div class="st-verdict"><h2>${esc(head)}</h2><p>${esc(line)}</p></div>
@@ -522,10 +529,11 @@ function discoveryHtml(j, R) {
         return `<tr><td>${esc(s.licensee)}${s === R.deciding ? ' <b class="st-main">main system</b>' : ""}${s.trunked ? ' <span class="hint">trunked</span>' : ""}${shop ? `<div class="hint">Radio shop: ${esc(shop)}</div>` : ""}</td><td class="mono">${esc(s.call_sign)}</td><td>${esc(b)}</td><td>${esc((s.tech || []).join(" / "))}</td>
           <td>${s.real ? `${s.real.margin_db < 0 ? "Too weak" : "Looks OK"}` : '<span class="hint">no power on file</span>'}</td></tr>`; }).join("")}</tbody></table>
         <p class="hint">${fmt(R.systems.length)} systems within 15 miles. The first ones are the agencies a building usually has to carry. The radio shop is the FCC's contact on the licence: it can be a consulting engineer.</p>` : ""}` : ""}
-    ${cell && !R.noPin ? `<h4>Cellular</h4>${names.length ? `${covOff ? `<p id="stCovOff"><b>${R.bdc._error ? "FCC coverage couldn't be read here." : "FCC coverage not loaded for this state."}</b><span class="hint no-print"> Carrier coverage states are set under Data &amp; updates.</span></p>` : ""}<table><thead><tr><th>Carrier</th>${covOff ? "" : "<th>Coverage here (FCC map)</th>"}<th>Closest known site</th><th>Bands it holds here</th></tr></thead><tbody>${names.map(n => {
-      const s = near[n], c = cov.filter(x => carrierName(x.brand) === n).map(x => x.tech), h = held.filter(x => carrierName(x.brand) === n).flatMap(x => (x.bands || []).map(b => b.band));
-      return `<tr><td>${esc(n)}</td>${covOff ? "" : `<td>${esc([...new Set(c)].join(", ") || "None reported")}</td>`}<td>${s ? `${num(s.dist_mi, 2)} mi${s.compass ? ` ${esc(s.compass)}` : ""}` : '<span class="hint">None known yet</span>'}</td><td>${esc([...new Set(h)].join(", "))}</td></tr>`; }).join("")}</tbody></table>
-      <p class="hint">Sites are crowd-mapped, and a licence doesn't prove a block is on the air. Each carrier has to approve its own signal in the building.</p>` : '<p class="hint">No carrier data here yet.</p>'}` : ""}
+    ${cell && !R.noPin ? `<h4>Cellular</h4>${names.length ? `${covOff ? `<p id="stCovOff"><b>${R.bdc._error ? "FCC coverage couldn't be read here." : "FCC coverage not loaded for this state."}</b><span class="hint no-print"> Carrier coverage states are set under Data &amp; updates.</span></p>` : ""}<table><thead><tr><th>Carrier</th>${covOff ? "" : "<th>Coverage here (FCC map)</th>"}<th>Bands it holds here</th></tr></thead><tbody>${names.map(n => {
+      const c = cov.filter(x => carrierName(x.brand) === n).map(x => x.tech), h = held.filter(x => carrierName(x.brand) === n).flatMap(x => (x.bands || []).map(b => b.band));
+      return `<tr><td>${esc(n)}</td>${covOff ? "" : `<td>${esc([...new Set(c)].join(", ") || "None reported")}</td>`}<td>${esc([...new Set(h)].join(", "))}</td></tr>`; }).join("")}</tbody></table>` : '<p class="hint">No carrier data here yet.</p>'}
+      <div id="stTowers">${towersBlock(R, j)}</div>
+      <p class="hint">A tower is an FCC registration, a carrier's licence site or a mapped mast the crowd's cells match; where they match none it's an estimate, and says so. A licence doesn't prove a block is on the air: a roof reading decides. Each carrier has to approve its own signal in the building.</p>` : ""}
     <h4>What still takes a phone call</h4><ul>${STILL_TO_CALL.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
     <p class="hint">Estimates only: free public records, read ${esc(today())}. The details behind every line are on the job's Pre-survey tab.</p>`;
 }
@@ -536,6 +544,17 @@ async function stepDiscovery(el, j) {
   const R = G.disc[j.id] || (G.disc[j.id] = await discoveryData(j));
   R.code = await api(`/api/das/x/code/${j.id}`).catch(() => ({}));  // not kept with the rest: it says who at the AHJ confirmed it
   if (!el.isConnected) return;
+  // a cellular job's towers: a top-up runs by itself where the engine says one is due (never for a view-only login), and the
+  // report's towers are drawn again with what it brought. It fetched OpenCelliD only where no site was kept, before the report
+  const cellJob = gOf(d).answers?.scope !== "Public safety radio";
+  if (cellJob && window.RFTowers && R.towers && !R.towers._error) {
+    const run = R.towerRun = RFTowers.autoTopup(R.towers);
+    // the report from after the top-up, whoever started it at this spot (Cell sites' run keeps none of its own), finished or not: one
+    // that finished while this report was being worked out (or while Start was left) kept the towers from before it for the session,
+    // in G.disc (round 2). Drawn again in its place: what's below it doesn't move if it changes height (RFTowers.keepPlace)
+    if (run) { const going = !run.done; RFTowers.afterTopup(run, d).then(x => { const was = R.towers; R.towers = x; return x !== was || going; }, () => true).then(again => {
+      const box = el.querySelector("#stTowers"); if (again && box && box.isConnected) RFTowers.keepPlace(box, () => { box.innerHTML = towersBlock(R, j); }); }); }
+  }
   const [head] = verdictOf(R, gOf(d).answers?.scope === "Cellular");
   if (!gOf(d).discovery && !R.noPin) {  // no pin, nothing found: the step stays not done, and a later visit reads the place
     const inc = (d.presurvey || {}).include || [], pick = window.startSystems(R.systems, R.ahj, R.spec), tick = inc.length ? inc : (pick.length ? pick : R.lead).map(s => s.call_sign);

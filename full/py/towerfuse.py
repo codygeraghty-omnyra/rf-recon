@@ -245,14 +245,58 @@ def make_site(key, cs, P=PARAMS):
             "sources": sorted({x for c in cs for x in c["sources"]}), "heard_on_site": sum(int(c.get("survey") or 0) for c in cs)}
 
 
-def heard_only(key, cs):
+def heard_only(key, cs, ev=()):
     """A site only your own readings have: they say the carrier reaches the building, not where its tower is, so it's named
-    under its carrier and never placed (review 11/10: 80 readings indoors made AT&T's #1 "tower" at 0.00 mi)."""
+    under its carrier and never placed (review 11/10: 80 readings indoors made AT&T's #1 "tower" at 0.00 mi). ev: survey
+    evidence of it heard here (survey_cells), counted with its own readings (review 11/12, round 2: a run's cell was one
+    "reading" whatever it heard)."""
     net, radio, sid = key
-    carrier = "T-Mobile" if net == "T-Mobile (ex-Sprint)" else net if net in cells.BIG3 else cells.brand(cs[0]["operator"])
-    return {"carrier": carrier, "radio": radio, "site_kind": SITE_WORD.get(radio, "cell"), "site_id": sid, "cells": len(cs),
-            "readings": sum(int(c.get("survey") or 0) for c in cs), "last": max((c["last"] for c in cs if c.get("last")), default=None),
-            "sources": sorted({x for c in cs for x in c["sources"]})}
+    carrier = "T-Mobile" if net == "T-Mobile (ex-Sprint)" else net if net in cells.BIG3 else cells.brand((list(cs) or list(ev))[0]["operator"])
+    lasts = [c["last"] for c in cs if c.get("last")] + [x["last"] for x in ev]
+    return {"carrier": carrier, "radio": radio, "site_kind": SITE_WORD.get(radio, "cell"), "site_id": sid, "cells": len({c["gci"] for c in cs} | {x["gci"] for x in ev}),
+            "readings": sum(int(c.get("survey") or 0) for c in cs) + sum(x["readings"] for x in ev), "last": max(lasts, default=None),
+            "sources": sorted({x for c in cs for x in c["sources"]} | {x["source"] for x in ev})}
+
+
+def survey_cells(con, lat, lon, radius_km, survey, mission=None):
+    """A survey run's evidence heard within radius_km of the spot (survey.heard: one row per serving cell per run, from the runs
+    the caller may see), as cells.decode's cells, so cells.group keys them as the engine's sites. Heard, never placed: where a
+    run heard a cell only says it was heard here, and nothing of it moves a site, picks its tower or makes one (review 11/12,
+    round 2: Stop wrote the evidence as captures, and cells.sites placed sites from where the phone was). survey: None (no
+    evidence: every caller that doesn't ask, such as the bench) or {"jobs": the job ids the caller's login can open, or None}."""
+    if survey is None:
+        return []
+    import survey as sv
+    s, n, w, e = geo.bbox(lat, lon, radius_km / geo.MI_KM)
+    out = []
+    for r in sv.heard(con, s, n, w, e, jobs=survey.get("jobs"), mission=mission):
+        if geo.haversine_km(lat, lon, r["lat"], r["lon"]) > radius_km:
+            continue
+        mcc, mnc = r["plmn"].split("-", 1)
+        c = cells.decode(r["tech"], mcc, mnc, int(r["tac"] or 0), int(r["cid"]))
+        last = time.strftime("%Y-%m-%d", time.gmtime((r["last_ts"] or 0) / 1000)) if r["last_ts"] else None
+        c.update(readings=int(r["readings"] or 0), moments=int(r["moments"] or 0), last=last, best_rsrp=r["best_rsrp"], run=r["run_id"],
+                 source=f"Survey: {r['run_name'] or 'run ' + str(r['run_id'])}")
+        out.append(c)
+    return out
+
+
+def hear(s, ev):
+    """A placed site's survey evidence: its readings onto the site's own cells of the same ID and the rest onto the site, as
+    heard on site; and what the runs heard (readings, runs, last, best RSRP). Never its position, sigma or samples."""
+    if not ev:
+        return s
+    by = {c["gci"]: c for c in s["cells"]}
+    for x in ev:
+        c = by.get(x["gci"])
+        if c is not None:
+            c["survey"] = int(c.get("survey") or 0) + x["readings"]
+    s["heard_on_site"] = int(s.get("heard_on_site") or 0) + sum(x["readings"] for x in ev)
+    s["sources"] = sorted(set(s["sources"]) | {x["source"] for x in ev})
+    s["survey"] = {"readings": sum(x["readings"] for x in ev), "moments": sum(x["moments"] for x in ev), "runs": len({x["run"] for x in ev}),
+                   "last": max((x["last"] for x in ev if x["last"]), default=None),
+                   "best_rsrp": max((x["best_rsrp"] for x in ev if x["best_rsrp"] is not None), default=None)}
+    return s
 
 
 # ---------------------------------------------------------------- structures
@@ -546,7 +590,7 @@ def add_site(t, s, P=PARAMS):
                        "crowd_at": {"lat": round(s["lat"], 6), "lon": round(s["lon"], 6)}, "offset_m": round(_m(t["lat"], t["lon"], s["lat"], s["lon"])),
                        "match": {"score": round(m["score"], 3), "ratio": None if m.get("ratio") is None else round(m["ratio"], 2),
                                  "runner_up": m.get("runner_up"), "attached": bool(m.get("attached"))} if m else None,
-                       "cells": out, "sources": s["sources"], "heard_on_site": s.get("heard_on_site", 0)})
+                       "cells": out, "sources": s["sources"], "heard_on_site": s.get("heard_on_site", 0), **({"survey": s["survey"]} if s.get("survey") else {})})
 
 
 def attach_to_own(sites, structs, now_s, P=PARAMS):
@@ -844,9 +888,10 @@ def gnb_split(cs, bits, plmns=None):
     return cs
 
 
-def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, mission=None, memo=None, gnb_bits=24, gnb_plmns=None):
+def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, mission=None, memo=None, gnb_bits=24, gnb_plmns=None, survey=None):
     """Every tower within radius_mi of the building, nearest first, and what went into them. memo: the licensed bands,
-    shared across a report's runs (bands). gnb_bits: the gNB ID length gnb_plmns' NR cells are split at (gnb_split)."""
+    shared across a report's runs (bands). gnb_bits: the gNB ID length gnb_plmns' NR cells are split at (gnb_split).
+    survey: whose survey runs count as heard on site (survey_cells); None, none."""
     memo = {} if memo is None else memo
     now_s = now_s or time.time()
     lim = radius_mi * geo.MI_KM
@@ -856,19 +901,24 @@ def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, missi
     # (its tower may be inside); the towers are kept by their own distance below
     allc = gnb_split(cells.gather(con, crowd, lat, lon, radius_mi + P["struct_margin_km"] / geo.MI_KM, mission), gnb_bits, gnb_plmns)
     cs = [c for c in allc if c["dist_mi"] * geo.MI_KM <= lim]
+    # survey runs' evidence heard within the radius, by the engine's site keys: heard on site, never a place (survey_cells)
+    ev = cells.group(gnb_split(survey_cells(con, lat, lon, lim, survey, mission), gnb_bits, gnb_plmns), fold=True)
     sites, legacy, heard = [], [], []
     for k, v in cells.group(allc, fold=True).items():
+        e = ev.pop(k, [])
         if not any(_placed(c) for c in v):
-            if any(c["dist_mi"] * geo.MI_KM <= lim for c in v):
-                heard.append(heard_only(k, v))  # only your own readings: not placed
+            if e or any(c["dist_mi"] * geo.MI_KM <= lim for c in v):
+                heard.append(heard_only(k, [c for c in v if c["dist_mi"] * geo.MI_KM <= lim], e))  # only your own readings: not placed
             continue
         s = make_site(k, v, P)
         if geo.haversine_km(lat, lon, s["lat"], s["lon"]) <= lim + P["site_margin_km"]:
-            (sites if s["radio"] in P["placing_radios"] else legacy).append(s)
+            (sites if s["radio"] in P["placing_radios"] else legacy).append(hear(s, e))
         else:  # placed past the edge: what you heard of it here is still named (round 3: a walk's 30 readings of it vanished)
             mine = [c for c in v if c.get("survey") and c["dist_mi"] * geo.MI_KM <= lim]
-            if mine:
-                heard.append(heard_only(k, mine))
+            if mine or e:
+                heard.append(heard_only(k, mine, e))
+    for k, e in ev.items():  # a site only a survey run heard: named under its carrier, never placed
+        heard.append(heard_only(k, [], e))
     # every candidate of a site kept (match_max_m round it) is among the structures
     structs = merge(structure_points(con, crowd, lat, lon, lim + max(P["struct_margin_km"], P["site_margin_km"] + P["match_max_m"] / 1000.0), P), P)
     match(sites, structs, now_s, P)
@@ -991,7 +1041,7 @@ def _theirs(t, c):
     return next(e for e in t["carriers"] if e["carrier"] == c)
 
 
-def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=None, spec=None, data_dir=None, now_s=None, P=PARAMS):
+def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=None, spec=None, data_dir=None, now_s=None, P=PARAMS, survey=None):
     """The tower report for a building: per carrier, the n nearest current towers carrying it and a verdict, the stale ones
     after them; every tower in the area for the map. No network calls. A carrier's tower known only from readings over
     stale_days old is listed apart (stale_towers) and never counts toward n or the verdict. The area asked for runs first;
@@ -1012,14 +1062,14 @@ def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=N
         mine = [t for t in run["towers"] if c in t["carrier_names"]]
         return [t for t in mine if not _theirs(t, c)["stale"]], [t for t in mine if _theirs(t, c)["stale"]]
 
-    first = fuse(con, crowd, lat, lon, steps[0], spec, now_s, P, memo=memo)
+    first = fuse(con, crowd, lat, lon, steps[0], spec, now_s, P, memo=memo, survey=survey)
     runs, wigle = [steps[0]], first["wigle"]
     for c in want:
         cur, old = split(first, c)
         if len(cur) >= n or len(steps) == 1:
             per[c] = (steps[0], cur[:n], old[:n])
     if len(per) < len(want):
-        wide = fuse(con, crowd, lat, lon, steps[-1], spec, now_s, P, memo=memo)
+        wide = fuse(con, crowd, lat, lon, steps[-1], spec, now_s, P, memo=memo, survey=survey)
         runs.append(steps[-1])
         wigle = wigle or wide["wigle"]
         for c in want:
@@ -1056,6 +1106,63 @@ def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=N
             "licensed_where": (spec or {}).get("county"), "licensed_note": (spec or {}).get("why") if (spec or {}).get("empty") else
             "Licensed, not measured: the bands each carrier holds in the county (FCC market licences); which are on the air at a tower only a scan says.",
             "crowd_reach_mi": reach_mi, "stale_days": P["stale_days"], "topup": due, "attribution": text, "attribution_lines": lines}
+
+
+# ---------------------------------------------------------------- every tower in an area (Cell sites' By tower, Topology)
+
+AREA_MAX = 500  # towers in an area answer, nearest first: a table, not the report's map (towers_max)
+
+
+def site_keys(s):
+    """A crowd site on a tower as Cell sites names it (cells.sites: network code|radio|site id), one key a network code: the
+    engine folds FirstNet's 313-100 into AT&T's site, so one engine site can be two of Cell sites' rows."""
+    return sorted({f"{c['plmn']}|{s['radio']}|{s['site_id']}" for c in s["cells"]})
+
+
+def _key_operator(key):
+    """The operator Cell sites names for one of its site keys ("310-410|LTE|810366" -> "AT&T", "313-100|..." -> "FirstNet (AT&T)")."""
+    mcc, _, mnc = key.split("|")[0].partition("-")
+    return cells.operator(mcc, mnc)
+
+
+def area(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, mission=None, ops=None, radios=None, survey=None):
+    """Every tower the engine places within radius_mi of a spot, nearest first (AREA_MAX at most), each with the crowd sites
+    on it under Cell sites' keys (site_keys), for Cell sites' By tower view and Topology's tower table (plan 11/10 section 2,
+    item 4). cells.by_tower lists only the sites within 1 km of a registered tower, so a site that matched nothing vanished
+    there; here it's the estimated tower it is, with its uncertainty bubble (uncertainty_m). One fuse() run at radius_mi: no
+    per-carrier widening (report does that), no network calls.
+    ops, radios: Cell sites' Operator and Technology filters (its operator names, cells.operator; LTE, NR), applied to each
+    tower's sites before the AREA_MAX cut, so a filtered list isn't the nearest 500 towers of every carrier cut down (review
+    11/12). Sites the engine doesn't put on a tower (2G and 3G cells off the air, a site placed past the edge, one only your
+    readings have) aren't in any tower's sites. A tower inside the radius can carry a site whose cells all lie past it, which
+    /api/cells (only the cells within the radius) doesn't list."""
+    now_s = now_s or time.time()
+    run = fuse(con, crowd, lat, lon, radius_mi, spec, now_s, P, mission=mission, survey=survey)
+    text, lines = attribution(run["wigle"])
+    keep = ("id", "kind", "lat", "lon", "dist_mi", "dist_km", "bearing", "compass", "uncertainty_m", "type", "height_ft", "height_m", "owner",
+            "carrier_names", "stale_for", "confidence")
+    ops, radios = set(ops or ()), set(radios or ())
+    wanted_site = lambda s: (not radios or s["radio"] in radios) and (not ops or any(_key_operator(k) in ops for k in s["keys"]))  # noqa: E731
+    out, placed = [], 0
+    for t in run["towers"]:
+        sites = [x for x in ({"carrier": e["carrier"], "radio": s["radio"], "site_kind": s["site_kind"], "site_id": s["site_id"], "keys": site_keys(s),
+                              "cells": len(s["cells"]), "stale": bool(e["stale"])} for e in t["carriers"] for s in e["sites"]) if wanted_site(x)]
+        if not sites:
+            continue
+        placed += 1
+        if len(out) >= AREA_MAX:
+            continue
+        x = {k: t.get(k) for k in keep}
+        x["registration"] = (t.get("registration") or {}).get("number")
+        x["osm"] = (t.get("osm") or {}).get("id")
+        x["sites"] = sites
+        out.append(x)
+    return {"lat": lat, "lon": lon, "radius_mi": radius_mi, "params_version": PARAMS_VERSION, "towers": out,
+            "more": placed - len(out), "max": AREA_MAX, "filters": {"ops": sorted(ops), "radios": sorted(radios)},
+            "counts": {"cells": run["cells"], "sites": run["sites"], "towers": len(run["towers"]),
+                       "estimated": sum(1 for t in run["towers"] if t["kind"] == "estimated"), "legacy_cells": run["legacy"]["cells"],
+                       "heard_only": len(run["heard_only"])},
+            "topup": cells.topup_due(crowd, lat, lon), "attribution": text, "attribution_lines": lines}
 
 
 # ---------------------------------------------------------------- one site by its ID (eNB / gNB)

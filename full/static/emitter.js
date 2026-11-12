@@ -286,12 +286,12 @@ function emCellBody(el, s=S.emit?.cell, r=S.emit?.r){  // the Map tab's cell sit
         ${s.cells.map((c,i)=>`<tr ${me&&c.gci===me.gci?'style="font-weight:700"':""}><td>${c.sector??""}</td><td class="mono">${esc(c.gci)}</td><td class="mono">${c.pci??'<span class="hint">not heard</span>'}</td><td>${c.az_est!=null?`${c.az_est}° ${COMPASS16[Math.round(c.az_est/22.5)%16]}`:"–"}</td>
           <td class="n">${c.range_m?num(c.range_m/1609.344,1)+" mi":""}</td><td class="n">${c.samples||""}</td><td>${esc(c.last||"")}${emStale(c.last)}</td><td><button data-sec="${i}">Coverage</button></td></tr>`).join("")}</tbody></table></div>
       <p class="hint">Direction is estimated from where the crowd saw each sector relative to the tower; ranges are how far its samples spread (OpenCelliD).</p></div>
-    <div>${t?`<h4 style="margin:0 0 4px">FCC tower ${esc(t.reg)} <span class="hint">· ${t.match_m} m from the cells' average position</span></h4>
+    <div>${s.engine?emEngineHtml(s.engine):""}${t?`<h4 style="margin:0 0 4px">FCC tower ${esc(t.reg)} <span class="hint">· ${t.match_m} m from the cells' average position</span></h4>
         <div class="kvg"><div>Owner</div><div>${esc(t.owner||"not on file")}</div><div>Structure</div><div>${esc(t.struct_type||"")} ${t.overall_agl_m??"?"} m (${t.overall_agl_m?Math.round(t.overall_agl_m*3.281)+" ft":"?"}) above ground</div>
           <div>Address</div><div>${esc([t.street,t.city,t.state].filter(Boolean).join(", "))}</div><div>Built</div><div>${esc(t.constructed||"")}</div></div>
         <h4 style="margin:10px 0 4px">FCC licensees on this tower (${t.licensees.length})</h4>
         ${t.licensees.length?`<div class="tw" style="max-height:220px"><table><thead><tr><th>Licensee</th><th>Call sign</th><th>Service</th><th class="n">Freqs</th></tr></thead><tbody>${t.licensees.map(x=>`<tr><td>${esc(x.licensee)}</td><td class="mono">${esc(x.call_sign)}</td><td>${esc(x.service_name||"")}</td><td class="n">${x.freqs}</td></tr>`).join("")}</tbody></table></div>`:'<p class="hint">No land mobile licences link to it (carriers\' own licences are by market, not by site).</p>'}`
-      :'<p class="hint">No FCC-registered tower within 1 km of these cells (structures under 200 ft near no airport needn\'t register): the site is placed at the cells\' average position.</p>'}
+      :s.engine?"":'<p class="hint">No FCC-registered tower within 1 km of these cells (structures under 200 ft near no airport needn\'t register): the site is placed at the cells\' average position.</p>'}
       <p class="hint" style="margin-top:8px">Look it up: <a href="https://www.cellmapper.net/map?latitude=${s.lat}&longitude=${s.lon}&zoom=15" target="_blank" rel="noopener">CellMapper ↗</a> · <a href="https://opencellid.org/#zoom=16&lat=${s.lat}&lon=${s.lon}" target="_blank" rel="noopener">OpenCelliD ↗</a> · <a href="https://wigle.net/map?maplat=${s.lat}&maplon=${s.lon}&mapzoom=15" target="_blank" rel="noopener">WiGLE ↗</a></p></div></div>
     <div id="emCellRecord">${emCellLicensed(s)}</div>`;  // full width: the channel table needs its columns
   el.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{ const c=s.cells[+b.dataset.sec]; const row=emCellRow(s, c); emitOpen(row, "coverage"); });
@@ -330,13 +330,24 @@ function emCellLicensed(s){
       <p style="margin:0">Not collected: anything that identifies a person, such as subscriber IDs (TMSI, IMSI) or the contents of calls and pages.</p></details>`;
 }
 
+// the tower engine's placement of a site opened from a By tower or Topology row (cells.js csOnTower): the tower the row is, so the
+// viewer says what the row said (review 11/12: a row read "○ estimated, 0.32 mi NNE" and opened "on FCC tower 1201831, 0.18 mi",
+// the old 1 km match)
+function emEngineHtml(e){
+  const [sym, word]=window.RFTowers?RFTowers.kind(e):["", e.kind||""], u=e.kind==="estimated"&&e.uncertainty_m;
+  return `<h4 style="margin:0 0 4px">The tower it's on <span class="hint">· DAStastic's tower engine, as the Towers tab places it</span></h4>
+    <div class="kvg"><div>Tower</div><div>${sym} ${esc(e.registration?`FCC ${e.registration}`:e.osm?`OpenStreetMap ${e.osm}`:word)}${u?`, give or take ${num(u,0)} m`:""}</div>
+      <div>Type</div><div>${esc(e.type||"not on file")}</div>${e.owner?`<div>Owner</div><div>${esc(e.owner)}</div>`:""}${e.height_ft!=null?`<div>Height</div><div>${num(e.height_ft,0)} ft</div>`:""}
+      <div>From the pin</div><div>${num(e.dist_mi,2)} mi ${esc(e.compass||"")}${e.bearing!=null?` (${e.bearing}° true)`:""}</div></div>
+    ${u?'<p class="hint">The crowd\'s cells match no registered, licensed or mapped structure here: the tower is where they place it, and the bubble is how far off that may be.</p>':""}`;
+}
 // A cell site in the results viewer on a page (Cell sites, Topology: Cody 11/10, their rows jumped to the Map tab): its
 // sectors, tower and licensed bands, on the tab where it was clicked. "Show on map" is the explicit way to the Map tab.
 function emCellView(host, s){
   if(!window.RFResults){ emitOpen(emCellRow(s, s.cells[0]), "cell"); return; }
   RFResults.show(host, {key:`cs:${s.key||`${s.plmn}|${s.radio}|${s.site_id}`}`, label:`${s.operator} ${s.radio} ${s.site_id}`,
     title:`${esc(s.operator)} ${esc(s.radio)} ${esc(String(s.site_kind||"").split(" ")[0])} <span class="mono">${esc(String(s.site_id))}</span>`,
-    sub:[s.dist_mi!=null?`${num(s.dist_mi,2)} mi from the pin`:"", s.tower?`FCC tower ${esc(s.tower.reg)}`:"", `${s.cells.length} cell${s.cells.length===1?"":"s"}`].filter(Boolean).join(" · "),
+    sub:[s.dist_mi!=null?`${num(s.dist_mi,2)} mi from the pin`:"", s.engine?(s.engine.registration?`FCC tower ${esc(s.engine.registration)}`:esc(window.RFTowers?RFTowers.kind(s.engine)[1]:s.engine.kind||"")):s.tower?`FCC tower ${esc(s.tower.reg)}`:"", `${s.cells.length} cell${s.cells.length===1?"":"s"}`].filter(Boolean).join(" · "),
     fill:body=>emCellBody(body, s, emCellRow(s, s.cells[0])), mark:s.lat!=null?[+s.lat, +s.lon]:false,  // Mark it: a marker on the site (results.js)
     actions:[{label:"Show on map", primary:true, title:"On the Map tab, with its sectors drawn", run:()=>emitOpen(emCellRow(s, s.cells[0]), "cell")}]});
 }

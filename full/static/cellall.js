@@ -3,7 +3,8 @@
    main tabs, mock-up picked). Search, Area report, Analyzer, Dashboard, Site profile and Agencies list each cell site in the
    area (carrier, technology, tower, bands licensed here, cells, PCI heard, last seen), and each opens to its full public record
    (the FCC licence at the site, every band and channel each way, everything on its tower: emitter.js emCellLicensed). Spectrum
-   shows the carriers' licensed blocks by frequency; Topology shows each tower with its carriers and cells (cells.js towersHtml).
+   shows the carriers' licensed blocks by frequency; Topology shows each tower with its carriers and cells (cells.js towersHtml): the
+   towers the tower engine places (towers.js RFTowers.area), so a site no registered tower matched is its estimated tower, not gone.
    Read only: it asks /api/cells for what's already kept and never fetches new cells (the Cell sites tab does that, once per
    area, under OpenCelliD's daily limit). Loads last, so every tab's view is already registered. */
 (() => {
@@ -17,8 +18,12 @@
     cache.set(k, {at: Date.now(), r}); if (cache.size > 20) cache.delete(cache.keys().next().value); return r; };
   const off = () => { if (obs) { obs.disconnect(); obs = null; } if (box) { box.remove(); box = null; } };
   const mhz = a => a ? `${num(a[0], 1)}–${num(a[1], 1)}` : "";
-  const head = (r, sites) => { const cells = sites.reduce((n, s) => n + s.cells.length, 0), towers = new Set(sites.map(s => (s.tower || {}).reg).filter(Boolean)).size;
-    return `<h3>Cell sites in this area <span class="hint">· ${sites.length.toLocaleString()} site${sites.length === 1 ? "" : "s"}, ${cells.toLocaleString()} cell${cells === 1 ? "" : "s"}, ${towers} FCC tower${towers === 1 ? "" : "s"} within ${esc(S.radius)} mi</span>
+  // ar: Topology's engine towers, counted as its table shows them (it counted the 1 km FCC matches over the engine's rows, review 11/12)
+  const head = (r, sites, ar) => { const cells = sites.reduce((n, s) => n + s.cells.length, 0), towers = new Set(sites.map(s => (s.tower || {}).reg).filter(Boolean)).size;
+    const eng = typeof csEngine === "function" && csEngine(ar) ? csTowerRows(ar, sites, sites, "") : null;
+    const tw = eng ? `${eng.rows.length} tower${eng.rows.length === 1 ? "" : "s"} (${eng.rows.filter(x => x.t.registration).length} FCC-registered, ${eng.rows.filter(x => x.t.kind === "estimated").length} estimated)`
+      : `${towers} FCC tower${towers === 1 ? "" : "s"}`;
+    return `<h3>Cell sites in this area <span class="hint">· ${sites.length.toLocaleString()} site${sites.length === 1 ? "" : "s"}, ${cells.toLocaleString()} cell${cells === 1 ? "" : "s"}, ${tw} within ${esc(eng ? Math.min(S.radius, +ar.radius_mi || S.radius) : S.radius)} mi</span>
       <button class="sm" data-cellgo style="margin-left:6px">Open Cell sites</button></h3>`; };
   const note = r => `<p class="hint" style="margin:6px 0 0">${esc(r.licensed_note || "")}${Object.values(r.sources || {}).length ? ` Sources: ${Object.values(r.sources).map(esc).join("; ")}.` : ""}</p>`;
   // one row per site, opening to its full record
@@ -41,7 +46,7 @@
       ${L.map(x => `<tr><td><b>${esc(x.op)}</b></td><td>${esc(x.band || "")}</td><td>${esc(x.block || "")}</td><td class="mono">${mhz(x.dl_mhz)}</td><td class="mono">${x.tdd ? "same (TDD)" : x.ul_mhz ? mhz(x.ul_mhz) : "none"}</td><td>${esc(x.rf)}</td><td class="n">${x.sites}</td>
         <td data-v="${x.dl_mhz[0]}"><div style="position:relative;height:10px;background:var(--line);border-radius:5px"><span style="position:absolute;left:${pos(x.dl_mhz[0]).toFixed(1)}%;width:${Math.max(pos(x.dl_mhz[1]) - pos(x.dl_mhz[0]), 1).toFixed(1)}%;top:0;bottom:0;background:var(--accent);border-radius:5px"></span></div></td></tr>`).join("")}</tbody></table></div>
       <p class="hint" style="margin:6px 0 0">Licensed, not measured: what each carrier may use in this county. Which block a site has on the air only a scan says.</p>`; };
-  const topoHtml = (r, sites) => `${head(r, sites)}${typeof towersHtml === "function" ? towersHtml(r.towers || [], sites) : ""}${note(r)}`;
+  const topoHtml = (r, sites, ar) => `${head(r, sites, ar)}${typeof towersHtml === "function" ? towersHtml(ar, sites, r.towers || [], {all: sites}) : ""}${note(r)}`;
   async function mount(v, tab) {
     off();
     if (!TABS[tab] || !S.center) return;
@@ -50,25 +55,29 @@
     v.appendChild(box);
     obs = new MutationObserver(() => { if (box && !v.contains(box)) v.appendChild(box); }); obs.observe(v, {childList: true});
     const me = box, gen = S.viewGen;
+    // Topology's towers: the engine's, read beside the sites (read only, as /api/cells is here: it fetches nothing new)
+    const areaP = TABS[tab] === "topology" && window.RFTowers ? RFTowers.area(S.center[0], S.center[1], S.radius, S.missionId).catch(e => ({_error: e.message})) : null;
     // a 404 (a copy that keeps no cells) or the web version (window.RFPack), where a field pack with no towers answers "no
     // such table: tower" (seen on the published site 11/7): the panel steps aside; the Cell sites tab says why
     let r; try { r = await getCells(); } catch (e) { if (me !== box) return; if (e.status === 404 || window.RFPack) { off(); return; } me.innerHTML = `<p class="hint" style="margin:0">Cell sites: ${esc(e.message)}</p>`; return; }
     if (me !== box || gen !== S.viewGen) return;
-    const sites = r.sites || [];
+    const sites = r.sites || [], ar = areaP ? await areaP : null;
+    if (me !== box || gen !== S.viewGen) return;
     if (window.RFPack && !sites.length) { off(); return; }
     box.style.display = "";
     if (!sites.length) { box.innerHTML = `<h3>Cell sites in this area</h3><p class="hint" style="margin:0">None kept here yet. <button class="sm" data-cellgo>Open Cell sites</button> finds them for this area once (OpenCelliD's daily limit applies).</p>`; }
-    else box.innerHTML = TABS[tab] === "spectrum" ? specHtml(r, sites) : TABS[tab] === "topology" ? topoHtml(r, sites) : listHtml(r, sites);
+    else box.innerHTML = TABS[tab] === "spectrum" ? specHtml(r, sites) : TABS[tab] === "topology" ? topoHtml(r, sites, ar) : listHtml(r, sites);
     if (sites.length && TABS[tab] === "list") rfSort.own("cellAllList", () => { if (box !== me) return; box.innerHTML = listHtml(r, sites); wire(sites); });
-    wire(sites);
+    wire(sites, TABS[tab] === "topology" ? ar : null);
   }
-  function wire(sites) {  // the panel's presses: Open Cell sites, a site's full record, a tower
+  function wire(sites, ar) {  // the panel's presses: Open Cell sites, a site's full record, a tower
     box.querySelectorAll("[data-cellgo]").forEach(b => b.onclick = () => setTab("cells"));
     box.querySelectorAll("tr[data-cs]").forEach(tr => tr.onclick = () => { const rec = box.querySelector(`tr[data-csrec="${tr.dataset.cs}"]`); if (rec) rec.hidden = !rec.hidden; });
     // Topology's tower table says "Click one for its sites, cells and channel numbers": a tower opens as it does on Cell sites,
-    // in the results viewer on this tab (cells.js, emitter.js emCellView; 11/10: it jumped to the Map tab)
-    box.querySelectorAll("tr[data-tw]").forEach(tr => tr.onclick = () => { const s = sites.find(x => x.tower?.reg === tr.dataset.tw);
-      if (s && typeof emCellView === "function") emCellView($("#view"), s); });
+    // in the results viewer on this tab (cells.js, emitter.js emCellView; 11/10: it jumped to the Map tab), its first site
+    box.querySelectorAll("tr[data-tws]").forEach(tr => tr.onclick = () => { const s = sites.find(x => x.key === tr.dataset.tws);
+      const t = ar && typeof csEngine === "function" && csEngine(ar) && (ar.towers || []).find(x => x.id === tr.dataset.tw);  // where the engine places it
+      if (s && typeof emCellView === "function") emCellView($("#view"), t ? csOnTower(s, t) : s); });
   }
   for (const t of Object.keys(S.views)) { const orig = S.views[t];
     const w = function (v, rows) { off(); const out = orig.call(this, v, rows); Promise.resolve(out).then(() => { if (S.tab === t) mount(v, t); }, () => {}); return out; };

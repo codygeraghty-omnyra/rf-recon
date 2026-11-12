@@ -68,7 +68,10 @@
 
   /* ---------- the answer ---------- */
   const cache = new Map();  // "lat,lon" -> the promise of /api/towers there
-  const keyOf = (lat, lon) => `${(+lat).toFixed(5)},${(+lon).toFixed(5)}`;
+  // from the 6 decimals a request sends (and an answer echoes), then 5: a job's pin of 38.68426454980722 keyed 38.68426 while its
+  // answer's 38.684265 keyed 38.68427, so a top-up made from the answer left the pin's cached report the one from before it (review
+  // 11/12, about 1 pin in 10)
+  const keyOf = (lat, lon) => `${(+(+lat).toFixed(6)).toFixed(5)},${(+(+lon).toFixed(6)).toFixed(5)}`;
   // a request with no answer (a half-open connection on a phone, the PC behind the door asleep) gives up after WAIT.ms, so the
   // cache drops it and the address picked again asks again: it said "Finding the towers…" for as long as the browser kept the socket
   const WAIT = {ms: 90000, image: 15000};  // image: what the printed report's sharp map may take (mapImage)
@@ -79,10 +82,14 @@
     const p = api(`/api/towers?lat=${(+lat).toFixed(6)}&lon=${(+lon).toFixed(6)}`, ctl ? {signal: ctl.signal} : undefined)
       .catch(err => { throw ctl && ctl.signal.aborted ? new Error(`no answer in ${Math.round(ms / 1000)} s: pick the address again to ask again`) : err; })
       .finally(() => clearTimeout(timer));
-    cache.set(k, p); p.catch(() => { if (cache.get(k) === p) cache.delete(k); });
+    cache.set(k, p); p.then(v => { answered.set(k, {p, v}); if (answered.size > 24) answered.delete(answered.keys().next().value); }, () => { if (cache.get(k) === p) cache.delete(k); });
     if (cache.size > 12) cache.delete(cache.keys().next().value);
     return p;
   }
+  // the answer at a spot if it's in already (the cached request answered), else null: a job's block drawn again with its answer in
+  // hand is drawn at once, never the stand-in first (jobGhost), so it doesn't change height under someone typing
+  const answered = new Map();
+  const peek = (lat, lon) => { const k = keyOf(lat, lon), x = answered.get(k); return x && cache.get(k) === x.p ? x.v : null; };
   // as an address is picked on this tab the report starts at once, beside the area search (core.js runSearch)
   function prefetch(){ const ll = parseLoc($("#loc").value); if (ll) load(ll[0], ll[1]).catch(() => {}); }
   // every tower in the answer, nearest first: the full ones (each carrier's closest and its stale ones) over the map's
@@ -229,7 +236,102 @@
       cols: [["Sources", t => (t.sources || []).map(s => `${s.name}${s.date ? ` (${String(s.date).slice(0, 10)})` : ""}${http(s.url) ? ` ${s.url}` : ""}`).join("; ")]]},
     links: {html: t => `${link(street(t), "Street View ↗")} · ${link(gmaps(t), "Google Maps ↗")}`, cols: [["Street View", t => street(t)], ["Google Maps", t => gmaps(t)]]},
   };
-  const tilesHtml = (t, c, ids = chosen()) => `<div class="tw-tiles">${ids.map(id => `<div class="tw-tile" data-tile="${id}"><div class="tw-tl">${esc(tileLabel(id))}</div><div class="tw-tv">${TILE[id].html(t, c)}</div></div>`).join("")}</div>`;
+  const tilesHtml = (t, c, ids = chosen()) => `<div class="tw-tiles">${ids.map(id => `<div class="tw-tile" data-tile="${id}"><div class="tw-tl">${esc(tileLabel(id))}</div><div class="tw-tv">${TILE[id].html(t, c)}</div></div>`).join("")}${seenTile(t, c)}</div>`;
+  // a tile's value for paper (the printed report, a job's tower block): its band buttons as plain marks, "(old)" where heard only
+  // in old cells, and no detail box; decl: the site's declination, so a tower's magnetic bearing is the report's, not the tab's
+  const plainTile = (id, t, c, decl) => TILE[id].html({...t, _full: true, _decl: decl}, c).replace(/<div class="tw-bandinfo[^>]*><\/div>/g, "")
+    .replace(/<button type="button" class="tw-band([^"]*)"[^>]*>([^<]*)<\/button>/g, (m, cls, b) => `<span class="twr-b${/lic/.test(cls) ? " lic" : ""}">${b}${/old/.test(cls) ? " (old)" : ""}</span> `);  // a space: "B2 B12", not "B2B12", as text
+
+  /* ---------- Seen on site (plan section 8; Cody 11/12): the survey run on this map, matched to the tower ---------- */
+  // a tower's carriers seen by the run's serving readings (surveymap.js seenFor, survey.js seenOf: carrier + technology + site
+  // ID; 3 moments or more verify it), and "Best RSRP here", the best within 100 m of the site. Shown while a run is on the map
+  // (never the sample's), as a tile after the chosen ones; the printed report's Site survey section says the same
+  const surveyView = () => window.RFSurveyMap && T.map ? RFSurveyMap.view(T.map) : null;
+  const seenGot = (t, c) => { const v = window.RFSurveyMap && T.map ? RFSurveyMap.runOf(T.map) : null; if (!v || v.run.sample) return null; const es = entries(t, c); return es.length ? {v, es, got: RFSurveyMap.seenFor(T.map, es) || []} : {v, es, got: []}; };
+  const bandW = b => b == null ? "" : /^n/i.test(String(b)) ? String(b) : `B${b}`;
+  const dayOf = ms => { const x = new Date(ms), p = n => String(n).padStart(2, "0"); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`; };
+  const hmOf = ms => { const x = new Date(ms), p = n => String(n).padStart(2, "0"); return `${dayOf(ms)} ${p(x.getHours())}:${p(x.getMinutes())}`; };
+  // what a carrier's line says (survey.js seenOf's state): a carrier the run never measured is "not measured by this run", not
+  // "not seen", and one with no LTE or 5G site ID can't be matched (review 11/12)
+  const SEEN_WORD = {verified: "✓ Verified on site", seen: "Seen on site", "not seen": "Not seen", "not measured": "Not measured by this run", "no id": "No LTE or 5G site ID to match"};
+  const seenWord = s => SEEN_WORD[s.state] || (s.verified ? SEEN_WORD.verified : s.n ? SEEN_WORD.seen : SEEN_WORD["not seen"]);
+  const seenAttr = s => ({verified: "verified", seen: "seen", "not measured": "not-measured", "no id": "no-id"})[s.state] || "no";
+  // moments (seconds a cell was measured in) and readings told apart: a primary and its carrier-aggregation leg at one moment are
+  // two readings (review 11/12)
+  const countTxt = s => `${num(s.n, 0)} moment${s.n === 1 ? "" : "s"}${s.readings && s.readings !== s.n ? ` (${num(s.readings, 0)} readings)` : ""}`;
+  // who recorded it: the login (not "local", this PC's own window), else the device or what the log came from
+  const whoOf = run => (run.created_by && run.created_by !== "local" ? run.created_by : "") || run.device || (window.RFSurveyMap ? RFSurveyMap.srcTxt(run) : run.source) || "";
+  const nearTxt = s => s.near ? `${num(s.near.rsrp, 1)} dBm (${bandW(s.near.band)}, ${num(s.near.m, 0)} m from the site)` : "not measured within 100 m of the site";
+  function seenTile(t, c){
+    const x = seenGot(t, c); if (!x) return "";
+    const g = gap(t), who = whoOf(x.v.run);
+    const body = g || (!x.es.length ? none("No carrier known here") : per(x.es, c, e => { const s = x.got.find(y => y.carrier === e.carrier) || {n: 0};
+      return `<b class="tw-seen-w${s.verified ? " ok" : s.n ? "" : " no"}">${esc(seenWord(s))}</b>${s.n ? `: ${countTxt(s)}, ${esc(dayOf(s.last))}${who ? `, ${esc(who)}` : ""}, best ${num(s.best.rsrp, 1)} dBm on ${esc(bandW(s.best.band))}`
+        : s.state === "not seen" ? ` <span class="hint">in “${esc(x.v.run.name)}”</span>` : ""}${s.state === "not measured" || s.state === "no id" ? "" : `<br><span class="hint">Best RSRP here: ${esc(nearTxt(s))}</span>`}`; }));
+    return `<div class="tw-tile tw-seen" data-tile="seen"><div class="tw-tl">Seen on site</div><div class="tw-tv">${body}${x.v.kind === "phone" ? '<br><span class="hint">A phone’s readings: indicative.</span>' : ""}</div></div>`;
+  }
+  // a survey's serving site ("AT&T|LTE|812442") -> the tower it's on in a report (the one on screen, or the one being printed),
+  // for the square's viewer and the print; never an ex-Sprint site, as seenOf (a live T-Mobile eNB can share its number)
+  function towerOfServer(k, d = T.data){
+    if (!d || !k) return ""; const [c0, tech, x] = k.split("|"); if (!x || x.startsWith("pci ")) return "";
+    const c = c0 === "FirstNet" ? "AT&T" : c0, id = +x;
+    for (const t of towersOf(d)) for (const e of entries(t)) if (e.carrier === c) for (const s of e.sites || []) if (s.radio === tech && +s.site_id === id && !s.ex_sprint) return `the ${kindOf(t)[1]} tower ${far(t)}`;
+    return "";
+  }
+  // the run shown, hidden or filtered: an open tower or summary says what it saw now. Never one opened for it (a square's viewer
+  // stays; a closed sheet stays closed: at 412x915 Record put the summary back over the map, its legend and its status line)
+  // While recording ("more", every drain) it's drawn again only when what the open tower or summary says has changed: a tower's
+  // Seen on site said "Not seen" for the whole site walk, until Stop (review 11/12)
+  let seenSig = "";
+  function surveyChanged(map, why){
+    if (T.map !== map || !T.data || T.closed || S.tab !== "towers") return;
+    const v = window.RFResults && RFResults.get(map); if (!v || !/^tw:/.test(v.key)) return;
+    const ts = T.sel ? [findTower(T.data, T.sel)].filter(Boolean) : towersOf(T.data).filter(t => t._full);
+    const sig = ts.map(t => (RFSurveyMap.seenFor(map, entries(t)) || []).map(s => `${s.state}:${s.n}:${s.near ? s.near.rsrp : ""}:${s.best ? s.best.rsrp : ""}`).join(",")).join(";");
+    if (why === "more" && sig === seenSig) return;
+    seenSig = sig;
+    // an open tower's Seen on site tile changed in place, the rest of its viewer as it is: drawn again whole on every drain (and
+    // at Record), it shut the open "cells heard" table and band detail (review 11/12, round 2). The summary shows no Seen on site
+    if (!T.sel) { if (why !== "more") showViewer(); return; }
+    const t = findTower(T.data, T.sel), tiles = map.getContainer().querySelector(":scope > .rf-res .tw-tiles");
+    if (!t || !tiles) return showViewer();
+    const el = tiles.querySelector('[data-tile="seen"]'), tmp = document.createElement("div"); tmp.innerHTML = seenTile(t, null); const n = tmp.firstElementChild;
+    if (el && n) el.replaceWith(n); else if (el) el.remove(); else if (n) tiles.appendChild(n);
+  }
+  // the printed report's Site survey section: the run, its squares on the report's map, each carrier's towers seen or not, the
+  // bands and PCIs heard, and the serving sites the run heard that aren't on these towers
+  // Worked out from the run and the site captured when Print was pressed (sv, d): hiding the squares, loading the sample or the
+  // next address while the map image drew printed every tower Not seen, or Best RSRP here from the next site (review 11/12)
+  function siteSurveyHtml(d, cs, sv){
+    if (!sv || sv.run.sample || !window.RFSurvey) return "";
+    const run = sv.run, phone = sv.kind === "phone", rows = [], idx = RFSurvey.seenIndex(sv.all, {site: siteOf(d), near: 100});
+    for (const c of cs) for (const [t, r] of [...(c.towers || []).map((t, i) => [t, i + 1]), ...(c.stale_towers || []).map(t => [t, "old"])]) {
+      const s = RFSurvey.seenOf(idx, entries(t, c.carrier))[0] || {n: 0, bands: [], pcis: [], state: "not seen"};
+      rows.push(`<tr data-carrier="${esc(c.carrier)}" data-tw="${esc(t.id)}" data-seen="${seenAttr(s)}"><td>${esc(c.carrier)}</td><td>${r}</td><td>${esc(t.type || kindOf(t)[1])}<br>${esc(far(t))}</td>
+        <td><b>${esc(seenWord(s))}</b>${s.sites && s.sites.length ? `<br><small>${esc(s.sites.join(", "))}</small>` : ""}</td><td>${s.n ? esc(countTxt(s)) : ""}</td>
+        <td>${s.best ? `${num(s.best.rsrp, 1)} dBm ${esc(bandW(s.best.band))}` : ""}</td><td>${s.n ? esc(nearTxt(s)) : ""}</td>
+        <td>${esc((s.bands || []).map(bandW).join(" "))}</td><td class="mono">${esc((s.pcis || []).join(", "))}</td><td>${s.last ? esc(dayOf(s.last)) : ""}</td></tr>`);
+    }
+    const onT = new Set(), other = [];
+    for (const k of RFSurvey.servers(sv.all.filter(r => r.serving === 1))) { if (/\|pci /.test(k) || onT.has(k)) continue; onT.add(k); if (!towerOfServer(k, d)) other.push(k); }
+    // what the squares' image shows: its metric and what the legend's chips or Only this site left out
+    const f = sv.f || {}, F = [f.only ? `only ${RFSurveyMap.serverTxt(f.only)}` : "", f.carriers ? [...f.carriers].join(", ") : "", f.bands ? [...f.bands].map(bandW).join(" ") : "",
+      f.techs ? [...f.techs].join(", ") : ""].filter(Boolean);
+    // a metric with no line under the profile the image was judged by (RSRQ always; SINR on a profile without one, as Cooper's) is
+    // coloured lowest to highest: the caption said "against the pass line" for SINR there (review 11/12, round 2)
+    const lineless = f.metric === "rsrq" || (f.metric === "sinr" && window.RFScale && RFScale.passLine("sinr", null, "lo", sv.profile || undefined) == null);
+    const cap = f.metric === "best" ? "Squares: each one's best server's colour (the site with most readings in it); faint under 3 moments"
+      : lineless ? `Squares: each one's weakest carrier's ${f.metric === "sinr" ? "SINR" : "RSRQ"} median, coloured from the run's lowest to its highest (${f.metric === "sinr" ? "no SINR line is set for this job" : "RSRQ has no pass line"}); faint under 3 moments`
+      : `Squares: each one's weakest carrier's ${f.metric === "sinr" ? "SINR" : "RSRP"} median against the pass line (red weak, amber on the line, green good; hatched below the line; faint under 3 moments)`;
+    const first = run.started_at || (sv.all.length ? sv.all[0].ts : null), last = run.ended_at || (sv.all.length ? sv.all[sv.all.length - 1].ts : null);
+    return `<div class="twr-sec twr-survey"><h2>Site survey</h2>
+      <p style="margin:0 0 4px"><b>${esc(run.name)}</b>: ${num(sv.all.length, 0)} readings from ${esc(run.device || RFSurveyMap.srcTxt(run))}${run.created_by && run.created_by !== "local" ? `, by ${esc(run.created_by)}` : ""}${first ? `, ${esc(hmOf(first))} to ${esc(dayOf(first) === dayOf(last) ? hmOf(last).slice(11) : hmOf(last))}` : ""}.
+        ${phone ? "<b>Phone readings are indicative</b>: a phone isn't calibrated, so they never count toward a public-safety pass." : run.calibrated ? "A calibrated scanner's readings." : "A scanner's readings (not marked calibrated)."}
+        A tower is seen on site when the run's serving cells name it (carrier, technology and site ID); three or more moments verify it. Best RSRP here is the best within 100 m of the site.</p>
+      ${sv.img ? `<img src="${sv.img}" alt="Map: the survey's squares around the site" class="twr-svimg"><div class="hint">${esc(cap)}; their size is in the image's legend.${F.length ? ` <b>Showing ${esc(F.join(" · "))}</b>: other readings are left out of the image, not unmeasured.` : ""}</div>` : ""}
+      <table class="twr-seen"><thead><tr><th>Carrier</th><th>#</th><th>Tower</th><th>Seen on site</th><th>Moments (readings)</th><th>Best RSRP</th><th>Best RSRP here</th><th>Bands</th><th>PCIs</th><th>Last seen</th></tr></thead><tbody>${rows.join("")}</tbody></table>
+      ${other.length ? `<p class="hint" style="margin:2px 0">Also serving in the run, not matched to these towers: ${esc(other.slice(0, 10).map(k => RFSurveyMap.serverTxt(k)).join(", "))}${other.length > 10 ? ` and ${other.length - 10} more` : ""}.</p>` : ""}</div>`;
+  }
   // a short line of the chosen tiles for a label on the map ("My tiles")
   const tileText = (t, id) => { const col = TILE[id].cols[0]; return String(col[1](t, null) ?? "").replace(/https?:\/\/\S+/g, "").trim(); };
   const labelText = t => chosen().filter(id => !["sources", "links", "conf"].includes(id)).slice(0, 3).map(id => id === "dist" ? far(t) : tileText(t, id)).filter(Boolean).join(" · ").slice(0, 80);
@@ -255,6 +357,10 @@
       const map = L.map(el, {preferCanvas: true});
       map._rfScope = towerScope;  // before addMapLayers: Draw lists what Save keeps
       addMapLayers(map);
+      // ▦ Survey (surveymap.js, Cody 11/12): a run's squares under the towers, the carrier chips filter them too, and the run's
+      // serving readings mark the towers they came from (Seen on site)
+      if (window.RFSurveyMap) RFSurveyMap.add(map, {slot: "towers", carriers: () => T.carriers.size ? [...T.carriers] : null, site: () => T.data ? siteOf(T.data) : S.center,
+        towerOf: k => towerOfServer(k), changed: (c, why) => surveyChanged(map, why)});
       // the credit first: Leaflet stacks a bottom corner upward, so the scale bar sits above it, never under it
       const cr = L.control({position: "bottomleft"});
       cr.onAdd = () => { const el = L.DomUtil.create("div", "leaflet-control tw-credit"); L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el);
@@ -319,6 +425,7 @@
     if (map._twCredit !== now) { if (map._twCredit) map.attributionControl.removeAttribution(map._twCredit); map._twCredit = now; if (now) map.attributionControl.addAttribution(now); }
     paintCredit(map);
     placeLabels(map);
+    if (map._rfSurvey) map._rfSurvey.redraw();  // the carrier chips filter the survey's squares too (surveymap.js)
   }
   // labels hide where they'd overlap a nearer tower's label or another tower: zoomed out, a crowded area shows the nearest only
   function placeLabels(map){
@@ -366,8 +473,8 @@
         : `<p class="hint" style="margin:0">A view-only login can't top up: ask whoever runs this copy.</p>`}</div>`;
   }
   const creditsHtml = d => `<div class="tw-credits hint">${(d.attribution_lines || []).map(x => `<p>${esc(x)}</p>`).join("")}</div>`;
-  function verdictsHtml(d){
-    return `<div class="tw-verdicts">${shown(d).map(c => { const [w, cls] = LEVEL[c.verdict?.level] || [c.verdict?.level || "", ""];
+  function verdictsHtml(d, cars){
+    return `<div class="tw-verdicts">${shown(d, cars).map(c => { const [w, cls] = LEVEL[c.verdict?.level] || [c.verdict?.level || "", ""];
       return `<div class="tw-v" style="--c:${cColor(c.carrier)}" data-level="${esc(c.verdict?.level || "")}"><b>${esc(c.carrier)}</b> <span class="tw-lv ${cls}">${esc(w)}</span><div class="tw-vt">${esc(c.verdict?.text || "")}</div></div>`; }).join("")}</div>`;
   }
   const fmtR = x => x == null ? "" : String(+(+x).toFixed(x < 1 ? 2 : 1));  // a radius or a reach: 5, 20, 0.62, 1.9
@@ -467,6 +574,7 @@
     tiles: {label: "⚙ Tiles", title: "Pick and order what each tower shows (and the report's columns)", run: () => { T.picker = true; showViewer(); }},
   };
   function showViewer(){
+    if (T.enb) return showEnb();  // an eNB or gNB looked up: its answer is what the viewer shows
     const map = T.map, d = T.data; if (!map || !window.RFResults) return;
     if (!d) { RFResults.show(map, {key: `tw:wait:${T.key}`, title: "Towers", sub: esc(T.place || ""), html: T.err ? `<p class="status err">${esc(T.err)}</p>` : '<p class="status">Finding the towers…</p>',
       zoom: S.center}, S.center); return; }
@@ -499,13 +607,17 @@
   // Back on a phone closes an open tower first, as Esc does: a tower opened is one history step (the same address), and Back
   // takes it off (it left the Towers tab for the Map tab, or left DAStastic when it was opened from a link)
   const narrow = () => innerWidth < 700;
-  window.addEventListener("popstate", () => { if (S.tab === "towers" && T.sel && !history.state?.twTower) { T.sel = null; T.more = false; if (T.map && T.data) drawMap(T.map, T.data); showViewer(); } });
+  // an eNB looked up is a step the same way (enbLook)
+  window.addEventListener("popstate", () => { if (S.tab === "towers" && (T.sel || T.enb) && !history.state?.twTower) { T.sel = null; T.enb = null; T.more = false; if (T.map && T.data) drawMap(T.map, T.data); showViewer(); } });
   function pick(id){
+    // a tower opened from a lookup takes the lookup's step (one step, not two)
+    const had = !!T.enb, back = !id && !!history.state?.twTower;
     if (narrow() && id && !history.state?.twTower) history.pushState({twTower: true}, "", location.href);
-    else if (!id && history.state?.twTower) history.back();  // closed here: the step it added goes
-    T.sel = id || null; T.closed = false; T.picker = false; T.more = false; T.msg = "";
+    else if (back) history.back();  // closed here: the step it added goes
+    T.sel = id || null; T.enb = null; T.closed = false; T.picker = false; T.more = false; T.msg = "";
     if (T.map && T.data) drawMap(T.map, T.data);
     showViewer();
+    if (had && !back && window.writeUrlState) window.writeUrlState();  // the link no longer opens the lookup (going back, the step before has none)
   }
 
   /* ---------- one click each ---------- */
@@ -538,23 +650,78 @@
     }catch(err){ say(`Not saved: ${err.message}`); }
     finally{ if (btn && btn.isConnected) btn.disabled = false; }
   }
+  // a top-up at a spot: what it did in words, and (reload) that spot's report asked again. Without reload its cached report is
+  // dropped, so the next one asked there is fresh (Cell sites reads /api/cells again, not the report)
+  // OpenStreetMap's part only when it kept towers, failed, or says something a person can act on: "off on this copy" and "not in this
+  // build" (a sold copy, every team login) are said nowhere (the automatic top-up put them on every job, the printed Discovery report
+  // too, review 11/12), but a bad osm_towers.server is a settings error and is said (review 11/10; round 2)
+  const QUIET_OSM = /off on this copy|aren't in this build/i;
+  const part = (n, x) => !x ? "" : x.error ? `${n}: ${x.error}` : x.skipped ? (n === "OpenStreetMap" && QUIET_OSM.test(x.skipped) ? "" : `${n}: ${x.skipped}`)
+    : `${n}: ${num(x.rows ?? x.kept ?? 0, 0)} ${n === "OpenCelliD" ? "cells" : "towers"} kept${x.stopped ? ` (${x.stopped})` : ""}`;
+  // a top-up at a spot: what it did in words, and (reload) that spot's report asked again. Without reload its cached report is
+  // dropped, so the next one asked there is fresh. Cell sites' and Topology's cached answers there go with it, both together (a
+  // fresh area beside the sites from before it gave false reasons, round 2)
+  async function runTopup(lat, lon, reload = true){
+    const r = await post("/api/towers/topup", {lat, lon});
+    enbAns.clear();  // an eNB not found before may be in the fresh cells
+    const parts = [part("OpenCelliD", r.opencellid), part("OpenStreetMap", r.osm)].filter(Boolean), words = parts.length ? `${parts.map(x => x.replace(/\.+$/, "")).join(". ")}.` : "";
+    for (const k of [...areas.keys()]) if (k.startsWith(`${keyOf(lat, lon)},`)) areas.delete(k);
+    if (window.cellAllRefresh) window.cellAllRefresh();
+    const fresh = reload ? load(lat, lon, true) : null; if (fresh) fresh.catch(() => {}); else cache.delete(keyOf(lat, lon));
+    return {r, words, bad: !!(r.opencellid && r.opencellid.error), fresh};
+  }
+  // One top-up a spot for the page, whoever starts it: the Towers tab's Top up this area, a DAS job's pre-survey or Discovery report,
+  // Cell sites, Run it for me. A run already going is joined, never a second POST. took: the spot is covered after it (the server's
+  // own topup.due), so a run that failed or was turned away ("another fetch is running: try again in a minute") didn't take
+  const autoRuns = new Map();
+  function startRun(lat, lon, reload){
+    const k = keyOf(lat, lon), run = {done: false, words: "", bad: false, took: false, data: null};
+    run.p = runTopup(+lat, +lon, reload).then(async y => { run.words = y.words; run.bad = y.bad; run.took = !y.bad && !(y.r && y.r.topup && y.r.topup.due);
+        run.data = y.fresh ? await y.fresh.catch(() => null) : null; },
+      err => { run.words = `Top-up: ${err.message}`; run.bad = true; }).then(() => { run.done = true; landed(k, run); return run; });
+    autoRuns.set(k, run);
+    return run;
+  }
+  // A run landed: the Towers tab, when its report is at that spot, takes the report from after it (the map stays where it is), and
+  // says what it did; elsewhere the words wait for that address. Cell sites' run at the tab's pin left the tab on the report from
+  // before it, still offering a top-up (round 2)
+  function landed(k, run){
+    if (T.key !== k) { if (run.words) T.msgFor[k] = run.words; return; }
+    load(...k.split(",").map(Number)).then(nd => { if (T.key !== k) return; T.data = nd; T.msg = run.words; delete T.msgFor[k];
+      if (S.tab !== "towers") return; if (T.map) drawMap(T.map, T.data); showViewer(); }, () => {});
+  }
+  // A top-up that runs by itself where the engine says one is due (cells.topup_due, in the answer's topup), for a DAS job's
+  // pre-survey, its Discovery report and Cell sites: it replaces "fetch when no site is kept here", which never ran once the
+  // country file was in. Never for a login that can't POST (view only), nor a copy with no OpenCelliD key; once a spot for this
+  // page (the server's own rule then says the spot is covered): x = {lat, lon, topup}. Answers the run ({p, done, words, bad,
+  // took, data}) or null. o.retry (Run it for me's press): a finished run that didn't take is tried again where one is still due
+  // (it was handed back for good, round 2)
+  const dueHere = x => !!(x && x.topup && x.topup.due && x.topup.key !== false && canPost());
+  const runAt = (lat, lon) => autoRuns.get(keyOf(lat, lon)) || null;
+  function autoTopup(x, reload = true, o = {}){
+    const k = x && x.lat != null ? keyOf(x.lat, x.lon) : null; if (!k) return null;
+    const had = autoRuns.get(k);
+    if (had && (!had.done || had.took || !o.retry)) return had;
+    if (!dueHere(x)) return o.retry ? null : had || null;
+    return startRun(+x.lat, +x.lon, reload);
+  }
+  // the report at a spot once its top-up is done, for every caller there: Cell sites' run drops the cached report and a job's reloads
+  // it, so load() answers the fresh one either way (a pre-survey drawn while Cell sites' top-up ran kept the report from before it)
+  const afterTopup = (run, x) => run.p.then(() => load(x.lat, x.lon));
+  // what a job's tower block says of the top-up: running, what it did, or why it can't run where one is due
+  function topupNote(x, run){
+    if (run) return run.done ? run.words : "Getting fresh cell data (OpenCelliD)…";
+    const tp = (x && x.topup) || {}; if (!tp.due) return "";
+    return tp.key === false ? "Fresher cell data would help here, but this copy has no OpenCelliD key: its admin adds one in Data & updates."
+      : !canPost() ? "Fresher cell data would help here. A view-only login can't top up: ask whoever runs this copy." : "";
+  }
+  // Top up this area: the spot's run already going is joined; else a new one (pressed, so a finished one that didn't take is tried
+  // again). What it did and the report from after it come through landed(), here or when this address is back on the tab
   async function topup(btn){
     if (!canPost()) return say("A view-only login can't top up: ask whoever runs this copy.");
-    const d = T.data, k = T.key; if (!d) return; const [lat, lon] = siteOf(d); btn.disabled = true; btn.textContent = "Topping up…";
-    const part = (n, x) => !x ? "" : x.error ? `${n}: ${x.error}` : x.skipped ? `${n}: ${x.skipped}` : `${n}: ${num(x.rows ?? x.kept ?? 0, 0)} ${n === "OpenCelliD" ? "cells" : "towers"} kept${x.stopped ? ` (${x.stopped})` : ""}`;
-    try{
-      const r = await post("/api/towers/topup", {lat, lon});
-      const words = `${[part("OpenCelliD", r.opencellid), part("OpenStreetMap", r.osm)].filter(Boolean).map(x => x.replace(/\.+$/, "")).join(". ")}.`;
-      // this address's report is asked again whichever address is on screen now, and what the top-up did is kept for it: moving on
-      // while it ran left the old answer cached (a print from it, the top-up offered again) and the words were lost
-      const fresh = load(lat, lon, true); fresh.catch(() => {});
-      T.msgFor[k] = words;
-      if (T.key !== k) return;
-      const nd = await fresh; if (T.key !== k) return;
-      T.data = nd; T.msg = words; delete T.msgFor[k];
-      if (T.map) drawMap(T.map, T.data);
-      showViewer();
-    }catch(err){ if (T.key === k) say(`Top-up: ${err.message}`); else T.msgFor[k] = `Top-up: ${err.message}`; }
+    const d = T.data; if (!d) return; const [lat, lon] = siteOf(d); btn.disabled = true; btn.textContent = "Topping up…";
+    const had = runAt(lat, lon), run = had && !had.done ? had : startRun(lat, lon, true);
+    try{ await run.p; }
     // a top-up that failed or finished leaves its button ready again (it stayed disabled at "Topping up…")
     finally{ if (btn.isConnected) { btn.disabled = false; btn.textContent = "Top up this area"; } }
   }
@@ -572,6 +739,188 @@
     else done(false);
     return url;
   }
+
+  /* ---------- an eNB or gNB by its number (Andy Masur verifies a tower by the eNB his test phone or CellMapper shows; at Monroe NY
+     the AT&T rooftop is eNB 812442. Cody 11/12: "eNB 812442", "gNB 1234567" or a bare 6 or 7 digit number in the Towers tab's
+     box shows that site). search.js hands what's typed here instead of geocoding it. Per carrier (the chips on, else all three)
+     GET /api/towers/enb (towerfuse.site_by_id) gives every site under that number in this copy's crowd data and the tower the
+     engine puts it on. The answer is in the viewer and the map holds still; the tower is the map's selection (as a click makes
+     it) when it's in the report on screen ---------- */
+  const ENB_MAX = (1 << 20) - 1;  // an eNB ID is 20 bits (36.413): a bare number over it can only be a gNB
+  // towerfuse.site_by_id's own pattern: "eNB" or "gNB", maybe "#", then one number, maybe in thousands ("812,442", "812 442")
+  const ENB_PRE = /^\s*([eg])nb\s*#?\s*(?=\d)/i, ENB_NUM = /^\s*(?:[eg]nb\s*#?\s*)?(\d{1,3}(?:([,. ])\d{3})(?:\2\d{3})*|\d+)\s*$/i;
+  // what's typed, as a lookup, or null for an address: "eNB" or "gNB" with a number after it, whatever follows that (the server says
+  // what's wrong with a bad number), or a bare 6 or 7 digit number. A bare 5 digits is a ZIP and fewer a house number, and "ENB" or
+  // "GNB" with no number after it a place's name (ENB Financial, GNB Bank: review 11/12): those are geocoded as before
+  function enbOf(text){
+    const s = String(text ?? "").trim(), pre = ENB_PRE.exec(s), m = ENB_NUM.exec(s); if (!pre && !m) return null;
+    const digits = m ? m[1].replace(/[,. ]/g, "") : "";
+    if (!pre && !/^\d{6,7}$/.test(digits)) return null;
+    const id = digits ? +digits : null, nr = pre ? pre[1].toLowerCase() === "g" : id > ENB_MAX, word = nr ? "gNB" : "eNB";
+    return {q: pre ? s : digits, id, radio: nr ? "NR" : "LTE", word, label: id != null ? `${word} ${id}` : s, bare: !pre};
+  }
+  const enbCars = () => T.carriers.size ? BIG3.filter(c => T.carriers.has(c)) : [...BIG3];
+  const enbKey = (e, c) => `${e.radio}|${e.id ?? e.q.toLowerCase()}|${c}`;
+  const enbAns = new Map();  // enbKey -> {c, v: the answer, err: what went wrong, done}
+  // each carrier's answer, asked once per lookup typed (enbLook drops the ones kept; a top-up drops them too: runTopup), kept for the
+  // viewer drawn again and a chip turned on
+  function enbAsk(e){
+    for (const c of enbCars()) {
+      const k = enbKey(e, c); if (enbAns.has(k)) continue;
+      const x = {c, v: null, err: "", done: false}; enbAns.set(k, x);
+      if (enbAns.size > 60) enbAns.delete(enbAns.keys().next().value);
+      const ctl = typeof AbortController === "function" ? new AbortController() : null, timer = ctl ? setTimeout(() => ctl.abort(), WAIT.ms) : 0;
+      api(`/api/towers/enb?q=${encodeURIComponent(e.q)}&carrier=${encodeURIComponent(c)}${e.radio === "NR" ? "&radio=NR" : ""}`, ctl ? {signal: ctl.signal} : undefined)
+        .then(v => { x.v = v; }, err => { x.err = ctl && ctl.signal.aborted ? `no answer in ${Math.round(WAIT.ms / 1000)} s: look it up again`
+          : /runs on the PC only/.test(err && err.message || "") ? errTxt(err) : (err && err.message) || String(err); })
+        .finally(() => { clearTimeout(timer); x.done = true; if (S.tab === "towers" && T.enb && enbKey(T.enb, c) === k) showViewer(); });
+    }
+  }
+  const enbRows = e => enbCars().map(c => ({c, x: enbAns.get(enbKey(e, c))}));  // each carrier's answer (x: none yet while asked)
+  const enbSites = e => enbRows(e).flatMap(({x}) => x && x.v ? x.v.sites || [] : []);
+  const posOf = s => s.tower && s.tower.lat != null ? [+s.tower.lat, +s.tower.lon] : [+s.crowd_at.lat, +s.crowd_at.lon];
+  // from a to b as the engine says it (geo.py: haversine, bearing from true north, its 16 points)
+  const POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  function legOf(a, b){
+    const r = Math.PI / 180, p1 = a[0] * r, p2 = b[0] * r, dl = (b[1] - a[1]) * r;
+    const h = Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2, km = 2 * 6371.0088 * Math.asin(Math.min(1, Math.sqrt(h)));
+    const brg = (Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)) / r + 360) % 360;
+    return {dist_mi: Math.round(km / 1.609344 * 100) / 100, bearing: Math.round(brg) % 360, compass: POINTS[Math.floor((brg + 11.25) / 22.5) % 16]};
+  }
+  // where a site's tower is in the report on screen: {rank, txt, id: the tower on its map, t: the report's own entry for it}. By the
+  // tower's id, or by the site's key among a tower's sites (an estimate's id is its first site's key, which the area round the pin
+  // may make another site's)
+  function enbPlace(s, d){
+    if (!d) return {txt: !S.center ? "No report yet: type an address to see where it ranks." : T.err ? "No report here to place it in." : "The report here is still coming.", id: null, t: null};
+    const c = (d.carriers || []).find(x => x.carrier === s.carrier), tw = s.tower, n = d.n || 3, ts = (c && c.towers) || [];
+    const hit = t => (!!tw && t.id === tw.id) || markSites(t).includes(s.key);
+    const i = ts.findIndex(hit);
+    if (i >= 0) return {rank: i + 1, txt: ts.length > 1 ? `#${i + 1} of ${s.carrier}'s ${ts.length} closest` : `#1: ${s.carrier}'s closest`, id: ts[i].id, t: ts[i]};
+    const st = c && (c.stale_towers || []).find(hit);
+    if (st) return {txt: `Listed apart as an old ${s.carrier} tower (readings over 3 years old), not one of its ${n} closest`, id: st.id, t: st};
+    const m = tw && towersOf(d).find(t => t.id === tw.id);
+    if (m) return {txt: `On this report's map, not one of ${s.carrier}'s ${n} closest`, id: m.id, t: m};
+    return {txt: `Not in this report: not one of ${s.carrier}'s ${n} closest${c && c.searched_mi ? `, searched to ${fmtR(c.searched_mi)} mi` : ""}`, id: null, t: null};
+  }
+  // the lookup's tower picked out on the map when it's in the report on screen (the first carrier's that is): true when it changed
+  const enbMark = () => { const e = T.enb, d = T.data; if (!e || !d) return false;
+    const id = enbSites(e).map(s => enbPlace(s, d).id).find(Boolean) || null; if (T.sel === id) return false; T.sel = id; return true; };
+  // CellMapper's map at a spot on a carrier's network, to compare by eye: a link only, DAStastic never reads it
+  const MAIN_NET = {"AT&T": "310-410", "Verizon": "311-480", "T-Mobile": "310-260"};
+  const cellmapper = (plmn, radio, at) => { const [mcc, mnc] = String(plmn || "").split("-"), p = new URLSearchParams();
+    if (mcc && mnc) { p.set("MCC", mcc); p.set("MNC", String(+mnc)); } p.set("type", radio === "NR" ? "NR" : "LTE");
+    if (at) { p.set("latitude", (+at[0]).toFixed(6)); p.set("longitude", (+at[1]).toFixed(6)); p.set("zoom", "15"); }
+    return `https://www.cellmapper.net/map?${p}`; };
+  function enbCard(e, s, d, many, i){
+    const tw = s.tower, at = posOf(s), p = enbPlace(s, d), leg = !S.center ? null : p.t && p.t.dist_mi != null ? p.t : legOf(S.center, at);
+    const tile = (l, h) => `<div class="tw-tile"><div class="tw-tl">${esc(l)}</div><div class="tw-tv">${h}</div></div>`;
+    const btn = (k, l, why) => `<button type="button" data-twe="${k}" data-i="${i}" title="${esc(why)}">${l}</button>`;
+    const canMark = many && !!T.map && typeof T.map._rfMark === "function" && (!window.RFMarkup || RFMarkup.canEdit(T.map)), name = `${s.carrier} ${s.site_kind || e.word} ${s.site_id}`;
+    return `<div class="tw-enbc" data-carrier="${esc(s.carrier)}" data-tw="${esc(tw ? tw.id : "")}" data-lat="${at[0]}" data-lon="${at[1]}" style="--c:${cColor(s.carrier)}">
+      <div class="tw-rank">${chip(s.carrier)} ${esc(s.site_kind || e.word)} ${esc(s.site_id)}${p.rank ? ` <span class="tw-enb-r">#${p.rank}</span>` : ""} <span class="hint mono">${esc((s.plmns || []).join(", "))}</span></div>
+      <div class="tw-tiles">${tile("The site", `${num(s.cells, 0)} cell${s.cells === 1 ? "" : "s"} · ${num(s.samples, 0)} samples<br>last heard ${esc(String(s.last || "not on file").slice(0, 10))}<br><span class="hint">where the crowd puts it may be off by about ${num(s.sigma_m, 0)} m</span>`)}
+        ${tw ? tile("Type", TILE.type.html(tw)) + tile("Owner", TILE.owner.html(tw)) + tile("Height", TILE.height.html(tw)) : tile("The tower it's on", none("Not placed on a tower: the engine puts this site on no structure"))}
+        ${tile("Distance and bearing", leg ? `${TILE.dist.html(leg)}<br><span class="hint">from the pin</span>` : none("No pin yet: Run the report here puts one at it"))}
+        ${tile("In this report", `${esc(p.txt)}${p.id ? `<br>${btn("open", "What's on it", "This tower's tiles from the report; the map stays where it is")}` : ""}`)}</div>
+      <div class="tw-acts tw-more" role="group" aria-label="${esc(name)}">${many && T.map ? btn("zoom", "Zoom to", "Zoom the map to this one (the only thing here that moves the map)") : ""}${btn("here", "Run the report here", "Move the pin to this tower and run the tower report there")}${btn("street", "Street View ↗", "Google Street View at the tower, in a new tab")}<a href="${esc(cellmapper((s.plmns || [])[0] || MAIN_NET[s.carrier], s.radio || e.radio, at))}" target="_blank" rel="noopener" title="CellMapper at the tower, in a new tab, to compare by eye (DAStastic never reads it)">CellMapper ↗</a>${canMark ? btn("mark", "Mark it", `A marker here, named “${name}”: the pin and the map stay where they are`) : ""}</div></div>`;
+  }
+  // a lookup with nothing in this copy's crowd data: a top-up near the site may bring its cells in, where this copy can top up (an
+  // OpenCelliD key, a login that can POST); the button where one is due at the pin
+  function enbTopHtml(d){
+    const tp = (d && d.topup) || {}; if (!tp.key || !canPost()) return "";
+    return `<p class="hint tw-enb-top">A top-up near the site may bring it in: fresh OpenCelliD cells within about 3 mi of the pin. ${tp.due ? '<button type="button" data-twtop>Top up this area</button>'
+      : `${tp.why ? `None is due at this pin now (${esc(tp.why)}): ` : ""}put the pin nearer the site, then Top up this area.`}</p>`;
+  }
+  function enbHtml(e, d){
+    const rows = enbRows(e), many = enbSites(e).length > 1, wait = rows.filter(r => !r.x || !r.x.done).length;
+    const errs = rows.filter(r => r.x && r.x.done && r.x.err), same = !!errs.length && errs.length === rows.length && new Set(errs.map(r => r.x.err)).size === 1;
+    let i = 0;
+    const body = same ? `<p class="status err">${esc(e.label)}: ${esc(errs[0].x.err)}</p>` : rows.map(({c, x}) => {
+      if (!x || !x.done) return `<p class="status" data-carrier="${esc(c)}">${esc(c)}: looking it up…</p>`;
+      if (x.err) return `<p class="status err" data-carrier="${esc(c)}">${esc(c)}: ${esc(x.err)}</p>`;
+      const ss = (x.v && x.v.sites) || [];
+      return ss.length ? ss.map(s => enbCard(e, s, d, many, i++)).join("")
+        : `<div class="tw-v tw-enb-none" style="--c:${cColor(c)}" data-carrier="${esc(c)}">${esc(e.label)}: no ${esc(c)} cells in this copy's crowd data. ${link(cellmapper(MAIN_NET[c], e.radio, S.center), "CellMapper ↗")}</div>`; }).join("");
+    // the credits: every carrier's answer's lines, once each (a carrier's answer names WiGLE only when its own cells came from it)
+    const nf = rows.some(r => r.x && r.x.done && r.x.v && !(r.x.v.sites || []).length), lines = [...new Set(rows.flatMap(r => (r.x && r.x.v && r.x.v.attribution_lines) || []))];
+    return `<div class="tw-enb" data-pending="${wait}">${msgHtml()}${body}${nf ? enbTopHtml(d) : ""}${e.radio === "NR" ? '<p class="hint">A gNB number is read as a 24-bit gNB ID.</p>' : ""}${lines.length ? creditsHtml({attribution_lines: lines}) : ""}</div>`;
+  }
+  function showEnb(){
+    const e = T.enb, d = T.data, map = T.map, pv = $("#view"); if (!e || !window.RFResults) return;
+    const host = map || (S.tab === "towers" ? pv : null); if (!host) return;
+    if (map && pv) RFResults.close(pv, false);  // the lookup shown before the pin's map was there
+    enbAsk(e);  // a carrier whose chip went on since is asked too
+    if (enbMark() && map && d) drawMap(map, d);
+    const ss = enbSites(e), one = ss.length === 1 ? ss[0] : null, pts = ss.map(posOf), cs = enbCars();
+    const u = one && one.tower && one.tower.kind === "estimated" && one.tower.uncertainty_m;
+    const box = () => { const b = L.latLng(pts[0][0], pts[0][1]).toBounds(u * 2.2); return [[b.getSouth(), b.getWest()], [b.getNorth(), b.getEast()]]; };
+    const v = RFResults.show(host, {key: `tw:enb:${enbKey(e, cs.join(","))}`, label: e.label, title: esc(e.label), sub: `${esc(andList(cs))} in this copy's crowd data · the map stays where it is`,
+      html: enbHtml(e, d), zoom: pts.length ? () => T.enbFocus || (u ? box() : pts.length > 1 ? pts : pts[0]) : null, zoomLevel: 16,
+      mark: one ? posOf(one) : false, markName: one ? `${one.carrier} ${one.site_kind || e.word} ${one.site_id}` : undefined,
+      actions: [...(d ? [{label: "← All towers", title: "Back to the summary", run: () => pick(null)}] : []), ACT.share], onClose: enbClose}, one ? posOf(one) : S.center || undefined);
+    wireEnb(v?.body);
+  }
+  function wireEnb(body){
+    if (!body) return;
+    body.onclick = ev => {
+      const top = ev.target.closest("[data-twtop]"); if (top) { topup(top); return; }
+      const b = ev.target.closest("[data-twe]"), s = b && T.enb && enbSites(T.enb)[+b.dataset.i]; if (!s) return;
+      const k = b.dataset.twe, at = posOf(s);
+      if (k === "here") reportHere(s);
+      else if (k === "street") window.open(street({lat: at[0], lon: at[1]}), "_blank", "noopener");
+      else if (k === "open") { const p = enbPlace(s, T.data); if (p.id) pick(p.id); }
+      else if (k === "zoom") { const h = T.map && RFResults.get(T.map); if (h) { T.enbFocus = at; try{ h.zoomTo(); } finally { T.enbFocus = null; } } }
+      else if (k === "mark") markSite(s, b);
+    };
+  }
+  async function markSite(s, b){
+    if (b.disabled || !T.map || typeof T.map._rfMark !== "function") return; b.disabled = true;
+    const at = posOf(s);
+    try{ if (await T.map._rfMark(L.latLng(at[0], at[1]), `${s.carrier} ${s.site_kind || "eNB"} ${s.site_id}`)) { b.textContent = "✓ Marked"; return; } }
+    catch(err){ say(`Not marked: ${err.message}`); }
+    if (b.isConnected) b.disabled = false;
+  }
+  // a lookup typed in the box (search.js), picked from its list, or from a link: in the viewer, the map where it is. A step Back
+  // takes off on a phone, as a tower opened is
+  function enbLook(text){
+    const e = text && typeof text === "object" ? text : enbOf(text); if (!e) return false;
+    // asked again when typed: a not-found may be in now (an import, a capture, a country file: not only a top-up here, review 11/12);
+    // a chip turned on or the viewer drawn again uses what's kept
+    for (const [k, x] of [...enbAns]) if (x.done) enbAns.delete(k);
+    if (narrow() && !history.state?.twTower) history.pushState({twTower: true}, "", location.href);
+    T.enb = e; T.enbGen = S.searchGen || 0; T.sel = null; T.closed = false; T.picker = false; T.more = false; T.msg = "";
+    enbAsk(e);
+    if (T.map && T.data) drawMap(T.map, T.data);
+    showViewer();
+    if (narrow()) toMap();
+    if (window.writeUrlState) window.writeUrlState();
+    return true;
+  }
+  // closed (✕, Esc): nothing in the viewer and the tower no longer picked out, as a tower closed
+  function enbClose(){
+    T.enb = null; T.sel = null; T.closed = true;
+    if (T.map && T.data) drawMap(T.map, T.data);
+    if (history.state?.twTower) history.back(); else if (window.writeUrlState) window.writeUrlState();
+  }
+  // Run the report here: the pin to the site's tower (else where the crowd puts the site), a new search location, so its report is
+  // fitted as a search's is. On a phone the lookup's Back step goes first, so the search's link isn't written into a step Back leaves
+  function reportHere(s){
+    const at = posOf(s), tw = s.tower;
+    const label = `${s.carrier} ${s.site_kind || "eNB"} ${s.site_id}${tw && tw.registration ? ` (FCC ${tw.registration.number})` : tw && tw.kind === "estimated" ? " (estimated)" : ""}`;
+    const go = () => { setMode("point"); $("#loc").value = `${at[0].toFixed(6)}, ${at[1].toFixed(6)}`; $("#locLabel").textContent = `📍 ${label}`; S.placeLabel = label;
+      $("#locWrap")?.classList.remove("typed"); runSearch(); };
+    T.enb = null; T.sel = null;
+    if (!history.state?.twTower) return go();
+    let done = false; const fin = () => { if (done) return; done = true; window.removeEventListener("popstate", fin); go(); };
+    window.addEventListener("popstate", fin); setTimeout(fin, 500); history.back();
+  }
+  // a link's enb= (#tab=towers&lat&lon&…&enb=812442): the lookup opens over the report at the link's pin (pin: the link has one, whose
+  // search runs next and is the lookup's own); a bare number there is an eNB whatever its length
+  function enbFromLink(v, pin){
+    const e = enbOf(/^\s*\d+\s*$/.test(String(v ?? "")) ? `eNB ${v}` : v); if (!e) return;
+    T.enb = e; T.enbGen = (S.searchGen || 0) + (pin ? 1 : 0); T.closed = false;
+  }
+  const enbLink = e => e.id == null ? e.q : e.radio === "NR" ? `gNB ${e.id}` : String(e.id);
 
   /* ---------- the CSV: the chosen tiles' columns first, then every other column ---------- */
   function csv(d = T.data, ids = chosen(), o = {}){
@@ -626,8 +975,9 @@
     const ids = o.tiles || chosen(), cs = shown(d, o.carriers), place = o.place ?? T.place ?? "", who = o.who ?? (S.remote?.user || S.me?.user || "");
     const cols = ids.map(id => `<th>${esc(tileLabel(id))}</th>`).join("");
     const decl = declOf(d), mark = t => `${kindOf(t)[0]}${t.kind === "estimated" && t.uncertainty_m ? `<br><small>est. ±${num(t.uncertainty_m, 0)} m</small>` : ""}`;
-    const cell = (id, t, c) => TILE[id].html({...t, _full: true, _decl: decl}, c).replace(/<div class="tw-bandinfo[^>]*><\/div>/g, "")
-      .replace(/<button type="button" class="tw-band([^"]*)"[^>]*>([^<]*)<\/button>/g, (m, cls, b) => `<span class="twr-b${/lic/.test(cls) ? " lic" : ""}">${b}${/old/.test(cls) ? " (old)" : ""}</span>`);
+    const cell = (id, t, c) => plainTile(id, t, c, decl);
+    // printed from a job: each tower's ✓/✗ from the site visit (cellular.towers_verified), in its row and in Verify on site
+    const marks = o.marks || null, seen = t => { const m = markOf(t, marks, d); return m ? esc(seenTxt(m[1])) : ""; };
     const vrows = cs.flatMap(c => [...(c.towers || []).map((t, i) => [c, t, i + 1]), ...namedStale(c).map(t => [c, t, "old"])]);
     const printedTowers = [...new Map([...nearest(d, 3, o.carriers), ...cs.flatMap(c => c.stale_towers || [])].map(t => [t.id, t])).values()];
     return `<div class="twr"><style>.twr{font:11.5px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#000;background:#fff}.twr h1{font-size:20px;margin:0 0 2px}.twr h2{font-size:14px;margin:14px 0 4px}
@@ -637,17 +987,18 @@
       .twr-verdicts b{font-size:13px}.twr img{width:100%;border:1px solid #888;border-radius:4px}.twr-b{display:inline-block;border:1px solid #888;border-radius:4px;padding:0 4px;margin:1px}.twr-b.lic{color:#555;border-style:dashed}
       .tw-cc{display:inline-block;border:1px solid var(--c);border-left:6px solid var(--c);border-radius:4px;padding:0 4px;margin:1px}.tw-k,.twr small{color:#444}.tw-src{margin:0;padding-left:14px}
       .tw-sec{display:inline-block;margin-right:4px}.tw-sec.face{font-weight:700}.twr .box{display:inline-block;min-width:54px;border-bottom:1px solid #000;height:14px}
-      .twr-sec{break-inside:avoid}.twr-carrier tr,.twr-verify tr{break-inside:avoid}.tw-who{font-weight:600}.twr-old{margin-top:3px;color:#6b4400}
+      .twr-sec{break-inside:avoid}.twr-survey{break-inside:auto}.twr-svimg{width:100%;border:1px solid #888;border-radius:4px;margin:4px 0}.twr-seen tr{break-inside:avoid}.twr-carrier tr,.twr-verify tr{break-inside:avoid}.tw-who{font-weight:600}.twr-old{margin-top:3px;color:#6b4400}
       @media print{body.print-das #dasPrint .twr td,body.print-das #dasPrint .twr th{overflow-wrap:break-word}}</style>
       <div class="twr-head"><div><h1>Tower report</h1><div><b>Site:</b> ${esc(place || "the pin")}</div><div><b>Address / position:</b> ${esc(place ? `${place} · ` : "")}<span class="mono">${(+d.lat).toFixed(5)}, ${(+d.lon).toFixed(5)}</span></div></div>
-        <div style="text-align:right"><div><b>Date:</b> ${esc(o.date || today())}</div><div><b>Prepared by:</b> ${who ? esc(who) : '<span class="box" style="min-width:140px"></span>'}</div>${S.mission?.name ? `<div><b>Mission:</b> ${esc(S.mission.name)}</div>` : ""}
+        <div style="text-align:right"><div><b>Date:</b> ${esc(o.date || today())}</div><div><b>Prepared by:</b> ${who ? esc(who) : '<span class="box" style="min-width:140px"></span>'}</div>${o.job ? `<div><b>DAS job:</b> ${esc(o.job)}</div>` : S.mission?.name ? `<div><b>Mission:</b> ${esc(S.mission.name)}</div>` : ""}
           <div class="hint twr-cover">${esc(coverTxt(d, cs))}</div></div></div>
       <div class="twr-sec"><div class="twr-verdicts">${cs.map(c => `<div style="--c:${cColor(c.carrier)}"><b>${esc(c.carrier)}</b>: ${esc((LEVEL[c.verdict?.level] || [c.verdict?.level || ""])[0])}<br>${esc(c.verdict?.text || "")}</div>`).join("")}</div></div>
       ${o.img ? `<div class="twr-sec" style="margin-top:8px"><img src="${o.img}" alt="Map: the site, the towers and the bearing to each"><div class="hint">The site (pin), the towers (■ registered, ▲ mapped, ◆ licensed site, ○ estimated with its uncertainty bubble) and a bearing line from the site to each carrier's 3 closest. ${(d.attribution_lines || []).map(esc).join(" ")}</div></div>` : o.imgWhy ? `<p class="hint">No map image this time: ${esc(o.imgWhy)}.</p>` : ""}
       ${cs.map(c => `<div class="twr-sec"><h2 data-carrier="${esc(c.carrier)}">${esc(c.carrier)}: ${esc(headOf(c, d)[0])} <span class="hint">${esc(headOf(c, d)[1])}</span></h2>
-        ${(c.towers || []).length || (c.stale_towers || []).length ? `<table class="twr-carrier" data-carrier="${esc(c.carrier)}"><thead><tr><th>#</th>${cols}</tr></thead><tbody>
-          ${[...(c.towers || []).map((t, i) => [t, i + 1]), ...(c.stale_towers || []).map(t => [t, "old"])].map(([t, r]) => `<tr><td>${r} ${mark(t)}</td>${ids.map(id => `<td>${cell(id, t, c.carrier)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
+        ${(c.towers || []).length || (c.stale_towers || []).length ? `<table class="twr-carrier" data-carrier="${esc(c.carrier)}"><thead><tr><th>#</th>${cols}${marks ? "<th>Seen on site</th>" : ""}</tr></thead><tbody>
+          ${[...(c.towers || []).map((t, i) => [t, i + 1]), ...(c.stale_towers || []).map(t => [t, "old"])].map(([t, r]) => `<tr><td>${r} ${mark(t)}</td>${ids.map(id => `<td>${cell(id, t, c.carrier)}</td>`).join("")}${marks ? `<td class="twr-seen">${seen(t)}</td>` : ""}</tr>`).join("")}</tbody></table>`
           : `<p class="hint">${esc(c.verdict?.text || "")}</p>`}</div>`).join("")}
+      ${siteSurveyHtml(d, cs, o.survey)}
       <div class="twr-sec twr-verify"><h2>Verify on site</h2>
         <p class="hint" style="margin:0 0 4px">With the test phones and the PCTEL: look for these channels and their PCIs, point the donor antenna on the ${decl != null ? `magnetic bearing with a hand compass (declination here ${esc(declTxt(decl))}, NOAA WMM2025; the true bearing is for a map)` : "bearing (true north: this copy can't work out the magnetic one here)"}, and write down what you read. ${esc((cs[0]?.verdict?.text || "").match(/A roof reading decides[^.]*\./)?.[0] || "A roof reading decides.")} Estimated towers are estimates: their bubble shows how far off they may be.</p>
         <table><thead><tr><th>Carrier</th><th>#</th><th>Tower</th><th>Look for: channel and PCIs</th><th>Donor bearing</th><th>Test phone RSRP / SINR</th><th>PCTEL RSRP / SINR</th><th>Seen</th></tr></thead><tbody>
@@ -655,7 +1006,8 @@
           return `<tr data-carrier="${esc(c.carrier)}" data-tw="${esc(t.id)}"><td>${esc(c.carrier)}</td><td>${r}</td><td>${esc(t.type || kindOf(t)[1])}${t.registration ? `, FCC ${esc(t.registration.number)}` : ""}<br>${esc(far(t))}</td>
             <td class="twr-look">${v.look.map(esc).join("<br>") || (v.old ? "" : '<span class="hint">nothing in the crowd data</span>')}${v.old ? `<div class="twr-old">⚠ ${esc(v.old)}</div>` : ""}</td>
             <td class="twr-brg">${m != null ? `<b>${esc(m)}° magnetic</b><br>${esc(t.bearing ?? "")}° true · ${esc(t.compass || "")}` : `<b>${esc(t.bearing ?? "")}° true</b> ${esc(t.compass || "")}`}</td>
-            <td><span style="white-space:nowrap"><span class="box"></span> dBm</span><br><span style="white-space:nowrap"><span class="box"></span> dB</span></td><td><span style="white-space:nowrap"><span class="box"></span> dBm</span><br><span style="white-space:nowrap"><span class="box"></span> dB</span></td><td>☐</td></tr>`; }).join("")}</tbody></table></div>
+            <td><span style="white-space:nowrap"><span class="box"></span> dBm</span><br><span style="white-space:nowrap"><span class="box"></span> dB</span></td><td><span style="white-space:nowrap"><span class="box"></span> dBm</span><br><span style="white-space:nowrap"><span class="box"></span> dB</span></td><td class="twr-seen">${seen(t) || "☐"}</td></tr>`; }).join("")}</tbody></table></div>
+      ${marks ? `<div class="twr-sec">${lostHtml(lostMarks(d, marks), "h2")}</div>` : ""}
       <div class="twr-sec twr-credits"><h2>Sources and credits</h2>${(d.attribution_lines || []).map(x => `<p style="margin:2px 0">${esc(x)}</p>`).join("")}
         <ul style="margin:4px 0;padding-left:16px">${printedTowers.flatMap(t => (t.sources || []).map(s => [t, s])).map(([t, s]) => `<li>${esc(far(t))}: ${link(s.url, esc(s.name))}${s.date ? `, ${esc(String(s.date).slice(0, 10))}` : ""}${s.what ? ` <span class="hint">(${esc(s.what)})</span>` : ""}</li>`).join("")}</ul>
         <p class="hint">DAStastic's tower engine ${esc(d.params_version || "")}. Crowd positions are where phones were, not the tower: DAStastic matches each carrier's site to the FCC registered or mapped structure it most likely sits on, or estimates it. ${esc(d.licensed_note || "")}</p></div></div>`;
@@ -686,17 +1038,21 @@
     g.restore();
     return {footer: left, scale: bars.map(b => b[0]), width: cv.width};
   }
-  async function mapImage(d, cars = T.carriers){
+  // sv: the survey run on the Towers map (RFSurveyMap.view), whose squares get an image of their own on the same map for the
+  // Site survey section (mapImage.svImg): drawn from the tiles that map already has, so it costs no fetch
+  async function mapImage(d, cars = T.carriers, sv = null){
     if (typeof L === "undefined" || !window.RFMapExport) { mapImage.why = "no map library on this page"; return null; }
-    mapImage.why = "";
+    mapImage.why = ""; mapImage.svImg = null;
     const box = document.createElement("div");
     box.style.cssText = "position:fixed;left:-12000px;top:0;width:960px;height:560px";
     document.body.appendChild(box);
     let map = null;
     try{
       map = L.map(box, {preferCanvas: true, zoomControl: false, fadeAnimation: false, zoomAnimation: false, markerZoomAnimation: false, inertia: false});
-      const pref = mapPrefs(), cfg = BASEMAPS[pref.base] || BASEMAPS["Street (OpenStreetMap)"];
-      const bl = (cfg ? baseLayer(cfg) : L.tileLayer("/tiles/osm/{z}/{x}/{y}.png", {attribution: "© OpenStreetMap contributors"})).addTo(map);
+      // the base the screen shows (baseShown: a sold copy's stand-in for a saved base it can't show), never the saved one as it
+      // is: a sold copy whose saved base was OpenStreetMap's own tiles, which the server refuses it, printed a blank map (11/12)
+      const cfg = BASEMAPS[baseShown(mapPrefs().base)] || BASEMAPS[baseDefault()];
+      const bl = baseLayer(cfg).addTo(map);
       L.control.scale({imperial: true, metric: true}).addTo(map);
       const ts = nearest(d, 3, cars), site = siteOf(d);
       map.fitBounds(L.latLngBounds([site, ...ts.map(t => [t.lat, t.lon])]).pad(0.15), {maxZoom: 16, animate: false});
@@ -716,22 +1072,177 @@
       if (!sharp) r = await RFMapExport.compose(map, 2, {fromMap: true}).catch(() => null);
       if (!r || !r.cv) { mapImage.why = "its map tiles didn't arrive"; return null; }
       mapImage.last = {...stampImage(map, r.cv, 2, site), sharp, ms: Date.now() - t0};
-      return r.cv.toDataURL("image/jpeg", .88);
+      const out = r.cv.toDataURL("image/jpeg", .88);
+      // the squares' image: the same map fitted to the site and the run's readings within 2 mi of it (the towers' view made them
+      // specks), its own tiles given up to 6 s, then drawn from them as the map shows them (no fetch)
+      if (sv && window.RFSurveyMap) try{
+        const k = Math.cos(site[0] * Math.PI / 180), near = sv.rs.filter(r => r.serving >= 1 && Math.hypot(r.lat - site[0], (r.lon - site[1]) * k) * 111320 <= 3219);
+        if (near.length) { const b = L.latLngBounds([site, site]); for (const r of near) b.extend([r.lat, r.lon]);
+          map.fitBounds(b.pad(0.12), {maxZoom: 17, animate: false});
+          await new Promise(r2 => { const fin = () => { clearTimeout(tm); r2(); }, tm = setTimeout(fin, 6000); bl.once("load", fin); setTimeout(() => { if (!bl.isLoading()) fin(); }, 150); }); }
+        const undo = RFSurveyMap.draw(map, {...sv, carriers: () => cars.size ? [...cars] : null, site: () => site});
+        const r2 = await RFMapExport.compose(map, 2, {fromMap: true}); undo(); if (r2 && r2.cv) { stampImage(map, r2.cv, 2, site); mapImage.svImg = r2.cv.toDataURL("image/jpeg", .88); } }
+        catch(err){ mapImage.svImg = null; /* the section prints without its map */ }
+      return out;
     }catch(err){ mapImage.why = err.message || String(err); return null; }
     finally{ try{ if (map) map.remove(); }catch(e){ /* already gone */ } box.remove(); }
   }
   // the report as it is when the button is pressed: its answer, address, carriers and tiles are taken now, so a next address picked
   // while the map image draws (up to 45 s on a slow connection) never puts its name over this site's towers
-  async function print(btn){
-    const d = T.data; if (!d) return;
-    const o = {place: T.place, carriers: new Set(T.carriers), tiles: chosen(), who: S.remote?.user || S.me?.user || ""};
+  // A caller with its own answer (a DAS job's pre-survey) gives it: job.data, the answer at the job's pin; job.place, its address;
+  // job.marks, its towers' ✓/✗ (cellular.towers_verified); job.name; job.say, where a problem is said. Every carrier, the tiles chosen
+  async function print(btn, job){
+    const d = job ? job.data : T.data; if (!d) return;
+    const o = job ? {place: job.place || "", carriers: new Set(), tiles: chosen(), who: S.remote?.user || S.me?.user || "", marks: job.marks || {}, job: job.name || ""}
+      : {place: T.place, carriers: new Set(T.carriers), tiles: chosen(), who: S.remote?.user || S.me?.user || ""};
+    const tell = (job && job.say) || say;
     const was = btn && btn.innerHTML; if (btn) { btn.disabled = true; btn.textContent = "Making the report…"; }
     try{
-      const img = await mapImage(d, o.carriers);
-      if (!img) say(`The map image didn't draw (${mapImage.why}): the report printed without it. Print again for the map.`);
-      const box = document.createElement("div"); box.className = "panel"; box.innerHTML = reportHtml(d, {...o, img, imgWhy: img ? "" : mapImage.why});
+      // the run as it is now, its readings copied: a recording goes on adding to the map's while the image draws. A DAS job's
+      // pre-survey prints its own answer at its own pin: the Towers map's run isn't that site's survey
+      const sv0 = job ? null : surveyView(), sv = sv0 && !sv0.run.sample ? {...sv0, all: sv0.all.slice(), rs: sv0.rs.slice()} : null, img = await mapImage(d, o.carriers, sv);
+      if (!img) tell(`The map image didn't draw (${mapImage.why}): the report printed without it. Print again for the map.`);
+      const box = document.createElement("div"); box.className = "panel"; box.innerHTML = reportHtml(d, {...o, img, imgWhy: img ? "" : mapImage.why, survey: sv ? {...sv, img: mapImage.svImg} : null});
       if (typeof dasPrintCopy === "function") dasPrintCopy(box); else { document.body.appendChild(box); window.print(); box.remove(); }
     } finally { if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = was; } }
+  }
+
+  /* ---------- a DAS job's towers: its pre-survey and its Discovery report (plan 11/10 section 2 item 4, section 7 point 5) ---------- */
+  // Andy Masur (11/9): on every job, the 3 closest towers per carrier, to decide whether an off-air BDA works. They showed one crowd
+  // site per carrier. Each tower here: its distance and compass bearing (true, and magnetic for a hand compass), its type (an
+  // estimate with its bubble), height and the carrier's bands, the Towers tab's own tiles; each carrier's verdict above; and a ✓/✗
+  // from the site visit, kept on the job (cellular.towers_verified: tower id -> {ok, by, at, note})
+  const JOB_TILES = ["type", "height", "bands"];
+  const farMag = (t, decl) => { const m = magOf(t.bearing, decl);
+    return t.dist_mi == null ? "" : `${fmtMi(t.dist_mi)} mi ${t.compass || ""} (${t.bearing ?? "?"}° true${m != null ? `, ${m}° magnetic` : ""})`; };
+  // a mark's words; by is the login that made it (none on a copy with no login: "✓ seen, 2026-11-12", not "by this PC")
+  const seenTxt = v => `${v.ok ? "✓ seen" : "✗ not seen"}${v.by ? ` by ${v.by}` : ""}${v.at ? `, ${v.at}` : ""}${v.note ? `: ${v.note}` : ""}`;
+  // A mark is kept under the tower's id with the tower's site keys (the engine's: network|radio|site id) and its words (label). An
+  // estimate's id is its first site's key, which changes as the crowd's data does (two sites' sample counts trade places after a
+  // top-up), and one that snaps to a newly mapped mast becomes osm:…; the mark then dropped out of the block and the print (review
+  // 11/12). markMap places the job's marks on an answer once: a mark on its own tower; a mark whose key is no tower's id in the
+  // answer (carriers' lists, the map's, the structures with no carrier) on the one tower that shares the most of its site keys, none
+  // on a tie. Any shared key put a mark on a second tower that shared one, and a press there wiped the first tower's (round 2)
+  const markSites = t => [...new Set((Array.isArray(t.carriers) ? t.carriers : []).flatMap(e => (e.sites || []).map(s => s.key)).filter(Boolean))].sort();
+  const fullTowers = d => [...new Map(((d && d.carriers) || []).flatMap(c => [...(c.towers || []), ...(c.stale_towers || [])]).map(t => [t.id, t])).values()];
+  // every tower id the answer names, the map's and the structures with no carrier too
+  const answerIds = d => new Set([...fullTowers(d).map(t => t.id), ...((d && d.towers) || []).map(t => t.id), ...((d && d.other_structures) || []).map(t => t.id)]);
+  const maps = new WeakMap();
+  function markMap(d, marks){
+    const memo = d && marks && maps.get(d); if (memo && memo.marks === marks) return memo.map;
+    const out = new Map(), ts = fullTowers(d), ids = answerIds(d);
+    for (const t of ts) if (marks && marks[t.id]) out.set(t.id, [t.id, marks[t.id]]);
+    for (const [k, v] of Object.entries(marks || {})) {
+      if (ids.has(k) || !(v.sites || []).length) continue;
+      let best = null, most = 0, tie = false;
+      for (const t of ts) { if (out.has(t.id)) continue; const n = markSites(t).filter(s => v.sites.includes(s)).length;
+        if (n > most) { best = t; most = n; tie = false; } else if (n && n === most) tie = true; }
+      if (best && !tie) out.set(best.id, [k, v]);
+    }
+    if (d && marks) maps.set(d, {marks, map: out});
+    return out;
+  }
+  const markOf = (t, marks, d) => (t && marks ? markMap(d || {carriers: [{towers: [t]}]}, marks).get(t.id) : null) || null;
+  // what's kept with a new mark: the tower's site keys and its words, so a mark whose tower is gone from the answer still says what it was
+  function markInfo(d, id){
+    for (const c of (d && d.carriers) || []) for (const t of [...(c.towers || []), ...(c.stale_towers || [])]) if (t.id === id)
+      return {sites: markSites(t), label: `${kindOf(t)[1]} ${farMag(t, declOf(d))}${t.registration ? `, FCC ${t.registration.number}` : ""} (${names(t).join(", ") || c.carrier})`};
+    return {sites: [], label: ""};
+  }
+  // the marks no card carries, listed apart, never dropped (the job's record of the site visit): those whose tower the answer still has
+  // but not among any carrier's 3 closest (a nearer one came in), and those it doesn't place now. It called both "not in today's answer:
+  // the tower engine doesn't place these now", on paper too (round 2)
+  function lostMarks(d, marks){
+    const used = new Set([...markMap(d, marks).values()].map(m => m[0])), far = new Map([...((d && d.towers) || []), ...((d && d.other_structures) || [])].map(t => [t.id, t]));
+    const left = Object.entries(marks || {}).filter(([k]) => !used.has(k));
+    return {out: left.filter(([k]) => far.has(k)).map(([k, v]) => [k, v, far.get(k)]), gone: left.filter(([k]) => !far.has(k))};
+  }
+  const lostHtml = (lost, h) => `${lost.out.length ? `<div class="twj-lost" data-twlost-out><${h} class="tw-h">Marked on site, not among the 3 closest today</${h}><ul>${lost.out.map(([k, v, t]) =>
+      `<li data-twlost="${esc(k)}">${esc(v.label || k)}: <b>${esc(seenTxt(v))}</b> <span class="hint">(still placed, ${esc(far(t))}; nearer towers came in)</span></li>`).join("")}</ul></div>` : ""}${lost.gone.length
+    ? `<div class="twj-lost"><${h} class="tw-h">Marked on site, not in today's answer</${h}><ul>${lost.gone.map(([k, v]) =>
+      `<li data-twlost="${esc(k)}">${esc(v.label || k)}: <b>${esc(seenTxt(v))}</b></li>`).join("")}</ul><p class="hint">The tower engine doesn't place these towers now (new crowd data, or a tower taken down): the marks are kept as they were made.</p></div>` : ""}`;
+  function seenHtml(t, m, can){
+    const [key, v] = m || [t.id, null], at = `data-twv="${esc(t.id)}" data-twkey="${esc(key)}"`;
+    if (!can) return `<div class="twj-seen" ${at}>${v ? `<b>${esc(seenTxt(v))}</b>` : '<span class="hint">Seen on site: not checked yet</span>'}</div>`;
+    const b = (ok, w, why) => `<button type="button" data-twok="${ok ? 1 : 0}" class="${v && v.ok === ok ? "on" : ""}" aria-pressed="${!!v && v.ok === ok}" title="${why}">${w}</button>`;
+    return `<div class="twj-seen" ${at}><span class="hint">Seen on site</span><span class="seg">${b(true, "✓ Seen", "Its channels or PCIs were heard on site (press again to clear)")}${b(false, "✗ Not seen", "Looked for on site and not heard (press again to clear)")}</span>${v
+      ? `<span class="hint twj-by">${esc([v.by && `by ${v.by}`, v.at].filter(Boolean).join(", "))}</span><input data-twnote value="${esc(v.note || "")}" placeholder="What you saw: PCI, dBm" aria-label="Note on this tower">` : ""}</div>`;
+  }
+  // o.marks: the job's towers_verified; o.canMark: ✓/✗ buttons (a login that can save), else the marks as words; o.msg: a line
+  // above (the top-up's: on screen only, never on paper)
+  function jobHtml(d, o = {}){
+    if (!d) return "";
+    const all = new Set(), cs = shown(d, all), decl = declOf(d), marks = o.marks || {};
+    return `<div class="twj"><p class="tw-msg status twj-msg no-print" role="status"${o.msg ? "" : " hidden"}>${esc(o.msg || "")}</p>
+      ${verdictsHtml(d, all)}<p class="hint twj-cover">${esc(coverTxt(d, cs))}.${decl != null ? ` Bearings from the site: true for a map, magnetic for a hand compass (declination ${esc(declTxt(decl))}).` : ""}</p>
+      ${cs.map(c => { const [h, w] = headOf(c, d); return `<h5 class="tw-h" data-carrier="${esc(c.carrier)}">${chip(c.carrier)} ${esc(h)} <span class="hint">${esc(w)}</span></h5>
+        <div class="twj-row">${(c.towers || []).map((t, i) => `<div class="tw-card twj-t" data-tw="${esc(t.id)}" data-carrier="${esc(c.carrier)}" data-kind="${esc(t.kind || "")}"><div class="tw-rank">#${i + 1} ${kindOf(t)[0]} ${esc(farMag(t, decl))}</div>
+          <div class="tw-tiles">${JOB_TILES.map(id => `<div class="tw-tile" data-tile="${id}"><div class="tw-tl">${esc(tileLabel(id))}</div><div class="tw-tv">${plainTile(id, t, c.carrier, decl)}</div></div>`).join("")}</div>
+          ${seenHtml(t, markOf(t, marks, d), !!o.canMark)}</div>`).join("")}</div>
+        ${(c.stale_towers || []).length ? `<p class="hint twj-stale">Known only from readings over 3 years old (check they're still on the air): ${c.stale_towers.map(t => { const m = markOf(t, marks, d);
+          return `${kindOf(t)[0]} ${esc(farMag(t, decl))}, last heard ${esc(String(entries(t, c.carrier)[0]?.last || "").slice(0, 10))}${m ? ` (${esc(seenTxt(m[1]))})` : ""}`; }).join("; ")}.</p>` : ""}
+        ${(c.heard_only || []).length ? `<p class="hint">Heard only in your own readings, so not placed: ${c.heard_only.map(x => `${esc(x.site_kind)} ${esc(x.site_id)} (${num(x.readings, 0)} readings)`).join(", ")}.</p>` : ""}`; }).join("")}
+      ${lostHtml(lostMarks(d, marks), "h5")}
+      ${creditsHtml(d)}</div>`;
+  }
+  // the presses in a job's tower block: h.onMark(id, true | false | null to clear, button, key the mark is kept under), h.onNote(id,
+  // text, input, key). One handler each (the block is drawn again into the same box)
+  function wireJob(el, h = {}){
+    if (!el) return;
+    el.onclick = e => { const b = e.target.closest("[data-twok]"); if (!b || !h.onMark) return; const v = b.closest("[data-twv]");
+      h.onMark(v.dataset.twv, b.getAttribute("aria-pressed") === "true" ? null : b.dataset.twok === "1", b, v.dataset.twkey || v.dataset.twv); };
+    el.onchange = e => { const i = e.target.closest("[data-twnote]"); if (!i || !h.onNote) return; const v = i.closest("[data-twv]");
+      h.onNote(v.dataset.twv, i.value.trim(), i, v.dataset.twkey || v.dataset.twv); };
+  }
+  // A stand-in for a job's tower block while its answer comes (Cody 11/12: the towers first in the pre-survey, and nothing jumps): the
+  // block itself drawn from a made-up answer of the usual shape (a verdict row, then each carrier's 3 cards: a row of them where
+  // there's room, stacked on a phone), its words and buttons hidden, so it takes the room the answer will at the width the page has.
+  // The answer is drawn in its place; if it's a little shorter or longer, keepPlace holds what's below
+  const GHOST_LINES = ["Cell tower data from OpenCellID, licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), from opencellid.org. Changes: DAStastic groups the cells into sites, estimates each site's position and matches it to the registered or mapped structure it most likely sits on.",
+    "FCC antenna structure registrations and licences (US government public data)."];
+  function jobGhost(o = {}){
+    // a carrier's usual three: two registered towers (one with a band held nationwide, a second bands line) and an estimate (its
+    // "give or take" line), so a row is as tall as the answer's at most widths and the stacked cards on a phone average out
+    const tower = (c, i) => ({id: `ghost:${c}:${i}`, ...(i === 2 ? {kind: "estimated", uncertainty_m: 400, type: "unknown: estimated from crowd cells", height_ft: null}
+      : {kind: "registered", type: "monopole", height_ft: 150}), dist_mi: 1.2 + i, compass: "NE", bearing: 45,
+      carrier_names: [c], carriers: [{carrier: c, sites: [], techs: ["LTE"], bands: {heard: ["B2", "B12", "B66"].map(b => ({band: b, channels: [], dl_mhz: []})),
+        licensed: i === 1 ? [{band: "B14", how: "nationwide or leased"}] : []}}]});
+    const d = {lat: o.lat ?? 40, lon: o.lon ?? -75, n: 3, radius_mi: 5, attribution_lines: GHOST_LINES,
+      carriers: BIG3.map(c => ({carrier: c, searched_mi: 5, verdict: {level: "in reach", text: `Closest ${c} 0.20 mi: in reach. A roof reading decides (−95/−85 dBm).`},
+        towers: [0, 1, 2].map(i => tower(c, i)), stale_towers: [], heard_only: []}))};
+    return `<div class="twj-wait"><p class="status twj-waitmsg">${esc(o.msg || "Finding the towers…")}</p><div class="twj-ghost" aria-hidden="true">${jobHtml(d, {canMark: !!o.canMark})}</div></div>`;
+  }
+  // box drawn again (fn) where the page may be in use: what has the focus keeps its place on screen (a box in the block it's in, the
+  // block being drawn again around it), else what's just below the block does, so nothing below moves under someone typing or once
+  // the page has settled (Cody 11/12). Not when all of it is below the screen: nothing in view moves then
+  function keepPlace(box, fn){
+    if (!box || !box.isConnected) return fn();
+    const a = document.activeElement, inside = !!(a && a !== document.body && box.contains(a)), out = a && a !== document.body && !inside && a.isConnected ? a : null;
+    const near = el => (el && el.closest && el.closest("[data-twv]")) || el;
+    const ref0 = inside ? near(a) : out || box.nextElementSibling, y0 = ref0 ? ref0.getBoundingClientRect().top : null;
+    fn();
+    if (y0 == null || y0 > innerHeight) return;
+    const b = document.activeElement, ref1 = inside ? (b && box.contains(b) ? near(b) : null) : ref0;
+    if (!ref1 || !ref1.isConnected) return;
+    const dy = ref1.getBoundingClientRect().top - y0; if (Math.abs(dy) >= 1) window.scrollBy(0, dy);
+  }
+  // the words the tab says when the report can't be had here (the web version has no crowd cells)
+  const errTxt = err => /runs on the PC only/.test(err && err.message || "") ? "The tower report needs a DAStastic copy with crowd cells (the PC app or the server): the web version has none."
+    : `Towers: ${err && err.message || err}`;
+  // every tower the engine places round a spot, each with its crowd sites under Cell sites' keys (GET /api/towers/area): Cell
+  // sites' By tower and Topology. Kept a minute, as cellall.js keeps /api/cells; a top-up here drops it
+  const areas = new Map();
+  // the area answers kept, dropped when the sites they're read beside change (Cell sites' Import, beside cellAllRefresh)
+  const dropArea = () => areas.clear();
+  // f: Cell sites' Operator and Technology picks ({op, radio}), applied by the server before its cut to the nearest 500
+  function area(lat, lon, radius, mission, f = {}){
+    const k = `${keyOf(lat, lon)},${radius},${mission || ""},${f.op || ""},${f.radio || ""}`, hit = areas.get(k);
+    if (hit && Date.now() - hit.at < 60000) return hit.p;
+    const p = api(`/api/towers/area?lat=${(+lat).toFixed(6)}&lon=${(+lon).toFixed(6)}&radius=${radius}${mission ? `&mission=${mission}` : ""}`
+      + `${f.op ? `&op=${encodeURIComponent(f.op)}` : ""}${f.radio ? `&radio=${encodeURIComponent(f.radio)}` : ""}`);
+    areas.set(k, {at: Date.now(), p}); p.catch(() => { if (areas.get(k)?.p === p) areas.delete(k); });
+    if (areas.size > 12) areas.delete(areas.keys().next().value);
+    return p;
   }
 
   /* ---------- the tab ---------- */
@@ -765,25 +1276,58 @@
 .tw-pick{list-style:none;margin:0;padding:0}.tw-pick li{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-top:1px solid var(--line)}
 .tw-pick label.inl{gap:8px;flex:1;min-width:0}.tw-ci{margin:1px 0}.tw-ci small{font-size:11px}.tw-arrows{display:flex;gap:4px}.tw-arrows button{padding:2px 9px}
 .tw-cells summary{cursor:pointer;margin:4px 0}.tw-msg{margin:4px 0}
+.tw-seen{border-style:dashed}.tw-seen-w.ok{color:var(--good-ink,#1a7f37)}.tw-seen-w.no{color:var(--ink-2,var(--muted))}
 .tw-acts{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 6px}.tw-acts[hidden]{display:none}.tw-acts button{padding:4px 8px;font-size:12px;white-space:nowrap}
 .tw-acts:not(.tw-more){flex-wrap:nowrap}.tw-acts:not(.tw-more) button{flex:1 1 auto;min-width:0;white-space:normal;line-height:1.2;padding:4px 6px}  /* one row, a label on two lines if it must */
 @media (pointer:coarse){.tw-acts button{min-height:40px}}
+/* an eNB looked up (enbHtml): a card per site found, with its actions; a line per carrier with none */
+.tw-enbc{border:1px solid var(--line);border-left:5px solid var(--c);border-radius:12px;padding:6px 8px 4px;margin:6px 0}
+.tw-enb-r{display:inline-block;padding:0 7px;border-radius:999px;background:var(--c);color:#fff;font-size:12px}
+.tw-enbc .tw-acts a{display:inline-flex;align-items:center;padding:4px 8px;font-size:12px;border:1px solid var(--line);border-radius:8px;text-decoration:none;white-space:nowrap}
+.tw-enb-none{font-size:12.5px}.tw-enb-top{margin:8px 0}.tw-enb-top button{padding:3px 10px;font-size:12px}
+@media (pointer:coarse){.tw-enbc .tw-acts a,.tw-enb-top button,.tw-enbc .tw-tv button{min-height:40px}}
+/* a DAS job's tower block (jobHtml): cards that open nothing, bands as marks, the ✓/✗ row */
+.twj-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:8px}.twj-row .tw-card{margin:0}  /* a carrier's 3 side by side where there's room */
+.twj .tw-verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:6px}.twj .tw-v{margin:0}
+.twj .tw-card.twj-t{cursor:auto;padding-bottom:4px}.twj .tw-card.twj-t:hover{border-color:var(--line)}.twj .tw-h{margin:12px 0 2px}
+.twj .twr-b{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;margin:1px;font-size:12px}.twj .twr-b.lic{opacity:.75;border-style:dashed}
+.twj-seen{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin:2px 0}.twj-seen .seg button{padding:3px 10px}.twj-seen input{flex:1 1 180px;min-width:0}
+.twj-cover{margin:4px 0 0}
+/* the stand-in while the answer comes (jobGhost): the block's own boxes, empty; one line on top says it's coming */
+.twj-wait{position:relative}.twj-waitmsg{position:absolute;top:0;left:0;margin:0;z-index:1}
+.twj-ghost{pointer-events:none;user-select:none}.twj-ghost *{color:transparent!important}.twj-ghost .tw-v,.twj-ghost .tw-cc{border-color:var(--line)!important;background:none!important}
+.twj-ghost button,.twj-ghost input,.twj-ghost .twr-b,.twj-ghost .tw-k{visibility:hidden}
+@media (pointer:coarse){.twj-seen button,.twj-seen input{min-height:40px}}
+@media print{.twj-seen .seg,.twj-seen input{display:none}}
 </style>`);
   // on a phone a new address's report is put on screen at once: the address box lets go (its keyboard goes) and the page scrolls so
   // the map sits under the sticky header and tabs (the Map tab's search toolbar above it filled the first screen, review 11/11)
-  // Once per search (the same address picked again too), then the page is the user's to scroll
+  // Once per search (the same address picked again too), then the page is the user's to scroll; an eNB looked up the same (enbLook)
   function bringIntoView(){
     const gen = S.searchGen || 0; if (T.shownGen === gen || innerWidth >= 700) return; T.shownGen = gen;
+    toMap();
+  }
+  function toMap(){
     const loc = $("#loc"); if (loc && document.activeElement === loc) loc.blur();
     const m = $("#twMap"); if (!m || !m.isConnected) return;
-    const top = Math.max(0, ...["header", "#tabs"].map(q => document.querySelector(q)).filter(e => e && /sticky|fixed/.test(getComputedStyle(e).position)).map(e => e.getBoundingClientRect().bottom));
+    // where each sticky band will stick once the page has scrolled (its top: and its height), not where it is now: on a phone the
+    // header scrolls away and .tabbar (the band the tabs sit in, index.html) is the one that sticks; read where it sat under the
+    // header at the top of the page, the map landed 210 px low and the sheet ran off the screen (review 11/12)
+    const top = Math.max(0, ...["header", "#tabs", ".tabbar"].map(q => document.querySelector(q)).filter(e => e && /sticky|fixed/.test(getComputedStyle(e).position))
+      .map(e => (parseFloat(getComputedStyle(e).top) || 0) + e.offsetHeight));
     const y = m.getBoundingClientRect().top - top - 6; if (Math.abs(y) > 4) window.scrollBy(0, y);
   }
   S.views.towers = v => {
     if (S.mode && S.mode !== "point" && typeof setMode === "function") setMode("point");  // its one search is the address box
-    if (!S.center) { v.innerHTML = '<p class="status">The tower report needs one spot: type an address (or coordinates) in the Pin box and pick it.</p>'; return; }
+    // with no pin an eNB looked up shows in the viewer on the page (Run the report here puts the pin at it), unless a search for a
+    // pin is on its way (a link's): it shows on that pin's map
+    if (!S.center) { v.innerHTML = '<p class="status">The tower report needs one spot: type an address (or coordinates) in the Pin box and pick it, or an eNB number.</p>';
+      if (T.enb && !parseLoc($("#loc").value)) showEnb(); return; }
     const k = keyOf(S.center[0], S.center[1]);
     if (T.key !== k) { T.key = k; T.full = {}; T.fullAsk = {}; T.place = S.placeLabel || ""; T.data = null; T.err = null; T.sel = null; T.msg = T.msgFor[k] || ""; delete T.msgFor[k]; T.closed = false; T.picker = false; T.moved = false; }
+    // a search since the lookup (an address picked, the same one too, Run the report here): the report, not the lookup. A link's
+    // lookup belongs to the link's own search (enbFromLink)
+    if (T.enb && T.enbGen !== (S.searchGen || 0)) { T.enb = null; T.sel = null; }
     // the copy's own default for the crowd readings (Data & updates); off unless its owner says so
     if (T.crowd == null) T.crowd = false;
     const nCrowd = (S.rows || []).filter(r => CROWD.includes(r.layer) && r.lat != null).length;
@@ -808,6 +1352,7 @@
     $("#twSum").onclick = () => pick(null);
     const map = T.map = ensureMap();
     if (!map) { $("#twMap").innerHTML = '<p class="status" style="padding:12px">Map library missing.</p>'; return; }
+    { const pv = $("#view"); if (pv && window.RFResults) RFResults.close(pv, false); }  // a lookup shown on the page before there was a pin: the map's viewer now
     if (T.data) { drawMap(map, T.data); RFMaps.first(map, T.key, () => fit(map, T.data)); if (!T.closed) showViewer(); bringIntoView(); return; }
     drawMap(map, null);
     // a new address whose report is still coming (or failed): the map goes to its pin, which may be far off the old view; the first
@@ -824,8 +1369,14 @@
       .catch(err => { if (T.key !== want) return; T.err = /runs on the PC only/.test(err.message) ? "The tower report needs a DAStastic copy with crowd cells (the PC app or the server): the web version has none." : `Towers: ${err.message}`;
         if (S.tab === "towers") showViewer(); });
   };
-  // the link (#tab=towers&lat&lon&place&carriers): which carriers are picked
-  const linkParams = h => { if (T.carriers.size) h.set("carriers", BIG3.filter(c => T.carriers.has(c)).join(",")); };
+  // the link (#tab=towers&lat&lon&place&carriers&enb): which carriers are picked, and the eNB or gNB looked up (its carriers are the
+  // chips': carrier= is the Map tab's carrier filter)
+  const linkParams = h => { if (T.carriers.size) h.set("carriers", BIG3.filter(c => T.carriers.has(c)).join(",")); if (T.enb) h.set("enb", enbLink(T.enb)); };
   const fromLink = v => { T.carriers = new Set(String(v || "").split(",").map(x => x.trim()).filter(x => BIG3.includes(x))); if (T.carriers.size === BIG3.length) T.carriers.clear(); };
-  window.RFTowers = {wait: WAIT, load, prefetch, reportHtml, csv, print, share, layer: drawMap, towersOf, tiles: {list: TILES, chosen, pref: tilePref, save: saveTiles, DEFAULT: DEFAULT_TILES}, pick, linkParams, fromLink, mapImage};
+  window.RFTowers = {wait: WAIT, load, prefetch, reportHtml, csv, print, share, layer: drawMap, towersOf, tiles: {list: TILES, chosen, pref: tilePref, save: saveTiles, DEFAULT: DEFAULT_TILES}, pick, linkParams, fromLink, mapImage,
+    // an eNB or gNB by its number: what's typed read as one (search.js), the lookup, a link's, and the carriers it asks
+    enbOf, enb: enbLook, enbFromLink, enbCarsTxt: () => andList(enbCars()),
+    // a DAS job's tower block, its top-up and its marks; Cell sites' and Topology's towers (cells.js, cellall.js)
+    jobHtml, jobGhost, keepPlace, peek, wireJob, seenTxt, markOf, markSites, markInfo, answerIds, autoTopup, afterTopup, runAt, topupNote, canPost, errTxt, area, dropArea,
+    kind: kindOf, far, typeHtml: t => TILE.type.html(t)};
 })();

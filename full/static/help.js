@@ -144,6 +144,12 @@ const HELP = [
     <li>Each site is matched to the nearest FCC-registered tower (ASR) within 1 km: its owner, height and the licensees on it.
       A sector's direction is an estimate, from the tower toward the cell's crowd position.</li>
     <li><b>Operator</b>, <b>Technology</b> and the text box narrow the list; click a site for its sectors, estimated coverage and tower.</li>
+    <li><b>By tower</b> lists the towers the tower engine places (the Towers tab's), each with every carrier's sites on it: an FCC-registered
+      tower, a carrier's licence site, a mapped mast, or <b>○</b> an estimate where the crowd's cells match no structure, with how far off
+      it may be. Topology's tower table is the same. There the count line, <b>Find</b> and the site a row opens all go by those towers;
+      Operator and Technology are applied before the nearest 500 are kept, and the towers stop at 20 mi from the pin.</li>
+    <li>Where the engine says fresh cells are due here, OpenCelliD is asked for them by itself, once (never for a view-only login, nor a
+      copy with no OpenCelliD key).</li>
     <li>Carrier coverage at the pin (FCC Broadband Map) and the speed checks and fixed wireless offered there show above, where loaded.</li>
     <li><b>Import an OpenCelliD download</b> (a free account's country file, 310 to 316 for the US) keeps the cells in the states set in Data &amp; updates.</li></ul>`],
   ["towers", "Towers", `
@@ -157,12 +163,68 @@ const HELP = [
       looked up when clicked. <b>⚙ Tiles</b> picks and orders the tiles, which also sets the printed report's columns and the CSV's first
       columns. Tap a band for its downlink MHz and licensed block. Bearings are from true north; the distance tile and the printed report
       give the magnetic one for a compass too.</li>
+    <li>An <b>eNB or gNB number</b> in the box ("eNB 812442", "gNB 1234567", or a bare 6 or 7 digits; 5 digits is a ZIP) finds that site in
+      this copy's crowd data for the carrier picked, or all three: the tower it's on, how far and which way from the pin, and whether it's one of
+      the report's 3 closest (picked out on the map, which stays where it is), with Run the report here, Street View and a CellMapper link.</li>
     <li>Under a tower's tiles: Street View, Google Maps and ⎙ Tower report (print or save as PDF, with a map and what to check on site:
       each channel with its PCIs, and old cells apart, "check it's still on the air"); <b>More</b> has 🎯 Hunt (Find a signal), ☆ Save
       (with the open DAS job or mission, where the map's ✎ Draw lists it), CSV, 🔗 a link that opens this report, ⚙ Tiles and All towers.
       On a phone the results sheet can be dragged, or tapped (half, peek, full); ✕ closes it and <b>Summary</b> brings it back.</li>
     <li><b>Show crowd readings</b> adds the OpenCelliD and survey points: where phones were, not towers. Off unless Data &amp; updates says otherwise.</li>
-    <li>When the report says a top-up is due, <b>Top up this area</b> asks OpenCelliD for fresh cells here (a view-only login can't).</li></ul>`],
+    <li>When the report says a top-up is due, <b>Top up this area</b> asks OpenCelliD for fresh cells here (a view-only login can't).</li>
+    <li>With a survey on the map (<a href="#" data-help="survey">Survey map</a>), each tower's tiles end with <b>Seen on site</b> and the printed report has a <i>Site survey</i> section.</li>
+    <li>A DAS job's <b>Pre-survey</b> and its <b>Discovery report</b> show the same 3 closest per carrier at the job's pin, with each
+      carrier's verdict. On the Pre-survey a top-up runs by itself where one is due, <b>⎙ Tower report</b> prints the report with the
+      job's address, and <b>✓ Seen</b> / <b>✗ Not seen</b> on each tower keeps what the site visit found on the job (and in that print).
+      A mark stays with its tower when the tower's estimate moves with new crowd data; one whose tower isn't in today's answer is listed apart.</li></ul>`],
+  ["survey", "Survey map (drive and walk surveys)", `
+    <p>A drive or walk survey painted on the map as coloured squares, the same colours as the walk test: <b>▦ Survey</b> beside the ruler and ✎ Draw,
+      on the Towers tab's map and the Map tab's. Runs are kept with the open DAS job, else the open mission, else this copy. The map never moves by itself:
+      only <b>Zoom to</b> (a square's) and <b>Zoom to run</b> move it.</p>
+    <ul><li><b>What the colours mean.</b> Each square is the median of the serving readings in it, judged against its pass line: <b>red</b> weak,
+      <b>amber</b> on the line, <b>green</b> good, with a hard step at the line, so a failing square is never amber. The line is the open DAS job's
+      cellular target, else Common: RSRP −95 dBm below 3.3 GHz, −100 dBm from 3.3 GHz (C-band, CBRS), SINR 5 dB. RSRQ has no line, so its colours run
+      from the run's lowest to its highest. <b>Hatched</b>: below the line. <b>Faint</b>: fewer than 3 moments of measurement, so indicative only.
+      With several carriers on, a square shows its <b>weakest</b> carrier, the one a DAS would have to fix; a carrier the device measures all along
+      with nothing heard in a square makes it a dead spot (hatched red). <i>Not measured by this run</i> names a required carrier the run never measured:
+      no pass, no fail. <b>Best server</b> colours each square by the site most of its readings came from.</li>
+    <li><b>The legend</b> (bottom right; ▸ opens the rest on a phone): Show RSRP, RSRQ, SINR or Best server; Carrier, Band and Tech chips (on the Towers tab
+      its AT&amp;T, Verizon and T-Mobile chips filter the squares too); the square size (25 m from zoom 17, 50 m at 15–16, 100 m at 13–14, 200 m further
+      out, or one you pick); Zoom to run; and the readings shown as ⇩ CSV (imports back), KML or KMZ (Google Earth, ATAK). ✕ hides the squares.</li>
+    <li><b>Click a square</b> for what's in it, per carrier and band: readings, median, best and worst RSRP, RSRQ and SINR, PCIs, the serving sites (and the
+      tower each is on, on the Towers tab), the time and the device. <b>⇩ Readings CSV</b> saves that square's readings; <b>Only this site</b> shows only
+      its best server's readings on the map (<i>Show all sites</i> brings the rest back).</li>
+    <li><b>Import a file</b> (▦ Survey › ⇪ Import a file): every row is kept, with no cap; a file goes into one place once. Positions worse than 50 m and
+      RSRP outside −156 to −31 dBm are left out and counted. After an import a note offers <b>Zoom to run</b>.
+      <ul><li><b>G-NetTrack Pro</b> (Android): stop the log, then share or copy its text log (.txt or .csv) to this computer and import it as it is.</li>
+      <li><b>PCTEL or another scanner</b>: export the drive as CSV or Excel (.xlsx) and import it. Columns are found by their names (time, latitude,
+        longitude, RSRP, the carrier or MCC-MNC, EARFCN or NR-ARFCN, PCI, cell ID or eNB); a scanner's run is judged as measuring every carrier it reports.</li>
+      <li><b>The template</b> (▦ Survey › ⇩ Template): the columns DAStastic writes, with four example readings; fill it from any other log. A CSV saved
+        from the map imports back the same way.</li></ul></li>
+    <li><b>Record</b> (DAStastic for Android 1.3 or newer, on the phone): ▦ Survey › <b>● Record</b>, drive or walk, then <b>■ Stop</b>. A reading
+      every 2 seconds with GPS; the squares paint as you go. The status line shows the time, readings, serving cell, GPS accuracy, battery and uploads
+      waiting. With no signal the readings wait on the phone and go up when the signal is back, in smaller pieces on a weak signal; one that
+      couldn't go up by Stop is tried again every 30 seconds while DAStastic is open, and with the next Record, and the status line says so.
+      Stop says on the map whether every reading reached the server (or only the run's end is still to be confirmed). A run the server won't keep (a view-only login, a job not shared, a run deleted) isn't tried again: ▦ Survey offers its readings
+      as a CSV, or to discard them. The screen stays on, and it stops by itself at 15% battery unless the phone is charging (plan on a car charger:
+      about 20–30% an hour); the map says when it did. On a phone Record folds the legend (▸ opens it). <b>Follow me</b> keeps your dot in view: on
+      with Record on a phone, it pans only when the dot leaves the middle of the part of the map nothing covers (a results sheet, the status line,
+      the legend), and never zooms; dragging or pinching the map, or a Zoom to, turns it off (the note offers it back). The phone
+      records for one thing at a time: Record waits while the DAS walk test logs, and Start walk offers to stop a survey. On a computer, a
+      view-only login and a copy that can't keep a run (the web version) the menu says why there's no Record.</li>
+    <li><b>Seen on site</b> (Towers tab): a tower whose site a run's serving readings name (carrier, technology and eNB or gNB) says <i>Seen on site</i>,
+      and <i>✓ Verified on site</i> from 3 moments on (a moment is a second the cell was measured in; a primary and its carrier-aggregation leg are
+      two readings in one moment), with the date, who recorded it and the best RSRP; <b>Best RSRP here</b> is the best within 100 m of the site. A
+      carrier the run never measured says <i>Not measured by this run</i>, and an ex-Sprint site is never matched. It follows a recording as it
+      goes. The printed tower report adds a <i>Site survey</i> section, as the run and the site were when you pressed Print: the squares around the
+      site (what they show and any chip that filters them), each tower seen or not, the bands and PCIs heard. A recording's Stop and an import also
+      give the tower report its serving cells as heard on site (the readings, when, the best RSRP): never where a site or its tower is, and only for
+      logins that can open the run's job. A site only the run heard is named under its carrier, not placed. The same readings count once: a log imported into two places, or a run's CSV imported back, isn't heard twice (readings that only partly overlap still are). Runs that ended before this version get theirs when DAStastic starts. The sample never does.</li>
+    <li><b>Phone readings are indicative</b>: a phone isn't calibrated, so they never count toward a public-safety pass.</li>
+    <li><b>Keep only what's within 2 mi of the site</b> (in the menu): readings further out are never stored for the next import or recording.
+      Reports show squares, never the track.</li>
+    <li><b>Sample survey (not a real site)</b>: made-up readings drawn where the map is, for a demo. Labelled SAMPLE, never saved, never listed with
+      the real runs, and it never marks a tower seen.</li></ul>`],
   ["hunt", "Find a signal", `
     <ul><li>Mission › 🎯 <b>Find a signal</b>: walk toward a signal (a rogue booster, a stuck transmitter). Type what you're looking for (MHz) and how
       close a match counts (one channel up to 5 MHz; a rogue BDA rebroadcasts a whole band, so 1 MHz).</li>
@@ -313,6 +375,7 @@ const HELP = [
       <i>Phone correction</i> table under the walk shows how far this phone reads off on each band (and how sure); from then on the
       phone's readings are corrected as they're taken, and <i>Correct this floor's earlier phone readings</i> fixes ones taken before.
       The table stays on the phone for later jobs.</li>
+    <li><b>Record a drive or walk survey</b> (1.3 or newer): the map's <b>▦ Survey › ● Record</b>, then <b>■ Stop</b>; see <a href="#" data-help="survey">Survey map</a>.</li>
     <li><b>ATAK on the same Wi-Fi</b>: <b>📡 Push to ATAK</b> sends what's on the map as live markers to ATAK on this phone and to every
       ATAK, iTAK and WinTAK on the Wi-Fi the phone is on; pushing again updates them. The map's layer menu › <b>TAK team (this network)</b>
       shows the ATAK users on that Wi-Fi by callsign, and their markers. Off Wi-Fi, Push to ATAK saves the package instead.</li></ol>

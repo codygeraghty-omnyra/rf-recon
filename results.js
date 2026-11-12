@@ -147,6 +147,8 @@
 .rf-res-bd .tw{max-width:100%}
 .rf-res-on-side>.leaflet-control-container .leaflet-right{right:calc(var(--rf-res-w,360px) + 10px)}
 .rf-res-on-sheet>.leaflet-control-container .leaflet-bottom{bottom:var(--rf-res-hpx,0px)}
+.rf-res-on-sheet>.leaflet-control-container .leaflet-bottom.leaflet-left{bottom:var(--rf-res-hpx-l,var(--rf-res-hpx,0px))}
+.rf-res-on-sheet>.leaflet-control-container .leaflet-bottom.leaflet-right{bottom:var(--rf-res-hpx-r,var(--rf-res-hpx,0px))}
 .rf-res-on-sheet #mapReadout,.rf-res-on-sheet .leaflet-control-scale{display:none}
 @media (pointer:coarse){.rf-res-tools button,.rf-res-tools select,.rf-res-tabs button,.rf-res-acts button,.rf-res-hd [data-rx]{min-height:38px}.rf-res-grip{height:24px}.rf-res-grip::before{top:9px}}`;
     (document.head || document.documentElement).appendChild(st);
@@ -217,6 +219,7 @@
     if(!v || !open.has(v)) return;
     forget(v);
     if(asked && v.o.onClose) try{ v.o.onClose(); }catch(e){ console.error(e); }
+    if(v.map) v.map.fire("rfresults", {key: null});
   }
   // a card sits beside its item, on the side with room, and follows it as the map moves: it never pans the map to fit
   function place(v){
@@ -242,12 +245,20 @@
       if(lay === "side") v.box.style.setProperty("--rf-res-w", `${el.offsetWidth}px`);
       // the bottom controls (the scale, the credits) ride on a sheet's top edge, but never up over the top ones (layers, zoom, the
       // lock) nor under the header (towers-tab and map-still, review 11/11)
-      if(lay === "sheet"){ const b0 = v.box.getBoundingClientRect(), tops = [...v.box.querySelectorAll(".leaflet-top .leaflet-control")].map(c => c.getBoundingClientRect().bottom - b0.top);
-        const bot = Math.max(0, ...[...v.box.querySelectorAll(".leaflet-bottom")].map(c => c.offsetHeight)), lift = el.offsetHeight + (inset.bottom || 0) + 6;
-        let cap = v.box.clientHeight - (inset.top || 0) - 50;
-        if(tops.length) cap = Math.min(cap, Math.max(0, v.box.clientHeight - Math.max(...tops) - bot - 6));
-        v.box.style.setProperty("--rf-res-hpx", `${Math.min(lift, cap)}px`); }
+      if(lay === "sheet"){ const b0 = v.box.getBoundingClientRect(), lift = el.offsetHeight + (inset.bottom || 0) + 6;
+        // each bottom corner as far as its own column's top controls allow: capped by the left column's (Survey, Measure, Draw, +
+        // Marker, half a phone's map) the right corner's survey legend stayed wholly under the sheet (review 11/12, round 2). A
+        // control that scrolls inside (data-shrink: the survey legend) counts only that much of its height
+        const capOf = side => { const tops = [...v.box.querySelectorAll(`.leaflet-top.leaflet-${side} .leaflet-control`)].map(c => c.getBoundingClientRect().bottom - b0.top);
+          const corner = v.box.querySelector(`.leaflet-bottom.leaflet-${side}`); let bot = corner ? corner.offsetHeight : 0;
+          if(corner) for(const c of corner.querySelectorAll(".leaflet-control[data-shrink]")) if(!c.hidden) bot -= Math.max(0, c.offsetHeight - (+c.dataset.shrink || 90));
+          let cap = v.box.clientHeight - (inset.top || 0) - 50;
+          if(tops.length) cap = Math.min(cap, Math.max(0, v.box.clientHeight - Math.max(...tops) - bot - 6));
+          return Math.min(lift, cap); };
+        const L0 = capOf("left"), R0 = capOf("right");
+        v.box.style.setProperty("--rf-res-hpx", `${Math.min(L0, R0)}px`); v.box.style.setProperty("--rf-res-hpx-l", `${L0}px`); v.box.style.setProperty("--rf-res-hpx-r", `${R0}px`); }
       v.box.classList.toggle("rf-res-over", lay === "sheet" && !!inset.short);
+      v.map.fire("rflayout");  // the map's own floating parts fit what's left (the survey legend: surveymap.js)
     }
     if(lay === "card") place(v);
   }
@@ -350,6 +361,7 @@
     if(lay === "side") br[0] = Math.min(W - 120, 28 + v.el.offsetWidth + 10);
     const one = b.getNorthEast().equals(b.getSouthWest());
     m.fitBounds(b, {paddingTopLeft: tl, paddingBottomRight: br, maxZoom: one ? Math.max(m.getZoom(), v.o.zoomLevel || 16) : (v.o.maxZoom || 17)});
+    m.fire("rfzoomto");  // the person asked to see it: a survey's Follow me lets go (surveyrec.js), as a drag makes it
     return true;
   }
   function handle(v){
@@ -374,6 +386,8 @@
     v.o = o; v.anchor = anchor ?? o.anchor ?? null;
     if(!same || o.tab != null) v.tab = o.tab ?? (o.tabs || []).filter(Boolean)[0]?.id ?? null;
     paint(v, same && v.tab === tab0);
+    // the map hears what its viewer shows now: a survey square's outline goes when another item takes the viewer (review 11/12)
+    if(v.map && !same) v.map.fire("rfresults", {key: o.key});
     return handle(v);
   }
   function setLayout(p){

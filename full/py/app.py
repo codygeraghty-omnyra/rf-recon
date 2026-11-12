@@ -189,6 +189,7 @@ def init():
     towers.ensure_schema(con)
     survey.ensure(con)
     survey.sweep(con)  # an import a stopped copy left hidden (a day old: survey.STALE_S)
+    survey.backfill(con)  # the runs that ended before their serving cells were kept as evidence (survey_cell) get them
     try:
         if n := keystore.migrate(con, uls_import.DATA_DIR):
             print(f"Moved {n} saved keys out of the database into {keystore.path(uls_import.DATA_DIR)}", flush=True)
@@ -819,7 +820,7 @@ EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talk
                 "/api/cells", "/api/cells/import", "/api/cells/fetch", "/api/spectrum", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
                 "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid", "/api/uls/pending",
-                "/api/towers", "/api/towers/topup", "/api/towers/enb"}  # the tower report (towerfuse.py, 11/10)
+                "/api/towers", "/api/towers/topup", "/api/towers/enb", "/api/towers/area"}  # the tower report (towerfuse.py, 11/10)
 
 
 def coverage_args(qs):
@@ -2377,7 +2378,10 @@ class H(BaseHTTPRequestHandler):
                             spec = spectrum.at(lat, lon, uls_import.DATA_DIR, con)
                         except Exception as e:  # the record still opens without the carriers' blocks
                             spec = {"empty": True, "why": f"Carrier spectrum couldn't be read here: {e}"}
-                        return self.send(200, dict(cells.enrich(res, con, spec), states=get_setting("update.states", "") or ""))
+                        # the engine's top-up rule (cells.topup_due) for this spot, and whether a top-up could fetch (an OpenCelliD
+                        # key, never the key): Cell sites tops up by it, as the pre-survey does (it fetched only where no site was kept)
+                        due = dict(cells.topup_due(cc, lat, lon), key=bool((get_setting("creds", {}) or {}).get("opencellid_key", "")))
+                        return self.send(200, dict(cells.enrich(res, con, spec), states=get_setting("update.states", "") or "", topup=due))
                     finally:
                         cc.close()
                 if p == "/api/cells/fetch" and method == "POST":  # the crowd's cells around an address (its own route: /api/crowd/ is the admin's)
@@ -2411,6 +2415,8 @@ class H(BaseHTTPRequestHandler):
 
     def towers_route(self, method, p, qs, con):
         """GET /api/towers?lat&lon&radius=5&carriers&n=3: the tower report, with no network calls (towerfuse.report).
+        GET /api/towers/area?lat&lon&radius=5(&mission&op&radio): every tower placed within the radius (20 mi at most), with the crowd
+        sites on each under Cell sites' keys (towerfuse.area): Cell sites' By tower and Topology.
         GET /api/towers/enb?q=812442&carrier=AT%26T(&radio=NR&bits=24): one eNB or gNB by number, wherever the crowd has it.
         POST /api/towers/topup {lat, lon}: fresh OpenCelliD cells when a top-up is due and the day's budget has room, and
         OpenStreetMap's towers when osm_towers is switched on. A view-only login can't POST (remote.refused), so it can't spend
@@ -2422,13 +2428,25 @@ class H(BaseHTTPRequestHandler):
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
                     raise ValueError("The tower report needs a pin.")
+                # survey runs count as heard on site for this login only where it may see them: a job's run never past its access list
                 r = towerfuse.report(con, cc, lat, lon, max(0.5, min(fnum(qs, "radius", 5.0), 20.0)), fstr(qs, "carriers") or None,
-                                     int(max(1, min(fnum(qs, "n", 3), 10))), far_mi=get_setting("towers.far_mi", 10), data_dir=uls_import.DATA_DIR)
+                                     int(max(1, min(fnum(qs, "n", 3), 10))), far_mi=get_setting("towers.far_mi", 10), data_dir=uls_import.DATA_DIR,
+                                     survey={"jobs": dashist.visible(con, *self.team())})
                 # what every login needs from the copy's settings (a team login can't read /api/settings): the Towers tab's crowd
                 # readings default (map.crowd_default), and whether a top-up can fetch at all (an OpenCelliD key; never the key)
                 r["crowd_default"] = bool(get_setting("map.crowd_default", False))
                 if isinstance(r.get("topup"), dict):
                     r["topup"]["key"] = bool((get_setting("creds", {}) or {}).get("opencellid_key", ""))
+                return self.send(200, r)
+            if p == "/api/towers/area" and method == "GET":  # every tower placed round a spot, with Cell sites' keys (towerfuse.area)
+                lat, lon, mid = fnum(qs, "lat"), fnum(qs, "lon"), fnum(qs, "mission")
+                if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    raise ValueError("The towers need a pin.")
+                # op, radio: Cell sites' Operator and Technology picks, applied before the 500-tower cut
+                r = towerfuse.area(con, cc, lat, lon, max(0.25, min(fnum(qs, "radius", 5.0), 20.0)), mission=int(mid) if mid is not None else None,
+                                   ops=[fstr(qs, "op")] if fstr(qs, "op") else None, radios=[fstr(qs, "radio")] if fstr(qs, "radio") else None,
+                                   survey={"jobs": dashist.visible(con, *self.team())})
+                r["topup"]["key"] = bool((get_setting("creds", {}) or {}).get("opencellid_key", ""))
                 return self.send(200, r)
             if p == "/api/towers/enb" and method == "GET":
                 return self.send(200, towerfuse.site_by_id(con, cc, fstr(qs, "q"), fstr(qs, "carrier") or "AT&T", fstr(qs, "radio") or "LTE",
@@ -3113,7 +3131,11 @@ class H(BaseHTTPRequestHandler):
         the template) with every row, no row cap (utc_offset in minutes for a phone's local times, keep_mi, calibrated=1 for a
         calibrated scanner); the same file twice into one scope is 409. The file is read in pieces as it arrives, never whole
         (survey.import_file), and one over survey.MAX_IMPORT is 413 before any of it is read (review 11/10: a 58 MB scanner
-        export, held whole, stopped a licensed copy). A view-only login can't POST (remote.refused)."""
+        export, held whole, stopped a licensed copy). A view-only login can't POST (remote.refused). GET /api/survey/template
+        is the template CSV (survey.template_text: the export's columns and four example readings), for the map's Survey
+        menu (static/surveymap.js), whatever the scope."""
+        if method == "GET" and p == "/api/survey/template":
+            return self.attach(survey.template_text().encode("utf-8"), "DAStastic survey template.csv", "text/csv; charset=utf-8")
         importing = method == "POST" and p == "/api/survey/import"
         size = int(self.headers.get("Content-Length") or 0) if importing else 0
         if importing:

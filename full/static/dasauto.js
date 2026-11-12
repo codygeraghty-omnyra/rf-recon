@@ -150,12 +150,18 @@
         return done ? { state: "done", said: done.said } : none("No terrain data for these paths yet. It comes with a terrain download.");
       });
     }
+    // fresh crowd cells by the tower engine's rule, as the pre-survey gets them (towers.js RFTowers.autoTopup, the top-up /api/cells says
+    // is due): it fetched only where no site was kept, so a spot with a few old sites never got fresh ones, and it posted with no key at
+    // all (review 11/12). The run is the page's for the spot, so the job's tower block drawn next shows what it brought, with no second ask
     if (scope.cell) await step("cells", "Cell sites", async () => {
       let c = await api(`/api/cells?lat=${lat}&lon=${lon}&radius=5`);
-      if ((c.sites || []).length) return skip(`${c.sites.length} already known here.`);
-      await post("/api/cells/fetch", { lat, lon });  // the crowd's cells for this area, kept: a daily limit applies, so it's asked once per area
+      // retry: a press tries again where the page's last run here didn't take (it was handed back for good, failed or "try again in a
+      // minute" written as done, round 2)
+      const TW = window.RFTowers, x = { lat, lon, topup: c.topup }, run = TW ? TW.autoTopup(x, true, { retry: true }) : null;
+      if (!run) { const why = TW && TW.topupNote(x, null); return why ? none(why) : skip(`${(c.sites || []).length} already known here${c.topup?.why ? `: ${c.topup.why}` : ""}.`); }
+      await run.p;
       c = await api(`/api/cells?lat=${lat}&lon=${lon}&radius=5`);
-      return (c.sites || []).length ? { state: "done", said: `${c.sites.length} sites found` } : none("None mapped here yet.");
+      return !run.took ? { state: "failed", said: run.words || "The top-up didn't take." } : (c.sites || []).length ? { state: "done", said: `${c.sites.length} sites known here. ${run.words}`.trim() } : none(`None mapped here yet. ${run.words}`.trim());
     });
     if (window.rfMail) await step("mail", "Emails", async () => {
       const r = await api(`/api/mail/job/${id}`), more = await window.dasJobMailRows(j, r).catch(() => ({ rows: [] })), n = r.items.length + more.rows.length;

@@ -310,7 +310,21 @@ def parse_kmz(data):
         name = next((n for n in z.namelist() if n.lower().endswith(".kml")), None)
         if not name:
             raise ValueError("KMZ has no KML inside.")
-        return parse_kml_text(z.read(name).decode("utf-8", "replace"))
+        kml = z.read(name)
+        not_sample(kml)
+        return parse_kml_text(kml.decode("utf-8", "replace"))
+
+
+# DAStastic's made-up sample survey says so first in its files (static/survey.js csv and kml; survey.SAMPLE_MARK): never kept
+# as a real capture. The survey import refused it, and this one took it, into a mission's captures layer, heat maps and Signals
+# report (review 11/12, round 2)
+SAMPLE_MARK = b"SAMPLE: made-up data"
+
+
+def not_sample(head):
+    if SAMPLE_MARK in bytes(head[:8192]):
+        raise ValueError("This is DAStastic's made-up sample survey (its file says \u201cSAMPLE: made-up data\u201d): it isn't kept as a real capture. "
+                         "Load the sample from the map's \u25a6 Survey menu instead.")
 
 
 # ---------------------------------------------------------------- positioning
@@ -342,6 +356,7 @@ def position_by_track(points, track, max_gap_s=30):
 # ---------------------------------------------------------------- import
 
 def parse_any(name, data, settings):
+    not_sample(data)
     fmt = detect(name, data)
     text = None if fmt == "kmz" else data.decode("utf-8", "replace")
     if fmt == "wigle":

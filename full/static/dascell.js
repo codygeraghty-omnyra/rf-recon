@@ -128,32 +128,112 @@ function dcWhoHolds(s, f){
   return hits.length?hits.join("; "):`No licence in these files covers ${f} MHz in ${s.county}.`;
 }
 
+// The towers near the job (plan 11/10 section 2 item 4; Andy Masur 11/9: "the three closest towers per carrier"): the tower engine's
+// report at the job's pin (RFTowers.load, GET /api/towers), drawn by RFTowers.jobHtml. It showed the one nearest crowd site per
+// carrier, and a "Find cell sites here" button only while no site was kept (fetch when zero, which never ran once the country
+// file was in). Now a top-up runs by itself where the engine says one is due (RFTowers.autoTopup: never for a view-only login),
+// ⎙ Tower report prints the report for the job's pin with its address, and each tower's ✓/✗ from the site visit is kept on the
+// job (cellular.towers_verified: tower id -> {ok, by, at, note, sites, label}: by the login that made it, none on a copy with no
+// login; sites and label so the mark follows a tower whose id changes, RFTowers.markOf), saved as a patch on the job as it is now
+// (dasrev.js dasJobPatch), so it changes that key and nothing else. The marks shown are this block's own copy of what the server
+// answered: the page's job is never changed here, so nothing on the page sends them back (review 11/12: a donor reading re-sent a
+// mark cleared since, and a flipped one raised a "someone else changed it" about the person's own mark)
+// the newest towers_verified any save of a job answered on this page, by revision: a block drawn again from an older copy of the job (a
+// tick in the public-safety list redraws the whole pre-survey from its own save's answer) shows the marks saved since (round 2)
+const DC_MARKS = {};
+function dcMarkSeen(j, got){ if(!got||!got.data) return; const id=String(j.id), rev=+got.rev||0, had=DC_MARKS[id];
+  if(!had||rev>=had.rev) DC_MARKS[id]={rev, V:((got.data.cellular||{}).towers_verified)||{}}; }
+function dcMarks(j){ const had=DC_MARKS[String(j.id)]; return had&&had.rev>=(+j.rev||0)?had.V:(((j.data||{}).cellular||{}).towers_verified||{}); }
+// the donor check's words for one carrier's reading (Providence RFP §3.9), drawn in its row when the reading changes
+const DC_VTXT={target:"meets the −85 dBm target", minimum:"meets the −95 dBm minimum only", below:"below the −95 dBm minimum"}, DC_VCOL={target:"var(--good)", minimum:"var(--warn)", below:"var(--bad)"};
+const dcDonorTxt=dn=>{ const v=donorVerdict(dn||{}); return v?`<span style="color:${DC_VCOL[v]}">${DC_VTXT[v]}</span>`:'<span class="hint">RSRP dBm, SINR dB, band, azimuth, antenna height</span>'; };
+function dcTowers(box, j, save, alive){
+  const TW=window.RFTowers, d=j.data||{};
+  const head=`<h4 style="margin:0">Towers: the 3 closest per carrier <span class="hint">· DAStastic's tower engine at the job's pin</span></h4>`;
+  if(!TW){ box.innerHTML=`${head}<p class="hint">The tower report isn't on this page.</p>`; return; }
+  let shown=null, run=null;
+  // the newest marks any save of this job answered (dcMarkSeen), else the job's: a block drawn again after a donor reading or a tick
+  // in the public-safety list was drawn from that save's copy, from before a mark saved meanwhile (round 2)
+  const marks=()=>dcMarks(j), can=TW.canPost();
+  const say=w=>{ const m=box.querySelector(".twj-msg"); if(m){ m.textContent=w; m.hidden=!w; } };
+  // the head row: the same over the stand-in and the answer, so the swap doesn't change its height
+  const top=on=>`<div class="row" style="align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 2px">${head}
+      <button type="button" id="dcTwPrint" class="no-print"${on?"":" disabled"} title="The printable tower report for this job's pin: verdicts, a map, a table per carrier, what to check on site and the ✓/✗ marked here (Save as PDF works on a phone)">⎙ Tower report</button></div>`;
+  // drawn again (the answer in place of its stand-in, a top-up landing, a mark saved): what had the focus in the block comes back, a
+  // note being typed with its text and caret (review 11/12: the top-up landing took the focus to the page, and the rest of the note
+  // went to it), and what has the focus, or else what's below the block, keeps its place on screen (RFTowers.keepPlace: the block is
+  // first in the panel and nothing below moves, Cody 11/12). keep: where to put the focus
+  const draw=keep=>{ if(!alive()||!shown) return;
+    const a=document.activeElement, at=a&&box.contains(a)&&a.closest("[data-twv]");
+    const was=keep||(at?{id:at.dataset.twv, car:a.closest(".twj-t")?.dataset.carrier, ok:a.dataset.twok, note:a.matches("[data-twnote]"), val:a.value, s:a.selectionStart, e:a.selectionEnd}:null);
+    TW.keepPlace(box, ()=>{
+      box.innerHTML=`${top(true)}${TW.jobHtml(shown, {marks:marks(), canMark:can, msg:TW.topupNote(shown, run)})}`;
+      box.querySelector("#dcTwPrint").onclick=e=>TW.print(e.currentTarget, {data:shown, place:d.address||"", marks:marks(), name:j.name, say});
+      if(!was) return;
+      const card=[...box.querySelectorAll(".twj-t")].find(c=>c.dataset.carrier===was.car&&c.querySelector(`[data-twv="${CSS.escape(was.id)}"]`))||box;
+      const v=card.querySelector(`[data-twv="${CSS.escape(was.id)}"]`), el=v&&(was.note?v.querySelector("[data-twnote]"):v.querySelector(`[data-twok="${was.ok}"]`)||v.querySelector("[data-twok]"));
+      if(!el) return;
+      el.focus({preventScroll:true});
+      if(was.note&&was.val!=null){ el.value=was.val; try{ el.setSelectionRange(was.s, was.e); }catch(e){ /* a caret the browser won't set: the text is back */ } } }); };
+  const mark=async(id, ch, key, btn)=>{
+    const who=S.remote?.user||S.me?.user||"";
+    // read when pressed, from the tower as drawn: a top-up landing before the save went could re-key the tower, and the mark was saved
+    // with no site keys or words (round 2). Another tower's id the mark was never kept under is never wiped (round 2)
+    const info=TW.markInfo(shown, id), ids=TW.answerIds(shown);
+    const fn=cur=>{ const C=((cur.data||{}).cellular)||{}, V={...(C.towers_verified||{})}, old=V[key]||V[id];
+      if(key!==id&&!ids.has(key)) delete V[key];  // kept under the tower's id from now on, with its site keys: an older id it was found under goes
+      if(ch===null) delete V[id];
+      else if("note" in ch){ if(!old) return false; const {note, ...rest}=old; V[id]=ch.note?{...rest, note:ch.note}:rest; }
+      else { const {by, ...rest}=old||{}, now=TW.markInfo(shown, id); V[id]={...rest, ok:ch.ok, ...(who?{by:who}:{}), at:today(), ...(info.sites.length?info:now)}; }
+      return {cellular:{...C, towers_verified:V}}; };
+    const car=btn&&btn.closest(".twj-t")?.dataset.carrier;
+    try{
+      const got=window.dasJobPatch?await window.dasJobPatch(j.id, fn):await save(fn(j));
+      dcMarkSeen(j, got);
+      // a ✓ or ✗ just pressed: the focus goes to the note it opens, or back to the button, only while it's still on that button or
+      // nowhere; where the person has gone since (another tower's note, a donor reading) it stays, with what they're typing (round 2)
+      const a=document.activeElement, still=!a||a===document.body||a===btn||!a.isConnected;
+      draw(still?(ch&&!("note" in ch)?{id, car, note:true}:ch===null?{id, car, ok:btn&&btn.dataset.twok}:null):null);
+    }catch(e){ say(`Not saved: ${e.message}`); } };
+  TW.wireJob(box, {onMark:(id, ok, b, key)=>mark(id, ok===null?null:{ok}, key, b), onNote:(id, note, i, key)=>mark(id, {note}, key, i)});
+  const got=tw=>{ shown=tw; run=TW.autoTopup(tw); draw();
+    // the report from after the top-up, whoever started it here (Cell sites' run keeps none of its own), finished or not: one that
+    // finished while this answer was on its way left the block on the report from before it (round 2)
+    if(run){ const going=!run.done; TW.afterTopup(run, d).then(fresh=>{ if(fresh!==shown||going){ shown=fresh; draw(); } }, ()=>draw()); } };
+  // its answer in hand already (the panel drawn again): drawn at once. Else a stand-in of the block's size holds its place (RFTowers.jobGhost)
+  const now=TW.peek(d.lat, d.lon);
+  if(now) return got(now);
+  box.innerHTML=`${top(false)}${TW.jobGhost({canMark:can, lat:d.lat, lon:d.lon})}`;
+  TW.load(d.lat, d.lon).then(got).catch(err=>{ if(alive()) TW.keepPlace(box, ()=>{ box.innerHTML=`${head}<p class="hint">${esc(TW.errTxt(err))}</p>`; }); });
+}
+
 window.dasCellPresurvey = async (el, j, save) => {
   const d=j.data||{}, C=d.cellular||{}, donor=C.donor||{}, appr=C.approvals||{};
-  el.innerHTML='<div class="panel"><h3>Cellular carriers at the building</h3><p class="hint">Looking up carrier coverage and cell sites…</p></div>';
-  const [cov, cs, spec]=await Promise.all([api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`).catch(()=>({carriers:[], loaded:false})),
-    api(`/api/cells?lat=${d.lat}&lon=${d.lon}&radius=5`).catch(()=>({sites:[]})), api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`).catch(()=>null)]);
+  // drawn again (a donor reading saved): the panel on screen stays until the new one replaces it in one go, never one line in between
+  if(!el.querySelector("#dcTowers")) el.innerHTML='<div class="panel"><h3>Cellular carriers at the building</h3><p class="hint">Looking up the towers and carrier coverage…</p></div>';
+  if(window.RFTowers&&d.lat!=null) RFTowers.load(d.lat, d.lon).catch(()=>{});  // asked now, beside the others, drawn when in
+  const [cov, spec]=await Promise.all([api(`/api/bdc/at?lat=${d.lat}&lon=${d.lon}`).catch(()=>({carriers:[], loaded:false})),
+    api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`).catch(()=>null)]);
   if(!el.isConnected) return;
-  const by=new Map(), row=c=>{ const k=carrierName(c); if(!by.has(k)) by.set(k, {carrier:k, cov:[], sites:[], bands:new Set()}); return by.get(k); };
+  const gen=el._dcGen=(el._dcGen||0)+1;  // drawn again (a donor reading, a tick above): the towers of an older draw stay out of it
+  const by=new Map(), row=c=>{ const k=carrierName(c); if(!by.has(k)) by.set(k, {carrier:k, cov:[], bands:new Set()}); return by.get(k); };
   for(const c of CELL_CARRIERS.slice(0,4)) row(c);
   for(const c of cov.carriers||[]) row(c.brand).cov.push(c);
-  for(const s of cs.sites||[]) row(s.operator).sites.push(s);
   for(const r of Object.values((d.grid||{}).results||{})) for(const x of readingsOf(r)) if(isCell(x)&&has(x.band)) row(x.carrier).bands.add(String(x.band));
   const list=[...by.values()], measured=list.flatMap(x=>[...x.bands]);
   const flagged=NOT_CONSUMER.filter(([re])=>measured.some(b=>re.test(b))), b66=measured.some(b=>/^(b|n)?66$/i.test(b));
-  const vtxt={target:"meets the −85 dBm target", minimum:"meets the −95 dBm minimum only", below:"below the −95 dBm minimum"}, vcol={target:"var(--good)", minimum:"var(--warn)", below:"var(--bad)"};
-  el.innerHTML=`<div class="panel"><h3>Cellular carriers at the building <span class="hint">· commercial DAS: what each carrier holds here, its signal at the roof, and its approval</span></h3>
-    ${(cs.sites||[]).length?"":`<div class="row no-print" style="margin:0 0 4px;align-items:center"><button id="dcFetchCells" title="OpenCelliD's crowd-mapped cells within about 3 miles of the pin, kept for next time">Find cell sites here</button><span class="hint" id="dcFetchMsg">Crowd data is loaded for the mission areas; other places load on request.</span></div>`}
+  // the towers first (Cody 11/12, fewest clicks: Andy's whole ask), their room held by a stand-in until they're in (dcTowers)
+  el.innerHTML=`<div class="panel"><h3>Cellular carriers at the building <span class="hint">· commercial DAS: the towers near it, what each carrier holds here, its signal at the roof, and its approval</span></h3>
+    <div id="dcTowers"></div>
     ${dcSpectrum(spec)}
-    <h4 style="margin:12px 0 4px">Coverage, closest site and approval</h4>
-    <div class="tw wrap"><table><thead><tr><th>Carrier</th><th>FCC Broadband Map (modelled)</th><th>Closest cell site <span class="hint">· within 5 mi</span></th><th>Rooftop donor (measured)</th><th>Approval</th><th></th></tr></thead><tbody>
-    ${list.map(x=>{ const dn=donor[x.carrier]||{}, v=donorVerdict(dn), a=appr[x.carrier]||{}, near=[...x.sites].sort((p,q)=>p.dist_mi-q.dist_mi)[0];
+    <h4 style="margin:12px 0 4px">Coverage, roof signal and approval</h4>
+    <div class="tw wrap"><table><thead><tr><th>Carrier</th><th>FCC Broadband Map (modelled)</th><th>Rooftop donor (measured)</th><th>Approval</th><th></th></tr></thead><tbody>
+    ${list.map(x=>{ const dn=donor[x.carrier]||{}, a=appr[x.carrier]||{};
       return `<tr data-car="${esc(x.carrier)}"><td><b>${esc(x.carrier)}</b>${x.bands.size?`<div class="hint">bands measured: ${esc([...x.bands].join(", "))}</div>`:""}</td>
         <td>${x.cov.length?x.cov.map(c=>`${esc(c.tech)}${c.signal!=null?` · ${c.signal} dBm`:""}`).join("<br>"):`<span class="hint">${cov.loaded?"none reported here":"not loaded"}</span>`}</td>
-        <td>${x.sites.length?`<b>${num(near.dist_mi,2)} mi</b> ${esc(near.radio||"")}<div class="hint">${near.tower?.owner?`${esc(near.tower.owner)} tower · `:""}${x.sites.length} site${x.sites.length===1?"":"s"} known</div>`:'<span class="hint">none known</span>'}</td>
         <td><div class="row" style="gap:4px;flex-wrap:wrap"><input data-dn="rsrp" type="number" placeholder="RSRP" value="${dn.rsrp??""}" style="width:70px"><input data-dn="sinr" type="number" step="0.5" placeholder="SINR" value="${dn.sinr??""}" style="width:62px">
           <input data-dn="band" placeholder="band" value="${esc(dn.band??"")}" style="width:56px"><input data-dn="az" type="number" placeholder="az °" value="${dn.az??""}" style="width:60px"><input data-dn="height_ft" type="number" placeholder="ft" value="${dn.height_ft??""}" style="width:54px"></div>
-          ${v?`<span style="color:${vcol[v]}">${vtxt[v]}</span>`:'<span class="hint">RSRP dBm, SINR dB, band, azimuth, antenna height</span>'}</td>
+          <div class="dc-dv">${dcDonorTxt(dn)}</div></td>
         <td><select data-ap="path" style="max-width:190px"><option value="">— path —</option>${APPROVAL_PATHS.map(([k,l])=>`<option value="${k}" ${a.path===k?"selected":""} title="${esc(l)}">${esc(l.split(":")[0])}</option>`).join("")}</select>
           <div class="row" style="gap:4px;margin-top:3px;flex-wrap:wrap"><label class="inl hint">asked <input data-ap="asked" type="date" value="${esc(a.asked||"")}"></label><label class="inl hint">consent <input data-ap="consent" type="date" value="${esc(a.consent||"")}"></label></div>
           <input data-ap="contact" placeholder="contact, reference or bands consented" value="${esc(a.contact||"")}" style="width:100%;margin-top:3px">
@@ -165,17 +245,20 @@ window.dasCellPresurvey = async (el, j, save) => {
     ${b66?'<p class="hint" style="margin:6px 0 0">B66 measured: a consumer booster may carry only its AWS-1 part (1710–1755 / 2110–2155 MHz); its AWS-3 part needs an industrial booster (KDB 935210 D02).</p>':""}
     <p class="hint" style="margin-bottom:0">Donor check from the Providence RFP §3.9, the only published one: design target −85 dBm RSRP with SINR ≥ 5 dB on at least one band per carrier; minimum −95 dBm with SINR ≥ 0 dB, and nothing ordered until the donor is confirmed.
       The FCC keeps no registration for commercial boosters (its signal booster database is for Part 90 Class B). Of the carriers, only T-Mobile's consent form has turned up (on reseller pages); otherwise consent is “a letter, email or other record” from the carrier naming the bands it lets you retransmit (FCC 13-21 ¶112), and the letter here asks for exactly that.
-      Carrier coverage is what each carrier tells the FCC (Data &amp; updates: FCC carrier coverage); cell sites are crowd and survey data (Cell sites tab).</p></div>`;
+      Carrier coverage is what each carrier tells the FCC (Data &amp; updates: FCC carrier coverage); the towers are the tower engine's (the Towers tab), from the sources its credits name.</p></div>`;
+  dcTowers(el.querySelector("#dcTowers"), j, save, ()=>el.isConnected&&el._dcGen===gen);
   $("#dcWho")&&($("#dcWho").oninput=e=>{ const f=parseFloat(e.target.value); $("#dcWhoOut").textContent=isFinite(f)&&f>0?dcWhoHolds(spec,f):""; });
-  $("#dcFetchCells")&&($("#dcFetchCells").onclick=async e=>{ e.target.disabled=true; $("#dcFetchMsg").textContent="Asking OpenCelliD (this can take a minute)…";
-    try{ const r=await post("/api/cells/fetch",{lat:d.lat,lon:d.lon}); if(!el.isConnected) return; if(r.rows) return window.dasCellPresurvey(el, j, save);
-      $("#dcFetchMsg").textContent=r.skipped?`Nothing new: ${r.skipped}.`:"OpenCelliD has no cells mapped here."; }
-    catch(err){ e.target.disabled=false; $("#dcFetchMsg").textContent=err.message; } });
-  const keep=async patch=>{ j=await save({cellular:{...(j.data.cellular||{}), ...patch}}); };
-  el.querySelectorAll("[data-dn]").forEach(i=>i.onchange=async()=>{ const car=i.closest("tr").dataset.car, all={...((j.data.cellular||{}).donor||{})}, x={...(all[car]||{})};
-    x[i.dataset.dn]=i.value===""?null:i.type==="number"?+i.value:i.value; x.at=today(); all[car]=x; await keep({donor:all}); window.dasCellPresurvey(el, j, save); });
-  el.querySelectorAll("[data-ap]").forEach(i=>i.onchange=async()=>{ const car=i.closest("tr").dataset.car, all={...((j.data.cellular||{}).approvals||{})};
-    all[car]={...(all[car]||{}), [i.dataset.ap]:i.value||null}; await keep({approvals:all}); });
+  // one carrier's field, worked out on the job as it is now and saved as of that copy (dasrev.js dasJobPatch, as dasx.js's carrier
+  // approvals are): the page's own copy of the cellular section, the towers' marks in it too, is never sent back (review 11/12)
+  const keep=async(part, car, field, value)=>{ const fn=cur=>{ const C=((cur.data||{}).cellular)||{}, all={...(C[part]||{})};
+      all[car]={...(all[car]||{}), [field]:value, ...(part==="donor"?{at:today()}:{})}; return {cellular:{...C, [part]:all}}; };
+    const got=window.dasJobPatch?await window.dasJobPatch(j.id, fn):await save(fn(j)); if(got&&got.data){ j=got; dcMarkSeen(j, got); } };
+  // a donor reading saved: its row's check says what it is now, and nothing else is drawn again (the whole panel was, the towers block
+  // from that save's copy: a note being typed was cut off, a mark saved meanwhile showed unmarked, round 2)
+  el.querySelectorAll("[data-dn]").forEach(i=>i.onchange=async()=>{ const tr=i.closest("tr"), car=tr.dataset.car;
+    await keep("donor", car, i.dataset.dn, i.value===""?null:i.type==="number"?+i.value:i.value);
+    const dv=tr.isConnected&&tr.querySelector(".dc-dv"); if(dv) dv.innerHTML=dcDonorTxt(((j.data||{}).cellular||{}).donor?.[car]); });
+  el.querySelectorAll("[data-ap]").forEach(i=>i.onchange=async()=>{ await keep("approvals", i.closest("tr").dataset.car, i.dataset.ap, i.value||null); });
   el.querySelectorAll("[data-let]").forEach(b=>b.onclick=()=>dasCellConsent(j, b.dataset.let));
   el.querySelectorAll("[data-letmail]").forEach(b=>b.onclick=async()=>{ const carrier=b.dataset.letmail;
     const fl=((await api(`/api/das/jobs/${j.id}/files`).catch(()=>({files:[]}))).files||[]).map(f=>f.name);

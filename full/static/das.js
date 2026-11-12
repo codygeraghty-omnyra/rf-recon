@@ -304,10 +304,12 @@ function dasSay(t, ok){ let b=document.getElementById("dasSay");  // ok: good ne
   b.className=ok?"status":"status err"; b.textContent=t; b.style.display="block"; clearTimeout(dasSay.t); dasSay.t=setTimeout(()=>{ b.style.display="none"; }, 8000); }  // display, not hidden: .status sets its own
 // Print one page of a job (the AHJ report, the design submittal) the way the consent letters print: a copy attached
 // to <body>. Printed in place it sat inside #view, which the Search print sheet's rule hides, and came out blank (11/3).
+// The element's own id comes back after: it came back as "dasPrint" whatever it was, so the Discovery report (#stReport) wasn't
+// found by its second ⎙ Print and threw (review 11/12)
 function dasPrintCopy(el){
-  const box=el.cloneNode(true); el.removeAttribute("id"); box.id="dasPrint";
+  const box=el.cloneNode(true), id=el.id; el.removeAttribute("id"); box.id="dasPrint";
   document.body.appendChild(box); document.body.classList.add("print-das"); window.print();
-  setTimeout(()=>{ document.body.classList.remove("print-das"); box.remove(); el.id="dasPrint"; },500);
+  setTimeout(()=>{ document.body.classList.remove("print-das"); box.remove(); if(id) el.id=id; },500);
 }
 const dasDl = (name, text, type) => { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),10000); };
 const csvOf = rows => { const keys=[]; for(const r of rows) for(const k of Object.keys(r)) if(!keys.includes(k)) keys.push(k);
@@ -979,7 +981,7 @@ async function dasPresurvey(el, j, save){
         <input id="psL" type="number" value="${P.loss}" min="0" max="120" style="width:64px"> dB</label>
       <label class="inl" title="The realistic estimate's land type (Okumura-Hata): urban is the most loss, open land the least">Realistic as <select id="psEnv">${[["urban","Hata urban"],["suburban","Hata suburban"],["open","Hata open land"]].map(([k,l])=>`<option value="${k}" ${P.env===k?"selected":""}>${l}</option>`).join("")}</select></label>
       <label class="inl">Needs at least <input id="psT" type="number" value="${P.threshold}" style="width:80px"> dBm inside</label>
-      <button id="psPick">Tick fire, police, EMS, 911</button><button id="psNone">Untick all</button><button id="psToCell" title="AT&T, T-Mobile and Verizon here: coverage, closest site and the spectrum each holds, below the public safety list">Cellular carriers ↓</button>
+      <button id="psPick">Tick fire, police, EMS, 911</button><button id="psNone">Untick all</button><button id="psToCell" title="AT&T, T-Mobile and Verizon here: the 3 closest towers each, coverage and the spectrum each holds, below the public safety list">Cellular carriers ↓</button>
       <button id="psTer" title="Line of sight from each system's donor site to the roof, with the loss over hills (terrain data, cached on this PC once fetched). Ticked systems, or the 20 strongest.">⛰ Terrain paths</button>
       <button id="psAim" ${(any?chosen:r.systems).length?"":"disabled"} title="For each chosen system's donor site: true and magnetic bearing, elevation angle, distance and terrain clearance; print or save as PDF">⎙ Donor aiming sheet</button>
       <button id="psPlan" ${plan.length?"":"disabled"}>⇩ Channel plan CSV</button><button id="psCsv">⇩ Systems CSV</button><button id="psKml">⇩ KML</button><button id="psTak">⇩ ATAK</button>

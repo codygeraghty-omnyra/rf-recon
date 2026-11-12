@@ -484,9 +484,14 @@ function ensureMap(){
     const map=L.map(el,{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
     // − / + and the wheel-zoom lock: the shared zoom bar (zoombar.js), added by addMapLayers like every other map
     addMapLayers(map);
+    if(window.RFSurveyMap) RFSurveyMap.add(map, {slot:"search"});  // ▦ Survey: a run's squares under the dots (surveymap.js, Cody 11/12)
     // two drawing layers: the dots (clickable) and the decoration (rings, tracks, overlays) that clicks pass through;
     // a decoration canvas on top used to swallow every click, so locked-pin clicks on dots did nothing
     S.dotsR=L.canvas({padding:.3});
+    // and the map's own canvas, for every shape given none (the drawings, markup.js): one canvas hit-tests the dots and the
+    // drawings together. On a second one, it went over the dots' when the Towers tab was visited and back, and from then on took
+    // every click on a dot (11/12, found by ui_sweep's survey group; master too). Areas keep to its back (markup.js)
+    map.options.renderer=S.dotsR;
     S.quietR=L.canvas({padding:.3}).addTo(map);
     map.whenReady(()=>{ if(S.quietR._container) S.quietR._container.style.pointerEvents="none"; });  // its canvas exists once the map has a view
     S.dotLayer=L.layerGroup().addTo(map); S.decoLayer=L.layerGroup().addTo(map);  // cleared and drawn again by drawLayers
