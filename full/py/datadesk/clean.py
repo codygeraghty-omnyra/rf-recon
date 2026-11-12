@@ -3,7 +3,8 @@
   validate    required fields, coordinates on Earth (and in the US when the profile says so), frequencies in a radio range
   normalise   call signs upper case without spaces, names with single spaces, kHz and GHz to MHz
   dedupe      the source's own id; points of one kind within ~100 m of each other
-  scrub       personal fields dropped before anything is stored (the profile's list plus the source's own)
+  scrub       personal fields dropped before anything is stored (the profile's list plus the source's own); a profile
+              with a tag list keeps only the tags it names in a row's tags (OpenStreetMap's: no user, uid or contact tags)
   provenance  each kept row says where it came from: source, licence, link, when fetched
   quarantine  a row that fails is kept aside with why ("Needs a look"), never dropped without a word
 
@@ -15,7 +16,7 @@ import math
 import re
 
 PROFILES = {
-    "default": {"required": [], "point": False, "us": False, "freq": None, "id": None, "near_m": 0, "personal": []},
+    "default": {"required": [], "point": False, "us": False, "freq": None, "id": None, "near_m": 0, "personal": [], "tags": None},
     "points": {"required": ["lat", "lon"], "point": True, "us": False, "freq": None, "id": "id", "near_m": 100, "personal": []},
     "us_points": {"required": ["lat", "lon"], "point": True, "us": True, "freq": None, "id": "id", "near_m": 100, "personal": []},
     # a registry's own records (signal booster registrations): each needs its id, and two at one spot are two (one per floor)
@@ -23,6 +24,15 @@ PROFILES = {
     "frequencies": {"required": ["freq_mhz"], "point": False, "us": False, "freq": "freq_mhz", "id": "id", "near_m": 0, "personal": []},
     "permit": {"required": [], "point": False, "us": True, "freq": None, "id": "permit_id", "near_m": 0,
                "personal": ["owner", "owner_name", "applicant", "applicant_name", "contractor_phone", "phone", "email", "contact"]},
+    # towers, masts and water tanks from a map's features (OpenStreetMap, 11/10): each needs its own id (two masts a few
+    # metres apart are two masts); who edited it (user, uid, changeset) is never kept, and of its tags only what describes
+    # the structure: a contact, a note or a description can name a person
+    "structures": {"required": ["id", "lat", "lon"], "point": True, "us": True, "freq": None, "id": "id", "near_m": 0,
+                   "personal": ["user", "uid", "changeset"],
+                   "tags": {"field": "tags", "keep": ["man_made", "tower:type", "tower:construction", "mimics", "height", "min_height", "ele",
+                                                      "operator", "name", "ref", "location", "structure", "material", "start_date", "building",
+                                                      "building:levels", "disused", "abandoned"],
+                            "prefixes": ["communication:", "tower:"]}},
 }
 US_BOX = (17.5, -180.0, 72.0, -64.0)  # the states and territories, roughly: a coordinate outside is a swapped or broken one
 FREQ_RANGE = (0.003, 300000.0)  # 3 kHz to 300 GHz, in MHz
@@ -75,6 +85,16 @@ def run(rows, profile, source, fetched_at, kind_field="kind"):
             if k.lower() in personal:
                 r.pop(k)
                 scrubbed.add(k)
+        tg = p.get("tags")
+        if tg and isinstance(r.get(tg["field"]), dict):  # only the tags the profile names; the rest never stored
+            keep, pre = set(tg.get("keep") or []), tuple(tg.get("prefixes") or ())
+            tags = {}
+            for k, v in r[tg["field"]].items():
+                if k in keep or (pre and k.startswith(pre)):
+                    tags[k] = v
+                else:
+                    scrubbed.add(f"{tg['field']}.{k}")
+            r[tg["field"]] = tags
         why = []
         for f in p["required"]:
             if r.get(f) in (None, ""):

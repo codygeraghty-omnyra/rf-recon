@@ -11,7 +11,7 @@ window.dasPitch = async el => {
   const [M, firm, jl] = await Promise.all([fetch("static/research/das_market.json").then(r => r.json()), api("/api/das/firm").catch(() => ({})), api("/api/das/jobs").catch(() => ({ jobs: [] }))]);
   if (!el.isConnected) return;
   const P = S.dasPitch = S.dasPitch || { job: "" };
-  const job = P.job ? await api(`/api/das/jobs/${P.job}`).catch(() => null) : null;
+  const job = P.job ? await api(`/api/das/jobs/${P.job}`, { dasRaw: true }).catch(() => null) : null;
   const code = job ? await api(`/api/das/x/code/${job.id}`).catch(() => null) : null;  // the state's rule: a deck never says the code requires what a state doesn't
   if (!el.isConnected) return;
   const src = Object.fromEntries((M.sources || []).map(s => [s.key, s]));

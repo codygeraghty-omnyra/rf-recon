@@ -86,6 +86,7 @@ import fieldpack  # noqa: E402
 import geo  # noqa: E402
 import course  # noqa: E402
 import markup  # noqa: E402
+import survey  # noqa: E402
 import network  # noqa: E402
 import serverfiles  # noqa: E402
 import notes  # noqa: E402
@@ -186,6 +187,8 @@ def init():
     captures.migrate(con)
     import towers
     towers.ensure_schema(con)
+    survey.ensure(con)
+    survey.sweep(con)  # an import a stopped copy left hidden (a day old: survey.STALE_S)
     try:
         if n := keystore.migrate(con, uls_import.DATA_DIR):
             print(f"Moved {n} saved keys out of the database into {keystore.path(uls_import.DATA_DIR)}", flush=True)
@@ -813,7 +816,8 @@ def start_fieldpack(d):
 EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talkgroups/import", "/api/talkgroups/delete",
                 "/api/cells", "/api/cells/import", "/api/cells/fetch", "/api/spectrum", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
-                "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid", "/api/uls/pending"}
+                "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid", "/api/uls/pending",
+                "/api/towers", "/api/towers/topup", "/api/towers/enb"}  # the tower report (towerfuse.py, 11/10)
 
 
 def coverage_args(qs):
@@ -832,38 +836,47 @@ def coverage_args(qs):
 # ---------------------------------------------------------------- backup of your own work
 
 BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at DAStastic\backups in Drive (shared)
-USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES + markup.TABLES
+USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES + markup.TABLES + survey.TABLES
 NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: DAStastic\notes in Drive)
 
 
 def backup_user_data():
     """Missions, captures, observations, labels and settings, but never API keys, into
     BACKUP_DIR/my-work-YYYY-MM-DD.db. FCC data isn't copied: it downloads again. Built in a local temp
-    file and then copied, so SQLite never writes on a synced drive. Keeps the 14 newest."""
+    file and then copied, so SQLite never writes on a synced drive. Keeps the 14 newest. The temp file is this
+    backup's own (mkstemp): every copy on the server runs as one user with one /tmp, and at one fixed name a copy
+    starting with another deleted the other's half-built file, or copied its stub, or another business's rows, into
+    its own backups (review 11/10, reproduced on Linux; they now carry survey tracks too)."""
     import shutil
     import tempfile
     if not BACKUP_DIR:
         return None
     os.makedirs(BACKUP_DIR, exist_ok=True)
-    tmp = os.path.join(tempfile.gettempdir(), "rf-recon-my-work.db")
-    if os.path.exists(tmp):
-        os.remove(tmp)
-    con = sqlite3.connect(DB_PATH, timeout=60)
+    fd, tmp = tempfile.mkstemp(prefix="rf-recon-my-work-", suffix=".db")
+    os.close(fd)  # SQLite takes an empty file as an empty database
     try:
-        con.execute("ATTACH DATABASE ? AS b", (tmp,))
-        for t in USER_TABLES:
-            ddl = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()
-            if not ddl:
-                continue
-            con.execute(re.sub(r'^CREATE TABLE (IF NOT EXISTS )?"?' + t + r'"?', f"CREATE TABLE b.{t}", ddl[0], count=1))
-            con.execute(f"INSERT INTO b.{t} SELECT * FROM main.{t}" + (" WHERE k <> 'creds'" if t == "setting" else ""))
-        con.commit()
-        con.execute("DETACH DATABASE b")
+        con = sqlite3.connect(DB_PATH, timeout=60)
+        try:
+            survey.sweep(con)  # an import a stopped copy left hidden, and one still coming in never goes in (survey.BACKUP_WHERE)
+            con.execute("ATTACH DATABASE ? AS b", (tmp,))
+            for t in USER_TABLES:
+                ddl = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()
+                if not ddl:
+                    continue
+                con.execute(re.sub(r'^CREATE TABLE (IF NOT EXISTS )?"?' + t + r'"?', f"CREATE TABLE b.{t}", ddl[0], count=1))
+                where = " WHERE k <> 'creds'" if t == "setting" else f" WHERE {survey.BACKUP_WHERE[t]}" if t in survey.BACKUP_WHERE else ""
+                con.execute(f"INSERT INTO b.{t} SELECT * FROM main.{t}" + where)
+            con.commit()
+            con.execute("DETACH DATABASE b")
+        finally:
+            con.close()
+        out = os.path.join(BACKUP_DIR, f"my-work-{time.strftime('%Y-%m-%d')}.db")
+        shutil.copyfile(tmp, out)
     finally:
-        con.close()
-    out = os.path.join(BACKUP_DIR, f"my-work-{time.strftime('%Y-%m-%d')}.db")
-    shutil.copyfile(tmp, out)
-    os.remove(tmp)
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
     for old in sorted(f for f in os.listdir(BACKUP_DIR) if f.startswith("my-work-") and f.endswith(".db"))[:-14]:
         os.remove(os.path.join(BACKUP_DIR, old))
     return out
@@ -1810,6 +1823,27 @@ def save_mission(d, mid=None):
     return m
 
 
+def delete_mission(con, mid):
+    """A mission and everything filed under it, as one transaction, the mission row last (as das.delete_job). Review 11/10,
+    round 3: the drawings' and surveys' ensure() ran executescript, which commits first, so the mission's removal was saved
+    before its surveys went; a delete stopped there (a full disk, a killed copy) left the track under an id the next mission
+    takes, in every backup, with nothing left to delete it by. Stopped anywhere now, nothing is gone."""
+    import markup
+    if con.in_transaction:
+        con.commit()
+    con.execute("BEGIN IMMEDIATE")
+    try:
+        markup.drop_scope(con, "mission", mid)  # its drawings on the maps
+        survey.drop_scope(con, "mission", mid)  # and its drive and walk surveys
+        for t in ("mission_log", "observation", "capture_point", "track_point", "capture", "mission"):
+            col = "id" if t == "mission" else "mission_id"
+            con.execute(f"DELETE FROM {t} WHERE {col}=?", (mid,))
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
+
+
 def uls_lookup_factory():
     con = db()
 
@@ -2349,15 +2383,55 @@ class H(BaseHTTPRequestHandler):
                     boxes = [b for b in (fieldpack.trimmed_bbox(con, [st]) for st in states) if b]
                     cc = cdb()
                     try:
-                        r = cells.import_ocid(cc, fstr(qs, "name"), self.raw_body(), boxes or None)
+                        r = cells.import_ocid(cc, fstr(qs, "name"), self.raw_body(), boxes or None, states=states)
                     finally:
                         cc.close()
                     return self.send(200, dict(r, states=states))
+                if p.startswith("/api/towers"):  # the tower report (towerfuse.py): per carrier, the nearest towers and what's on them
+                    return self.towers_route(method, p, qs, con)
             finally:
                 con.close()
             return self.send(404, {"error": "not found"})
         except ValueError as e:
             return self.send(400, {"error": str(e)})
+
+    def towers_route(self, method, p, qs, con):
+        """GET /api/towers?lat&lon&radius=5&carriers&n=3: the tower report, with no network calls (towerfuse.report).
+        GET /api/towers/enb?q=812442&carrier=AT%26T(&radio=NR&bits=24): one eNB or gNB by number, wherever the crowd has it.
+        POST /api/towers/topup {lat, lon}: fresh OpenCelliD cells when a top-up is due and the day's budget has room, and
+        OpenStreetMap's towers when osm_towers is switched on. A view-only login can't POST (remote.refused), so it can't spend
+        the copy's key. Every answer carries the credit lines (attribution)."""
+        import towerfuse
+        cc = cdb()
+        try:
+            if p == "/api/towers" and method == "GET":
+                lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
+                if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    raise ValueError("The tower report needs a pin.")
+                return self.send(200, towerfuse.report(con, cc, lat, lon, max(0.5, min(fnum(qs, "radius", 5.0), 20.0)), fstr(qs, "carriers") or None,
+                                                       int(max(1, min(fnum(qs, "n", 3), 10))), far_mi=get_setting("towers.far_mi", 10),
+                                                       data_dir=uls_import.DATA_DIR))
+            if p == "/api/towers/enb" and method == "GET":
+                return self.send(200, towerfuse.site_by_id(con, cc, fstr(qs, "q"), fstr(qs, "carrier") or "AT&T", fstr(qs, "radio") or "LTE",
+                                                           int(max(22, min(fnum(qs, "bits", 24), 32)))))
+            if p == "/api/towers/topup" and method == "POST":
+                a = self.body_json() or {}
+                try:
+                    lat, lon = float(a["lat"]), float(a["lon"])
+                except (KeyError, TypeError, ValueError):
+                    lat = lon = None
+                if lat is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    raise ValueError("A top-up needs a pin (lat, lon).")
+                import osmtowers
+                osm_on = bool(UPD and (UPD.config().get("osm_towers") or {}).get("enabled"))
+                # the server only when OSM is on, read as text if it isn't JSON, checked (https, a public host): a bad hand-set
+                # value is said in the OSM part and never stops the OpenCelliD one (review 11/10)
+                srv, why = osmtowers.configured_server(con) if osm_on else (None, None)
+                return self.send(200, towerfuse.topup(con, cc, lat, lon, (get_setting("creds", {}) or {}).get("opencellid_key", ""),
+                                                      osm_on=osm_on, osm_server=srv, osm_problem=why))
+            return self.send(404, {"error": "not found"})
+        finally:
+            cc.close()
 
     def phone_route(self, method, p, qs):
         """The Phone window (phone.py): its settings as the page may see them, the texts and calls with the demo list's
@@ -2589,6 +2663,8 @@ class H(BaseHTTPRequestHandler):
                         rows = [x for x in das.list_jobs(con) if vis is None or x["id"] in vis]
                         return self.send(200, {"jobs": rows, "stages": das.STAGES, "folder": das.DAS_DIR, "firm_needs": dasfirm.board(con, rows)})
                     if action is None:
+                        if fstr(qs, "view"):  # a page drawn from this revision: no other page's later save folds into it (dashist.seen)
+                            dashist.seen(con, jid, job.get("rev"), fstr(qs, "view"))
                         return self.send(200, job)
                     if action == "history":  # every change, who and when, newest first (dashist.history)
                         return self.send(200, dashist.history(con, jid, fnum(qs, "before"), fnum(qs, "limit", 40)))
@@ -2645,13 +2721,16 @@ class H(BaseHTTPRequestHandler):
                         codecheck.gate_save(con, job, b)  # a stage move forward needs what the stage needs, or a reason
                         b.pop("gate_reason", None)
                         return self.send(200, das.save_job(con, b, jid, page=True, need_rev=bool(who)))
+                    if action == "floors":  # floor changes worked out on the job as it is (dasfloors.py): Start, the counts, Plans, the Grid test
+                        return self.send(200, das.floor_ops(con, jid, self.body_json(), page=True, need_rev=bool(who)))
                     if action == "restore":  # undo one change, or the job as it was then: a new revision, history kept
                         d = self.body_json()
                         try:
                             rev = int(d.get("rev"))
                         except (TypeError, ValueError):
                             raise ValueError("Which revision?")
-                        return self.send(200, das.restore_job(con, jid, rev, d.get("mode") or "undo"))
+                        since = d.get("since") if isinstance(d.get("since"), int) and not isinstance(d.get("since"), bool) else None
+                        return self.send(200, das.restore_job(con, jid, rev, d.get("mode") or "undo", confirm=d.get("confirm") if isinstance(d.get("confirm"), dict) else None, since=since))
                     if action == "access":
                         return self.send(200, self.access_post(con, job, lv, self.body_json()))
                     if action == "share":
@@ -2997,6 +3076,74 @@ class H(BaseHTTPRequestHandler):
         finally:
             con.close()
 
+    def survey_route(self, method, p, qs):
+        """Drive and walk surveys (survey.py, Cody 11/10): a mission's, a DAS job's (its access list: view to see, edit to change),
+        or this copy's scratch ones. GET /api/survey lists the runs, /api/survey/run gives one with what it holds,
+        /api/survey/readings its readings (columns and rows, up to 50,000 a page: since=ms of a page's last row asks for the
+        next, more says there is one). POST /api/survey makes a run (with a first batch of readings; keep_mi: only readings
+        that near the site are ever stored), /api/survey/append adds a batch (up to 2,000; one sent twice is kept once, so a
+        retry is safe; the run's keep_mi trims it), /api/survey/stop ends a recording (keep_mi: only the readings that near
+        the site stay, and the run keeps that trim for any batch still to come), /api/survey/delete
+        removes a run and its readings, and /api/survey/import takes a log file as the body (G-NetTrack Pro, a scanner's CSV,
+        the template) with every row, no row cap (utc_offset in minutes for a phone's local times, keep_mi, calibrated=1 for a
+        calibrated scanner); the same file twice into one scope is 409. The file is read in pieces as it arrives, never whole
+        (survey.import_file), and one over survey.MAX_IMPORT is 413 before any of it is read (review 11/10: a 58 MB scanner
+        export, held whole, stopped a licensed copy). A view-only login can't POST (remote.refused)."""
+        importing = method == "POST" and p == "/api/survey/import"
+        size = int(self.headers.get("Content-Length") or 0) if importing else 0
+        if importing:
+            if size:  # read below in pieces, never whole: do_POST's drain mustn't read it into memory again
+                self.headers.replace_header("Content-Length", "0")
+            self.close_connection = True  # an import refused part way leaves the rest of its file unread on this connection
+            if size > survey.MAX_IMPORT:
+                return self.send(413, {"error": str(survey.too_big(size))})
+        con = db()
+        try:
+            survey.ensure(con)
+            d = self.body_json() if method == "POST" and p != "/api/survey/import" else {}  # an import's body is the file
+            scope, sid = survey.scope_of(d.get("scope") or fstr(qs, "scope") or "scratch", d.get("scope_id", fstr(qs, "id")))
+            if scope == "job":
+                self.job_gate(con, sid, "edit" if method == "POST" else "view")
+            elif scope == "mission" and not con.execute("SELECT 1 FROM mission WHERE id=?", (sid,)).fetchone():
+                raise LookupError(f"Mission {sid} was deleted. Reload to see the current ones.")
+            rid = d.get("run") if method == "POST" else fstr(qs, "run")
+            if method == "GET" and p == "/api/survey":
+                return self.send(200, {"scope": scope, "scope_id": sid, "runs": survey.listing(con, scope, sid)})
+            if method == "GET" and p == "/api/survey/run":
+                return self.send(200, survey.run_info(con, scope, sid, rid))
+            if method == "GET" and p == "/api/survey/readings":
+                return self.send(200, survey.readings(con, scope, sid, rid, fnum(qs, "since"), fnum(qs, "limit")))
+            if method == "POST" and p == "/api/survey":
+                who = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"
+                return self.send(200, survey.create(con, {**d, "scope": scope, "scope_id": sid, "src_hash": None}, who))
+            if method == "POST" and p == "/api/survey/append":
+                return self.send(200, survey.add(con, scope, sid, rid, d.get("readings")))
+            if method == "POST" and p == "/api/survey/stop":
+                return self.send(200, survey.stop(con, scope, sid, rid, d.get("keep_mi"), (d.get("lat"), d.get("lon"))))
+            if importing:  # every row: /api/das/parse stops at 20,000, a drive log doesn't
+                who = getattr(remote.ON, "login", None) or getattr(remote.ON, "user", None) or "local"
+                # the job's access list is asked again once the file is in: it may have changed while a long log came
+                gate = (lambda: self.job_gate(con, sid, "edit")) if scope == "job" else None
+                return self.send(200, survey.import_file(con, scope, sid, fstr(qs, "name"), self.rfile, who, fnum(qs, "utc_offset"),
+                                                         fnum(qs, "keep_mi"), (fnum(qs, "lat"), fnum(qs, "lon")), fstr(qs, "calibrated") == "1",
+                                                         size=size, gate=gate))
+            if method == "POST" and p == "/api/survey/delete":
+                survey.delete_run(con, scope, sid, rid)
+                return self.send(200, {"ok": True})
+            return self.send(404, {"error": "not found"})
+        except survey.TooBig as e:
+            return self.send(413, {"error": str(e)})
+        except survey.Duplicate as e:
+            return self.send(409, {"error": str(e), "run": e.run})
+        except LookupError as e:
+            return self.send(404, {"error": str(e)})
+        except dashist.NotAllowed as e:
+            return self.send(403, {"error": str(e)})
+        except ValueError as e:
+            return self.send(400, {"error": str(e)})
+        finally:
+            con.close()
+
     # ------------------------------------------------ per-job access (dashist.py): team logins see the jobs shared with them
     def team(self):
         """The signed-in team login answering now and its role, or (None, None) for the admin and the PC's own window."""
@@ -3173,6 +3320,8 @@ class H(BaseHTTPRequestHandler):
                 return self.das_route("GET", p, qs)
             if p == "/api/markup" or p.startswith("/api/markup/"):  # drawings on the maps (markup.py)
                 return self.markup_route("GET", p, qs)
+            if p == "/api/survey" or p.startswith("/api/survey/"):  # drive and walk surveys (survey.py)
+                return self.survey_route("GET", p, qs)
             if p == "/api/intake" or p.startswith("/api/intake/"):  # the one drop spot (intake.py)
                 return self.intake_route("GET", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
@@ -3456,6 +3605,8 @@ class H(BaseHTTPRequestHandler):
                 return self.das_route("POST", p, qs)
             if p == "/api/markup" or p.startswith("/api/markup/"):  # drawings on the maps (markup.py)
                 return self.markup_route("POST", p, qs)
+            if p == "/api/survey" or p.startswith("/api/survey/"):  # drive and walk surveys (survey.py)
+                return self.survey_route("POST", p, qs)
             if p == "/api/intake" or p.startswith("/api/intake/"):  # the one drop spot (intake.py)
                 return self.intake_route("POST", p, qs)
             if p == "/api/notes" or p.startswith("/api/notes/"):
@@ -3553,12 +3704,10 @@ class H(BaseHTTPRequestHandler):
                     return self.send(200, {"ok": True})
                 if action == "delete":
                     con = db()
-                    for t in ("mission", "mission_log", "observation", "capture_point", "track_point", "capture"):
-                        col = "id" if t == "mission" else "mission_id"
-                        con.execute(f"DELETE FROM {t} WHERE {col}=?", (mid,))
-                    import markup
-                    markup.drop_scope(con, "mission", mid)  # its drawings on the maps
-                    con.commit(); con.close()
+                    try:
+                        delete_mission(con, mid)
+                    finally:
+                        con.close()
                     if get_setting("active_mission") == mid:
                         set_setting("active_mission", None)
                     return self.send(200, {"ok": True})
@@ -3691,6 +3840,12 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"ok": True, "rows": n})
             if p == "/api/settings":
                 d = self.body_json()
+                srv = None
+                if "osm_towers_server" in d:  # checked before anything is saved: a bad one answered 500 with the key and states already saved (review 11/10 round 2)
+                    import osmtowers
+                    srv, why = osmtowers.server_of(d["osm_towers_server"] or "")
+                    if why:
+                        return self.send(400, {"error": why})
                 creds = get_setting("creds", {}) or {}
                 for k, v in (d.get("creds") or {}).items():
                     if v == "__clear__":
@@ -3702,6 +3857,8 @@ class H(BaseHTTPRequestHandler):
                     set_setting("update.states", d["states"])
                 if "bdc_states" in d:  # carrier coverage (bdc.py) loads per state: its own list
                     set_setting("bdc.states", ",".join(s for s in re.split(r"[,\s]+", (d["bdc_states"] or "").upper()) if s in bdc.STATES))
+                if "osm_towers_server" in d:  # the Overpass server a copy's own or paid account gives (osmtowers.server_of): https, public
+                    set_setting("osm_towers.server", srv or "")
                 return self.send(200, {"ok": True})
             if p == "/api/update/config":
                 d = self.body_json()
@@ -3718,11 +3875,8 @@ class H(BaseHTTPRequestHandler):
                     for sid, c in d["sources"].items():
                         cfg.setdefault(sid, {}).update(c)
                     set_setting("update.sources", cfg)
-                if d.get("all") is not None:
-                    cfg = get_setting("update.sources", {}) or {}
-                    for sid in updmod.SOURCES:
-                        cfg.setdefault(sid, {})["enabled"] = bool(d["all"])
-                    set_setting("update.sources", cfg)
+                if d.get("all") is not None:  # All on / All off; one switched on only by itself (updater.SWITCH_ONLY) never goes on here
+                    set_setting("update.sources", updmod.switch_all(get_setting("update.sources", {}) or {}, d["all"]))
                 return self.send(200, UPD.snapshot())
             if p == "/api/update/stop":  # Stop all downloads (Data & updates)
                 return self.send(200, {"stopping": UPD.stop_all(), **UPD.snapshot()})
@@ -3755,8 +3909,8 @@ class H(BaseHTTPRequestHandler):
                 ids = d.get("ids")
                 if ids == "enabled":
                     ids = [sid for sid, c in UPD.config().items() if c["enabled"]]
-                elif ids == "all":  # Update all: every source, whether it's selected or not
-                    ids = list(UPD.config())
+                elif ids == "all":  # Update all: every source, whether it's selected or not, but one that runs only switched on
+                    ids = UPD.update_all_ids()
                 skipped = []
                 if d.get("ids") == "all" or d.get("skip_no_key"):  # a run of many leaves out the ones whose key isn't saved
                     acc = {sid: s.get("access") or {} for sid, s in UPD.snapshot()["sources"].items()}

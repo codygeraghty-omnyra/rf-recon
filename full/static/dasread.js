@@ -126,7 +126,7 @@ window.dasCertReader = async (el, j, keep) => {
     if (!c) { out.innerHTML = ""; return; }
     out.innerHTML = c.fail ? `<p class="status err">${esc(c.fail)}</p>` : c.read.scan ? `<div class="rd" data-rd="scan"><p class="rd-say"><b>scan: needs a person</b></p><p class="hint" style="margin:2px 0 0">${esc(c.name)} has no words DAStastic can read, so it proposes nothing.</p></div>`
       : `<div class="rd" data-rd="cert">${c.read.kind === "cal" ? calView(c) : c.read.kind === "credential" || c.read.expires ? credView(c) : `<p class="rd-say"><b>${esc(c.name)}</b>: no calibration or credential words in it, so it proposes nothing.</p>`}${c.msg ? `<p class="hint" role="status">${esc(c.msg)}</p>` : ""}</div>`; };
-  const fillInst = async (c, names) => { const R = c.read, now = (await api(`/api/das/jobs/${j.id}`)).data || {}, T = now.testing || {}, list = [...(T.instruments || [])], k0 = target(c), put = [], at = k0 === "new" ? list.length : k0;
+  const fillInst = async (c, names) => { const R = c.read, now = (await api(`/api/das/jobs/${j.id}`, {dasRaw: true})).data || {}, T = now.testing || {}, list = [...(T.instruments || [])], k0 = target(c), put = [], at = k0 === "new" ? list.length : k0;
     const vals = {serial: R.serial?.v, cal: R.cal?.v, expires: R.expires?.v, cert: c.name};
     const x = k0 === "new" ? {model: R.model?.v || "Instrument", serial: "", cal: ""} : {...list[at]};
     for (const f of names) { if (!vals[f] || String(x[f] || "").trim() || (k0 !== "new" && onScreen(at, f))) continue; if (f === "serial" && k0 !== "new" && tied(x)) continue; x[f] = vals[f]; put.push(f); }
@@ -134,7 +134,8 @@ window.dasCertReader = async (el, j, keep) => {
     list[at] = x; c.msg = `Filled ${put.join(", ")} on ${instName(x)}.`;
     if (k0 === "new") c.pick = null;
     if (!await keep({testing: {...T, instruments: list}})) { c.msg = "Not saved."; draw(); } };
-  const fillTc = async (c, f) => { const now = (await api(`/api/das/jobs/${j.id}`)).data || {}, T = now.testing || {};
+  // the job as it is now, read without moving the page's revision (review 11/11: a "Nothing to fill" left it moved with no redraw)
+  const fillTc = async (c, f) => { const now = (await api(`/api/das/jobs/${j.id}`, {dasRaw: true})).data || {}, T = now.testing || {};
     if (String(T[f] || "").trim() || document.querySelector(`[data-tc="${f}"]`)?.value?.trim()) { c.msg = "Nothing to fill: that field has a value."; draw(); return; }
     c.msg = `Filled ${RD_TC[f]}.`;
     if (!await keep({testing: {...T, [f]: c.read.expires.v}})) { c.msg = "Not saved."; draw(); } };

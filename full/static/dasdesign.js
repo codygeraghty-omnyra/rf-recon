@@ -561,7 +561,9 @@ async function dsDxfImport(j, d, f, file, save){
   const up=await api(`/api/das/jobs/${j.id}/files?name=${encodeURIComponent(name)}`, {method:"POST", body:await blob.arrayBuffer()}), kept=up.saved||name;
   DS_AR.set(kept, r.H/r.W);
   const all=(d.design||{}).floors||{};
-  await save({floors:d.floors.map(x=>x.name===f.name?{...x, plan:kept, plan_src:{dxf:file.name, png:kept}}:x), design:{...(d.design||{}), floors:{...all, [f.name]:{...(all[f.name]||{}), width_ft:r.width_ft}}}});
+  // the floor's plan as a floor operation on the job as it is, the width with it (review round 6: the whole floor list from this view's copy)
+  const design={...(d.design||{}), floors:{...all, [f.name]:{...(all[f.name]||{}), width_ft:r.width_ft}}};
+  try{ await window.dasFloorOps(j.id, [{op:"set", name:f.name, set:{plan:kept, plan_src:{dxf:file.name, png:kept}}}], {data:{design}}); }catch(e){ (window.dasSay||alert)("Not saved: "+e.message); return; }
   const items=r.walls.map(w=>({...w, mi:Math.max(0, DS_WALLS.findIndex(x=>(DS_MAT_LABEL[w.mat]||/^$/).test(x[0]))), conf:0.9, lineConf:0.95, matConf:0.85, src:"vector",
     lineWhy:`DXF layer ${w.layer}${w.paired?": two faces taken as one wall":""}`, matWhy:`from the layer name ${w.layer}`}));
   S.das.dsReview=items.length?{floor:f.name, plan:kept, items, dup:0, smart:true, src:"vector", how:"DXF"}:null;

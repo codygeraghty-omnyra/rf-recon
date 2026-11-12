@@ -106,7 +106,7 @@ def sync(con, snapshot, srcs=None, now=None):
     for s in srcs:  # the hand-written ones in the desk file
         if s.get("person_task"):
             kind = "paid" if s["access"] == "paid" else "permission" if s["access"] == "form" else "sign-up"
-            persons.file(con, s, kind, s["person_task"], link=s["url"], steps=[s["person_task"]], detail=s.get("note", ""), count=False)
+            persons.file(con, s, kind, s["person_task"], link=s["url"], steps=[s["person_task"]], detail=s.get("note", ""), count=False, once=True)
     w_by = {w["id"]: w for w in rows}
     for t in persons.open_tasks(con):  # done: closes when a run after it succeeded; back on the list if one failed
         if t["status"] != "done" or t["source_id"] not in w_by:

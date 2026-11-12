@@ -80,22 +80,38 @@ def route(con, method, p, qs, body):
         j = _job(con, jid)
         return 200, daswatch.passband(con, j["data"])
     if what == "consent" and jid and method == "POST":
-        j, d = _job(con, jid), body()
+        _job(con, jid)
+        d = body()
         key = daswatch.licensee_key(d.get("key") or d.get("licensee"))
         if not key:
             raise ValueError("Which licensee?")
-        st = d.get("status") or "not asked"
-        if st not in CONSENT_STATUS:
+        if d.get("status") and d["status"] not in CONSENT_STATUS:
             raise ValueError(f"Consent status is one of: {', '.join(CONSENT_STATUS)}.")
-        cons = dict(j["data"].get("consents") or {})
-        cur = dict(cons.get(key) or {})
-        cur.update(licensee=d.get("licensee") or cur.get("licensee") or key, status=st,
-                   calls=sorted({c.upper() for c in (d.get("calls") or cur.get("calls") or []) if isinstance(c, str)}))
-        for k in ("date", "note"):
-            if k in d:
-                cur[k] = (d.get(k) or "").strip()[:300]
-        cons[key] = cur
-        return 200, das.save_job(con, {"data": {"consents": cons}}, jid)
+
+        def work(data):
+            # judged on the job as it is, in the save's own transaction (review round 6, then round 7: read before it, a Mark given
+            # landing at the same moment was still lost): only this licensee's record changes
+            cons = dict(data.get("consents") or {})
+            cur = dict(cons.get(key) or {})
+            # a consent email's "asked" never goes over an answer saved since the list was drawn (only_if_unasked), and an edit with no
+            # status (a date changed in the passband table) keeps the status the job has
+            if d.get("only_if_unasked") and cur.get("status") in ("given", "refused", "not needed"):
+                return {}
+            # was: the status the person's table showed when they changed it (review round 6). When the job's is another now, nothing
+            # changes and the page is told
+            was = d.get("was")
+            if was is not None and (cur.get("status") or "not asked") != was:
+                raise ValueError(f"{cur.get('licensee') or key} is {cur.get('status') or 'not asked'}"
+                                 f"{' (' + cur['date'] + ')' if cur.get('date') else ''} now, saved since this table was drawn: nothing was changed.")
+            st = d.get("status") or cur.get("status") or "not asked"
+            cur.update(licensee=d.get("licensee") or cur.get("licensee") or key, status=st,
+                       calls=sorted({c.upper() for c in (d.get("calls") or cur.get("calls") or []) if isinstance(c, str)}))
+            for k in ("date", "note"):
+                if k in d:
+                    cur[k] = (d.get(k) or "").strip()[:300]
+            cons[key] = cur
+            return {"consents": cons}
+        return 200, das.save_job(con, {"data": {}}, jid, work=work)
     if what == "watch" and jid:
         j = _job(con, jid)
         if method == "POST" and sub == "ack":

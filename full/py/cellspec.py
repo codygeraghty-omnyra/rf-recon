@@ -9,9 +9,15 @@ licence says what a carrier may transmit here, not which of these this site has 
   GSM   ARFCN        3GPP TS 45.005 2: GSM 850 128-251, PCS 1900 512-810, 200 kHz
   CDMA  channel      TIA-97 band classes 0 (800) and 1 (PCS)
 
-Every range here is the channel numbers that fall inside the block's edges. Standard library only.
+Every range here is the channel numbers that fall inside the block's edges.
+
+The other way, a channel heard to its band (band_of, 11/10): DAStastic's one converter. The tower report, the cell
+sites, the capture readers (sigid's earfcn_to_dl_mhz and nrarfcn_to_mhz are thin wrappers over it) and the survey use
+it; static/sigmeta.js mirrors it as sigMetaParts.bandOf, and tests/test_bandof.py checks the two give the same answers
+and that DAStastic for Android's own table (RadioBridge.lteBand) agrees for the bands it lists. Standard library only.
 """
 import math
+import re
 
 # band, DL MHz, N_offs DL, UL MHz, N_offs UL (UL None: downlink only; TDD: UL is the DL span)
 LTE = [
@@ -45,6 +51,22 @@ NR = [
 # band, DL MHz, DL offset, UL MHz, UL offset
 UMTS = [("Band II", (1930, 1990), 0, (1850, 1910), 0), ("Band IV", (2110, 2155), 1805, (1710, 1755), 1450),
         ("Band V", (869, 894), 0, (824, 849), 0)]
+# LTE bands a phone or scanner can report that no US licence block names, for band_of only (LTE above stays the US
+# licensing table): B46 is LAA, carriers' LTE in the unlicensed 5 GHz band; the rest are heard abroad, and DAStastic for
+# Android's table lists them. Same columns as LTE (3GPP TS 36.101 table 5.7.3-1)
+LTE_HEARD = [
+    ("B1", (2110, 2170), 0, (1920, 1980), 18000),
+    ("B3", (1805, 1880), 1200, (1710, 1785), 19200),
+    ("B7", (2620, 2690), 2750, (2500, 2570), 20750),
+    ("B8", (925, 960), 3450, (880, 915), 21450),
+    ("B20", (791, 821), 6150, (832, 862), 24150),
+    ("B38", (2570, 2620), 37750, "TDD", None),
+    ("B46", (5150, 5925), 46790, "TDD", None),
+]
+# where NR bands overlap (one NR-ARFCN raster for every band), the one a US network uses first; the others are named in
+# "also". 3550-3700 MHz is CBRS (n48) or n77, which spans it: settled later by the carrier's licensed blocks (plan 11/10)
+NR_FIRST = ("n71", "n29", "n12", "n14", "n5", "n2", "n25", "n66", "n70", "n30", "n41", "n48", "n77", "n258", "n261", "n260", "n26")
+NR_CARRIER_FIRST = {"T-Mobile": ("n25",)}  # T-Mobile's PCS is n25 (it holds the G block); AT&T's and Verizon's is n2
 
 
 def _overlap(a, b):
@@ -152,6 +174,90 @@ def cdma(dl, ul):
 
 
 BY_RADIO = {"LTE": lte, "NR": nr, "UMTS": umts, "WCDMA": umts, "GSM": gsm, "CDMA": cdma}
+
+
+# ---------------------------------------------------------------- a channel heard -> its band (the one converter, 11/10)
+# Integer arithmetic, then one division: Python and JavaScript then give the very same MHz (tests/test_bandof.py)
+
+_CHAN = re.compile(r"[ \t]*([0-9]+)(\.0*)?[ \t]*")  # a whole channel number, as text or a number ("650", 650, 650.0)
+
+
+def _int(chan):
+    m = None if chan is None or isinstance(chan, bool) else _CHAN.fullmatch(str(chan))
+    return int(m.group(1)) if m else None
+
+
+def earfcn_dl_mhz(n):
+    """An LTE downlink EARFCN -> (band, downlink MHz), or None outside every band DAStastic knows. 0 is None too: WiGLE's app
+    writes 0 for an EARFCN the phone didn't report, and 36.101 never puts a carrier there (a band's first 7 channel numbers
+    are unused), so it read as a false B1 at 2110 MHz (review 11/10)."""
+    n = _int(n)
+    if n is None or n == 0:
+        return None
+    for band, dl, n_offs, _ul, _nu in LTE + LTE_HEARD:
+        if n_offs <= n < n_offs + 10 * (dl[1] - dl[0]):
+            return band, (dl[0] * 10 + n - n_offs) / 10
+    return None
+
+
+def nrarfcn_mhz(n):
+    """An NR-ARFCN -> MHz on the global raster (3GPP TS 38.104 table 5.4.2.1-1), any band. None outside the raster."""
+    n = _int(n)
+    if n is None:
+        return None
+    if n < 600000:
+        return n * 5 / 1000
+    if n < 2016667:
+        return (3000000 + 15 * (n - 600000)) / 1000
+    if n <= 3279165:
+        return (24250080 + 60 * (n - 2016667)) / 1000
+    return None
+
+
+def band_of(tech, chan, carrier=None):
+    """The band a heard channel is in: tech "LTE" with a downlink EARFCN, or "NR" with an NR-ARFCN. Returns
+    {"tech", "band", "num", "chan", "kind", "dl_mhz", "also", "note"} or None when it's in no band DAStastic knows.
+    LTE channel numbers belong to one band each; NR's raster is shared, so an overlap names the band a US network uses
+    first and lists the others in "also" (carrier settles n2 / n25; n48 / n77 waits for the licensed blocks)."""
+    t = str(tech or "").upper()
+    t = "NR" if "NR" in t or "5G" in t else "LTE" if "LTE" in t or "4G" in t else t
+    n = _int(chan)
+    if n is None:
+        return None
+    if t == "LTE":
+        hit = earfcn_dl_mhz(n)
+        if not hit:
+            return None
+        band, mhz = hit
+        heard = band in {b[0] for b in LTE_HEARD}
+        return {"tech": "LTE", "band": band, "num": int(band[1:]), "chan": n, "kind": "EARFCN", "dl_mhz": mhz, "also": [],
+                "note": "LAA: LTE in the unlicensed 5 GHz band" if band == "B46" else "not a US band" if heard else ""}
+    if t == "NR":
+        mhz = nrarfcn_mhz(n)
+        if mhz is None:
+            return None
+        hits = [b for b, dl, _ul in NR if dl[0] <= mhz < dl[1]]
+        if not hits:
+            return None
+        first = NR_CARRIER_FIRST.get(brand_of_operator(carrier), ()) + NR_FIRST
+        hits.sort(key=lambda b: first.index(b) if b in first else len(first))
+        band = hits[0]
+        note = ("CBRS (n48), or n77 where a phone reports it so: the carrier's licensed blocks settle it" if band == "n48" and "n77" in hits
+                else "PCS: n2 (AT&T, Verizon) or n25 (T-Mobile)" if {"n2", "n25"} <= set(hits) else "")
+        return {"tech": "NR", "band": band, "num": int(band[1:]), "chan": n, "kind": "NR-ARFCN", "dl_mhz": mhz, "also": hits[1:], "note": note}
+    return None
+
+
+def earfcn_band(n):
+    """An LTE downlink EARFCN -> its band name ("B66"), or None."""
+    b = band_of("LTE", n)
+    return b["band"] if b else None
+
+
+def nrarfcn_band(n, carrier=None):
+    """An NR-ARFCN -> its band name ("n77"), or None."""
+    b = band_of("NR", n, carrier)
+    return b["band"] if b else None
 
 
 def channels(radio, dl, ul):

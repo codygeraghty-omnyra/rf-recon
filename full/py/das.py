@@ -421,11 +421,14 @@ def _flat(d, prefix=""):
     return out
 
 
-def save_job(con, d, jid=None, who=None, page=False, need_rev=False, note_=None):
+def save_job(con, d, jid=None, who=None, page=False, need_rev=False, note_=None, ops=None, out=None, work=None):
     """Make a job, or save sections of one. d: {name?, stage?, data: {section: value}, rev?, client?, resolve?}.
     A save that says which revision it started from is merged with what others saved since, or refused with what
     clashed (dashist.check); page=True keeps the sections only their own routes write (the AHJ's review); need_rev=True
-    (a team login) refuses a save that doesn't say. Every change is kept in the job's history (dashist.record)."""
+    (a team login) refuses a save that doesn't say. Every change is kept in the job's history (dashist.record).
+    ops: floor changes worked out on the job as it is, in this save's transaction (dasfloors.apply); their answer goes in out["results"],
+    and a refusal (a floor with work, or changed since the page drew it) is a 409 with what is on it now and the job, saving nothing.
+    work(data): a patch worked out on the job's data as it is, inside this save's transaction (the consent route), or a ValueError."""
     dashist.ensure(con)
     who = who or dashist.who_now()
     client = str(d.get("client") or "")[:40]
@@ -458,7 +461,23 @@ def save_job(con, d, jid=None, who=None, page=False, need_rev=False, note_=None)
                 patch[":name"] = name
             if stage is not None:
                 patch[":stage"] = stage
-            patch = dashist.check(con, jid, cur, cur_rev, patch, d.get("rev", dashist.NO_REV), who, client, need_rev, d.get("resolve"))
+            hist = None
+            mine = work(old_data) if work is not None else None  # worked out on the job as it is: saved as it is, not merged
+            if ops is not None:
+                import dasfloors
+                if "floors" in patch or "guided" in patch and any(isinstance(o, dict) and o.get("op") == "start_answers" for o in ops):
+                    raise ValueError("The floors go as floor changes, not with the rest of the save.")
+                opd, results, refused, hist = dasfloors.apply(old_data, ops, lambda rev: _data_at(con, jid, old_data, cur_rev, rev))
+                if refused:
+                    raise dashist.Refused(409, {"error": " ".join(x["said"] for x in refused), "refused": refused, "job": job_row(con, jid)})
+                if out is not None:
+                    out["results"] = results
+            if patch:
+                patch = dashist.check(con, jid, cur, cur_rev, patch, d.get("rev", dashist.NO_REV), who, client, need_rev, d.get("resolve"))
+            if ops is not None:
+                patch.update(opd)
+            if mine:
+                patch.update(mine)
             changed = {s: (cur.get(s, dashist.ABSENT), v) for s, v in patch.items() if cur.get(s, dashist.ABSENT) != v}
             if changed:
                 new_data = {k: v for k, v in dict(old_data, **{s: v for s, v in patch.items() if not s.startswith(":")}).items()
@@ -475,7 +494,7 @@ def save_job(con, d, jid=None, who=None, page=False, need_rev=False, note_=None)
                     con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "change", c[:500]))
                 if note_:
                     con.execute("INSERT INTO das_log(job_id, ts, kind, detail) VALUES(?,?,?,?)", (jid, now(), "restore", f"{note_} ({who})"))
-                dashist.record(con, jid, cur_rev + 1, who, client, changed, note=note_)
+                dashist.record(con, jid, cur_rev + 1, who, client, changed, note=note_ or hist or None)
                 dashist.prune(con, jid)
         con.commit()
     except BaseException:
@@ -484,20 +503,61 @@ def save_job(con, d, jid=None, who=None, page=False, need_rev=False, note_=None)
     return job_row(con, jid)
 
 
-def restore_job(con, jid, rev, mode, who=None):
-    """Undo one revision, or put the job back as it was right after one: written as a new revision, history kept."""
+def _data_at(con, jid, data, cur_rev, rev):
+    """The job's data as of revision rev, for the sections a floor's work is read from; None when that history is gone."""
+    if isinstance(rev, bool) or not isinstance(rev, int) or rev < 1:
+        return None
+    if rev >= cur_rev:
+        return data
+    states, complete = dashist._states(con, jid, cur_rev, rev, ("floors", "grid", "baseline", "design", "walk"), (None, ""))
+    if not complete:
+        return None
+    then = dict(data)
+    for k, v in states.items():
+        if v is dashist.ABSENT:
+            then.pop(k, None)
+        else:
+            then[k] = v
+    return then
+
+
+def floor_ops(con, jid, d, who=None, page=False, need_rev=False):
+    """POST /api/das/jobs/<id>/floors: {ops, data?, rev?, client?, resolve?}. The floor changes go onto the job as it is; data (other
+    sections, as of rev) merges as any save does. Answers {job, results}."""
+    out = {}
+    j = save_job(con, {k: v for k, v in d.items() if k != "ops"}, jid, who=who, page=page, need_rev=need_rev and bool(d.get("data")),
+                 ops=d.get("ops"), out=out)
+    return {"job": j, "results": out.get("results", [])}
+
+
+def restore_job(con, jid, rev, mode, who=None, confirm=None, since=None):
+    """Undo one revision, or put the job back as it was right after one: written as a new revision, history kept.
+    Undo merges (review round 7): the revision's sections go back as they were before it where nobody changed them since (as of the
+    revision, so a change made since is merged or asked about), and its change to the floors is undone by floor operations on the job as
+    it is (dasfloors.inverse): a floor it added comes off under remove's rule (refused with what is on it now; confirm, from the
+    refusal, names it, as of since), one it took off goes back beside its floors, keys it set go back where they still hold its value."""
     r = job_row(con, jid)
     if r is None:
         raise LookupError(f"Job {jid} was deleted.")
     cur = dict(r["data"], **{":name": r["name"], ":stage": r["stage"]})
     patch = dashist.restore_patch(con, jid, cur, int(rev), mode)
+    ops = None
+    if mode == "undo" and "floors" in patch:
+        import dasfloors
+        row = con.execute("SELECT before, after FROM das_job_rev WHERE job_id=? AND rev=? AND section='floors'", (jid, int(rev))).fetchone()
+        before, after = (dashist._unpack(row[0]), dashist._unpack(row[1])) if row else (patch["floors"], None)
+        ops = dasfloors.inverse(None if before is dashist.ABSENT else before, None if after is dashist.ABSENT else after,
+                                since if since is not None else int(rev), confirm) or None
+        patch.pop("floors")
     d = {"data": {s: v for s, v in patch.items() if not s.startswith(":")}}
+    if mode == "undo":
+        d["rev"] = int(rev)  # as of the revision undone: a section changed since merges with the undo, or is asked about
     if ":name" in patch:
         d["name"] = patch[":name"]
     if ":stage" in patch:
         d["stage"] = patch[":stage"]
     what = f"undid revision {rev}" if mode == "undo" else f"restored the job as it was at revision {rev}"
-    return save_job(con, d, jid, who=who, note_=what)
+    return save_job(con, d, jid, who=who, note_=what, ops=ops)
 
 
 def note(con, jid, text):
@@ -509,8 +569,26 @@ def note(con, jid, text):
 
 
 def delete_job(con, jid):
-    """The job goes; its folder stays (files are never thrown away) but is renamed "_deleted <date> 0007 Name", so a
-    later job can't pick it up by number (11/4: a new job showed a deleted job's spec sheet)."""
+    """The job goes, as one transaction (review 11/10, round 3: dashist's, the drawings' and the surveys' ensure() each
+    committed partway, so a delete stopped there had saved the job's log and drawings going and kept the job). Then its
+    folder, which stays (files are never thrown away) but is renamed "_deleted <date> 0007 Name", so a later job can't pick
+    it up by number (11/4: a new job showed a deleted job's spec sheet); renamed first, a delete that then failed left a
+    job with no folder."""
+    import markup
+    import survey
+    dashist.ensure(con)  # may commit: before anything is deleted
+    dashist.begin(con)
+    try:
+        con.execute("DELETE FROM das_log WHERE job_id=?", (jid,))
+        con.execute("DELETE FROM das_file WHERE job_id=?", (jid,))
+        dashist.forget(con, jid)  # its history, access list and share links
+        markup.drop_scope(con, "job", jid)  # its drawings on the maps
+        survey.drop_scope(con, "job", jid)  # and its drive and walk surveys (their tracks go with the job)
+        con.execute("DELETE FROM das_job WHERE id=?", (jid,))
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
     d = job_dir(jid, "", create=False)
     if os.path.isdir(d):
         base = os.path.basename(d)
@@ -523,14 +601,6 @@ def delete_job(con, jid):
             os.rename(d, dest)
         except OSError:
             pass  # a file open elsewhere: the folder keeps its name; ids still aren't reused (next_job_id)
-    con.execute("DELETE FROM das_log WHERE job_id=?", (jid,))
-    con.execute("DELETE FROM das_file WHERE job_id=?", (jid,))
-    dashist.ensure(con)
-    dashist.forget(con, jid)  # its history, access list and share links
-    import markup
-    markup.drop_scope(con, "job", jid)  # its drawings on the maps
-    con.execute("DELETE FROM das_job WHERE id=?", (jid,))
-    con.commit()
 
 
 def next_job_id(con):
@@ -575,7 +645,7 @@ def delete_contact(con, cid):
 
 # ---------------------------------------------------------------- files: any tool's tables in, job folders in Drive
 
-DAS_DIR = os.environ.get("RF_RECON_DAS") or os.path.join(paths.ROOT, "DAS jobs")
+DAS_DIR = paths.work_dir("RF_RECON_DAS", "DAS jobs")  # never the shared Drive from a test run (paths.work_dir)
 XLSX_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
 

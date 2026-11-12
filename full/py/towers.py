@@ -50,8 +50,12 @@ def county_names():
                 name = unicodedata.normalize("NFKD", p[4].replace("�", "n")).encode("ascii", "ignore").decode()
                 out[p[1] + p[2]] = uls_import.norm_county(name)
     return out
-STATUS = {"C": "Constructed", "G": "Granted", "D": "Dismantled", "T": "Terminated", "A": "Cancelled",
-          "I": "Dismissed", "W": "Withdrawn"}
+# the FCC's ASR status codes (pubacc_asr_codes_data_elem; towerapps.STATUS has the same list): D is Dismissed, I Dismantled.
+# The two were swapped until 11/10: r_tower.zip's 12,733 "I" records are dismantlement notices with a date dismantled, and
+# showed as "Dismissed" (review 11/10). Only Constructed and Granted count anywhere (cells.LIVE_STATUS); the next weekly
+# import (run, which empties the table first) rewrites the stored words
+STATUS = {"C": "Constructed", "G": "Granted", "D": "Dismissed", "T": "Terminated", "A": "Cancelled",
+          "I": "Dismantled", "W": "Withdrawn"}
 
 
 def num(v):

@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "4dbcd47500";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "63a1e7367a";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -284,10 +284,41 @@ function initMap() {
   if (window.RFMeasure) RFMeasure.add(map, {position: "bottomleft"});  // the ruler (measure.js, Cody 11/10): bottom left, as the header and search bar cover the map's top
   setBase(S.base);
   dots = L.layerGroup().addTo(map);
-  map.on("click", e => { if (map._rfMeasuring) return; closeSuggest(); setCenter([e.latlng.lat, e.latlng.lng], false); });  // measuring: a tap is a point
+  // the map holds still (Cody 11/10, after Andy's demo: a tap anywhere searched there and moved the pin). A tap on empty map,
+  // or a long press, offers "Search here" at that spot; a site's dot opens the results viewer (results.js), a sheet above the
+  // bottom bar with no scrim, kept clear of the header and the bar. Measuring takes taps as points. A long press moved the pin
+  // at once: a finger held still before a pan (600 ms on an iPhone) moved it and searched there (review 11/11).
+  map._rfResInset = mapInset;
+  map.on("click", e => { if (map._rfMeasuring) return; closeSuggest(); hereOffer(e); });
+  map.on("contextmenu", e => { if (map._rfMeasuring) return; closeSuggest(); hereOffer(e, true); });
   addEventListener("offline", noSignal);
   addEventListener("online", signalCheck);
   setInterval(signalCheck, 30000);
+}
+// what floats over the full-screen map, measured from the page as it is (env() safe areas included: an iPhone added to the
+// home screen has its chips 47-62 px lower and its bottom bar 34 px higher than fixed numbers said, so the sheet ran under
+// both: review 11/11). top: under the chips; bottom: above the bottom bar; tight: under the header alone, for a short screen
+function mapInset() {
+  const r = q => { const el = document.querySelector(q); if (!el) return null; const b = el.getBoundingClientRect(); return b.height ? b : null; };
+  const chips = r(".mapchips"), nav = r("#nav"), hd = r(".top"), box = map.getContainer().getBoundingClientRect();
+  return {top: chips ? Math.round(chips.bottom - box.top + 10) : 0, bottom: nav ? Math.round(box.bottom - nav.top + 10) : 0, tight: hd ? Math.round(hd.bottom - box.top + 6) : 0};
+}
+// "Search here" where empty map was tapped: one tap more to search there; a move of the map or another tap takes it away.
+// Above the finger, not under it (the next try at a small dot landed on it: review 11/11), and inside the free band between
+// the chips and the bottom bar; it takes no tap for its first 400 ms
+function hereOffer(e, hold) {
+  const box = map.getContainer(); let m = box.querySelector(":scope > .here-offer");
+  if (!e) { if (m) m.hidden = true; return; }
+  if (!m) { m = L.DomUtil.create("div", "here-offer glass over", box); L.DomEvent.disableClickPropagation(m);
+    m.innerHTML = '<button class="btn small" type="button" data-here>Search here</button>';
+    map.on("movestart zoomstart", () => { m.hidden = true; }); }
+  if (!hold && !m.hidden && m._at && m._at.distanceTo(e.containerPoint) < 4) { m.hidden = true; return; }  // the same spot again: put away
+  const p = e.containerPoint; m._at = p; m.hidden = false;
+  const ins = mapInset(), h = m.offsetHeight || 46, lo = ins.top || 6, hi = box.clientHeight - (ins.bottom || 6) - h - 6;
+  const above = p.y - 18 - h, y = above >= lo ? above : Math.min(p.y + 18, hi);
+  m.style.left = `${Math.max(6, Math.min(p.x - 60, box.clientWidth - 130))}px`; m.style.top = `${Math.round(Math.max(lo, Math.min(y, hi)))}px`;
+  const shown = Date.now();
+  m.querySelector("[data-here]").onclick = ev => { L.DomEvent.stop(ev); if (Date.now() - shown < 400) return; m.hidden = true; setCenter([e.latlng.lat, e.latlng.lng], false); };
 }
 function setBase(id) {
   S.base = BASES[id] ? id : "topo";
@@ -369,7 +400,9 @@ function drawMap(fit) {
   for (const s of sites) {
     const n = s.rows.length;
     L.circleMarker([s.lat, s.lon], {renderer: canvas, radius: n > 20 ? 7.5 : n > 4 ? 6 : 4.8, color: "rgba(0,0,0,.55)", weight: 1,
-      fillColor: siteColor(s), fillOpacity: 0.92, bubblingMouseEvents: false}).on("click", () => openSite(s)).addTo(dots);
+      fillColor: siteColor(s), fillOpacity: 0.92, bubblingMouseEvents: false}).on("click", e => {
+        if (window.RFMeasure?.toTool(map, e, e.target.getLatLng())) return;  // a point for the ruler (measure.js)
+        openSite(s); }).addTo(dots);
   }
   if (fit) {
     if (S.mode === "area" && S.center) map.fitBounds(L.latLng(S.center).toBounds(S.radius * 1609.344 * 2.2), {paddingTopLeft: [0, 120], paddingBottomRight: [0, 70]});
@@ -380,7 +413,7 @@ function drawMap(fit) {
 function summary() {
   const el = $("#summary");
   if (!S.db) { el.textContent = "Load a data pack to start"; return; }
-  if (!S.rows.length && !S.center && S.mode !== "search") { el.textContent = "Tap the map or search"; return; }
+  if (!S.rows.length && !S.center && S.mode !== "search") { el.textContent = "Tap the map, then Search here, or search"; return; }
   const radios = S.rows.filter(r => r.layer !== "towers");
   const f = new Set(radios.map(r => fmtF(r.freq_mhz))).size, t = S.rows.length - radios.length;
   el.textContent = S.mode === "search" ? `${int(groupItems(S.rows).length)} results for “${S.query}”`
@@ -468,7 +501,7 @@ function viewList(v) {
   const g = sortList("list", groupItems(S.rows), LIST_SORTS());
   if (!g.length) { v.innerHTML = head("List", where()) + `<div class="card glass empty"><p>${S.center && S.mode !== "search" && !inPack(S.center)
     ? `That spot is outside ${esc(S.pack.name)}, so nothing shows here. Load the pack for that area.`
-    : S.center || S.mode === "search" ? "Nothing here with the layers and filters on." : "Tap the map, use where you are, or search."}</p>
+    : S.center || S.mode === "search" ? "Nothing here with the layers and filters on." : "Tap the map and press Search here, use where you are, or search."}</p>
     <button class="btn" data-act="map">Open the map</button></div>`; return; }
   v.innerHTML = head("List", `${int(g.length)} entries ${where()}${S.truncated ? ". Showing the first 20,000 licences: zoom in with a smaller radius." : ""}`)
     + takRow() + sortChips("list", LIST_SORTS())
@@ -497,7 +530,7 @@ async function sendToTak() {  // tak.js: the same data package the PC app makes
 }
 function viewReport(v) {
   if (!S.db) { v.innerHTML = head("Area report", "") + noPack(); return; }
-  if (S.mode !== "area" || !S.center) { v.innerHTML = head("Area report", "") + `<div class="card glass empty"><p>The area report needs a spot: tap the map, use where you are, or search a place.</p>
+  if (S.mode !== "area" || !S.center) { v.innerHTML = head("Area report", "") + `<div class="card glass empty"><p>The area report needs a spot: tap the map and press Search here, use where you are, or search a place.</p>
     <button class="btn primary" data-act="here">Use where I am</button> <button class="btn" data-act="map">Open the map</button></div>`; return; }
   const radios = S.rows.filter(r => r.layer !== "towers"), towers = S.rows.filter(r => r.layer === "towers");
   const freqs = new Set(radios.map(r => fmtF(r.freq_mhz))), lics = new Set(radios.map(r => r.licensee));
@@ -550,8 +583,11 @@ function openSite(site) {
   const title = radios.length ? (lics[0][0] || "Licensed site") : (tower?.label || "Structure");
   const sub = [any.dist_mi != null ? `${num(any.dist_mi, 2)} mi ${any.compass} of the pin` : "", radios.length ? `${radios.length} frequencies` : "",
     lics.length > 1 ? `${lics.length} licensees` : ""].filter(Boolean).join(" · ");
-  openSheet(esc(title), esc(sub), (tower ? towerHtml(tower) : "") + radios.map(rowHtml).join("")
-    + `<p class="hint mono">${(+site.lat).toFixed(5)}, ${(+site.lon).toFixed(5)}</p>`);
+  const body = (tower ? towerHtml(tower) : "") + radios.map(rowHtml).join("") + `<p class="hint mono">${(+site.lat).toFixed(5)}, ${(+site.lon).toFixed(5)}</p>`;
+  // on the map: the shared results viewer as a sheet, the map left where it is (Cody 11/10); from the List, the sheet as before
+  if (S.tab === "map" && map && window.RFResults) { closeSheet(); hereOffer(null); closeSuggest(); $("#q")?.blur();
+    RFResults.show(map, {key: `site:${site.key}`, label: title, title: esc(title), sub: esc(sub), html: body, zoom: [+site.lat, +site.lon]}, [+site.lat, +site.lon]); }
+  else openSheet(esc(title), esc(sub), body);
 }
 function towerHtml(t) {
   return `<div class="card glass" style="margin:6px 0 10px;padding:12px 14px"><h2>Tower / structure</h2><dl class="kv">${kvs([["Registration", t.reg], ["Type", t.struct_type],
@@ -879,7 +915,7 @@ $("#filterBtn").onclick = () => filterSheet();
 $("#locateBtn").onclick = () => locate(true);
 $("#logBtn").onclick = () => S.db ? logForm() : toast("Load a data pack first: Packs, then Load a pack.");
 $("#radius").innerHTML = RADII.map(r => `<option value="${r}">${r} mi</option>`).join("");
-$("#radius").onchange = e => { S.radius = +e.target.value; if (S.center) run(true); };
+$("#radius").onchange = e => { S.radius = +e.target.value; if (S.center) run(false); };  // the ring changes; the view stays (it was fitted again: review 11/11)
 addEventListener("popstate", () => { const h = readHash(); if (h.tab && h.tab !== S.tab) setTab(h.tab, false); });
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; if (S.tab === "packs") render(); });
 

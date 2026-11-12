@@ -36,8 +36,15 @@ window.dasPlans = async (el, j, save) => {
   const d=j.data||{}, floors=Array.isArray(d.floors)?d.floors:[];
   // kept up to date across saves, so a second page doesn't undo the first; and across redraws, as a redraw can answer from before a press that was still saving
   let J=PLR.j?.id===j.id&&(PLR.j.rev||0)>(j.rev||0)?PLR.j:j;
-  const floorsNow=()=>Array.isArray(J.data.floors)?J.data.floors:[], keep=async patch=>{ const was=J; J=PLR.j=await save(patch); return J!==was; };  // save says so on screen when it's refused
-  const fresh=async()=>{ J=PLR.j=await api(`/api/das/jobs/${j.id}`); };  // a press works from the job as it is now, never from what this page was drawn with
+  const floorsNow=()=>Array.isArray(J.data.floors)?J.data.floors:[], keep=async(fn, did=()=>true)=>{
+    // worked out on the job as it is, after this page's saves in flight (dasrev.js dasJobPatch), the floors as floor operations the server
+    // applies to the job as it is (dasfloors.py): review round 6, the patch was built on a copy read outside the save queue, so a floor
+    // change this page saved in between (the Overview's count) counted as Plans' own and was written over. fn(job data) gives the patch
+    // ({floorOps, ...sections}) or false. It says it saved only when the job holds what the press did
+    J=PLR.j=await window.dasJobPatch(j.id, cur=>fn(cur.data||{})); return !!did(J); };
+  // a press works from the job as it is now, never from what this page was drawn with; a read, not a redraw, so the page's revision
+  // stays the one its views were drawn from (review 11/11: it moved, and a header rename after a press overwrote another's unasked)
+  const fresh=async()=>{ J=PLR.j=await api(`/api/das/jobs/${j.id}`, {dasRaw:true}); };
   const [files, rm]=await Promise.all([api(`/api/das/jobs/${j.id}/files`).then(x=>x.files).catch(()=>[]), frLoad("plans")]);
   if(!el.isConnected) return;  // a newer draw took over while this one waited
   const pdfs=files.filter(x=>/\.pdf$/i.test(x.name)).sort((a,b)=>(b.kind==="plan_set")-(a.kind==="plan_set")), imgs=files.filter(x=>/\.(png|jpe?g|gif|webp)$/i.test(x.name));
@@ -104,10 +111,14 @@ window.dasPlans = async (el, j, save) => {
     return {f, w, mine, kept:!!f?.plan&&!mine, page:!f?.plan, fill:!!r.width_ft&&!w&&(!f?.plan||mine)}; };
   const rowFree=(P, r)=>{ const s=rowNow(P, r); return s.page||s.fill; };
   const useRow=async(P, r)=>{ const s=rowNow(P, r); if(!s.page&&!s.fill) return false;
-    const pic=s.page?await pagePng(P, r.page, r.floor):null, fl=s.f?floorsNow():Readers.addFloors(floorsNow(), [r.floor], DAS.grids);
-    const patch={floors:fl.map(x=>x.name===r.floor&&pic?{...x, plan:pic.kept, plan_src:pic.src}:x)};
-    if(s.fill){ const all=(J.data.design||{}).floors||{}; patch.design={...(J.data.design||{}), floors:{...all, [r.floor]:{...(all[r.floor]||{}), width_ft:r.width_ft}}}; }
-    return keep(patch); };
+    const pic=s.page?await pagePng(P, r.page, r.floor):null;
+    // judged again on the job as it is: a plan or a width put on since stays (it never replaces either)
+    return keep(d=>{ const f=(Array.isArray(d.floors)?d.floors:[]).find(x=>x.name===r.floor), all=(d.design||{}).floors||{}, out={}, ops=[];
+      if(!f) ops.push({op:"add", name:r.floor});
+      if(pic&&!(f&&f.plan)) ops.push({op:"set", name:r.floor, set:{plan:pic.kept, plan_src:pic.src}});
+      if(ops.length) out.floorOps=ops;
+      if(s.fill&&!(all[r.floor]||{}).width_ft) out.design={...(d.design||{}), floors:{...all, [r.floor]:{...(all[r.floor]||{}), width_ft:r.width_ft}}};
+      return Object.keys(out).length?out:false; }, ()=>floorsNow().some(x=>x.name===r.floor&&(!pic||x.plan===pic.kept))); };
   // the critical squares under the labels, on a floor whose plan is this very page: the grid as it sits now (daswalk.js wkSquare)
   const squaresOf=(P, r)=>{ const f=floorsNow().find(x=>x.name===r.floor); if(!f?.plan||f.plan_src?.pdf!==P.name||f.plan_src?.page!==r.page||typeof wkSquare!=="function") return null;
     const skip=new Set(f.skip||[]), have=new Set(f.critical||[]), out=new Map();
@@ -147,15 +158,18 @@ window.dasPlans = async (el, j, save) => {
     if(a.save!=null&&!$(`[data-pg="${a.save}"]`).value){ say(`Pick a floor for page ${a.save} first.`); return; }
     P.busy=true; b.disabled=true;
     try{ await fresh();
-      if(a.save!=null){ const n=+a.save, fl=$(`[data-pg="${n}"]`).value; say(`Saving page ${n} as floor ${fl}'s plan…`);
-        const pic=await pagePng(P, n, fl), ok=await keep({floors:floorsNow().map(x=>x.name===fl?{...x, plan:pic.kept, plan_src:pic.src}:x)});
+      if(a.save!=null){ const n=+a.save, fl=$(`[data-pg="${n}"]`).value;
+        // the floor picked under the page was drawn earlier: one taken off since gets no page image uploaded for it (review round 7)
+        if(!floorsNow().some(x=>x.name===fl)){ say(`Floor ${fl} isn't on the job any more: it was taken off since this tab was drawn. Nothing was saved.`); P.busy=false; after(); return; }
+        say(`Saving page ${n} as floor ${fl}'s plan…`);
+        const pic=await pagePng(P, n, fl), ok=await keep(()=>({floorOps:[{op:"set", name:fl, set:{plan:pic.kept, plan_src:pic.src}}]}), ()=>floorsNow().some(x=>x.name===fl&&x.plan===pic.kept));
         say(ok?`Saved: page ${n} is floor ${fl}'s plan (Grid test). ${pic.kb} KB.`:"Not saved."); if(ok) b.textContent="Saved"; }
       else if(a.use!=null){ const r=P.rows[+a.use]; say(`Saving ${plWho(r)} as floor ${r.floor}'s plan…`); say(await useRow(P, r)?`Saved: ${plWho(r)} is floor ${r.floor}'s plan (Grid test).`:"Not saved."); }
       else if(b.id==="plUseAll"){ const list=P.rows.filter(r=>rowFree(P, r)); let n=0; for(const r of list){ say(`Saving floor ${r.floor}, ${n+1} of ${list.length}…`); if(await useRow(P, r)) n++; else break; } say(`Saved ${n} of ${list.length}. Floors that had a plan kept it.`); }
-      else if(b.id==="plAddFl"){ const add=P.rows.filter(r=>r.isNew).map(r=>r.floor); say(await keep({floors:Readers.addFloors(floorsNow(), add, DAS.grids)})?`Added floor ${add.join(", ")}.`:"Not saved."); }
+      else if(b.id==="plAddFl"){ const add=P.rows.filter(r=>r.isNew).map(r=>r.floor); say(await keep(()=>({floorOps:add.map(name=>({op:"add", name}))}), ()=>add.every(n=>floorsNow().some(x=>x.name===n)))?`Added floor ${add.join(", ")}.`:"Not saved."); }
       else if(a.tick!=null||b.id==="plTickAll"){ const crit=P.read.critical, pick=a.tick!=null?[crit[+a.tick].area]:crit.map(c=>c.area), set=new Set((J.data.require||{}).critical||[]); pick.forEach(x=>set.add(x));
-        say(await keep({require:{...(J.data.require||{}), critical:[...set]}})?`Ticked on the Requirements tab: ${pick.join(", ")}.`:"Not saved."); }
-      else if(a.sq!=null){ const r=P.rows[+a.sq], q=squaresOf(P, r); if(q) say(await keep({floors:floorsNow().map(x=>x.name===r.floor?{...x, critical:[...new Set([...(x.critical||[]), ...q.list.map(y=>y[0])])]}:x)})?`Floor ${r.floor}: square ${q.list.map(y=>y[0]).join(", ")} marked critical.`:"Not saved."); }
+        say(await keep(d=>({require:{...(d.require||{}), critical:[...new Set([...((d.require||{}).critical||[]), ...set])]}}), ()=>pick.every(x=>((J.data.require||{}).critical||[]).includes(x)))?`Ticked on the Requirements tab: ${pick.join(", ")}.`:"Not saved."); }
+      else if(a.sq!=null){ const r=P.rows[+a.sq], q=squaresOf(P, r); if(q) say(await keep(()=>({floorOps:[{op:"union", name:r.floor, key:"critical", values:q.list.map(y=>y[0])}]}), ()=>q.list.every(y=>(floorsNow().find(x=>x.name===r.floor)?.critical||[]).includes(y[0])))?`Floor ${r.floor}: square ${q.list.map(y=>y[0]).join(", ")} marked critical.`:"Not saved."); }
     }catch(err){ say(`Not saved: ${err.message}`); }
     P.busy=false; after(); };
   // the open set on the page: its proposals at once, then its pages. Floor plans past the thumbnails' limit still get a card, so a proposal never points at nothing

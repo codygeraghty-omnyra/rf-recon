@@ -179,9 +179,11 @@ def _key_field(*lists):
 def merge3(b, t, m, path, pick):
     """Three-way merge: b = the value both sides started from, t = theirs (the server's now), m = mine (this save).
     pick(path, t, m) settles a value both changed differently (or records the conflict)."""
-    if m == b:
+    # empty both ways is no change (review 11/11: Undo wrote null where the key had been missing, and a view drawn before it then
+    # clashed on "theirs: empty, yours: Fairfax")
+    if m == b or (_blank(m) and _blank(b)):
         return t
-    if t == b or t == m:
+    if t == b or t == m or (_blank(t) and _blank(b)):
         return m
     if isinstance(t, dict) and isinstance(m, dict) and (b is ABSENT or isinstance(b, dict)):
         bb = b if isinstance(b, dict) else {}
@@ -290,9 +292,11 @@ def check(con, jid, cur, cur_rev, patch, base_rev, who, client, need_rev=False, 
     if conflicts:
         secs = []
         for s in dict.fromkeys(c["path"][0] for c in conflicts):
-            last = con.execute("SELECT who, ts FROM das_job_rev WHERE job_id=? AND section=? AND rev>? ORDER BY rev DESC LIMIT 1",
+            last = con.execute("SELECT who, ts, client FROM das_job_rev WHERE job_id=? AND section=? AND rev>? ORDER BY rev DESC LIMIT 1",
                                (jid, s, base_rev)).fetchone()
+            # Run it for me saves under the page's client id + ":auto" (static/dasrev.js DASREV.auto): the dialog says it was the run
             secs.append({"key": s, "label": label(s), "by": (last[0] if last else "") or "someone", "at": last[1] if last else "",
+                         "auto": bool(last and (last[2] or "").endswith(":auto")),
                          "paths": [{"path": " › ".join([label(s)] + c["path"][1:]), "theirs": fmt(c["theirs"]), "mine": fmt(c["mine"])}
                                    for c in conflicts if c["path"][0] == s][:12]})
         names = ", ".join(x["label"] for x in secs)
@@ -303,11 +307,39 @@ def check(con, jid, cur, cur_rev, patch, base_rev, who, client, need_rev=False, 
 
 # ---------------------------------------------------------------- history
 
+# the newest revision of each job each page has drawn (GET /api/das/jobs/<id>?view=<the page's client id>, dasrev.js dasJobApi): a save is
+# never folded into a revision another page was drawn from since, or that page's next save would be merged against the folded row's
+# older value (review round 6: a false "Someone else changed Area" during Run it for me, and across pages a tester put back silently).
+# A page's own draw doesn't stop its own saves folding (round 7: every view redraws after its save, so every save was its own History
+# entry): _states skips that page's rows anyway. A page is its client id, and its patch and Run it for me ids (":patch", ":auto")
+SEEN = {}
+
+
+def _seen_key(con, jid):
+    return (con.execute("PRAGMA database_list").fetchone()[2] or str(id(con)), jid)
+
+
+def seen(con, jid, rev, client=""):
+    pages = SEEN.setdefault(_seen_key(con, jid), {})
+    p = str(client)[:40] if client not in (None, "", "1") else "?"  # an older page that says only view=1: anyone's
+    pages[p] = max(pages.get(p, 0), rev or 0)
+
+
+def _drawn_by_another(con, jid, rev, client):
+    # only the very client that drew it is "mine" (review round 8): Run it for me's and a patch's saves (":auto", ":patch") folded into
+    # a revision the page's views drew, so that page's next save was merged against the folded row's pre-run value, which _states
+    # counts as someone else's (a lost edit, or a false "Run it for me changed AHJ")
+    me = str(client or "")[:40]
+    return any(r >= rev for p, r in SEEN.get(_seen_key(con, jid), {}).items() if p == "?" or p != me)
+
+
 def record(con, jid, rev, who, client, changed, note=None, fold=True):
     """Write one revision: changed maps each section to (before, after). Folds into the last revision when it was the
-    same person on the same page a moment ago (and nothing else was saved since)."""
+    same person on the same page a moment ago (and nothing else was saved since, and no page was drawn from it)."""
     t = now()
-    if fold and client and not note:
+    if note == "new job":  # a job id can be used again after a delete: a mark from the old job doesn't stop this one's folding
+        SEEN.pop(_seen_key(con, jid), None)
+    if fold and client and not note and not _drawn_by_another(con, jid, rev - 1, client):
         last = con.execute("SELECT id, section, who, client, ts, ts_lo, saves, rev, rev_lo, note FROM das_job_rev WHERE job_id=? "
                            "AND rev=(SELECT MAX(rev) FROM das_job_rev WHERE job_id=?)", (jid, jid)).fetchall()
         if last and last[0][7] == rev - 1 and all(r[2] == who and r[3] == client and not r[9] for r in last) and last[0][6] < FOLD_MAX:

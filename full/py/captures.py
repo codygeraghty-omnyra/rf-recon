@@ -124,6 +124,8 @@ def parse_wigle(text):
         g = lambda *ks: next((r[k] for k in ks if k in r and r[k] not in (None, "")), "")
         typ = g("Type").upper() or "WIFI"
         freq_raw, ch = g("Frequency"), g("Channel")
+        if typ != "WIFI":  # WiGLE writes 0 for a cell's channel the phone didn't report (WigleWifi-1.4 files): no channel
+            freq_raw, ch = ("" if freq_raw.strip() in ("0", "0.0") else freq_raw), ("" if ch.strip() in ("0", "0.0") else ch)
         if typ == "WIFI":
             f = sigid.wifi_channel_to_mhz(ch, freq_raw)
         elif typ == "LTE":

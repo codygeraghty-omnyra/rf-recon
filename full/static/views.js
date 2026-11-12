@@ -295,12 +295,21 @@ S.views.dashboard = (v, rows) => {
   $("#dbBins").onchange=e=>{ D.bins=+e.target.value; render(); };
   $("#dbTop").onchange=e=>{ D.top=+e.target.value; render(); };
   $("#dbLv").value=D.lv; $("#dbLv").onchange=e=>{ D.lv=e.target.value; render(); };
-  if(typeof L!=="undefined"){ const m=L.map("dashmap",{preferCanvas:true}); S.dashMap=m; addMapLayers(m); L.control.scale({imperial:true,metric:true}).addTo(m);
-    const pts=[]; for(const r of rows){ if(r.lat==null) continue; pts.push([r.lat,r.lon]); L.circleMarker([r.lat,r.lon],{radius:3,color:colorOf(r),fillOpacity:.7,weight:1}).addTo(m); }
-    if(S.center){ const rm=S.radius*1609.344, step=niceStep(S.radius)*1609.344;
-      for(let d=step; d<rm-1; d+=step) L.circle(S.center,{radius:d,color:"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(m);
-      L.circle(S.center,{radius:rm,color:"#555",fill:false,weight:1.5}).addTo(m); m.fitBounds(L.latLng(S.center).toBounds(rm*2)); }
-    else if(pts.length) m.fitBounds(pts); else m.setView([39.5,-98.35],4); }
+  // the map is kept while the Dashboard draws again (a bar pressed, Bins, Top, a filter): its dots are drawn again on the same
+  // map, which is fitted only for a new search (Cody 11/10). A dot shows what's there in the results viewer (results.js)
+  if(typeof L!=="undefined" && window.RFMaps){
+    const m=RFMaps.keep("dash", $("#dashmap"), el=>{ const m=L.map(el,{preferCanvas:true}); S.dashMap=m; addMapLayers(m); fitControl(m, "Fit the search area");
+      L.DomEvent.disableClickPropagation(L.control.scale({imperial:true,metric:true}).addTo(m).getContainer());
+      m._rfDots=L.layerGroup().addTo(m); return m; }, {gone:m=>{ if(S.dashMap===m) S.dashMap=null; }});
+    if(m){ const g=m._rfDots, pts=[], sites=new Map(); g.clearLayers();
+      for(const r of rows){ if(r.lat==null) continue; pts.push([r.lat,r.lon]); const k=`${r.lat},${r.lon}`; if(!sites.has(k)) sites.set(k,[]); sites.get(k).push(r); }
+      for(const rs of sites.values()) L.circleMarker([rs[0].lat,rs[0].lon],{radius:3,color:colorOf(rs[0]),fillOpacity:.7,weight:1,bubblingMouseEvents:false}).on("click",e=>{ if(!window.RFMeasure?.toTool(m, e, e.target.getLatLng())) spotView(m, rs); }).addTo(g);
+      const rm=S.radius*1609.344;
+      if(S.center){ const step=niceStep(S.radius)*1609.344;
+        for(let d=step; d<rm-1; d+=step) L.circle(S.center,{radius:d,color:"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(g);
+        L.circle(S.center,{radius:rm,color:"#555",fill:false,weight:1.5,interactive:false}).addTo(g); }
+      m._rfFit=()=>{ if(S.center) m.fitBounds(L.latLng(S.center).toBounds(S.radius*1609.344*2)); else if(pts.length) m.fitBounds(pts); else m.setView([39.5,-98.35],4); };  // ⤢, and a new search
+      RFMaps.first(m, searchKey(), m._rfFit); } }
 };
 
 /* ---------- topology ---------- */

@@ -41,14 +41,22 @@ def _row(r):
     return d
 
 
-def file(con, source, kind, why, link="", steps=(), enter="", who=None, key_goes="", detail="", count=True):
+def file(con, source, kind, why, link="", steps=(), enter="", who=None, key_goes="", detail="", count=True, once=False):
     """Open a task, or count the same open one again (count=False: a re-check that saw it still there, not a new
-    occurrence). A task a person marked "won't do" stands: the same source and kind isn't filed again. source: a registry
-    entry ({"id", "name", "owner"}). Returns the task's id."""
+    occurrence). A task a person marked "won't do" stands: the same source and kind isn't filed again. once: a hand-written
+    task (the desk file's), done once: closed after its re-test, the same words aren't filed again (they came back as a new
+    open task on the next view, review 11/10); changed words are a new task. source: a registry entry ({"id", "name",
+    "owner"}). Returns the task's id."""
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {', '.join(KINDS)}")
     who = who or ("Josh" if kind == "paid" else source.get("owner") or "Cody")
     t = now()
+    if once:
+        c = con.execute("SELECT id FROM desk_task WHERE source_id=? AND kind=? AND status='closed' AND why=? ORDER BY id DESC LIMIT 1",
+                        (source["id"], kind, why)).fetchone()
+        if c and not con.execute("SELECT 1 FROM desk_task WHERE source_id=? AND kind=? AND status IN ('open','done','won''t do') AND id>?",
+                                 (source["id"], kind, c["id"])).fetchone():
+            return c["id"]
     r = con.execute("SELECT id, status, detail, link FROM desk_task WHERE source_id=? AND kind=? AND status IN ('open','done','won''t do') ORDER BY id DESC LIMIT 1",
                     (source["id"], kind)).fetchone()
     if r and r["status"] == "won't do":

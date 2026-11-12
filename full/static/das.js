@@ -337,13 +337,20 @@ const DS_SORT={"":["As they come"], name:["Name, A to Z",j=>j.name,1], due:["Nex
   retest:["Retest due first",j=>j.retest_due||"",1], updated:["Changed most recently",j=>j.updated_at||"",-1]};
 S.views.das = async v => {
   const D=S.das=S.das||{view:"board", q:"", job:null, sub:"overview"};
+  // drawn again in place (the theme, the section or view already open, the DAS tab again): the page keeps its height and the
+  // kept map its place on screen until that map is back; the page emptied to one line while it reloaded, and the map came
+  // back hundreds of px lower (review 11/11). Only when the same section or view is drawing that map again
+  const kept=v.querySelector(D.job&&D.sub==="presurvey"?"#psMap.leaflet-container":!D.job&&D.view==="prospects"?"#prMap.leaflet-container":"#no-kept-map");
+  D.hold=kept?{id:kept.id, top:kept.getBoundingClientRect().top}:null; if(kept) v.style.minHeight=`${v.offsetHeight}px`;
   const gen=D.gen=(D.gen||0)+1;  // a draw overtaken by a newer one while it waited stops, instead of binding to the newer one's screen
   try{ const r=await api("/api/das/jobs"); D.jobs=r.jobs; D.stages=r.stages; D.folder=r.folder; D.firmNeeds=r.firm_needs; D.contacts=(await api("/api/das/contacts")).contacts; }
-  catch(e){ if(gen===D.gen) v.innerHTML=`<p class="status err">DAS jobs: ${esc(e.message)}</p>`; return; }
-  if(gen!==D.gen) return;
+  catch(e){ if(gen===D.gen){ v.innerHTML=`<p class="status err">DAS jobs: ${esc(e.message)}</p>`; dasHeld(); } return; }
+  if(gen!==D.gen || S.tab!=="das") return;
   if(!D.job) D.mon=await api("/api/das/monitor/board").then(r=>r.jobs||{}).catch(()=>({}));  // BDA alarms and quiet BDAs (snmpwatch.py), only while monitoring is on
   if(!D.job) D.leads=await api("/api/das/leads").then(r=>r.leads||[]).catch(()=>[]);  // new permits in the areas this login watches (leads.py)
-  if(gen!==D.gen) return;
+  if(gen!==D.gen || S.tab!=="das") return;
+  // one map per DAS view (RFMaps, results.js): the pre-survey's while a job's Pre-survey is open, Prospects' while they are
+  if(window.RFMaps){ if(!(D.job && D.sub==="presurvey")) RFMaps.drop("presurvey"); if(D.job || D.view!=="prospects") RFMaps.drop("prospects"); }
   if(D.job){ const j=D.jobs.find(x=>x.id===D.job); if(j) return dasJob(v, D.job); D.job=null; window.writeUrlState?.(true); }  // a link to a job that's gone: the board, and the address says so
   const q=D.q.trim().toLowerCase(), jobs=D.jobs.filter(j=>!q||`${j.name} ${j.address||""} ${j.ahj||""} ${j.client||""}`.toLowerCase().includes(q));
   // what needs you: retests coming due, overdue next steps, open checks on jobs past design
@@ -430,7 +437,7 @@ S.views.das = async v => {
     catch(err){ b.disabled=false; dasSay("The job wasn't made: "+err.message); } };
   $("#dsExpCsv").onclick=()=>dasDl("DAStastic DAS jobs.csv", csvOf(D.jobs.map(j=>({id:j.id,name:j.name,stage:j.stage,address:j.address,lat:j.lat,lon:j.lon,ahj:j.ahj,client:j.client,
     next_step:j.next_step,due:j.due,floors:Array.isArray(j.floors)?j.floors.length:"",accepted_on:j.accepted_on,retest_due:j.retest_due,...Object.fromEntries(DAS_CHECKS.map(([k])=>[k,(j.checks||{})[k]||""])),updated_at:j.updated_at}))), "text/csv");
-  $("#dsExpJson").onclick=async()=>{ const full=[]; for(const j of D.jobs) full.push(await api(`/api/das/jobs/${j.id}`));
+  $("#dsExpJson").onclick=async()=>{ const full=[]; for(const j of D.jobs) full.push(await api(`/api/das/jobs/${j.id}`, {dasRaw:true}));  // reads: no page revision moves
     dasDl("DAStastic DAS jobs.json", JSON.stringify({rfrecon_das_jobs:1, exported:new Date().toISOString(), jobs:full.map(({id,log,...x})=>x)},null,1), "application/json"); };
   $("#dsImpJob").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const j=JSON.parse(await f.text()); const list=j.jobs||[j];
       for(const x of list) await post("/api/das/jobs",{name:x.name||"Imported job",stage:x.stage||"Lead",data:x.data||{}}); render(); }catch(err){ alert("That file isn't a DAStastic job: "+err.message); } };
@@ -486,7 +493,7 @@ async function dasData(el){
   let upd={sources:{}}, ter={tiles:0, mb:0, folder:""};
   try{ [upd, ter]=await Promise.all([api("/api/update/status"), api("/api/das/terrain/status")]); }catch(e){ /* offline or not ready: the panel shows what it has and says so */ }
   const jobs=[]; for(const j of S.das.jobs) if(j.lat!=null) jobs.push(j);
-  const full=[]; for(const j of jobs) full.push((await api(`/api/das/jobs/${j.id}`)).data||{});
+  const full=[]; for(const j of jobs) full.push((await api(`/api/das/jobs/${j.id}`, {dasRaw:true})).data||{});
   if(!el.isConnected) return;  // a newer draw took over while this one waited
   const outlined=full.filter(d=>d.building).length;
   // the sources the DAS tab reads (DAS_USES, mission.js): one switch keeps them all updating by themselves
@@ -560,7 +567,7 @@ function dasContacts(el){
 async function dasJob(v, id){
   const D=S.das, gen=D.gen; let j;
   try{ j=await api(`/api/das/jobs/${id}`); }catch(e){ if(gen===D.gen){ D.job=null; render(); } return; }
-  if(gen!==D.gen) return;  // the board or another job was drawn while this waited
+  if(gen!==D.gen || S.tab!=="das") return;  // the board or another job was drawn while this waited, or the tab was left
   DASJ=dasProfile((j.data||{}).profile);
   // a refused save says so on screen and leaves the job as it was (11/3: it failed silently, only an unhandled rejection)
   // each save names the revision this page was drawn from (not a later answer's, which can carry someone else's change
@@ -593,6 +600,21 @@ async function dasJob(v, id){
     pim:window.dasPim, screen:window.dasScreen, materials:window.dasMaterials, plans:window.dasPlans, design:window.dasDesign, audit:window.dasAudit}[D.sub]||dasOverview)(body, j, save);  // fieldref.js, plans.js, dasdesign.js, dasscreen.js, dasx.js
 }
 
+// what the Overview's floor count does to a list, by name, as this page sees it (for the confirm: the server works the count out on the
+// job as it is, dasfloors.py set_count total, the same way): {add: names to put in, off: floors to take off, short: not enough to take off}
+function dasFloorsTo(fl, n){
+  fl=(fl||[]).filter(Boolean); const have=new Set(fl.map(x=>String(x.name))), more=n-fl.length;
+  if(more>=0){ const add=[]; for(let k=1; add.length<more&&k<=400; k++) if(!have.has(String(k))) add.push(String(k)); return {add, off:[]}; }
+  const num=x=>/^\d+$/.test(String(x.name))?+x.name:null, bas=x=>{ const m=/^B(\d+)$/.exec(String(x.name)); return m?+m[1]:null; };
+  const up=fl.filter(x=>num(x)!=null).sort((a,b)=>num(b)-num(a)), down=fl.filter(x=>bas(x)!=null).sort((a,b)=>bas(b)-bas(a));
+  const order=[...up, ...down];
+  return {add:[], off:order.slice(0,-more), short:order.length< -more};
+}
+// floor operations from the job page (dasrev.js dasFloorOps): asked about with the server's words when a floor has work on it or
+// changed since; a refused or failed save says so and hands back null
+async function dasFloors(id, ops, o){
+  try{ const r=await window.dasFloorOps(id, ops, {ask:true, ...(o||{})}); if(r.refused&&!r.declined) return null; return r; }
+  catch(e){ dasSay("Not saved: "+e.message); return null; } }
 function dasOverview(el, j, save){
   const d=j.data||{}, ck=d.checks||{}, cs=S.das.contacts, roles=d.contacts||{};
   const floors=Array.isArray(d.floors)?d.floors:[], pn=S.das.pinNote?.id===j.id?S.das.pinNote:null;
@@ -660,19 +682,32 @@ function dasOverview(el, j, save){
     if(i.dataset.ck==="accepted_on"){ patch.accepted_on=i.value; patch.retest_due=addYear(i.value); }
     j=await save(patch); render(); });
   el.querySelectorAll("[data-role]").forEach(s=>s.onchange=async()=>{ j=await save({contacts:{...(j.data.contacts||{}),[s.dataset.role]:s.value?+s.value:null}}); });
-  $("#doFloors").onchange=async e=>{ const n=Math.max(0,Math.min(200,+e.target.value||0)); const cur=Array.isArray(j.data.floors)?j.data.floors:[];
-    const fl=Array.from({length:n},(_,i)=>cur[i]||{name:String(i+1),grids:DAS.grids}); j=await save({floors:fl}); };
+  // the count, by name (review round 5: it kept the first n by position, so with Start's B1 a fifth floor came in named 5 with no 4, and
+  // lowering it dropped the top floor with its plan, skips and squares, unasked). Up: the floor numbers missing, each added in its place.
+  // Down: the highest-numbered floors above ground, then the deepest basements, never one someone named, as floor operations the server
+  // works out on the job as it is (dasfloors.py set_count, round 6): a floor with work on it, or one saved or added since this Overview
+  // was drawn, is asked about with what is on it then (round 6: work saved since went with no question, and a floor added since stayed)
+  $("#doFloors").onchange=async e=>{ const n=Math.max(0,Math.min(200,+e.target.value||0)), seen=Array.isArray(j.data.floors)?j.data.floors:[], plan=dasFloorsTo(seen, n);
+    if(plan.short){ alert("The floors left have names someone gave them (Ground, Mezzanine). Take those off on the Grid test, or in Start's answers."); e.target.value=seen.length; return; }
+    const work=plan.off.map(x=>[x.name,(window.startFloorWork?.(j.data,x)||[]).filter(w=>w!=="a name someone gave it")]).filter(w=>w[1].length);
+    if(work.length&&!confirm(`Take floor${plan.off.length===1?"":"s"} ${plan.off.map(x=>x.name).join(", ")} off the job? ${work.map(([f,w])=>`Floor ${f} has ${w.join(", ")}`).join(". ")}, and that leaves the report.`)){ e.target.value=seen.length; return; }
+    // up or down, the count typed, worked out by name on the job as it is (review round 7: up went as adds from this page's copy, so
+    // with another page's count down landing first the job had 1, 2, 3, 6, 7; down by 1..above added a blank floor over a gap)
+    const ops=[{op:"set_count", total:n, if_unchanged_since:j.rev, confirm:Object.fromEntries(plan.off.map(x=>[x.name, window.startFloorWork?.(j.data,x)||[]]))}];
+    const r=await dasFloors(j.id, ops); if(r) j=r.job;
+    const got=((j.data||{}).floors||[]).length; if(r&&got!==n) dasSay(`The job has ${got} floor${got===1?"":"s"}: ${(j.data.floors||[]).map(x=>x.name).join(", ")}.`);
+    render(); };  // drawn again from the answer, so the Overview's later saves (the outline, NSI) go as of it (review round 6)
   $("#doOutline").onclick=async()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } $("#doOutMsg").textContent="Asking OpenStreetMap (can take up to a minute when it is busy)…";
     try{ const b=await api(`/api/das/building?lat=${dd.lat}&lon=${dd.lon}`), patch={building:b};
       if(dd.area_sqft==null&&b.footprint_sqft) patch.area_sqft=b.footprint_sqft;  // only fills what's empty
-      if(!(Array.isArray(dd.floors)&&dd.floors.length)&&b.levels) patch.floors=Array.from({length:Math.min(200,b.levels)},(_,i)=>({name:String(i+1),grids:DAS.grids}));
-      j=await save(patch); render(); }catch(e){ $("#doOutMsg").textContent=e.message; } };
+      // the floors only into an empty list, judged on the job as it is (dasfloors.py fill; round 6: judged on this view's copy, a count
+      // lowered to 0 a moment before left it empty, or a level count of 5 gave floors 3, 4, 5)
+      j=await save(patch); if(b.levels){ const r=await dasFloors(j.id, [{op:"fill", above:b.levels}]); if(r) j=r.job; } render(); }catch(e){ $("#doOutMsg").textContent=e.message; } };
   // NSI (R3 #1): one small box around the point, asked by the server (nsi.py); it fills only what's empty, like the outline
   $("#doNsi").onclick=async()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } const b=$("#doNsi"); b.disabled=true; $("#doNsiMsg").textContent="Asking the National Structure Inventory…";
     try{ const n=await api(`/api/das/nsi?lat=${dd.lat}&lon=${dd.lon}&job=${j.id}`), patch={nsi:n};
       if(dd.area_sqft==null&&n.sqft) patch.area_sqft=n.sqft;  // the NSI's sq ft is the whole building's floor area (an estimate)
-      if(!(Array.isArray(dd.floors)&&dd.floors.length)&&n.stories) patch.floors=Array.from({length:Math.min(200,n.stories)},(_,i)=>({name:String(i+1),grids:DAS.grids}));
-      j=await save(patch); render(); }catch(e){ b.disabled=false; $("#doNsiMsg").textContent=e.message; } };
+      j=await save(patch); if(n.stories){ const r=await dasFloors(j.id, [{op:"fill", above:n.stories}]); if(r) j=r.job; } render(); }catch(e){ b.disabled=false; $("#doNsiMsg").textContent=e.message; } };
   $("#doPin").onclick=async()=>{ const p=parseLoc($("#loc").value); if(!p){ alert("Drop a pin or type the address in the search panel first."); return; } S.das.pinNote=null; j=await save({lat:p[0],lon:p[1]}); render(); };
   dasPinCheck($("#doPinWarn"), j, async hit=>{ j=await save({lat:hit.lat,lon:hit.lon}); render(); });
   dasLifeWire(el, () => j, async patch => { j = await save(patch); render(); });
@@ -691,7 +726,7 @@ function dasOverview(el, j, save){
       subject:`Annual emergency radio coverage retest due ${d.retest_due}: ${j.name}`,
       body:`Hello${own?.name?` ${own.name.split(" ")[0]}`:""},\n\nThe emergency responder radio coverage system at ${j.name}${d.address?`, ${d.address}`:""} is due its annual test on ${d.retest_due}, which ${d.ahj||"the fire code official"} requires (IFC 510.6 / NFPA 1225).\n\nCould you reply with a few dates that work for access to every floor, the roof and the equipment room? The test takes about a day for most buildings, and you'll receive the report for the fire marshal afterwards.\n\nThank you,\n${me?[me.name, me.org, me.phone].filter(Boolean).join("\n"):""}`,
       onSent:()=>rfMail.thread($("#doMailThread"), {job:j.id})}); });
-  $("#doGo").onclick=()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } $("#loc").value=`${dd.lat}, ${dd.lon}`; setMode("point"); setTab("map"); runSearch(); };
+  $("#doGo").onclick=()=>{ const dd=j.data; if(dd.lat==null){ alert("Set the building's location first."); return; } setTab("map"); movePin(L.latLng(dd.lat, dd.lon)); };
 }
 
 /* ---------- lifecycle (R2 K-3, C-4, C-9): after acceptance, what the system owes and when, each with its source. The
@@ -882,15 +917,19 @@ function dasFlagPop(btn, sys){
 /* The pin drives every location step, and an address is only text until something ties the two. A taken suggestion moves
    the pin (dasOverview); this catches the rest: an address typed and left, or a job from before 11/5. Only a street number
    the lookup finds again is judged, so a vaguer address or no signal says nothing rather than guessing. */
-async function dasPinCheck(box, j, move){
+// keep(html): told what it shows ("" for nothing), so a panel drawn again can show it at once (das.js pre-survey). A change
+// keeps the pre-survey map where it is on screen (the warning appearing above it pushed it down on every tick: review 11/11)
+async function dasPinCheck(box, j, move, keep, was){
   const d=j.data||{}, a=(d.address||"").trim(), no=(a.match(/^\d+[a-z]?\b/i)||[])[0];
-  if(!box||d.lat==null||d.lon==null||!no) return;
+  if(was){ const b=box?.querySelector("button"); if(b) b.onclick=()=>move(was); }  // the warning drawn from the last answer works at once
+  const put=(html, hit)=>{ keep?.(html, hit); if(box.innerHTML===html) return; const m=document.getElementById("psMap"), t0=m?.getBoundingClientRect().top;
+    box.innerHTML=html; if(m?.isConnected && t0!=null && t0<=innerHeight){ const t1=m.getBoundingClientRect().top; if(Math.abs(t1-t0)>=1) window.scrollTo({top:scrollY+t1-t0, behavior:"instant"}); } };
+  if(!box||d.lat==null||d.lon==null||!no){ if(box) put(""); return; }
   let r; try{ r=await api(`/api/geocode?q=${encodeURIComponent(a)}&lat=${d.lat}&lon=${d.lon}`); }catch(e){ return; }
   if(!box.isConnected) return;
   const zip=(a.match(/\b\d{5}\b/)||[])[0], hit=(r.results||[]).find(x=>x.kind==="address"&&x.lat!=null&&(x.full||"").startsWith(no+" ")&&(!zip||x.full.includes(zip)));
-  if(!hit) return;
-  const mi=geoMi(d.lat,d.lon,hit.lat,hit.lon); if(mi<1) return;
-  box.innerHTML=`<div class="das-pinwarn" role="status"><span>The pin is <b>${num(mi,mi<10?1:0)} mi</b> from this address, and every step here runs from the pin.</span> <button class="sm" type="button">Move the pin to ${esc(hit.full)}</button></div>`;
+  const mi=hit?geoMi(d.lat,d.lon,hit.lat,hit.lon):0; if(!hit || mi<1){ put(""); return; }
+  put(`<div class="das-pinwarn" role="status"><span>The pin is <b>${num(mi,mi<10?1:0)} mi</b> from this address, and every step here runs from the pin.</span> <button class="sm" type="button">Move the pin to ${esc(hit.full)}</button></div>`, hit);
   box.querySelector("button").onclick=()=>move(hit);
 }
 
@@ -902,11 +941,16 @@ async function dasPresurvey(el, j, save){
   // building loss: picked or typed, else the building's own ITU-R P.2109 entry loss (das.building_entry_loss, from its NSI year and size)
   const lossAuto=ps.loss_auto===true||(ps.loss==null&&DAS.loss[d.construction]==null);
   const P={radius:ps.radius||15, loss:lossAuto?null:(ps.loss??DAS.loss[d.construction]??14), loss_auto:lossAuto, threshold:ps.threshold||DASJ.threshold||-95, env:ps.env||"suburban"};
-  el.innerHTML='<p class="status">Finding the public safety systems around the building…</p>';
+  // drawn again for the same job (a tick, a box changed): the panel stays as it is until the new answer is in, so the page
+  // doesn't shrink to one line and jump back, and the map stays (Cody 11/10); a first draw says it's looking
+  const gen=el._psGen=(el._psGen||0)+1;
+  if(el.dataset.psJob!==String(j.id) || !el.querySelector("#psMap")) el.innerHTML='<p class="status">Finding the public safety systems around the building…</p>';
+  el.dataset.psJob=String(j.id); el.setAttribute("aria-busy", "true");
   // chosen: the ticked systems, so the registered boosters listed apart are the ones on their channels (boosters.py)
   let r; try{ r=await api(`/api/das/presurvey?lat=${d.lat}&lon=${d.lon}&radius=${P.radius}&${P.loss==null?`job=${j.id}`:`loss=${P.loss}`}&threshold=${P.threshold}&env=${P.env}${(ps.include||[]).length?`&chosen=${encodeURIComponent(ps.include.join(","))}`:""}`); if(P.loss==null) P.loss=r.loss_db; }
-  catch(e){ if(!el.isConnected) return; el.innerHTML=`<p class="status err">${esc(e.message)}</p><div id="psCell" style="margin-top:10px"></div>`; window.dasCellPresurvey?.($("#psCell"), j, save); return; }  // the carriers need no FCC data
-  if(!el.isConnected) return;  // a newer draw took over while this one waited
+  catch(e){ if(!el.isConnected || el._psGen!==gen) return; dasHeld(); el.removeAttribute("aria-busy"); el.innerHTML=`<p class="status err">${esc(e.message)}</p><div id="psCell" style="margin-top:10px"></div>`; window.dasCellPresurvey?.($("#psCell"), j, save); return; }  // the carriers need no FCC data
+  if(!el.isConnected || el._psGen!==gen) return;  // a newer draw took over while this one waited
+  el.removeAttribute("aria-busy");
   const inc=new Set(ps.include||[]), any=inc.size>0;
   const chosen=r.systems.filter(s=>inc.has(s.call_sign));
   // The verdict uses the realistic estimate (R1 #1: on free space it never fired): Hata + terrain where cached, from
@@ -926,6 +970,9 @@ async function dasPresurvey(el, j, save){
   const psTier={1:"Government trunked and 700/800 MHz systems",2:"Other agency trunked and 700/800 MHz systems",3:"Other agency systems",4:"Other public safety licences"};
   const psHead=(s,i)=>s.tier&&s.tier!==r.systems[i-1]?.tier?`<tr class="ps-tier" data-srt-head><td colspan="14"><b>${psTier[s.tier]}</b> <span class="hint">· ${r.systems.filter(x=>x.tier===s.tier).length}</span></td></tr>`:"";
   const bands=new Map(); for(const p of plan){ for(const f of [p.downlink_mhz, ...String(p.uplink_mhz).split(" ").filter(Boolean).map(Number)]){ const b=dasBand(f); const x=bands.get(b)||{lo:1e9,hi:0,set:new Set()}; x.lo=Math.min(x.lo,f); x.hi=Math.max(x.hi,f); x.set.add(f); x.n=x.set.size; bands.set(b,x); } }
+  // the same job drawn again: its map, and what's under it, stay where they are on screen, as a longer verdict line above
+  // would push them down (11/10: 21 px after a tick); scroll anchoring can't, as the whole panel is new
+  const keepTop=el.querySelector("#psMap")?.getBoundingClientRect().top;
   el.innerHTML=`<div class="maptools no-print" style="flex-wrap:wrap;gap:10px">
       <label class="inl">Within <input id="psR" type="number" value="${P.radius}" min="1" max="60" style="width:70px"> mi</label>
       <label class="inl" title="Building entry loss: ITU-R P.2109-2 (outer wall only), or a whole large building measured at 750 MHz (NIST TN 1552)">Building loss <select id="psLp" style="max-width:270px"><option value="">custom</option><option value="auto" ${P.loss_auto?"selected":""}>ITU-R P.2109 for this building (year, size)</option>${Object.entries(DAS.loss).map(([k,v2])=>`<option value="${v2}" ${!P.loss_auto&&+P.loss===v2?"selected":""} title="${esc(DAS.lossNote[k]||"")}">${esc(k)}</option>`).join("")}</select>${!P.loss_auto&&+P.loss===90?`<span class="hint">${esc(DAS.lossNote["Subterranean / garage below grade (NIST TN 1552 upper medians: 90 dB)"])}</span>`:""}
@@ -937,12 +984,12 @@ async function dasPresurvey(el, j, save){
       <button id="psAim" ${(any?chosen:r.systems).length?"":"disabled"} title="For each chosen system's donor site: true and magnetic bearing, elevation angle, distance and terrain clearance; print or save as PDF">⎙ Donor aiming sheet</button>
       <button id="psPlan" ${plan.length?"":"disabled"}>⇩ Channel plan CSV</button><button id="psCsv">⇩ Systems CSV</button><button id="psKml">⇩ KML</button><button id="psTak">⇩ ATAK</button>
       <button id="psLet" ${chosen.length?"":"disabled"} title="One letter per licensee asking consent to retransmit (47 CFR 90.219(b)(1)); print or save as PDF">⎙ Consent letters</button>${window.rfMail?`<button id="psLetMail" ${chosen.length?"":"disabled"} title="Email each licensee the consent request from your own mailbox; the reply files itself">✉ Email them</button>`:""}</div><div id="psLetMailBox"></div>
-    <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi of the job's pin <span class="mono hint">${num(d.lat,5)}, ${num(d.lon,5)}</span>. ${esc(verdict)}</p><div id="psPinChk"></div>
+    <p style="margin:2px 2px 10px"><b>${r.systems.length}</b> public safety systems within ${P.radius} mi of the job's pin <span class="mono hint">${num(d.lat,5)}, ${num(d.lon,5)}</span>. ${esc(verdict)}</p><div id="psPinChk">${S.das.psPin?.k===`${j.id}|${d.lat},${d.lon}|${d.address||""}`?S.das.psPin.html:""}</div>
     ${r.entry_loss?`<p class="hint" id="psEntry" style="margin:-6px 2px 10px">Building loss <b>${num(r.entry_loss.db,0)} dB</b>, ${esc(r.entry_loss.model)}: ${esc(r.entry_loss.parts.map(p=>`${num(p[0],0)} dB ${p[1]}`).join(" + "))}. Basis: ${r.entry_loss.basis==="NSI"?"the NSI record (Overview, Look up building)":"the building's type and size; Look up building (Overview) adds its year"}. <a href="${esc(r.entry_loss.source)}" target="_blank" rel="noopener">ITU-R P.2109-2</a></p>`:""}
     <div class="grid2" style="margin-top:0;align-items:stretch">
       <div class="panel"><h3>Bands a booster must pass <span class="hint">· chosen systems, downlink and uplink</span></h3>${bands.size?`<table><thead><tr><th>Band</th><th>From MHz</th><th>To MHz</th><th class="n">Channels</th></tr></thead><tbody>${[...bands].sort((a,b)=>a[1].lo-b[1].lo).map(([b,x])=>`<tr><td>${esc(b)}</td><td class="mono">${fmtF(x.lo)}</td><td class="mono">${fmtF(x.hi)}</td><td class="n">${x.n}</td></tr>`).join("")}</tbody></table>
         <p class="hint">Class A (channelized): every passband 75 kHz or less, one filter per channel. Class B (wideband): passes each band's whole span and must be registered with the FCC; keep commercial ESMR (862–869 MHz) out of it. FirstNet (${esc(r.firstnet.band)}: ${r.firstnet.down.join("–")} MHz down, ${r.firstnet.up.join("–")} MHz up) is licensed to the FirstNet Authority (AT&amp;T runs it): its written retransmission authorization is needed, and it isn't in FCC site data. ⚠ marks channels to check: ESMR, Band 14, or simulcast from several sites (delay / TDI). Click one for what it means.</p>
-        <div id="psBoost"></div>`:'<p class="hint">Tick systems below.</p>'}</div>
+        <div id="psBoost">${S.das.psBoost?.job===j.id?S.das.psBoost.html:""}</div>`:'<p class="hint">Tick systems below.</p>'}</div>
       <div class="panel" style="padding:0;overflow:hidden;display:flex;min-height:300px"><div id="psMap" style="flex:1;min-height:300px"></div></div></div>
     <div class="panel" style="margin-top:10px"><h3>Systems <span class="hint">· government trunked and 700/800 MHz systems first, then other agencies; trunked first, then strongest on free space · each level is an estimate from licensed power, not a measurement</span></h3>
       ${(()=>{ const fd=ps.federal||{}; return `<div class="status" id="psFed" style="margin:0 0 8px"><b>Federal systems are not on this list.</b> It comes from FCC licences. Federal radio (military, VA police, federal courts and agencies) is assigned through NTIA, so an empty list proves nothing on federal land or with a federal tenant or responder.
@@ -976,7 +1023,8 @@ async function dasPresurvey(el, j, save){
     <div id="psCell" style="margin-top:10px"></div>`;
   window.dasCellPresurvey?.($("#psCell"), j, save);  // the commercial carriers here (dascell.js)
   $("#psToCell").onclick=()=>$("#psCell").scrollIntoView({behavior:"smooth", block:"start"});
-  dasPinCheck($("#psPinChk"), j, async hit=>{ j=await save({lat:hit.lat,lon:hit.lon}); dasPresurvey(el, j, save); });
+  dasPinCheck($("#psPinChk"), j, async hit=>{ j=await save({lat:hit.lat,lon:hit.lon}); dasPresurvey(el, j, save); },
+    (html, hit)=>{ S.das.psPin={k:`${j.id}|${d.lat},${d.lon}|${d.address||""}`, html, hit}; }, S.das.psPin?.k===`${j.id}|${d.lat},${d.lon}|${d.address||""}`?S.das.psPin.hit:null);
   { const box=$("#psFind"), rows=[...el.querySelectorAll("tr[data-find]")], heads=[...el.querySelectorAll("tr.ps-tier")];
     const go=()=>{ const q=box.value.trim().toLowerCase(); S.das.psFind=box.value; let n=0;
       rows.forEach(tr=>{ const on=!q||tr.dataset.find.includes(q); tr.style.display=on?"":"none"; n+=on?1:0;
@@ -1023,18 +1071,22 @@ async function dasPresurvey(el, j, save){
   const pref=(k,d)=>{ try{ return localStorage.getItem(k)??d; }catch(e){ return d; } }, keepPref=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
   const CLS={"B9A,B9B":"Part 90 boosters (Class A or B)", "B9A":"Part 90 Class A (channelized)", "B9B":"Part 90 Class B (wideband)", "B2I,B2P,B2W":"Part 20 (cellular) boosters", "":"any device kept"};
   const short=cs=>[...new Set((cs||[]).map(c=>({B9A:"Class A", B9B:"Class B", B2I:"Part 20", B2P:"Part 20", B2W:"Part 20", BOS:"other booster"})[c]).filter(Boolean))].join(" / ");
+  // the map keeps its place on screen while something above it changes height (the booster list sits above it on a phone),
+  // when the map or what's under it is what's in view (11/10: a tick moved it 174 px on a phone)
+  const holdMap=fn=>{ const m=$("#psMap"), t0=m?.getBoundingClientRect().top; fn(); if(!m?.isConnected || t0==null || t0>innerHeight) return;
+    const t1=m.getBoundingClientRect().top; if(Math.abs(t1-t0)>=1) window.scrollTo({top:scrollY+t1-t0, behavior:"instant"}); };
   const boost=()=>{ const cls=pref("rfr.boostCls","B9A,B9B"), w=pref("rfr.boostW","");
     api(`/api/fccid/boosters?${byBand.join("&")}&cls=${encodeURIComponent(cls)}&watts=${encodeURIComponent(w)}`).then(b=>{ const box=$("#psBoost"), kept=b.kept||{}; if(!box?.isConnected) return;
-      if(!kept.devices){ box.innerHTML=`<p class="hint" style="margin:8px 0 0">No FCC booster grants are kept on this copy, so boosters can't be matched to these channels.</p>`; return; }  // it vanished with no word (11/3)
+      if(!kept.devices){ holdMap(()=>{ box.innerHTML=`<p class="hint" style="margin:8px 0 0">No FCC booster grants are kept on this copy, so boosters can't be matched to these channels.</p>`; }); S.das.psBoost={job:j.id, html:box.innerHTML}; return; }  // it vanished with no word (11/3)
       const bandTxt=bs=>bs.slice(0,8).map(([lo,hi])=>lo===hi?`${+lo}`:`${+lo}–${+hi}`).join(", ")+(bs.length>8?` +${bs.length-8}`:"");
       const dev=x=>`<a href="${esc(x.view)}" target="_blank" rel="noopener" class="mono" title="${esc(bandTxt(x.bands))} MHz · granted ${esc(x.granted)}">${esc(x.fcc_id)}</a> <span class="hint">${esc([x.maker, short(x.classes), wattsTxt(x)].filter(Boolean).join(" · "))}</span>`;
-      box.innerHTML=`<h3 style="margin:12px 0 4px">Boosters granted for these channels <span class="hint">· newest grant first</span></h3>
+      holdMap(()=>{ box.innerHTML=`<h3 style="margin:12px 0 4px">Boosters granted for these channels <span class="hint">· newest grant first</span></h3>
         <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap;margin:2px 0 6px"><select id="pbCls">${Object.entries(CLS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join("")}</select>
           <label class="inl">strongest band at least <select id="pbW"><option value="">any power</option>${[0.5,1,2,5,10].map(v=>`<option value="${v}">${v} W</option>`).join("")}</select></label></div>
         ${b.count?`<p style="margin:4px 0">${b.count} granted for every band here, the newest: ${b.devices.slice(0,6).map(dev).join(", ")}</p>`
           :`<p class="hint" style="margin:4px 0">None is granted for all ${b.by_band.length} bands: a multi-band system takes one unit (or module) per band, or per band group.</p>`}
         <div class="tw"><table><thead><tr><th>Band</th><th class="n">Granted for all its channels</th><th>Newest</th></tr></thead><tbody>${b.by_band.map(x=>`<tr><td>${esc(x.band)}</td><td class="n">${x.count}</td><td>${x.devices.slice(0,3).map(dev).join("<br>")||'<span class="hint">none</span>'}</td></tr>`).join("")}</tbody></table></div>
-        <p class="hint">From the FCC's grant search (${esc(kept.at||"")}): ${kept.devices.toLocaleString()} devices of ${(kept.makers||0).toLocaleString()} makers, every signal booster by class, and power ranges for Part 90 boosters (the range of each one's strongest band). A grant shows what a device is certified for, not that it suits this building: exact watts per band are on each device's FCC grant (its FCC ID opens it; point at it for its bands).</p>`;
+        <p class="hint">From the FCC's grant search (${esc(kept.at||"")}): ${kept.devices.toLocaleString()} devices of ${(kept.makers||0).toLocaleString()} makers, every signal booster by class, and power ranges for Part 90 boosters (the range of each one's strongest band). A grant shows what a device is certified for, not that it suits this building: exact watts per band are on each device's FCC grant (its FCC ID opens it; point at it for its bands).</p>`; });  S.das.psBoost={job:j.id, html:box.innerHTML};
       $("#pbCls").value=cls; $("#pbW").value=w;
       $("#pbCls").onchange=e=>{ keepPref("rfr.boostCls", e.target.value); boost(); };
       $("#pbW").onchange=e=>{ keepPref("rfr.boostW", e.target.value); boost(); }; }).catch(e=>{ const box=$("#psBoost"); if(box?.isConnected) box.innerHTML=`<p class="hint" style="margin:8px 0 0">Booster grants couldn't be read: ${esc(e.message)}</p>`; }); };
@@ -1058,20 +1110,52 @@ async function dasPresurvey(el, j, save){
       return a?{...x, licensee:`${x.licensee} · donor: aim ${dasDeg(a.true_deg)} true${a.mag_deg!=null?` / ${dasDeg(a.mag_deg)} magnetic`:""}${a.elev!=null?`, ${a.elev>=0?"+":""}${num(a.elev,1)}° up`:""} from the roof`}:x; }); };
   $("#psTak").onclick=()=>RFTak.save({rows:takRows(), center:[d.lat,d.lon], radius:P.radius, name:`DAStastic - ${j.name} pre-survey`, colorOf, typeOf, fccDate:null,
     outline:d.building?.outline?{name:`${j.name} outline`, points:d.building.outline}:null});
-  if(typeof L!=="undefined"){ const map=L.map("psMap",{preferCanvas:true});
-    map._rfScope=()=>({scope:"job", id:j.id, name:`job “${j.name}”`});  // its drawings stay with the job (markup.js)
-    addMapLayers(map); L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name}).addTo(map);
-    if(d.building?.outline) L.polygon(d.building.outline,{color:"#f0a020", weight:2, fillOpacity:.15}).bindTooltip(dasBuildingLine(d.building)).addTo(map);
-    const pts=[[d.lat,d.lon]];
-    for(const s of (inc.size?chosen:r.systems.slice(0,25))) for(const st of s.sites.slice(0,3)){ pts.push([st.lat,st.lon]);
-      L.polyline([[d.lat,d.lon],[st.lat,st.lon]],{color:inc.has(s.call_sign)?"var(--accent)":"#888",weight:inc.has(s.call_sign)?2:1,opacity:.7,dashArray:"4 4"}).addTo(map);
-      L.circleMarker([st.lat,st.lon],{radius:5,color:"#0008",weight:1,fillColor:inc.has(s.call_sign)?"#e5534b":"#57606a",fillOpacity:.9}).bindTooltip(`${s.licensee} ${s.call_sign}<br>${st.dist_mi} mi ${st.compass}, est ${num(st.best_out,0)} dBm`).addTo(map); }
-    // the panel stretches to the bands panel beside it (11/3: a fixed 300 px map left the rest of it empty), so the map
-    // fills it and fits the sites again whenever its size changes, until someone drags it
-    const fit=L.latLngBounds(pts).pad(0.15); let moved=false; map.on("dragstart",()=>{ moved=true; });
-    map.fitBounds(fit);
-    new ResizeObserver(()=>{ map.invalidateSize(); if(!moved) map.fitBounds(fit); }).observe(map.getContainer()); }
+  // a system in the results viewer on the map (results.js): what it is, where its donor site is, its levels, and Tick or Untick
+  const psView=(map, s, st)=>window.RFResults&&RFResults.show(map, {key:`ps:${s.call_sign}:${st?`${st.lat},${st.lon}`:""}`, label:s.licensee,
+    title:`${inc.has(s.call_sign)?"✓ ":""}${esc(s.licensee)}`, sub:`<span class="mono">${esc(s.call_sign)}</span> · ${esc(s.trunked?"Trunked":"Conventional")}${s.tech.length?` · ${esc(s.tech.join(", "))}`:""}`,
+    html:kvg([["Service", esc(s.service_name||"")], ["This site", st?`${num(st.dist_mi,2)} mi ${esc(st.compass)} (${st.bearing}° true)`:""],
+      ["Donor site", (dn=>dn?`${num(dn.dist_mi,2)} mi ${esc(dn.compass)} (${dn.bearing}° true)${dn===st?", this one":""}`:"")(dasDonorSite(s))], ["Sites", String(s.n_sites??s.sites.length)],
+      ["Downlink MHz", `<span class="mono">${s.down.slice(0,8).map(c=>fmtF(c.freq)).join(" ")}${s.down.length>8?` +${s.down.length-8}`:""}</span>`],
+      ["Uplink MHz", s.up.length?`<span class="mono">${s.up.slice(0,8).map(fmtF).join(" ")}${s.up.length>8?` +${s.up.length-8}`:""}</span>`:"ask the licensee"],
+      ["Realistic", s.real?`${num(s.real.out_dbm,0)} dBm outside, ${num(s.real.in_dbm,0)} inside, margin ${num(s.real.margin_db,0)} dB`:""],
+      ["Free space (best case)", s.best_in!=null?`${num(s.best_out,0)} dBm outside, ${num(s.best_in,0)} inside`:""]]),
+    actions:[{label:inc.has(s.call_sign)?"Untick: leave it out":"Tick: the AHJ requires it", primary:!inc.has(s.call_sign),
+      run:()=>{ if(inc.has(s.call_sign)) inc.delete(s.call_sign); else inc.add(s.call_sign); store({include:[...inc]}); }}],
+    zoom:st?[st.lat,st.lon]:null}, st?[st.lat,st.lon]:null);
+  if(typeof L!=="undefined" && window.RFMaps){
+    // the job's map is kept while the panel draws again (Cody 11/10: each tick made a new map, fitted again), and fitted only
+    // when it's new or the job's pin moved. When its panel changes size it's only sized again (RFMaps): it used to fit the
+    // sites again each time, until someone dragged it
+    const map=RFMaps.keep(`presurvey:${j.id}`, $("#psMap"), box=>{ const m=L.map(box,{preferCanvas:true});
+      m._rfScope=()=>({scope:"job", id:j.id, name:`job “${j.name}”`});  // its drawings stay with the job (markup.js)
+      addMapLayers(m); fitControl(m, "Fit the building and the sites"); m._psLayer=L.layerGroup().addTo(m); return m; }, {tab:"das"});
+    if(map){ const g=map._psLayer; g.clearLayers();
+      L.marker([d.lat,d.lon],{icon:pinIcon(),title:j.name,interactive:false}).addTo(g);  // clicks go through to the sites under it
+      if(d.building?.outline) L.polygon(d.building.outline,{color:"#f0a020", weight:2, fillOpacity:.15}).bindTooltip(dasBuildingLine(d.building)).addTo(g);
+      const pts=[[d.lat,d.lon]];
+      for(const s of (inc.size?chosen:r.systems.slice(0,25))) for(const st of s.sites.slice(0,3)){ pts.push([st.lat,st.lon]);
+        L.polyline([[d.lat,d.lon],[st.lat,st.lon]],{color:inc.has(s.call_sign)?"var(--accent)":"#888",weight:inc.has(s.call_sign)?2:1,opacity:.7,dashArray:"4 4",interactive:false}).addTo(g);
+        L.circleMarker([st.lat,st.lon],{radius:5,color:"#0008",weight:1,fillColor:inc.has(s.call_sign)?"#e5534b":"#57606a",fillOpacity:.9,bubblingMouseEvents:false})
+          .bindTooltip(`${s.licensee} ${s.call_sign}<br>${st.dist_mi} mi ${st.compass}, est ${num(st.best_out,0)} dBm`).on("click",e=>{ if(!window.RFMeasure?.toTool(map, e, e.target.getLatLng())) psView(map, s, st); }).addTo(g); }
+      map._rfFit=()=>map.fitBounds(L.latLngBounds(pts).pad(0.15));  // ⤢ (more systems ticked, a wider radius: review 11/11)
+      RFMaps.first(map, `${d.lat},${d.lon}`, map._rfFit);
+      // a system already in the viewer is shown again with what this draw knows (ticked or not)
+      const open=window.RFResults&&RFResults.get(map);
+      // the same site found again by its place (the donor only if that site is gone: review 11/11)
+      if(open && /^ps:/.test(open.key)){ const [, cs, ll]=open.key.match(/^ps:(.*):([^:]*)$/)||[], s=r.systems.find(x=>x.call_sign===cs);
+        if(s) psView(map, s, s.sites.find(x=>`${x.lat},${x.lon}`===ll)||dasDonorSite(s)); else open.close(); } } }
+  if(keepTop!=null){ const now=$("#psMap")?.getBoundingClientRect().top; if(now!=null && Math.abs(now-keepTop)>=1) window.scrollTo({top:scrollY+now-keepTop, behavior:"instant"}); }
+  else dasHeld("psMap");
 }
+// the kept map is back after a full DAS redraw (S.views.das above): it goes back where it was on screen, and the page lets go
+// of the height it held
+function dasHeld(id){
+  const h=S.das?.hold; if(!h || (id && h.id!==id)) return; S.das.hold=null;
+  const now=id?document.getElementById(id)?.getBoundingClientRect().top:null;
+  if(now!=null && h.top>=0 && h.top<innerHeight && Math.abs(now-h.top)>=1) window.scrollTo({top:scrollY+now-h.top, behavior:"instant"});
+  $("#view").style.minHeight="";
+}
+window.dasHeld=dasHeld;
 
 /* ---------- requirements ---------- */
 // what a grid rule says, for the Requirements panel and the report's pass criteria
@@ -1359,19 +1443,26 @@ async function dasGrid(el, j, save){
       <div class="panel"><h3>Named critical areas</h3>${crit.length?`<div class="tw"><table><thead><tr><th>Area</th><th>DL dBm</th><th>DAQ</th><th>UL dBm</th><th>UL DAQ</th><th></th></tr></thead><tbody>${crit.map(a=>{ const r=cr[a]||{}, p=scored(d,r), cal=calOf(d,r);
           return `<tr data-ca="${esc(a)}"><td>${esc(a)}</td>${["dl","daq","ul","ul_daq"].map(k=>`<td><input data-x="${k}" type="number" step="${/daq/.test(k)?"0.1":"1"}" value="${r[k]??""}" style="width:64px"></td>`).join("")}<td title="${cal?esc(cal.ok?`taken with ${cal.name}`:`not counted: ${cal.why}`):""}">${cal&&!cal.ok?'<span class="hint">not counted</span>':ulMissing(d,r)?'<span class="hint">no uplink</span>':p==null?"":p?"✅":"❌"}</td></tr>`; }).join("")}</tbody></table></div>`
           :'<p class="hint">Pick the building\'s critical areas under Requirements, or mark critical squares on the plan.</p>'}</div></div>
-    <div id="dgMap"></div>
+    ${D.gridAdd&&D.gridAdd.job===j.id?`<p class="hint" id="dgAddNote">Rows with no Floor go to floor ${esc(D.gridAdd.floor)} when you import again, and floor ${esc(D.gridAdd.floor)} comes back with them. Pick a floor above to import to that one instead.</p>`:""}<div id="dgMap"></div>
     <div id="dgAccept"></div>`;
-  $("#dgF").onchange=e=>{ D.floor=e.target.value; render(); };
-  el.querySelectorAll("[data-fl]").forEach(c=>c.onclick=()=>{ D.floor=c.dataset.fl; render(); });
+  $("#dgF").onchange=e=>{ D.floor=e.target.value; D.gridAdd=null; render(); };
+  el.querySelectorAll("[data-fl]").forEach(c=>c.onclick=()=>{ D.floor=c.dataset.fl; D.gridAdd=null; render(); });
   $("#dgMark").onclick=e=>{ const b=e.target.closest("button"); if(b){ D.mark=b.dataset.m; render(); } };
-  const setFloor=async patch=>{ const fl=(j.data.floors||[]).map(x=>x.name===f.name?{...x,...patch}:x); j=await save({floors:fl}); render(); };
+  // one floor's own settings, as a floor operation on the job as it is (round 6: the whole list from this view's copy)
+  // one floor's own settings, each with the value this page shows (was): the server refuses when the job's has moved on since, and the
+  // page is drawn again to show it (review round 7: the last writer won, and Rotate put back a grid box someone had just dragged)
+  // the floor's grid as this page drew it: every write indexed by square says so, and the server refuses one from a page drawn before
+  // another page's Re-divide (review round 8: its 20-area readings, imports and marks landed on the new 40-area squares, without a word)
+  const drawnGrid={grids:f.grids??null, cols:f.cols??null};
+  const setFloor=async patch=>{ const was=Object.fromEntries(Object.keys(patch).map(k=>[k, f[k]??null]));
+    const r=await dasFloors(j.id, [{op:"set", name:f.name, set:patch, was}]); if(r) j=r.job; render(); };
   $("#dgN").onchange=e=>setFloor({grids:Math.max(1,Math.min(100,+e.target.value||DAS.grids))});
   // the 40-area retest (IFC 510.5.4): the 20-area readings move to grid.redivided[floor], dated, so the new squares 1-20
   // don't inherit readings taken at other places on the floor; 8 across x 5 down (Columns can change it)
-  $("#dgRedivide")&&($("#dgRedivide").onclick=async()=>{ const G2=j.data.grid||{}, R2={...(G2.results||{})}, old={};
-    for(const k of Object.keys(R2)) if(k.startsWith(`${f.name}|`)){ old[k]=R2[k]; delete R2[k]; }
-    const keep={...(G2.redivided||{}), [f.name]:{date:today(), grids:n, cols, results:old}};
-    j=await save({grid:{...G2, results:R2, redivided:keep}, floors:(j.data.floors||[]).map(x=>x.name===f.name?{...x, grids:40, cols:8, skip:[], critical:[]}:x)});
+  // the server moves the readings, those on the job as it is when the re-divide lands (review round 7: one entered just before it,
+  // on another page, stayed as a 40-area square's reading)
+  $("#dgRedivide")&&($("#dgRedivide").onclick=async()=>{
+    const r=await dasFloors(j.id, [{op:"redivide", name:f.name, grids:40, cols:8, date:today(), was:{grids:f.grids??null}}]); if(r) j=r.job;
     render(); });
   $("#dgC").onchange=e=>setFloor({cols:Math.max(1,Math.min(20,+e.target.value||5))});
   $("#dgPlan").onchange=e=>setFloor({plan:e.target.value||null, plan_src:null});  // another image: the PDF it came from no longer applies (dswalls.js)
@@ -1408,7 +1499,9 @@ async function dasGrid(el, j, save){
     j=await save({baseline:{date:today(), results:{...((j.data.grid||{}).results||{})}, critical:{...((j.data.grid||{}).critical||{})}}}); render(); };
   el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ const g=+b.dataset.g;
     if(D.mark==="place") return;
-    if(D.mark!=="read"){ const key=D.mark==="skip"?"skip":"critical", set=new Set(f[key]||[]); set.has(g)?set.delete(g):set.add(g); return setFloor({[key]:[...set].sort((a,c)=>a-c)}); }
+    // what the click means: this square on, or off (round 7: the whole list from this page's copy took another page's square off)
+    if(D.mark!=="read"){ const key=D.mark==="skip"?"skip":"critical", on=(f[key]||[]).includes(g);
+      return dasFloors(j.id, [{op:on?"pull":"union", name:f.name, key, values:[g], was:drawnGrid}]).then(r=>{ if(r) j=r.job; render(); }); }
     // the whole square in words, above its readings: a phone's square shows its number and dBm only (UX review 11/8 #3)
     const sr=eff(d, res[`${f.name}|${g}`]), scal=calOf(d,sr), sdl=delta(g), sum=ulMissing(d,sr);
     const facts=[sr&&has(sr.dl)?`${sr.dl} dBm`:"", sr&&has(sr.daq)?`DAQ ${sr.daq}`:sr&&has(sr.sinr)?`${sr.sinr} dB SINR`:"", sr?.channels>1?`worst of ${sr.channels} channels${has(sr.freq)?` (${sr.freq} decides)`:""}`:"",
@@ -1429,8 +1522,9 @@ async function dasGrid(el, j, save){
       <div class="row" style="align-items:flex-end"><b>Square ${f.name}-${g}</b><label>Channel / MHz<input id="ge_freq" placeholder="optional" style="width:110px"></label>${KS.map(([k,l,s])=>`<label>${l}<input id="ge_${k}" type="number" step="${s}" style="width:72px"></label>`).join("")}
       <label class="grow">Note<input id="ge_note"></label><button class="primary" id="geSave">${rs.length?"Save reading":"Save"}</button><button id="geClear" title="Remove every reading in this square">Clear square</button></div>
       <p class="hint" style="margin:4px 0 0">Saved as taken with ${esc(inst==="uncal"?"no calibrated instrument (pre-survey, not counted)":instName(insts.find(i=>instKey(i)===inst)||{model:inst}))}. ${rs.length?"A reading on a channel already here replaces it; a new channel adds a row. The square passes only when every channel passes.":"Add a channel to keep one reading per channel."}</p>`;
-    const put=async list=>{ const results={...((j.data.grid||{}).results||{})}; if(list.length) results[key]={readings:list}; else delete results[key];
-      j=await save({grid:{...(j.data.grid||{}),results}}); render(); };
+    // Save, Delete and Clear: this square's readings as the page made them, only while the square holds what it drew and the floor has
+    // the grid it drew (a readings operation; round 8: the whole grid results from this page's copy)
+    const put=async list=>{ const r=await dasFloors(j.id, [{op:"readings", put:{[key]:{from:res[key]??null, to:list}}, was:{[f.name]:drawnGrid}}]); if(r) j=r.job; render(); };
     const fill=x=>{ $("#ge_freq").value=x?.freq??""; for(const [k] of KS) $(`#ge_${k}`).value=x?.[k]??""; $("#ge_note").value=x?.note||""; };
     // a square with one reading and no channel opens with it filled in, as before; otherwise the form adds a reading
     // (Edit on a row fills it in to change that one)
@@ -1452,26 +1546,38 @@ async function dasGrid(el, j, save){
   $("#dgImp").onchange=async e=>{ const file=e.target.files[0]; if(!file) return; let t;
     if(needInst()){ e.target.value=""; return; }
     try{ t=await api(`/api/das/parse?name=${encodeURIComponent(file.name)}`,{method:"POST",body:await file.arrayBuffer()}); }catch(err){ alert("Couldn't read that file: "+err.message); return; }
-    dasMapImport($("#dgMap"), t, file.name, {floors, floor:D.floor}, async mapped=>{ const results={...((j.data.grid||{}).results||{})}; let n2=0, nCell=0;
+    // rows with no Floor column go to the floor the person was importing to, kept through a refusal for a floor taken off since, so
+    // Import again adds that floor back with them, as the refusal says (review round 8: the redraw moved the Grid test to the first
+    // floor, and Import again put the rows there, over its readings)
+    const target=D.gridAdd&&D.gridAdd.job===j.id?D.gridAdd.floor:D.floor;
+    dasMapImport($("#dgMap"), t, file.name, {floors, floor:target}, async mapped=>{ let n2=0, nCell=0;
       // every row is kept: several rows for one square (one per channel or system) all stay and the worst decides; a row
       // replaces what that square already had on the same channel, and the square's other channels stay
       const by={}, at=new Date().toISOString();
-      for(const r of mapped){ const fl=r.floor||D.floor, g=r.grid; if(!g) continue; const {floor,grid,critical,...vals}=r;
+      for(const r of mapped){ const fl=r.floor||target, g=r.grid; if(!g) continue; const {floor,grid,critical,...vals}=r;
         (by[`${fl}|${g}`]||=[]).push({...vals, time:vals.time||at, source:file.name, inst}); n2++; if(isCell(vals)) nCell++; }
-      for(const [k,rows] of Object.entries(by)){ const keys=new Set(rows.map(chKey)); results[k]={readings:[...readingsOf(results[k]).filter(x=>!keys.has(chKey(x))), ...rows]}; }
+      // merged by the server onto the readings as they are, each row replacing that square's reading on the same channel (round 7)
       // floors named in the file that the job doesn't have yet are added; squares the file marks critical (the phone's
       // grid test does) join that floor's critical list
-      const have=new Set((j.data.floors||[]).map(x=>x.name)), extra=[...new Set(mapped.map(r=>r.floor).filter(x=>x&&!have.has(x)))].map(x=>({name:x,grids:DAS.grids}));
+      const loose=mapped.some(r=>!r.floor), have=new Set((j.data.floors||[]).map(x=>x.name));
+      const extra=[...new Set([...mapped.map(r=>r.floor), ...(loose?[target]:[])].filter(x=>x&&!have.has(x)))].map(x=>({name:x,grids:DAS.grids}));
       const isCrit=v=>/^(1|y|yes|true|critical)$/i.test(String(v??"").trim());
-      const floors=[...(j.data.floors||[]),...extra].map(f=>{ const add=mapped.filter(r=>(r.floor||D.floor)===f.name&&isCrit(r.critical)).map(r=>+r.grid||r.grid);
-        return add.length?{...f, critical:[...new Set([...(f.critical||[]),...add])]}:f; });
-      j=await save({grid:{...(j.data.grid||{}),results}, floors});
+      // as floor operations on the job as it is, with the readings in the same save (round 6: the whole list from this view's copy put
+      // back floors someone had taken off since, beside the ones it added)
+      // one operation, on the job as it is: a floor the file names that this page's copy lacked is added, and a row on a floor taken off
+      // since refuses the import with words that say nothing was imported; the page is drawn again, so Import again adds it back
+      // (round 7: refused whole with a bare "isn't on the job", the view unchanged, and Import again met the same refusal)
+      const critical=Object.fromEntries([...(j.data.floors||[]),...extra].map(x=>[x.name, [...new Set(mapped.filter(r=>(r.floor||target)===x.name&&isCrit(r.critical)).map(r=>+r.grid||r.grid))]]).filter(([,v])=>v.length));
+      const used=new Set(Object.keys(by).map(k=>k.split("|")[0]).concat(Object.keys(critical))), was=Object.fromEntries((j.data.floors||[]).filter(x=>used.has(x.name)).map(x=>[x.name, {grids:x.grids??null, cols:x.cols??null}]));
+      let r=null; try{ r=await window.dasFloorOps(j.id, [{op:"readings", rows:by, critical, add:extra.map(x=>x.name), was, ...(loose?{to:target}:{})}], {ask:true}); }catch(e){ dasSay("Not saved: "+e.message); }
+      if(!r||r.refused){ D.gridAdd=r&&r.refused&&loose&&r.refused.some(x=>x.name===target&&x.why==="gone")?{job:j.id, floor:target}:null; render(); return; }
+      D.gridAdd=null; j=r.job;
       await post(`/api/das/jobs/${j.id}/note`,{text:`Imported ${n2} grid readings from ${file.name}${nCell?` (${nCell} cellular, kept but not scored)`:""}, taken with ${inst==="uncal"?"no calibrated instrument":inst.replace("|"," ")}`}); render(); }); };
   $("#dgAll").onclick=()=>dasDl(`${fileSafe(j.name)} all readings.csv`, csvOf(dasReadings(j.data)), "text/csv");
   // Place grid: drag the grid to move it, the corner dot to size it (about its centre, along its own sides), the top dot to turn it
   $("#dgW")?.addEventListener("change", async e=>{ const all=(j.data.design||{}).floors||{};
     j=await save({design:{...(j.data.design||{}), floors:{...all, [f.name]:{...(all[f.name]||{}), width_ft:+e.target.value||null}}}}); render(); });
-  $("#dgRot")?.addEventListener("change", e=>setFloor({gridbox:{...box, rot:Math.max(-180,Math.min(180,+e.target.value||0))}}));
+  $("#dgRot")?.addEventListener("change", e=>setFloor({gridbox:{...box, rot:Math.max(-180,Math.min(180,+e.target.value||0))}}));  // with was: the box this page shows
   $("#dgFit")?.addEventListener("click", ()=>setFloor({gridbox:null}));
   const img=$("#dgImg"), sizeNote=b=>{ const out=$("#dgSize"); if(!out||!wft||!img?.naturalWidth) return;
     const hft=wft*img.naturalHeight/img.naturalWidth, sw=b.w/100*wft/cols, sh=b.h/100*hft/rows, [lo,hi]=DAS.cell_ft, bad=Math.max(sw,sh)>hi||Math.min(sw,sh)<lo;

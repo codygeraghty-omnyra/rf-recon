@@ -170,8 +170,9 @@ def confirm(con, job, body, data_dir=None, fetch=None):
     return saved
 
 
-def _need(key, text, sub):
-    return {"key": key, "text": text, "sub": sub}
+def _need(key, text, sub, hint=None):
+    """hint: which of the page's hints fits, when it isn't the key's own (a fact Run it for me filled in: check it, not fill it)."""
+    return {"key": key, "text": text, "sub": sub, **({"hint": hint} if hint else {})}
 
 
 def _open(d, key):
@@ -191,7 +192,7 @@ def stage_needs(d, stage):
         if not (d.get("ahj") or "").strip():
             out.append(_need("ahj", "The AHJ named", "overview"))
         elif _open(d, "ahj"):
-            out.append(_need("ahj", "The AHJ DAStastic filled in: check it", "overview"))
+            out.append(_need("ahj", "The AHJ DAStastic filled in: check it", "overview", "ahj_check"))
         if status(d) != "confirmed":
             out.append(_need("code", "Code check: who at the AHJ confirmed the code, and when", "overview"))
     elif stage == "Pre-survey":
@@ -199,7 +200,7 @@ def stage_needs(d, stage):
             if not (d.get("presurvey") or {}).get("plan"):
                 out.append(_need("plan", "A saved channel plan", "presurvey"))
             elif _open(d, "plan"):
-                out.append(_need("plan", "The channel plan DAStastic filled in: check it", "presurvey"))
+                out.append(_need("plan", "The channel plan DAStastic filled in: check it", "presurvey", "plan_check"))
             if not d.get("profile"):
                 out.append(_need("profile", "The AHJ's requirements picked", "require"))
             if not any((c or {}).get("status") not in (None, "", "not asked") for c in (d.get("consents") or {}).values()):

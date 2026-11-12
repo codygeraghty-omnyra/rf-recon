@@ -7,7 +7,7 @@ const HELP = [
   ["start", "Quick start", `
     <p><b>New to this?</b> The <i>Start</i> tab takes one job from an address to the AHJ package, a question at a time. It's the same job the DAS tab shows, and every other tab stays where it is.</p>
     <ol><li><b>Pick a place.</b> Type an address, town or county in the Pin box and choose a suggestion, paste a Google Maps link,
-      type <span class="mono">lat, lon</span>, use ◎ GPS, or click the map. Set the radius.</li>
+      type <span class="mono">lat, lon</span>, use ◎ GPS, or press <b>📍 Move pin</b> on the map and click where it goes. Set the radius.</li>
     <li><b>Show what's here.</b> Everything licensed, every tower and every survey point inside the circle loads, nearest first.</li>
     <li><b>Narrow it.</b> The filter rail beside the results (on a phone, the <i>Filters</i> bar): switch sources, signal types,
       bands, categories and station types off, or press <i>only</i>. Filters apply on the tabs that list the rows: the rail shows on those and leaves the others.</li>
@@ -48,7 +48,7 @@ const HELP = [
     <li>The filters are in the address bar too, so a reload or a copied link keeps them.</li></ul>`],
   ["map", "Map", `
     <ul><li>Every result as a dot, sized by how many entries share the site; towers outlined. Click a dot for what's there, then <i>Details</i>.</li>
-    <li>Drag the pin (it takes the skin's colour) or click the map to move it; rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
+    <li>The pin moves only when you ask: press <b>📍 Move pin</b> (top left), then click where it goes, or right-click the map (a long press on a touch screen) and pick <b>Move pin here</b>. A plain click leaves it where it is. Rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
     <li><b>Zoom bar</b> at the top right of every map (the layers button is top left): − and +, and 🔒, mouse-wheel zoom on or off for every map. It is locked whenever DAStastic opens, so the wheel scrolls the page; <b>hold the left mouse button (or Ctrl) and scroll</b> to zoom anyway. Click 🔒 to let the wheel zoom until DAStastic is opened again. Pinch still zooms.</li>
     <li><b>Layers</b> (top right of the map): Street, USGS satellite / satellite + labels / topo / terrain relief, Esri hi-res satellite;
       overlays for county and state lines, microwave backhaul links (FCC), live ships (AIS: the owner's personal build only) and live NEXRAD weather radar.

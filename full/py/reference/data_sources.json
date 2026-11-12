@@ -522,13 +522,16 @@
   },
   {
    "name": "Overpass API (OpenStreetMap)",
+   "updater": [
+    "osm_towers"
+   ],
    "url": "https://wiki.openstreetmap.org/wiki/Overpass_API",
-   "what": "Building outlines; road and rail tunnels",
+   "what": "Building outlines; road and rail tunnels; towers, masts, water tanks and rooftop phone masts for the tower report",
    "key": "none",
    "cost": "Free",
-   "terms": "Main server: under 10,000 queries and 1 GB a day; OpenStreetMap data (ODbL), credit OpenStreetMap; tunnel prospects kept off the public packs",
+   "terms": "Main server: under 10,000 queries and 1 GB a day (divided by 100 for regular use), no parallel requests, pause 30 s after a 429 or 406, commercial use on a self-hosted or paid server (read 2026-11-10); OpenStreetMap data (ODbL), credit OpenStreetMap; tunnel prospects kept off the public packs",
    "area": "Yes (box)",
-   "status": "In DAStastic: DAS jobs' building outlines, tunnels near a job and tunnel prospects (public servers asked at once)"
+   "status": "In DAStastic: DAS jobs' building outlines, tunnels near a job and tunnel prospects (public servers asked at once); from 2026-11-10 the tower report's OpenStreetMap towers (osmtowers.py: one server, one request at a time, off until switched on)"
   },
   {
    "name": "Iowa Environmental Mesonet: NEXRAD",

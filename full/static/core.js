@@ -97,20 +97,26 @@ function params(extra){
 }
 async function runSearch(){
   const st=$("#status"); st.className="status";
-  if(S.mode==="point" && !parseLoc($("#loc").value)){ st.textContent="Type an address, place or county (pick a suggestion), enter coordinates, or click the map."; if(S.tab!=="map") setTab("map"); return; }
+  pinArm(false);  // a search sets the spot: Move pin, if it was armed, is done (review 11/11: it stayed armed, and a stray click moved the pin)
+  if(S.mode==="point" && !parseLoc($("#loc").value)){ st.textContent="Type an address, place or county (pick a suggestion), enter coordinates, or use 📍 Move pin on the map."; if(S.tab!=="map") setTab("map"); return; }
   if(S.mode==="county" && !$("#state").value){ st.textContent="Pick a state."; st.className="status err"; return; }
   st.textContent="Searching…"; $("#go").disabled=true;
   S.lastQuery=params().toString(); searchDirty();
+  const link=S.pendingLink=window.searchLink?.();  // this search's part of the link, written once it's the one on the map (search.js); the web version's pack reload carries it
   const gen=S.searchGen=(S.searchGen||0)+1;  // a slow earlier search must not overwrite a newer one (pin drags, radius slider)
+  // what this search looks at, read from what it asks: the mode buttons can be pressed before it's back (review 11/11)
+  const key=searchKeyOf(params());
+  // a link's own view (mv=) is for the link's own search; any other search fits as usual (review 11/11: a stale mv took over)
+  if(S.mvWant){ if(S.mvWant.gen==null && (!S.mvWant.key || S.mvWant.key===key)) S.mvWant.gen=gen; else S.mvWant=null; }
   try{
     const res = await api("/api/area?"+params());
     if(gen!==S.searchGen) return;
     S.rows=res.rows; S.center=res.center; S.radius=res.radius||parseFloat($("#radius").value)||5; S.shown=600;
-    S.setAside=res.set_aside||{}; S.searched=true;
+    S.searchKey=key; S.linkSearch=link; S.setAside=res.set_aside||{}; S.searched=true;
     st.textContent = res.truncated ? "Large area — showing the first 25,000 licensed entries. Narrow the radius or add filters." : (window.railWhy?.()||"");
     render();
     if(S.heat.kind!=="off") loadHeat();
-  }catch(e){ if(gen===S.searchGen){ st.textContent="Error: "+e.message; st.className="status err"; } }
+  }catch(e){ if(gen===S.searchGen){ st.textContent="Error: "+e.message; st.className="status err"; if(S.mvWant && S.mvWant.gen===gen) S.mvWant=null; } }
   finally{ if(gen===S.searchGen) $("#go").disabled=false; }
 }
 
@@ -174,8 +180,10 @@ function render(){
   if(on && tb.scrollWidth>tb.clientWidth){ const l=on.offsetLeft-tb.offsetLeft, r=l+on.offsetWidth;
     if(l<tb.scrollLeft || r>tb.scrollLeft+tb.clientWidth) tb.scrollLeft=l-(tb.clientWidth-on.offsetWidth)/2; }
   const v=$("#view");
-  if(S.tab!=="map"){ if(S.map){ S.map.remove(); S.map=null; } $("#mapTop").innerHTML=""; }  // the map's slot under the search bar
-  if(S.tab!=="dashboard" && S.dashMap){ S.dashMap.remove(); S.dashMap=null; }
+  if(S.tab!=="report") v.style.minHeight="";  // the Area report's height kept while it drew itself again (report.js) goes with it
+  if(window.RFMaps) RFMaps.sweep(S.tab);  // the maps of other tabs go, keeping their view for when they come back (results.js)
+  if(window.RFResults) RFResults.sweep(S.tab);  // and a results viewer on another tab's page (Cell sites, Topology)
+  if(S.tab!=="map") $("#mapTop").innerHTML="";  // the map's slot under the search bar
   const fn = S.views[S.tab];
   S.viewGen=(S.viewGen||0)+1;  // a tab that waits for data checks this after the wait: a newer draw since means stop
   if(fn && !S.searched && PIN_TABS.has(S.tab)) v.innerHTML=pinFirst();
@@ -198,6 +206,7 @@ function groupItems(rows){
 }
 S.views.map = (v, rows) => {
   const top=$("#mapTop");  // under the one-line search bar (Cody 11/5, which replaces his 11/4 order), its list and table below it
+  const m0=$("#map"), t0=m0&&m0.isConnected&&S.map?m0.getBoundingClientRect().top:null;
   top.innerHTML = `
     <div class="maptools no-print">
       <label class="inl" title="Standard, ATAK style (symbols, imagery, MGRS) or a map you imported">Map <select id="mapStyle"></select></label>
@@ -218,8 +227,7 @@ S.views.map = (v, rows) => {
     <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
     </div>
-    <span class="hint" id="mapHint">${S.center?(S.pinLocked?"Pin locked: click a dot for its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely."):""}</span>
-    <div id="emitPanel"></div>`;
+    <span class="hint" id="mapHint">${S.center?"Click a dot or a row to see it beside the map; the map stays where it is. To move the pin: 📍 Move pin (top left), or right-click where it goes (a long press on a touch screen).":""}</span>`;
   v.innerHTML = `<div class="side" id="side" style="${S.listMode==="table"?"display:none":""}"></div>
     <div id="mapTable"></div>`;
   $("#heatKind").value=S.heat.kind;
@@ -238,10 +246,11 @@ S.views.map = (v, rows) => {
     getFile("/api/heatmap.zip?"+params(heatParams(k))); };
   top.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{ S.listMode=b.dataset.lv; render(); });
   if($("#sideSort")) $("#sideSort").onchange=e=>{ S.sideSort=e.target.value; S.shown=600; render(); };
-  drawMap(rows);
+  if(ensureMap()) drawLayers(rows);
   const items=groupItems(rows);
   if(S.listMode==="table") $("#mapTable").innerHTML = S.views.freqTable(items);
   else drawSideList(items);
+  if(t0!=null && t0<innerHeight){ const t1=$("#map")?.getBoundingClientRect().top; if(t1!=null && Math.abs(t1-t0)>=1) window.scrollTo({top:scrollY+t1-t0, behavior:"instant"}); }
 };
 
 // the Map list's orders (its Sort picker): nearest first is the list as it always was, in rings out from the pin; the others drop the
@@ -265,16 +274,16 @@ function drawSideList(items){
   }
   if(items.length>S.shown) html+=`<button class="more" id="moreSide" style="margin:8px">Show more (${(items.length-S.shown).toLocaleString()})</button>`;
   side.innerHTML=html;
+  // a row: lit up and shown in the results viewer on the map (its details); the map doesn't pan to it (Cody 11/10)
   side.onclick=e=>{ if(e.target.id==="moreSide"){ S.shown+=1000; drawSideList(items); return; }
     const it=e.target.closest(".item"); if(!it) return; const r=S.rows.find(x=>x.fid===it.dataset.fid); if(!r) return;
-    selectFeature(r, true); };
-  side.ondblclick=e=>{ const it=e.target.closest(".item"); if(it) openDetail(it.dataset.fid); };
+    selectFeature(r); if(r.lat==null){ if(window.emitNoSpot) emitNoSpot(r); } else if(window.emitSpot) emitSpot(S.rows.filter(x=>x.lat===r.lat&&x.lon===r.lon), r); };
 }
 
-function selectFeature(r, pan){
+// the list's pick, lit up; it never moves the map (Zoom to in the viewer does, when asked)
+function selectFeature(r){
   S.sel=r.fid;
   $$("#side .item").forEach(x=>x.classList.toggle("sel", x.dataset.fid===r.fid));
-  if(S.map && r.lat!=null){ if(pan) S.map.panTo([r.lat,r.lon]); const mk=S.markerIndex?.get(`${r.lat},${r.lon}`); if(mk) mk.openPopup(); }
 }
 
 function pinIcon(){ return L.divIcon({className:"rf-pin", html:'<div class="pinicon" style="width:22px;height:22px"></div>', iconSize:[22,22], iconAnchor:[11,22]}); }
@@ -299,12 +308,12 @@ const ESRI="Esri, Vantor, Earthstar Geographics";
 //     stretched tiles still show underneath.
 const ESRI_ABOVE={src:"esri-imagery", from:17, maxNativeZoom:20, fallback:19, attribution:ESRI};
 const BASEMAPS={
-  "Street (OpenStreetMap)":{src:"osm", maxZoom:19, attribution:"© OpenStreetMap contributors", online:true},
+  "Street (OpenStreetMap)":{src:"osm", maxNativeZoom:19, maxZoom:21, attribution:"© OpenStreetMap contributors", online:true},
   "Satellite (USGS)":{src:"usgs-imagery", maxNativeZoom:16, maxZoom:21, hidpi:true, above:[ESRI_ABOVE], attribution:USGS},
-  "Satellite + labels (USGS)":{src:"usgs-imagery-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
+  "Satellite + labels (USGS)":{src:"usgs-imagery-topo", maxNativeZoom:16, maxZoom:21, attribution:USGS},
   "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:20, fallback:19, maxZoom:21, hidpi:true, attribution:ESRI, online:true},
-  "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:19, attribution:USGS},
-  "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:19, hidpi:true, attribution:USGS},
+  "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:21, attribution:USGS},
+  "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:21, hidpi:true, attribution:USGS},
 };
 const HIDPI=(window.devicePixelRatio||1)>=1.5;
 const RfTiles=L.TileLayer.extend({
@@ -338,7 +347,7 @@ function baseLayer({src, url, online, above, ...opt}){  // url: a map you import
 }
 // microwave backhaul (FCC licensed links), loaded for the area in view and again as the map moves
 const MwLinks=L.LayerGroup.extend({
-  onAdd(map){ L.LayerGroup.prototype.onAdd.call(this, map); this._map=map; this._load=()=>{ clearTimeout(this._t); this._t=setTimeout(()=>this.load(), 350); };
+  onAdd(map){ L.LayerGroup.prototype.onAdd.call(this, map); this._map=map; this._r=this._r||L.canvas({padding:.3}); this._load=()=>{ clearTimeout(this._t); this._t=setTimeout(()=>this.load(), 350); };
     map.on("moveend", this._load); this.load(); },
   onRemove(map){ map.off("moveend", this._load); L.LayerGroup.prototype.onRemove.call(this, map); },
   async load(){ const m=this._map; if(!m) return; const b=m.getBounds();
@@ -346,9 +355,9 @@ const MwLinks=L.LayerGroup.extend({
     try{ const r=await api(`/api/mwlinks?s=${b.getSouth()}&n=${b.getNorth()}&w=${b.getWest()}&e=${b.getEast()}`); this.clearLayers();
       if(r.loaded && /^Microwave backhaul/.test($("#status").textContent)) $("#status").textContent="";  // an earlier view's note no longer holds
       if(!r.loaded){ $("#status").textContent="Microwave backhaul isn't loaded: switch on FCC ULS: Microwave in Data & updates and update it."; return; }
-      for(const k of r.links) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:S.dotsR, color:"#8250df", weight:1.8, opacity:.75, bubblingMouseEvents:false})
+      for(const k of r.links) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:this._r, color:"#8250df", weight:1.8, opacity:.75, bubblingMouseEvents:false})
         .bindTooltip(`${esc(k.licensee||"")} ${esc(k.call_sign)}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
-      for(const k of r.pending||[]) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:S.dotsR, color:"#d4a017", weight:1.8, opacity:.85, dashArray:"6 5", bubblingMouseEvents:false})
+      for(const k of r.pending||[]) L.polyline([[k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]],{renderer:this._r, color:"#d4a017", weight:1.8, opacity:.85, dashArray:"6 5", bubblingMouseEvents:false})
         .bindTooltip(`<b>Pending application</b> ${esc(k.file_number)} (${esc(k.purpose)}, filed ${esc(k.received)})<br>${esc(k.licensee||"")} ${esc(k.call_sign||"")}<br>${esc(k.tx_city||"")} → ${esc(k.rx_city||"")} · ${(k.dist_km/1.609344).toFixed(1)} mi${k.freqs?`<br>${esc(k.freqs.split(",").slice(0,4).join(", "))} MHz`:""}`, {sticky:true}).addTo(this);
       if(r.truncated) $("#status").textContent="Microwave backhaul: showing the first links here; zoom in for all of them."; }catch(e){ /* the overlay just draws nothing this time; the next pan asks again */ }
   }});
@@ -384,7 +393,7 @@ function addMapLayers(map){
   if(window.RFBounds) RFBounds.link(map, overs);  // All boundaries switches the other three (boundaries.js)
   bases[pref.base].addTo(map);
   for(const n of pref.overlays) overs[n].addTo(map);
-  L.control.layers(bases, overs, {position:"topleft"}).addTo(map);  // layers on the left, the zoom bar on the right (Cody 11/4)
+  const ctl=L.control.layers(bases, overs, {position:"topleft"}).addTo(map);  // layers on the left, the zoom bar on the right (Cody 11/4)
   if(window.RFMeasure) RFMeasure.add(map);  // the ruler, under the layers (measure.js, Cody 11/10)
   if(window.RFMarkup) RFMarkup.add(map);  // Draw: points, lines and areas kept with the mission or job (markup.js)
   if(window.RFMapExport) RFMapExport.add(map);  // save the view as a sharp PNG (mapexport.js)
@@ -393,7 +402,16 @@ function addMapLayers(map){
   const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
   // no signal on a map that's for use with signal only: show NO_SIGNAL_BASE, check every 30 s, go back when it answers
   let standIn=false, swapping=false, misses=0, timer=null;
-  const swap=name=>{ swapping=true; for(const n of [pref.base, NO_SIGNAL_BASE]) if(map.hasLayer(bases[n])) map.removeLayer(bases[n]); bases[name].addTo(map); swapping=false; };
+  // one base map on at a time; a map of your own imported after this map was made joins its layers list when picked
+  const swap=name=>{ swapping=true;
+    if(!bases[name] && BASEMAPS[name]){ bases[name]=baseLayer(BASEMAPS[name]); ctl.addBaseLayer(bases[name], name); }
+    for(const [n,b] of Object.entries(bases)) if(n!==name && map.hasLayer(b)) map.removeLayer(b);
+    if(bases[name] && !map.hasLayer(bases[name])) bases[name].addTo(map); swapping=false; };
+  // the base map changed somewhere else (Map style, Your own maps): swapped on this map in place, as the layers button
+  // does, instead of the whole map being made again (mapstyle.js, 11/10)
+  map._rfBases=bases;
+  map._rfSetBase=name=>{ if(!BASEMAPS[name]) return; if(standIn){ standIn=false; misses=0; clearInterval(timer); }
+    pref.base=name; swap(name); save(); if(navigator.onLine===false && BASEMAPS[name]?.online) noSignal(); };
   const noSignal=()=>{ if(standIn || !BASEMAPS[pref.base]?.online || unloading) return; standIn=true; swap(NO_SIGNAL_BASE);
     // its tiles are kept by the copy serving the page: this PC's own, or the server's (out of reach with no signal)
     $("#status").textContent=`No signal: showing ${NO_SIGNAL_BASE}, ${S.me||S.remote?"where this browser already has it (the server keeps the rest, out of reach with no signal)":"kept on this device"}. ${pref.base} isn't kept for use with no signal (its terms), so it comes back when signal does.`;
@@ -416,17 +434,126 @@ function addMapLayers(map){
   map.on("overlayremove", e=>{ if(unloading) return; pref.overlays=pref.overlays.filter(n=>n!==e.name); save(); });
 }
 
-function drawMap(rows){
-  if(typeof L==="undefined"){ $("#map").innerHTML='<p class="status" style="padding:12px">Map library missing.</p>'; return; }
-  if(S.wheelZoom==null) S.wheelZoom=window.rfWheelZoom?rfWheelZoom.on:false;  // locked whenever DAStastic opens (zoombar.js)
-  const map=L.map("map",{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
-  // − / + and the wheel-zoom lock: the shared zoom bar (zoombar.js), added by addMapLayers like every other map
-  addMapLayers(map);
-  // two drawing layers: the dots (clickable) and the decoration (rings, tracks, overlays) that clicks pass through;
-  // a decoration canvas on top used to swallow every click, so locked-pin clicks on dots did nothing
-  const canvas=L.canvas({padding:.3}); S.dotsR=canvas;
-  S.quietR=L.canvas({padding:.3}).addTo(map);
-  map.whenReady(()=>{ if(S.quietR._container) S.quietR._container.style.pointerEvents="none"; });  // its canvas exists once the map has a view
+// ⤢ under the zoom bar: the one press, past a map's first fit, that brings what it shows back into view (nothing else fits a
+// map: Cody 11/10). The Area report, Dashboard and DAS pre-survey had none, so a wider radius or more systems ticked stayed
+// partly off screen, and the report printed the old crop (review 11/11). It calls map._rfFit, which each draw sets.
+function fitControl(map, title){
+  const C=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","leaflet-bar rf-zoombar"), a=L.DomUtil.create("a","rf-fit",d);
+    a.href="#"; a.textContent="⤢"; a.title=title; a.setAttribute("role","button"); a.setAttribute("aria-label",title);
+    L.DomEvent.disableClickPropagation(d); L.DomEvent.on(a,"click",e=>{ L.DomEvent.stop(e); if(map._rfFit) map._rfFit(); }); return d; }});
+  new C({position:"topright"}).addTo(map);
+}
+// The Search map is made once per visit to the Map tab and kept while the tab draws itself again (Cody 11/10, after Andy's
+// demo on 11/9: every filter, sort and label used to make a new map, fitted again, so the view jumped and "lost the site").
+// ensureMap: the map, its layers, controls and handlers, once (RFMaps, results.js). drawLayers: the results on it, each time.
+function ensureMap(){
+  if(typeof L==="undefined" || !window.RFMaps){ $("#map").innerHTML='<p class="status" style="padding:12px">Map library missing.</p>'; return null; }
+  return RFMaps.keep("search", $("#map"), el=>{
+    if(S.wheelZoom==null) S.wheelZoom=window.rfWheelZoom?rfWheelZoom.on:false;  // locked whenever DAStastic opens (zoombar.js)
+    const map=L.map(el,{preferCanvas:true, zoomControl:false, scrollWheelZoom:S.wheelZoom}); S.map=map;
+    // − / + and the wheel-zoom lock: the shared zoom bar (zoombar.js), added by addMapLayers like every other map
+    addMapLayers(map);
+    // two drawing layers: the dots (clickable) and the decoration (rings, tracks, overlays) that clicks pass through;
+    // a decoration canvas on top used to swallow every click, so locked-pin clicks on dots did nothing
+    S.dotsR=L.canvas({padding:.3});
+    S.quietR=L.canvas({padding:.3}).addTo(map);
+    map.whenReady(()=>{ if(S.quietR._container) S.quietR._container.style.pointerEvents="none"; });  // its canvas exists once the map has a view
+    S.dotLayer=L.layerGroup().addTo(map); S.decoLayer=L.layerGroup().addTo(map);  // cleared and drawn again by drawLayers
+    // the scale bar, the readout and the heatmap's legend keep their clicks: a click on one used to reach the map under it and
+    // move the pin (Andy's demo 11/9, "we may have lost the site"; 11/10)
+    L.DomEvent.disableClickPropagation(L.control.scale({imperial:true, metric:true}).addTo(map).getContainer());
+    // The pin moves only when asked (Cody 11/10, after Andy's demo: a stray click moved it and lost the site, and a lock can
+    // be left off in a demo). Move pin arms one placement, a crosshair: the next click puts the pin there and it's done; Esc
+    // or the button again cancels. Right-click (a long press on a touch screen) gives "Move pin here". Otherwise a click on
+    // the map does nothing to the pin, and the pin can't be dragged; it lets clicks through to the dots under it.
+    const MovePin=L.Control.extend({onAdd(){ const b=L.DomUtil.create("button","leaflet-bar rf-movepin"); b.id="pinMove"; b.type="button";
+      L.DomEvent.disableClickPropagation(b); L.DomEvent.on(b,"click",e=>{ L.DomEvent.stop(e); pinArm(!map._rfPinArmed); }); return b; }});
+    const mp=new MovePin({position:"topleft"}).addTo(map); mp.getContainer().parentNode.prepend(mp.getContainer()); pinArm(false);  // first in the stack: a sheet from below doesn't cover it
+    map.on("contextmenu", e=>{ if(!map._rfMeasuring) pinMenu(e); });
+    map.on("rftool", ()=>pinArm(false));  // Measure or Draw started (measure.js, markup.js): one thing at a time
+    pinKeys();
+    // live readout: where the cursor is, and how far / which way from the pin (shown while there's a pin)
+    const Readout=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","legend"); d.id="mapReadout"; d.style.cssText="font:11px ui-monospace,monospace;padding:4px 8px"; d.textContent="Move over the map for position, distance and bearing from the pin"; L.DomEvent.disableClickPropagation(d); return d; }});
+    new Readout({position:"bottomleft"}).addTo(map);
+    map.on("mousemove", e=>{ const el=$("#mapReadout"); if(!el || !S.center) return; const [la,lo]=S.center, p=e.latlng, R=3958.8, rad=Math.PI/180;
+      const dLa=(p.lat-la)*rad, dLo=(p.lng-lo)*rad, h=Math.sin(dLa/2)**2+Math.cos(la*rad)*Math.cos(p.lat*rad)*Math.sin(dLo/2)**2, mi=2*R*Math.asin(Math.sqrt(h));
+      const brg=(Math.atan2(Math.sin(dLo)*Math.cos(p.lat*rad), Math.cos(la*rad)*Math.sin(p.lat*rad)-Math.sin(la*rad)*Math.cos(p.lat*rad)*Math.cos(dLo))/rad+360)%360;
+      const pts=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(brg/22.5)%16];
+      el.textContent=`${S.mapStyle==="atak"&&window.toMGRS?toMGRS(p.lat,p.lng)+" · ":""}${p.lat.toFixed(5)}, ${p.lng.toFixed(5)} · ${mi.toFixed(2)} mi ${pts} (${Math.round(brg)}°) from the pin`; });
+    // Fit search area: the one press that brings the whole search back into view (past a new search, nothing else fits)
+    const Fit=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","leaflet-bar rf-zoombar"), a=L.DomUtil.create("a","",d);
+      a.href="#"; a.id="fitSearch"; a.textContent="⤢"; a.title="Fit search area"; a.setAttribute("role","button"); a.setAttribute("aria-label","Fit search area");
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.on(a,"click",e=>{ L.DomEvent.stop(e); fitSearch(); }); return d; }});
+    new Fit({position:"topright"}).addTo(map);
+    // the view goes in the link as it moves (mv=, search.js), replacing the history entry, never adding one. Only once the
+    // address bar is on the Map tab: a map made as the tab opens is fitted inside render(), and replacing there wrote over the
+    // tab Back should go back to (review 11/11); render() writes the new tab itself, as a step
+    map.on("moveend", ()=>{ if(S.tab==="map" && S.map===map && window.writeUrlState && new URLSearchParams(location.hash.slice(1)).get("tab")==="map") window.writeUrlState(true); });
+    // armed by Move pin: this click is where the pin goes, on a dot, a link or a drawing too. It's taken on its way down,
+    // before those (they opened the viewer and the pin stayed armed: review 11/11). Not a click that ends a drag, nor one on
+    // the map's controls or the viewer (outside the map pane); measuring and drawing take their clicks (measure.js, markup.js)
+    map.getContainer().addEventListener("click", e=>{
+      // a plain click only: not the one that ends a shift-drag box zoom (the pin went to its corner), nor one on a popup in
+      // the map pane (its ✕ moved the pin: review 11/11)
+      if(!map._rfPinArmed || map._rfMeasuring || map._rfDraw?._tool || !e.target.closest?.(".leaflet-map-pane") || e.target.closest(".leaflet-popup")
+        || map.dragging?.moved() || map.boxZoom?.moved?.() || e.shiftKey) return;
+      e.stopPropagation(); e.preventDefault(); movePin(map.mouseEventToLatLng(e)); }, true);
+    return map;
+  }, {gone: m=>{ if(S.map===m){ S.map=null; S.pinMarker=null; S.heatLayer=null; S.heatLegend=null; S.emitLayer=null; } }});
+}
+// the pin, moved only when asked: a search at the spot, as typing it would
+function movePin(ll){ pinArm(false); setMode("point"); $("#loc").value=`${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`; $("#locLabel").textContent=""; S.placeLabel=null; runSearch(); }
+function pinArm(on){
+  const map=S.map; if(!map) return;
+  if(on){ if(map._rfMeasure?._on) map._rfMeasure.stop(); if(map._rfDraw?._tool) map._rfDraw._cancel(); }  // one tool at a time, this way too (review 11/11)
+  map._rfPinArmed=!!on; map.getContainer().classList.toggle("rf-pin-arming", !!on);
+  const b=$("#pinMove"); if(b){ b.classList.toggle("on", !!on); b.setAttribute("aria-pressed", String(!!on));
+    b.textContent=on?"📍 Click where it goes":"📍 Move pin"; b.title=on?"Click the map where the pin goes. Esc or this button cancels.":"Move the pin: then click where it goes (once). Or right-click the map (a long press on a touch screen)."; }
+}
+// right-click or long-press: "Move pin here" where it was pressed; any other press, a move of the map or Esc closes it
+function pinMenu(e){
+  const map=S.map; if(!map) return; const box=map.getContainer();
+  pinArm(false);  // the menu is the other way to move it: Move pin, if armed, is done
+  let m=box.querySelector(":scope > .rf-pinmenu");
+  if(!m){ m=L.DomUtil.create("div","rf-pinmenu",box); L.DomEvent.disableClickPropagation(m); L.DomEvent.disableScrollPropagation(m); }
+  m.innerHTML='<button type="button" data-pm>📍 Move pin here</button>'; m.hidden=false;
+  const p=e.containerPoint; m.style.left=`${Math.max(4, Math.min(p.x, box.clientWidth-190))}px`; m.style.top=`${Math.max(4, Math.min(p.y, box.clientHeight-56))}px`;
+  const off=()=>{ m.hidden=true; map.off("movestart click zoomstart", off); };
+  m.querySelector("[data-pm]").onclick=ev=>{ L.DomEvent.stop(ev); off(); movePin(e.latlng); };
+  map.on("movestart click zoomstart", off);
+}
+function pinKeys(){
+  if(S.pinKeyed || !window.RFKeys) return; S.pinKeyed=true;
+  const menu=()=>S.map?.getContainer().querySelector(":scope > .rf-pinmenu:not([hidden])");
+  RFKeys.scope("pin", {active:()=>!!(S.map && (S.map._rfPinArmed || menu())), keys:{escape:()=>{ pinArm(false); const m=menu(); if(m) m.hidden=true; }}});
+}
+document.head.insertAdjacentHTML("beforeend", `<style>.rf-movepin{padding:4px 9px;font:600 12px system-ui;cursor:pointer;background:var(--panel,#fff);color:var(--ink,#111)}
+.rf-movepin.on{background:var(--accent,#2f6fed);color:#fff}
+.leaflet-container.rf-pin-arming,.rf-pin-arming .leaflet-interactive{cursor:crosshair}
+.rf-pinmenu{position:absolute;z-index:1002;padding:4px;border-radius:10px;background:var(--g-strong,var(--panel,#fff));box-shadow:var(--g-shadow,0 4px 14px rgba(0,0,0,.3));border:1px solid var(--line,#8886)}
+.rf-pinmenu button{white-space:nowrap}
+@media (pointer:coarse){.rf-movepin,.rf-pinmenu button{min-height:40px}}</style>`);
+// what a search looked at: only a new one fits the view by itself (the radius, filters, sort, labels, clicks, theme and
+// base map never do; Fit search area does when asked). Read from the search's own request (params()) and kept with its
+// results: the live mode buttons said "county" or "nationwide" as soon as one was pressed, so the next filter fitted the map
+// (review 11/11). A nationwide search is keyed on what it asked, so a new call sign or band fits once; every one used to be
+// "n", so the second never fitted.
+const NOT_WHAT=["scope","layers","hide_mobile","keep_nofreq","mission","radius"];  // sources and filters: not a new search
+function searchKeyOf(p){
+  if(p.get("lat")!=null && p.get("lon")!=null) return `p:${+p.get("lat")},${+p.get("lon")}`;
+  if(p.get("state")) return `c:${p.get("state")}|${p.get("county")||""}`;
+  const k=new URLSearchParams(p); for(const x of NOT_WHAT) k.delete(x); k.sort(); return `n:${k}`;
+}
+const searchKey = () => S.searched && S.searchKey || "none";
+function fitSearch(){
+  const map=S.map; if(!map) return;
+  if(S.center) map.fitBounds(L.latLng(S.center).toBounds(S.radius*1609.344*2.1));
+  else { const pts=filtered().filter(r=>r.lat!=null).map(r=>[r.lat,r.lon]); if(pts.length) map.fitBounds(pts); else map.setView([39.5,-98.35],4); }
+}
+function drawLayers(rows){
+  const map=S.map; if(!map) return;
+  S.dotLayer.clearLayers(); S.decoLayer.clearLayers(); S.pinMarker=null;
+  const canvas=S.dotsR, deco=S.decoLayer;
   S.markerIndex=new Map();
   const sites=new Map();
   for(const r of rows){ if(r.lat==null) continue; const k=`${r.lat},${r.lon}`; if(!sites.has(k)) sites.set(k,[]); sites.get(k).push(r); }
@@ -436,62 +563,37 @@ function drawMap(rows){
     const mk = S.mapStyle==="atak"&&window.atakIcon ? L.marker([r0.lat,r0.lon],{icon:atakIcon(rs, big), bubblingMouseEvents:false})  // ATAK style: symbol frames
       : L.circleMarker([r0.lat,r0.lon],{renderer:canvas, radius: big ? 5+Math.min(7,Math.sqrt(rs.length)) : 4, bubblingMouseEvents:false,
       color: tower ? "#24292f" : colorOf(r0), weight: tower?3:1.5, fillColor: colorOf(rs.find(r=>r.layer!=="towers")||r0), fillOpacity: big?.75:.55});
-    // each entry: what it is, then where it reaches, what it's networked with and (for a cell) its site
-    const acts=r=>{ const a=[]; if(r.layer!=="towers"&&(erpOf(r)||emIsCell(r))) a.push(`<a href="#" data-em="coverage" data-fid="${esc(r.fid)}">coverage</a>`);
-      if(emIsUls(r)) a.push(`<a href="#" data-em="network" data-fid="${esc(r.fid)}">network</a>`);
-      if(emIsCell(r)) a.push(`<a href="#" data-em="cell" data-fid="${esc(r.fid)}">cell site</a>`);
-      if(emSurvey(r)&&r.dbm!=null) a.push(`<a href="#" data-em="measured" data-fid="${esc(r.fid)}">measured</a>`);
-      return a.length?` <span class="hint" style="white-space:nowrap">· ${a.join(" · ")}</span>`:""; };
-    const lines=groupItems(rs).slice(0,14).map(r=>`<div><span class="dot" style="background:${colorOf(r)}"></span> ${r.freq_mhz?`<b class="mono">${fmtF(r.freq_mhz)}</b> `:""}${esc(titleOf(r))} <span class="hint">${esc(typeOf(r))}</span>${acts(r)}</div>`).join("");
-    mk.bindPopup(`<div style="max-width:300px">${r0.dist_mi!=null?`<div class="hint">${num(r0.dist_mi,2)} mi ${r0.compass||""} from pin</div>`:""}${lines}${rs.length>14?`<div class="hint">+${rs.length-14} more</div>`:""}<a href="#" data-open="${esc(r0.fid)}">Details</a></div>`);
-    mk.on("click",()=>{ S.sel=r0.fid; $$("#side .item").forEach(x=>{ const hit=rs.some(r=>r.fid===x.dataset.fid); x.classList.toggle("sel",hit); if(hit && x===$$("#side .item").find(y=>rs.some(r=>r.fid===y.dataset.fid))) x.scrollIntoView({block:"nearest"}); });
-      if(window.emitSpot) emitSpot(rs); });  // and what's there, in the panel under the map (and lit up in the table)
-    mk.addTo(map); S.markerIndex.set(k,mk);
+    // a click: everything at the spot in the results viewer on the map, lit up in the list and table; no popup, and
+    // neither the map nor the page moves (Cody 11/10, after Andy's demo: the popup panned the map, the page scrolled)
+    mk.on("click",e=>{ if(window.RFMeasure?.toTool(map, e, mk.getLatLng())) return;  // the ruler or Draw takes it (measure.js)
+      S.sel=r0.fid; let first=null;
+      $$("#side .item").forEach(x=>{ const hit=rs.some(r=>r.fid===x.dataset.fid); x.classList.toggle("sel",hit); if(hit && !first) first=x; });
+      if(first && window.emInView) emInView($("#side"), first);  // the list scrolls to it when it scrolls by itself; the page doesn't
+      if(window.emitSpot) emitSpot(rs); });
+    mk.addTo(S.dotLayer); S.markerIndex.set(k,mk);
   }
-  map.on("popupopen", ev=>{ const el=ev.popup.getElement(), a=el.querySelector("[data-open]"); if(a) a.onclick=e=>{ e.preventDefault(); openDetail(a.dataset.open); };
-    el.querySelectorAll("[data-em]").forEach(b=>b.onclick=e=>{ e.preventDefault(); const r=S.rows.find(x=>x.fid===b.dataset.fid); if(!r) return; map.closePopup();
-      if(b.dataset.em==="measured"){ S.heat.kind="measured"; S.heat.ident=r.ident||String(r.ext_id||"").replace(/^\w+:/,""); S.heat.freq=r.ident||r.ext_id?"":(r.freq_mhz??""); S.heat.signal=titleOf(r); render(); loadHeat(); }
-      else emitOpen(r, b.dataset.em); }); });
   // mission GPS tracks
-  if(S.mission?.tracks) for(const t of S.mission.tracks) L.polyline(t,{renderer:S.quietR,color:"#fb8500",weight:3,opacity:.8,interactive:false}).addTo(map);
-  L.control.scale({imperial:true, metric:true}).addTo(map);
-  // pin lock: when locked, clicks select things on the map and never move the pin (remembered in this browser)
-  if(S.pinLocked==null){ try{ S.pinLocked=localStorage.getItem("rfr.pinLocked")==="1"; }catch(e){ S.pinLocked=false; } }
-  const Lock=L.Control.extend({onAdd(){ const b=L.DomUtil.create("button","leaflet-bar"); b.id="pinLock";
-    b.style.cssText="padding:4px 8px;font:600 12px system-ui;cursor:pointer;background:var(--panel,#fff);color:var(--ink,#111)";
-    const paint=()=>{ b.textContent=S.pinLocked?"🔒 Pin locked":"🔓 Pin moves on click"; b.title=S.pinLocked?"Clicks select emitters; the pin stays put. Click to unlock.":"Clicking the map moves the pin. Click to lock it."; };
-    paint(); L.DomEvent.disableClickPropagation(b);
-    b.onclick=()=>{ S.pinLocked=!S.pinLocked; try{ localStorage.setItem("rfr.pinLocked", S.pinLocked?"1":"0"); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } paint();
-      const h=$("#mapHint"); if(h&&S.center) h.textContent=S.pinLocked?"Pin locked: click a dot to see what's there, its coverage, network or cell site.":"Drag the pin or click the map to move it. Lock it (top left) to click emitters freely.";
-      if(S.pinMarker){ S.pinLocked?S.pinMarker.dragging?.disable():S.pinMarker.dragging?.enable(); } map.getContainer().classList.toggle("pin-locked", !!S.pinLocked); };
-    return b; }});
-  new Lock({position:"topleft"}).addTo(map);
-  // locked: the pin lets clicks through to the dots under it
-  if(!document.getElementById("rfPinCss")) document.head.insertAdjacentHTML("beforeend", '<style id="rfPinCss">.pin-locked .leaflet-marker-icon.rf-pin{pointer-events:none}</style>');
-  map.getContainer().classList.toggle("pin-locked", !!S.pinLocked);
+  if(S.mission?.tracks) for(const t of S.mission.tracks) L.polyline(t,{renderer:S.quietR,color:"#fb8500",weight:3,opacity:.8,interactive:false}).addTo(deco);
+  const ro=$("#mapReadout"); if(ro) ro.style.display=S.center?"":"none";
   if(S.center){
-    const pin=L.marker(S.center,{draggable:!S.pinLocked, icon:pinIcon(), zIndexOffset:1000}).addTo(map); S.pinMarker=pin;
-    pin.on("dragend",()=>{ const p=pin.getLatLng(); $("#loc").value=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`; runSearch(); });
+    S.pinMarker=L.marker(S.center,{icon:pinIcon(), interactive:false, keyboard:false, zIndexOffset:1000}).addTo(deco);  // not draggable: Move pin moves it
     const rm=S.radius*1609.344, stepMi=niceStep(S.radius), step=stepMi*1609.344;
     // distance rings, each labelled on its north side
     const ringLabel=(mi,d)=>L.marker([S.center[0]+d/111320, S.center[1]],{interactive:false, icon:L.divIcon({className:"", iconSize:[60,14], iconAnchor:[30,7],
-      html:`<span style="font:600 10px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:7px;white-space:nowrap">${+mi.toFixed(2)} mi</span>`})}).addTo(map);
-    for(let d=step, i=1; d<rm-1; d+=step, i++){ L.circle(S.center,{renderer:S.quietR,radius:d,color:S.mapStyle==="atak"?"#3ff":"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(map); ringLabel(stepMi*i,d); }
-    L.circle(S.center,{renderer:S.quietR,radius:rm,color:"#555",weight:2,fill:false,interactive:false}).addTo(map); ringLabel(S.radius,rm);
-    // live readout: where the cursor is, and how far / which way from the pin
-    const Readout=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","legend"); d.id="mapReadout"; d.style.cssText="font:11px ui-monospace,monospace;padding:4px 8px"; d.textContent="Move over the map for position, distance and bearing from the pin"; return d; }});
-    new Readout({position:"bottomleft"}).addTo(map);
-    map.on("mousemove", e=>{ const el=$("#mapReadout"); if(!el) return; const [la,lo]=S.center, p=e.latlng, R=3958.8, rad=Math.PI/180;
-      const dLa=(p.lat-la)*rad, dLo=(p.lng-lo)*rad, h=Math.sin(dLa/2)**2+Math.cos(la*rad)*Math.cos(p.lat*rad)*Math.sin(dLo/2)**2, mi=2*R*Math.asin(Math.sqrt(h));
-      const brg=(Math.atan2(Math.sin(dLo)*Math.cos(p.lat*rad), Math.cos(la*rad)*Math.sin(p.lat*rad)-Math.sin(la*rad)*Math.cos(p.lat*rad)*Math.cos(dLo))/rad+360)%360;
-      const pts=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"][Math.round(brg/22.5)%16];
-      el.textContent=`${S.mapStyle==="atak"&&window.toMGRS?toMGRS(p.lat,p.lng)+" · ":""}${p.lat.toFixed(5)}, ${p.lng.toFixed(5)} · ${mi.toFixed(2)} mi ${pts} (${Math.round(brg)}°) from the pin`; });
-    map.fitBounds(L.latLng(S.center).toBounds(rm*2.1));
-  } else if(sites.size) map.fitBounds([...sites.values()].map(rs=>[rs[0].lat,rs[0].lon]));
-  else map.setView([39.5,-98.35],4);
-  // measuring (measure.js): a click is a point, not the pin
-  map.on("click", e=>{ if(S.mode!=="point" || S.pinLocked || map._rfMeasuring) return; $("#loc").value=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`; runSearch(); });
-  if(S.heatImg) addHeatLayer();
+      html:`<span style="font:600 10px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:7px;white-space:nowrap">${+mi.toFixed(2)} mi</span>`})}).addTo(deco);
+    for(let d=step, i=1; d<rm-1; d+=step, i++){ L.circle(S.center,{renderer:S.quietR,radius:d,color:S.mapStyle==="atak"?"#3ff":"#888",weight:1,dashArray:"3 5",fill:false,interactive:false}).addTo(deco); ringLabel(stepMi*i,d); }
+    L.circle(S.center,{renderer:S.quietR,radius:rm,color:"#555",weight:2,fill:false,interactive:false}).addTo(deco); ringLabel(S.radius,rm);
+  }
+  // the view: fitted for a new search only; back on the Map tab the map gets the view it had (RFMaps keeps it), and a link
+  // with the view in it (mv=, search.js) gets that view instead of the fit: only for the link's own search (S.mvWant.gen),
+  // and only with the pin in it (a view from somewhere else would hide the new pin: review 11/11)
+  const key=searchKey(), want=S.mvWant;
+  if(want && S.searched && want.gen===S.searchGen){ const [a,b,z]=want.v; S.mvWant=null; map._rfNew=false; map._rfSig=key; map.setView([a,b],z,{animate:false});
+    // a county or nationwide search has no pin: a view outside all of its dots is the same miss; one in a gap between them isn't
+    const vb=map.getBounds(), pts=rows.filter(r=>r.lat!=null).map(r=>[r.lat,r.lon]);
+    if(S.center ? !vb.contains(S.center) : (pts.length && !L.latLngBounds(pts).intersects(vb))) fitSearch(); }
+  else RFMaps.first(map, key, fitSearch);
+  if(S.heatImg && !(S.heatLayer && map.hasLayer(S.heatLayer))) addHeatLayer();  // a map made again (back on the tab) gets the heatmap back
   if(window.emitAfterDraw) window.emitAfterDraw();
 }
 
@@ -543,15 +645,16 @@ async function loadHeat(){
 }
 function addHeatLayer(){
   const h=S.heatImg; if(!h||!S.map) return;
+  if(S.heatLayer) S.map.removeLayer(S.heatLayer); if(S.heatLegend) S.map.removeControl(S.heatLegend);  // one at a time, now that the map stays (11/10)
   S.heatLayer=L.imageOverlay("data:image/png;base64,"+h.png, h.bounds, {opacity:S.heat.opacity, interactive:false}).addTo(S.map);
-  const Lg=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","legend"); d.innerHTML=`<div>${esc(h.desc)}</div><div class="bar"></div><div style="display:flex;justify-content:space-between"><span>${num(h.vmin,0)}</span><span>${esc(h.unit)}</span><span>${num(h.vmax,0)}</span></div>`; return d; }});
+  const Lg=L.Control.extend({onAdd(){ const d=L.DomUtil.create("div","legend"); d.innerHTML=`<div>${esc(h.desc)}</div><div class="bar"></div><div style="display:flex;justify-content:space-between"><span>${num(h.vmin,0)}</span><span>${esc(h.unit)}</span><span>${num(h.vmax,0)}</span></div>`; L.DomEvent.disableClickPropagation(d); return d; }});
   S.heatLegend=new Lg({position:"bottomleft"}); S.heatLegend.addTo(S.map);
 }
 
 /* ---------- detail ---------- */
 function kvg(pairs){ return `<div class="kvg">${pairs.filter(p=>p[1]!==""&&p[1]!=null&&p[1]!==undefined).map(([k,v])=>`<div>${k}</div><div>${v}</div>`).join("")}</div>`; }
 // a DMR or NXDN reading that decoded a radio ID: who it belongs to, from RadioID.net, one look-up when asked (radioid.py)
-function radioIdLookup(r){
+function radioIdLookup(r, host){
   const kind=/NXDN/i.test(`${r.sig_type||""} ${r.kind||""}`)?"nxdn":/DMR/i.test(`${r.sig_type||""} ${r.kind||""}`)?"dmr":null;
   if(!kind) return;
   let extra={}; try{ extra=JSON.parse(r.details||r.extra||"{}")||{}; }catch(e){ /* not JSON: the record shows without extra fields */ }
@@ -559,20 +662,30 @@ function radioIdLookup(r){
   const rid=fromExtra?String(fromExtra[1]).trim():(/^\d{6,8}$/.test(String(r.ident||"").trim())?String(r.ident).trim():null);
   if(!rid) return;
   const box=document.createElement("div"); box.className="sec";
-  box.innerHTML=`<h3>Radio ID ${esc(rid)}</h3><div id="ridOut"><button id="ridGo">Who is it? (RadioID.net)</button></div>`;
-  $("#dlgBody").appendChild(box);
-  $("#ridGo").onclick=async()=>{ $("#ridOut").textContent="Asking RadioID.net…";
+  box.innerHTML=`<h3>Radio ID ${esc(rid)}</h3><div data-rid-out><button data-rid-go>Who is it? (RadioID.net)</button></div>`;
+  host.appendChild(box);
+  const out=box.querySelector("[data-rid-out]");
+  box.querySelector("[data-rid-go]").onclick=async()=>{ out.textContent="Asking RadioID.net…";
     try{ const a=await api(`/api/radioid?kind=${kind}&id=${encodeURIComponent(rid)}`);
-      $("#ridOut").innerHTML=a.found?kvg([["Call sign",`<span class="mono">${esc(a.callsign||"")}</span>`],["Name",esc(a.name||"")],["Place",esc([a.city,a.state,a.country].filter(Boolean).join(", "))],["Source",`RadioID.net, looked up ${esc(a.looked_up||"")}`]])
+      out.innerHTML=a.found?kvg([["Call sign",`<span class="mono">${esc(a.callsign||"")}</span>`],["Name",esc(a.name||"")],["Place",esc([a.city,a.state,a.country].filter(Boolean).join(", "))],["Source",`RadioID.net, looked up ${esc(a.looked_up||"")}`]])
         :`<p class="hint">RadioID.net has no ${kind.toUpperCase()} radio ID ${esc(rid)}.</p>`; }
-    catch(e){ $("#ridOut").innerHTML=`<p class="hint">${esc(e.message)}</p>`; } };
+    catch(e){ out.innerHTML=`<p class="hint">${esc(e.message)}</p>`; } };
 }
 
+// One entry's details. The Map tab shows them in the results viewer's Details tab (emitter.js, results.js); the Analyzer and the
+// Site profile in the dialog (openDetail). opt.go(tab) shows its coverage, network or cell site where the details are (without
+// it, on the Map tab); opt.saved() runs after a label or an observation is saved (Cody 11/10: saving keeps the viewer open).
+const detailTitle = r => `${r.freq_mhz?`<span class="mono">${fmtF(r.freq_mhz)} MHz</span> · `:""}${esc(titleOf(r))}`;
 function openDetail(fid){
   const r=S.rows.find(x=>x.fid===fid); if(!r) return;
+  $("#dlgTitle").innerHTML=detailTitle(r);
+  fillDetail($("#dlgBody"), r, {saved:()=>{ $("#dlg").close(); render(); }});
+  $("#dlg").showModal();
+}
+function fillDetail(body, r, opt={}){
+  const q=s=>body.querySelector(s);
   const uls = r.layer==="uls"||r.layer==="uls_hist";
   const lib = S.lib[r.sig_type];
-  $("#dlgTitle").innerHTML=`${r.freq_mhz?`<span class="mono">${fmtF(r.freq_mhz)} MHz</span> · `:""}${esc(titleOf(r))}`;
   let html = kvg([["Source", `<span class="dot" style="background:${LAYERS[r.layer]?.color}"></span> ${esc(LAYERS[r.layer]?.label||r.layer)}${r.attribution?` <span class="hint">· ${esc(r.attribution)}</span>`:""}`],
     ["Signal type", r.sig_type?`<b>${esc(r.sig_type)}</b>${lib?` · ${esc(lib.family)} · ${esc(lib.bw)} · <a href="${lib.url}" target="_blank" rel="noopener">Signal ID wiki ↗</a>`:""}`:""],
     ["How identified", esc(r.sig_basis||(uls?"FCC license emission designators":""))+(r.sig_conf?` <span class="tag">${esc(r.sig_conf)} confidence</span>`:"")],
@@ -625,8 +738,8 @@ function openDetail(fid){
       ${Object.keys(extra).length?`<div class="sec"><h3>All fields</h3>${kvg(Object.entries(extra).map(([k,v])=>[esc(k),`<span class="mono">${esc(typeof v==="object"?JSON.stringify(v):v)}</span>`]))}</div>`:""}`;
   }
   html += window.sigMeta ? window.sigMeta(r) : "";  // band, channel, pairing, what a scan adds, every field on file (sigmeta.js)
-  $("#dlgBody").innerHTML=html;
-  radioIdLookup(r);
+  body.innerHTML=html;
+  radioIdLookup(r, body);
   if(r.also_in?.length){  // the same emitter from several sources: who reported it, and where they disagree
     const box=document.createElement("div"); box.className="sec"; const cf=Object.entries(r.conflicts||{});
     const ind=r.independent||1;  // independent origins, not rows (provenance.py): copies of one source count once
@@ -635,22 +748,22 @@ function openDetail(fid){
         :`<p class="hint" style="margin:0 0 6px">Origins: ${esc((r.origins||[]).join(", "))}</p>`}
       ${cf.length?`<p class="hint" style="margin:0 0 4px">Where they disagree, each source's value:</p>${kvg(cf.map(([f,vals])=>[esc(f.replace(/_/g," ")), vals.map(([s,v])=>`${esc(v)} <span class="hint">(${esc(s)})</span>`).join("<br>")]))}`
         :'<p class="hint" style="margin:0">They agree on everything they both report.</p>'}`;
-    $("#dlgBody").prepend(box); }
+    body.prepend(box); }
   if(r.lat!=null && r.layer!=="towers"){  // the same emitter on the map: where it reaches, what it's networked with, its cell site
     const acts=[(erpOf(r)||emIsCell(r))&&["coverage","Coverage on the map"], emIsUls(r)&&["network","Network"], emIsCell(r)&&["cell","Cell site"]].filter(Boolean);
     if(acts.length){ const bar=document.createElement("div"); bar.className="row no-print"; bar.style.cssText="gap:6px;margin-bottom:8px";
       bar.innerHTML=acts.map(([k,l])=>`<button data-emd="${k}">${l}</button>`).join("");
-      bar.querySelectorAll("[data-emd]").forEach(b=>b.onclick=()=>emitOpen(r, b.dataset.emd)); $("#dlgBody").prepend(bar); }
+      bar.querySelectorAll("[data-emd]").forEach(b=>b.onclick=()=>(opt.go||(t=>emitOpen(r, t)))(b.dataset.emd)); body.prepend(bar); }
   }
   if(uls && r.call_sign){  // the same licence on the FCC's own site and on RadioReference (links only: RR's data can't be copied)
     const box=document.createElement("div"); box.className="sec";
     box.innerHTML=`<h3>RadioReference</h3><p><a href="https://www.radioreference.com/db/fcc/callsign/${encodeURIComponent(r.call_sign)}" target="_blank" rel="noopener">${esc(r.call_sign)} on RadioReference</a>
       ${rrStateUrl(r.state)?` · <a href="${rrStateUrl(r.state)}" target="_blank" rel="noopener">RadioReference: ${esc(r.state)} systems and counties</a>`:""}</p>`;
-    $("#dlgBody").appendChild(box);
+    body.appendChild(box);
   }
   if(r.freq_mhz){  // what it could be, from the Signal Identification Wiki catalog (cached locally)
     const box=document.createElement("div"); box.className="sec"; const head='<h3>Signal Identification Wiki: what this could be</h3>';
-    box.innerHTML=head+'<p class="hint">Looking…</p>'; $("#dlgBody").appendChild(box);
+    box.innerHTML=head+'<p class="hint">Looking…</p>'; body.appendChild(box);
     api(`/api/sigwiki/match?freq=${r.freq_mhz}&bw=${r.bandwidth_khz||r.bw_khz||""}&type=${encodeURIComponent(r.sig_type||"")}`).then(m=>{
       box.innerHTML=head+(m.candidates.length?m.candidates.map(c=>`<div style="margin:6px 0"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a>
         <span class="hint">${esc(c.why.join(" · "))}${c.mode?` · ${esc(c.mode)}`:""}${c.modulation?` · ${esc(c.modulation)}`:""}</span><br><span class="hint">${esc(c.description)}</span>
@@ -660,13 +773,33 @@ function openDetail(fid){
         +`<p class="hint">From sigidwiki.com${m.candidates.some(c=>c.media)?"; waterfalls and audio from the Artemis database on this PC":""}. Open a page for more samples and decoding notes.</p>`; })
       .catch(()=>{ box.innerHTML=head+'<p class="hint">Catalog not loaded yet: Data &amp; updates → Signal ID Wiki catalog → Run now.</p>'; });
   }
-  if($("#ovSave")) $("#ovSave").onclick=async()=>{ const d={call_sign:r.call_sign,freq_mhz:r.freq_mhz,county:r.county,state:r.state,alpha_tag:$("#ovTag").value,tone:$("#ovTone").value,tag:$("#ovT").value,description:$("#ovDesc").value,notes:$("#ovNotes").value,verified:$("#ovVer").checked};
-    await post("/api/overlay",d); for(const x of S.rows) if(x.call_sign===r.call_sign&&fmtF(x.freq_mhz)===fmtF(r.freq_mhz)) Object.assign(x,{ov_alpha_tag:d.alpha_tag,ov_tone:d.tone,ov_tag:d.tag,ov_description:d.description,ov_notes:d.notes,ov_verified:d.verified?1:0}); $("#dlg").close(); render(); };
-  if($("#obSave")) $("#obSave").onclick=async()=>{ const d={mission_id:S.missionId,freq_mhz:r.freq_mhz,call_sign:r.call_sign,status:$("#obStatus").value,level_dbm:$("#obLevel").value===""?null:+$("#obLevel").value,notes:$("#obNotes").value};
-    await post("/api/observation",d); for(const x of S.rows) if(x.call_sign===r.call_sign&&fmtF(x.freq_mhz)===fmtF(r.freq_mhz)) Object.assign(x,{obs_status:d.status,obs_level:d.level_dbm,obs_notes:d.notes}); $("#dlg").close(); render(); };
-  $("#dlg").showModal();
+  const saved=opt.saved||(()=>render());
+  if(q("#ovSave")) q("#ovSave").onclick=async()=>{ const d={call_sign:r.call_sign,freq_mhz:r.freq_mhz,county:r.county,state:r.state,alpha_tag:q("#ovTag").value,tone:q("#ovTone").value,tag:q("#ovT").value,description:q("#ovDesc").value,notes:q("#ovNotes").value,verified:q("#ovVer").checked};
+    await post("/api/overlay",d); for(const x of S.rows) if(x.call_sign===r.call_sign&&fmtF(x.freq_mhz)===fmtF(r.freq_mhz)) Object.assign(x,{ov_alpha_tag:d.alpha_tag,ov_tone:d.tone,ov_tag:d.tag,ov_description:d.description,ov_notes:d.notes,ov_verified:d.verified?1:0}); saved(); };
+  if(q("#obSave")) q("#obSave").onclick=async()=>{ const d={mission_id:S.missionId,freq_mhz:r.freq_mhz,call_sign:r.call_sign,status:q("#obStatus").value,level_dbm:q("#obLevel").value===""?null:+q("#obLevel").value,notes:q("#obNotes").value};
+    await post("/api/observation",d); for(const x of S.rows) if(x.call_sign===r.call_sign&&fmtF(x.freq_mhz)===fmtF(r.freq_mhz)) Object.assign(x,{obs_status:d.status,obs_level:d.level_dbm,obs_notes:d.notes}); saved(); };
 }
-document.addEventListener("click", e => { const tr=e.target.closest("tr[data-fid]"); if(tr && !tr.closest("#pktTable")) openDetail(tr.dataset.fid); });
+// A spot on a map other than the Map tab's (the Dashboard's): what's there and each entry's details, in the results viewer on
+// that map (results.js), which stays where it is. Coverage, network and cell site, and "On the Map tab", go to the Map tab.
+function spotView(map, rs, pick){
+  const items=groupItems(rs), r0=items[0]; if(!r0 || !window.RFResults) return;
+  const st={r:pick||r0, tab:pick||items.length===1?"detail":"info"};
+  const draw=()=>RFResults.show(map, {key:`spot:${r0.lat},${r0.lon}`, label:titleOf(st.r),
+    title:items.length>1&&st.tab==="info"?`${items.length} entries here`:detailTitle(st.r),
+    sub:[r0.dist_mi!=null?`${num(r0.dist_mi,2)} mi ${esc(r0.compass||"")} from the pin`:"", `${(+r0.lat).toFixed(5)}, ${(+r0.lon).toFixed(5)}`].filter(Boolean).join(" · "),
+    tabs:[...(items.length>1?[{id:"info", label:`On this spot (${items.length})`}]:[]), {id:"detail", label:"Details"}], tab:st.tab,
+    onTab:id=>{ st.tab=id; draw(); },
+    fill:body=>{
+      if(st.tab==="detail"){ fillDetail(body, st.r, {saved:()=>{ render(); draw(); }}); return; }
+      body.innerHTML=`<div class="tw"><table><thead><tr><th>MHz</th><th>What</th><th>Type</th><th>Source</th></tr></thead><tbody>${items.map((r,i)=>`<tr data-i="${i}" style="cursor:pointer${r===st.r?";font-weight:700":""}"><td class="mono">${r.freq_mhz?fmtF(r.freq_mhz):""}</td><td>${esc(titleOf(r))}</td><td>${esc(typeOf(r))}</td><td>${esc(LAYERS[r.layer]?.label||r.layer)}</td></tr>`).join("")}</tbody></table></div>
+        <p class="hint">Click one for its details.</p>`;
+      body.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=()=>{ st.r=items[+tr.dataset.i]; st.tab="detail"; draw(); }); },
+    actions:[{label:"On the Map tab", title:"Open this spot on the Map tab, with its coverage, network and cell site", run:()=>{ setTab("map"); if(window.emitSpot) emitSpot(rs, st.r); }}],
+    zoom:[+r0.lat, +r0.lon]}, [+r0.lat, +r0.lon]);
+  draw();
+}
+// a table row's details: in the dialog, except the Map tab's table and anything in a results viewer, which show in the viewer
+document.addEventListener("click", e => { const tr=e.target.closest("tr[data-fid]"); if(tr && !tr.closest("#pktTable, #mapTable, .rf-res")) openDetail(tr.dataset.fid); });
 
 /* ---------- wiring ---------- */
 function setMode(m){ S.mode=m; $$("#modeSeg button").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
@@ -690,7 +823,7 @@ $("#hideMobile").addEventListener("change",searchDirty);
 for(const id of ["#loc","#q","#fmin","#fmax","#rf"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
 let rT; const radiusChanged=v=>{ $("#radius").value=v; $("#radiusSlider").value=v; clearTimeout(rT); rT=setTimeout(()=>{ if(parseLoc($("#loc").value)) runSearch(); },450); };
 $("#radius").oninput=e=>radiusChanged(e.target.value); $("#radiusSlider").oninput=e=>radiusChanged(e.target.value);
-$("#gpsBtn").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{ $("#loc").value=`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`; setMode("point"); runSearch(); },
+$("#gpsBtn").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>movePin(L.latLng(p.coords.latitude, p.coords.longitude)),
   err=>{ $("#status").textContent="GPS unavailable: "+err.message+" (browsers only allow GPS on localhost or HTTPS)."; }, {enableHighAccuracy:true}):null;
 $("#state").onchange=async()=>{ const cs=await api("/api/counties?state="+$("#state").value);
   $("#county").innerHTML='<option value="">— whole state —</option>'+cs.map(c=>`<option value="${esc(c.county)}">${esc(c.county)} (${c.n.toLocaleString()})</option>`).join(""); };
@@ -716,7 +849,7 @@ async function boot(){
   if(window.missionBoot) await window.missionBoot();
   if(S.meta && !S.meta.built_at && !S.remote && window.welcome) window.welcome();  // a new copy with no data yet (welcome.js)
   try{ if(!location.hash && localStorage.getItem("rfr.landing")==="start") S.tab="start"; }catch(e){ /* storage blocked: the Map, as always */ }
-  if(window.applyUrlState && window.applyUrlState()) runSearch();  // a link to a view wins over the mission's area
+  if(window.applyUrlState && window.applyUrlState(true)) runSearch();  // a link to a view wins over the mission's area
   render();
 }
 window.addEventListener("load", boot);

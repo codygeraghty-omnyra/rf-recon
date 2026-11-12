@@ -19,17 +19,22 @@ function findMark(text, q){
   return s;
 }
 
-// go to a result on the map: the pin there, a small search, then the emitter's dot (or its network / coverage)
+// go to a result on the map (Cody 11/10): one already in the results opens in the Map tab's results viewer, and the pin and
+// the map stay; one elsewhere moves the pin there and searches again with the radius as it is (it used to shrink to 2 mi)
 async function findGo(it, then){
   if(it.lat == null){ $("#status").textContent = "That result has no location on file."; return; }
-  if(S.mode !== "point" && typeof setMode === "function") setMode("point");
-  $("#loc").value = `${(+it.lat).toFixed(5)}, ${(+it.lon).toFixed(5)}`;
-  if(+$("#radius").value > 3 || !$("#radius").value) $("#radius").value = 2;
-  S.tab = "map"; await runSearch();
-  const near = S.rows.filter(r => r.lat != null && Math.abs(r.lat - it.lat) < 2e-4 && Math.abs(r.lon - it.lon) < 2e-4);
+  const at = () => S.rows.filter(r => r.lat != null && Math.abs(r.lat - it.lat) < 2e-4 && Math.abs(r.lon - it.lon) < 2e-4);
+  const place = it.kind === "place";
+  if(place || !at().length){
+    if(S.mode !== "point" && typeof setMode === "function") setMode("point");
+    $("#loc").value = `${(+it.lat).toFixed(5)}, ${(+it.lon).toFixed(5)}`; $("#locLabel").textContent = ""; S.placeLabel = null;
+    S.tab = "map"; await runSearch();
+    if(place) return;  // the place itself: the search there is the answer
+  } else if(S.tab !== "map") setTab("map");
+  const near = at();
   const row = (it.call_sign && (near.find(r => r.call_sign === it.call_sign) || S.rows.find(r => r.call_sign === it.call_sign))) || near[0];
   if(then && row) then(row);
-  else if(row && window.emitSpot){ selectFeature(row, true); emitSpot(near.length ? near : [row]); }
+  else if(row && window.emitSpot){ selectFeature(row); emitSpot(near.length ? near : [row], row); }
 }
 
 function findActions(it){

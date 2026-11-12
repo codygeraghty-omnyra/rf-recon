@@ -26,12 +26,14 @@ const CELL_CARRIERS = ["AT&T", "Verizon", "T-Mobile", "FirstNet", "UScellular", 
 const CARRIER_RULES=[[/first\s*net|first responder network/i,"FirstNet"],[/\bt-?\s?mobile|\bsprint|nextel|clearwire|metropcs|powertel|omnipoint|voicestream/i,"T-Mobile"],[/verizon|cellco|new york smsa|gte mobilnet|bell atlantic mobile|airtouch/i,"Verizon"],[/at&t|\batt\b|cingular|bellsouth|ameritech/i,"AT&T"],[/united states cellular|us\s?cellular/i,"UScellular"],[/\bdish\b|\bboost\b|echostar/i,"Dish / Boost"]];
 const carrierOfName=s=>{ const t=String(s??""); for(const [re,n] of CARRIER_RULES) if(re.test(t)) return n; return null; };
 function carrierName(s){ const t=String(s??"").trim(); return carrierOfName(t)||t||"Unknown carrier"; }
-// a reading's frequency layer: from 3.3 GHz (C-band, 3.45 GHz, CBRS) or below. From its downlink MHz or band; an LTE EARFCN
-// alone isn't read as MHz (B14's 5330 would look like 5.3 GHz), except CBRS (B48: 55240-56739); a 5G NR-ARFCN is converted
+// a reading's frequency layer: from 3.3 GHz (C-band, 3.45 GHz, CBRS, LAA's 5 GHz) or below. From its downlink MHz or band; an
+// LTE EARFCN alone isn't read as MHz (B14's 5330 would look like 5.3 GHz), except CBRS (B48: 55240-56739) and LAA (B46:
+// 46790-54539, filed below 3.3 GHz until round 3 of the 11/10 review); a 5G NR-ARFCN is converted
 const nrMhz = n => n<600000 ? n*0.005 : 3000+0.015*(n-600000);
 function cellMhz(x){ if(has(x.mhz)&&isFinite(+x.mhz)) return +x.mhz; const ch=+x.freq;
-  if(!isFinite(ch)) return null; if(ch>=100000&&/NR|5G/i.test(String(x.tech||""))) return nrMhz(ch); if(ch>=55240&&ch<=56739) return 3550+(ch-55240)/10; return null; }
-const layerOf = x => { const b=String(x.band??"").trim(), f=cellMhz(x); return /^(n|b)?(77|78|48)$/i.test(b)||(f!=null&&f>=3300)?"hi":"lo"; };
+  if(!isFinite(ch)) return null; if(ch>=100000&&/NR|5G/i.test(String(x.tech||""))) return nrMhz(ch); if(ch>=55240&&ch<=56739) return 3550+(ch-55240)/10;
+  if(ch>=46790&&ch<=54539) return 5150+(ch-46790)/10; return null; }
+const layerOf = x => { const b=String(x.band??"").trim(), f=cellMhz(x); return /^(n|b)?(77|78|48|46)$/i.test(b)||(f!=null&&f>=3300)?"hi":"lo"; };
 const LAYER_NAME = {lo:"below 3.3 GHz", hi:"3.3 GHz and up (C-band, CBRS)"};
 
 /* ---------- the profile ---------- */

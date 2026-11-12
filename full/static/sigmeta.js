@@ -33,12 +33,49 @@
   const SPOT = [[1575.42, "GPS L1 / Galileo E1 / BeiDou B1C"], [1227.6, "GPS L2"], [1176.45, "GPS L5 / Galileo E5a"], [1207.14, "Galileo E5b"], [1278.75, "Galileo E6"],
     [1090, "Mode S / ADS-B replies (1090ES)"], [1030, "Transponder interrogations"], [978, "UAT (ADS-B in the US)"], [161.975, "AIS 1 (channel 87B)"], [162.025, "AIS 2 (channel 88B)"],
     [121.5, "Aviation emergency"], [243, "Military aviation emergency"], [406.025, "COSPAS-SARSAT distress beacons"], [156.8, "Marine channel 16 (distress, calling)"]];
-  // LTE: band, DL low, N_offs DL, UL low, N_offs UL, DL high, UL high (as cellspec.py)
+  // LTE: band, DL low, N_offs DL, UL low, N_offs UL, DL high, UL high (as cellspec.py's LTE, row for row; B17, B29, B70 and B85
+  // added 11/10 when the one band converter came in)
   const LTE = [["B2", 1930, 600, 1850, 18600, 1990, 1910], ["B4", 2110, 1950, 1710, 19950, 2155, 1755], ["B5", 869, 2400, 824, 20400, 894, 849], ["B12", 729, 5010, 699, 23010, 746, 716],
-    ["B13", 746, 5180, 777, 23180, 756, 787], ["B14", 758, 5280, 788, 23280, 768, 798], ["B25", 1930, 8040, 1850, 26040, 1995, 1915], ["B26", 859, 8690, 814, 26690, 894, 849],
-    ["B30", 2350, 9770, 2305, 27660, 2360, 2315], ["B41", 2496, 39650, null, null, 2690, null], ["B48", 3550, 55240, null, null, 3700, null],
-    ["B66", 2110, 66436, 1710, 131972, 2200, 1780], ["B71", 617, 68586, 663, 133122, 652, 698]];
+    ["B13", 746, 5180, 777, 23180, 756, 787], ["B14", 758, 5280, 788, 23280, 768, 798], ["B17", 734, 5730, 704, 23730, 746, 716], ["B25", 1930, 8040, 1850, 26040, 1995, 1915],
+    ["B26", 859, 8690, 814, 26690, 894, 849], ["B29", 717, 9660, null, null, 728, null], ["B30", 2350, 9770, 2305, 27660, 2360, 2315], ["B41", 2496, 39650, null, null, 2690, null],
+    ["B48", 3550, 55240, null, null, 3700, null], ["B66", 2110, 66436, 1710, 131972, 2200, 1780], ["B70", 1995, 68336, 1695, 132972, 2020, 1710],
+    ["B71", 617, 68586, 663, 133122, 652, 698], ["B85", 728, 70366, 698, 134002, 746, 716]];
+  // bands a phone or scanner reports that no US licence names: LAA's B46, the rest abroad (cellspec.py LTE_HEARD); bandOf only
+  const LTE_HEARD = [["B1", 2110, 0, 1920, 18000, 2170, 1980], ["B3", 1805, 1200, 1710, 19200, 1880, 1785], ["B7", 2620, 2750, 2500, 20750, 2690, 2570],
+    ["B8", 925, 3450, 880, 21450, 960, 915], ["B20", 791, 6150, 832, 24150, 821, 862], ["B38", 2570, 37750, null, null, 2620, null], ["B46", 5150, 46790, null, null, 5925, null]];
+  // NR: band, DL low, DL high (cellspec.py's NR); where bands overlap, the one a US network uses first (NR_FIRST)
+  const NR = [["n2", 1930, 1990], ["n5", 869, 894], ["n12", 729, 746], ["n14", 758, 768], ["n25", 1930, 1995], ["n26", 859, 894], ["n29", 717, 728],
+    ["n30", 2350, 2360], ["n41", 2496, 2690], ["n48", 3550, 3700], ["n66", 2110, 2200], ["n70", 1995, 2020], ["n71", 617, 652], ["n77", 3300, 4200],
+    ["n258", 24250, 27500], ["n260", 37000, 40000], ["n261", 27500, 28350]];
+  const NR_FIRST = ["n71", "n29", "n12", "n14", "n5", "n2", "n25", "n66", "n70", "n30", "n41", "n48", "n77", "n258", "n261", "n260", "n26"];
+  const NR_CARRIER_FIRST = {"T-Mobile": ["n25"]};
   const nrArfcn = f => f < 3000 ? Math.round(f / 0.005) : f < 24250 ? 600000 + Math.round((f - 3000) / 0.015) : 2016667 + Math.round((f - 24250) / 0.06);
+  // a channel heard -> its band: the mirror of cellspec.band_of (11/10), the same answers on the same channels (tests/test_bandof.py)
+  const chanInt = c => { const m = c == null || typeof c === "boolean" ? null : /^[ \t]*([0-9]+)(\.0*)?[ \t]*$/.exec(String(c)); return m ? +m[1] : null; };
+  // 0 is no channel: WiGLE writes it for an EARFCN the phone didn't report (cellspec.earfcn_dl_mhz)
+  const earfcnDl = n => { if (n === 0) return null; for (const [b, dl, nd, , , dh] of [...LTE, ...LTE_HEARD]) if (n >= nd && n < nd + 10 * (dh - dl)) return [b, (dl * 10 + n - nd) / 10]; return null; };
+  const nrMhz = n => n < 600000 ? n * 5 / 1000 : n < 2016667 ? (3000000 + 15 * (n - 600000)) / 1000 : n <= 3279165 ? (24250080 + 60 * (n - 2016667)) / 1000 : null;
+  function bandOf(tech, chan, carrier) {
+    const T = String(tech ?? "").toUpperCase(), t = T.includes("NR") || T.includes("5G") ? "NR" : T.includes("LTE") || T.includes("4G") ? "LTE" : T, n = chanInt(chan);
+    if (n == null) return null;
+    if (t === "LTE") {
+      const hit = earfcnDl(n); if (!hit) return null;
+      const [band, mhz] = hit, heard = LTE_HEARD.some(r => r[0] === band);
+      return {tech: "LTE", band, num: +band.slice(1), chan: n, kind: "EARFCN", dl_mhz: mhz, also: [],
+        note: band === "B46" ? "LAA: LTE in the unlicensed 5 GHz band" : heard ? "not a US band" : ""};
+    }
+    if (t === "NR") {
+      const mhz = nrMhz(n); if (mhz == null) return null;
+      const first = [...(NR_CARRIER_FIRST[String(carrier ?? "").replace(" (ex-Sprint)", "")] || []), ...NR_FIRST], at = b => first.includes(b) ? first.indexOf(b) : first.length;
+      const hits = NR.filter(([, lo, hi]) => mhz >= lo && mhz < hi).map(r => r[0]).sort((a, b) => at(a) - at(b));
+      if (!hits.length) return null;
+      const band = hits[0];
+      const note = band === "n48" && hits.includes("n77") ? "CBRS (n48), or n77 where a phone reports it so: the carrier's licensed blocks settle it"
+        : hits.includes("n2") && hits.includes("n25") ? "PCS: n2 (AT&T, Verizon) or n25 (T-Mobile)" : "";
+      return {tech: "NR", band, num: +band.slice(1), chan: n, kind: "NR-ARFCN", dl_mhz: mhz, also: hits.slice(1), note};
+    }
+    return null;
+  }
 
   function channels(f) {
     const out = [];
@@ -55,9 +92,10 @@
     if (f >= 5955 && f <= 7115 && whole((f - 5950) / 5)) out.push(["Wi-Fi 6 GHz", `channel ${Math.round((f - 5950) / 5)}`]);
     if (f >= 2402 && f <= 2480 && whole((f - 2402) / 2)) { const k = Math.round((f - 2402) / 2), adv = {0: 37, 12: 38, 39: 39}[k];
       out.push(["Bluetooth LE", adv != null ? `advertising channel ${adv}` : `data channel ${k <= 11 ? k - 1 : k - 2}`]); }
+    // a band's top edge belongs to the next one (half-open, as cellspec.earfcn_dl_mhz): at 2020 MHz B70's "EARFCN 68586" was B71's first
     for (const [b, dl, nd, ul, nu, dh, uh] of LTE) {
-      if (f >= dl && f <= dh) out.push(["LTE", `${b} downlink, EARFCN ${nd + Math.round(10 * (f - dl))}`]);
-      if (ul != null && f >= ul && f <= uh) out.push(["LTE", `${b} uplink, EARFCN ${nu + Math.round(10 * (f - ul))}`]);
+      if (f >= dl && f < dh) out.push(["LTE", `${b} downlink, EARFCN ${nd + Math.round(10 * (f - dl))}`]);
+      if (ul != null && f >= ul && f < uh) out.push(["LTE", `${b} uplink, EARFCN ${nu + Math.round(10 * (f - ul))}`]);
     }
     if (f >= 410 && f <= 52600 && bandsAt(f).some(b => /cellular|5G|CBRS|BRS|WCS/.test(b))) out.push(["5G NR", `NR-ARFCN ${nrArfcn(f)}`]);
     return out;
@@ -116,5 +154,6 @@
     return `${head}<div class="sec"><h3>What a scan adds</h3><p>${esc(adds(r).join("; "))}.</p>
       <p class="hint">Not collected: anything that identifies a person, or the contents of a call or message.</p></div>${allFields(r)}`;
   };
-  window.sigMetaParts = { channels, pair, bandsAt, adds };  // the sweep checks these
+  // the sweep checks these; bandOf and the tables: tests/test_bandof.py against cellspec.py
+  window.sigMetaParts = { channels, pair, bandsAt, adds, bandOf, tables: { LTE, LTE_HEARD, NR, NR_FIRST, NR_CARRIER_FIRST } };
 })();

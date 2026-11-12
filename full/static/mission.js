@@ -68,11 +68,14 @@ function missionLogRows(log){
 }
 
 S.views.mission = async (v) => {
-  v.innerHTML='<p class="status">Loading missions…</p>';
+  // drawn again on itself (a filter, the theme, a stop saved elsewhere), the page stays as it was until the list is in: the
+  // one-line "Loading missions…" emptied it, so the page jumped and its maps went off it for the wait (review 11/11)
+  if(!v.querySelector("#mNew")) v.innerHTML='<p class="status">Loading missions…</p>';
   const gen=S.viewGen;
   const list=await api("/api/missions");
   if(gen!==S.viewGen) return;  // you moved on while it loaded
   const m=S.mission, s=m?.settings||{};
+  if(!m){ window.RFMaps?.drop("hunt"); window.RFMaps?.drop("mtools"); }  // no mission open: its maps go (they stayed, detached)
   const editing = S.missionEdit || (m?"edit":"new");
   const cur = editing==="new" ? {settings:{}} : m;
   const cs = editing==="new" ? {gps_max_accuracy_m:50,sweep_threshold_db:10,track_match_s:30,heat_size:200,heat_metric:"mean",heat_combine:"max",heat_alpha:190,fixed_sites_only:true,layers:{uls:true,towers:true,captures:true,wigle:true,opencellid:true,repeaterbook:true,custom:true},watch:[],target_types:[],target_bands:[]} : s;
@@ -183,7 +186,12 @@ S.views.mission = async (v) => {
   $("#mNew").onclick=()=>{ S.missionEdit="new"; render(); };
   if($("#mCancel")) $("#mCancel").onclick=()=>{ S.missionEdit=null; render(); };
   if($("#mGo")) $("#mGo").onclick=()=>{ loadMission(S.missionId,true).then(()=>{ setTab("map"); runSearch(); }); };
-  if($("#mDel")) $("#mDel").onclick=async()=>{ if(!confirm(`Delete mission “${m.name}” with its captures, observations and log?`)) return; await post(`/api/missions/${m.id}/delete`); await loadMission(null); render(); };
+  if($("#mDel")) $("#mDel").onclick=async()=>{ if(!confirm(`Delete mission “${m.name}” with its captures, observations and log?`)) return; await post(`/api/missions/${m.id}/delete`);
+    // its maps and their kept views go with it: the next new mission can get the same id (review 11/11: it opened on the
+    // deleted one's place and never fitted), and its Replay and bearing settings
+    for(const k of ["hunt", "mtools:replay", "mtools:bearing"]) window.RFMaps?.forget(`${k}:${m.id}`);
+    if(S.mt?.mid === m.id) S.mt = null;
+    await loadMission(null); render(); };
   $("#m_usePin").onclick=()=>{ const p=parseLoc($("#loc").value); if(p){ $("#m_lat").value=p[0]; $("#m_lon").value=p[1]; $("#m_radius").value=$("#radius").value; } };
   v.querySelectorAll("[data-mt],[data-mb]").forEach(c=>c.onclick=()=>c.classList.toggle("on"));
   $("#m_addWatch").onclick=()=>$("#m_watch").insertAdjacentHTML("beforeend",watchRow({}));
@@ -301,7 +309,9 @@ const DAS_LIVE={"Terrain Tiles on AWS (Tilezen)":"donor paths and terrain around
   "Overpass API (OpenStreetMap)":"a job's building outline, floors and height"};
 const dasNote=why=>`<div class="hint dasnote"><span class="tag das">DAS</span> ${esc(why)}</div>`;
 const CROWD_FETCH=[["wigle","WiGLE","wigle"],["opencellid","OpenCelliD","opencellid"],["ttn","LoRaWAN gateways"],["satnogs","SatNOGS stations"],["wspr","WSPR"],["pskreporter","PSKReporter"]];
-const INTERVALS=[[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"],[336,"2 weeks"],[720,"monthly"]];
+const INTERVALS=[[1,"hourly"],[6,"6 h"],[12,"12 h"],[24,"daily"],[72,"3 days"],[168,"weekly"],[336,"2 weeks"],[720,"monthly"],[2160,"90 days"]];
+// a source's own interval when the list hasn't it: a select with none marked shows its first, so osm_towers' 90 days read "6 h" (review 11/10)
+const intervalsFor=h=>INTERVALS.some(([x])=>x===+h)?INTERVALS:[...INTERVALS,[+h,+h<48?`${+h} h`:`${Math.round(+h/24)} days`]].sort((a,b)=>a[0]-b[0]);
 // Ways in: every way people get this version or its data, which build each runs, and whether it needs Cody's PC on.
 // The remote link's row (#wayRemote), the two site links (#wayWeb, #wayLite) and the Version column ([data-ver]) are
 // filled in live (/api/versions: this copy's build, the published site's, the newest kit; Android's is the one written
@@ -766,7 +776,7 @@ function paintSources(){
     <div><b>${esc(s.label)}</b><div class="hint">${esc(s.description)}</div>
       ${s.access?.key?`<div class="hint">${acc(s.access)}${s.access.terms?`<br>Terms: ${esc(s.access.terms)}`:""}</div>`:""}
       ${s.why?`<div class="hint" style="color:${/^Downloading/.test(s.why)?"var(--good)":"var(--warn)"}">${esc(s.why)}</div>`:""}${DAS_USES[id]?dasNote(DAS_USES[id]):""}${s.datasets&&window.prDatasets?prDatasets(s):""}</div>
-    <select data-int="${esc(id)}" class="hide-m">${INTERVALS.map(([h,l])=>`<option value="${h}" ${+s.interval_h===h?"selected":""}>${l}</option>`).join("")}</select>
+    <select data-int="${esc(id)}" class="hide-m">${intervalsFor(s.interval_h).map(([h,l])=>`<option value="${h}" ${+s.interval_h===h?"selected":""}>${l}</option>`).join("")}</select>
     <div class="hide-m" style="font-size:12px">${s.running?'<span class="tag w">running</span> ':""}${s.state==="error"?'<span class="tag" style="color:var(--bad)">error</span> ':s.state==="ok"?'<span class="tag v">ok</span> ':""}${esc(s.message||"")}
       <div class="hint">${freshness(s, u.auto)} · updated ${esc(s.last_updated||"never")}${s.remote?` · source file ${esc(s.remote)}`:""}${s.rows!=null?` · ${Number(s.rows).toLocaleString()} rows`:""}</div></div>
     <button data-run="${esc(id)}" ${s.running?"disabled":""}>Run now</button></div>`).join("");

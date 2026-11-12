@@ -20,9 +20,13 @@ _shells = [(n, re.compile(p, re.I)) for n, p in SHELLS]
 _seen = {}
 
 
-def name_of(text, shells=False):
-    """The carrier a name belongs to, or None when it isn't plainly a carrier's."""
+def name_of(text, shells=False, remember=True):
+    """The carrier a name belongs to, or None when it isn't plainly a carrier's. remember=False for text a request sent (the
+    tower report's carriers=): kept, it grew the memo without bound, 9 MB for 20 requests of 3,000 names (review 11/10)."""
     key = (text, shells)
-    if key not in _seen:
-        _seen[key] = next((n for n, p in (_rules + _shells if shells else _rules) if p.search(text or "")), None)
-    return _seen[key]
+    if key in _seen:
+        return _seen[key]
+    got = next((n for n, p in (_rules + _shells if shells else _rules) if p.search(text or "")), None)
+    if remember:
+        _seen[key] = got
+    return got

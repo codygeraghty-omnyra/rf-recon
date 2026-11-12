@@ -299,8 +299,8 @@
      ]
     },
     {
-     "name": "The pin and pin lock",
-     "text": "Drag the pin or click the map to move it and search again. Lock it and clicks select dots instead, the pin lets clicks through, and the choice is kept in this browser.",
+     "name": "The pin moves only when asked",
+     "text": "Press Move pin, then click where it goes, or right-click the map (a long press on a touch screen) and pick Move pin here; it searches there. A plain click leaves the pin where it is, and the pin lets clicks through to the dots under it.",
      "src": [
       "d-2026-10-28",
       "static/core.js"

@@ -16,9 +16,11 @@ const DIGITAL = /P25|DMR|NXDN|Digital|Data|TETRA/;
 const cellBar = (n, max) => `style="background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 22%,transparent) ${max ? Math.round(100 * n / max) : 0}%,transparent 0)"`;
 
 S.views.report = (v, rows) => {
-  if (S.reportMap) { S.reportMap.remove(); S.reportMap = null; }
+  // drawn again where it already was (a filter, a band, the radius): the page keeps its height until the survey findings under
+  // the map are back, so a page scrolled down isn't pulled up while they load and the map keeps its place (11/10: 16 px on a phone)
+  v.style.minHeight = v.querySelector("#rp_map") && S.center ? `${v.offsetHeight}px` : "";
   if (!S.center) {
-    v.innerHTML = '<p class="status">The area report needs a pin: click the map, type coordinates or paste a Maps link above, set a radius, then press Show what\'s here.</p>';
+    v.innerHTML = '<p class="status">The area report needs a pin: type an address or coordinates above, or use 📍 Move pin on the Map tab (or right-click the map: Move pin here). Set a radius, then press Show what\'s here.</p>';
     return;
   }
   const gen = S.reportGen = (S.reportGen || 0) + 1;  // a newer render wins over late fetches
@@ -32,6 +34,7 @@ S.views.report = (v, rows) => {
     freqs: new Set(rs.map(r => fmtF(r.freq_mhz))).size, lics: new Set(rs.map(r => r.licensee)).size,
     techs: countBy(rs, typeOf), near: Math.min(...rs.map(r => r.dist_mi ?? 1e9)),
     best: Math.max(...rs.map(r => r.est_rx_dbm ?? -1e9)) })).sort((a, b) => a.lo - b.lo);
+  RP_HI.clear(); for (const b of bands) RP_HI.set(b.band, b.hi);
   const techs = countBy(uls, typeOf);
   const digitalPct = uls.length ? Math.round(100 * uls.filter(r => DIGITAL.test(r.mode || "")).length / uls.length) : 0;
   const nearest = uls.length ? Math.min(...uls.map(r => r.dist_mi ?? 1e9)) : null;
@@ -73,8 +76,8 @@ S.views.report = (v, rows) => {
     <div class="row no-print" style="margin-bottom:6px"><label class="inl">Show where the band is at least
       <select id="rp_floor">${REPORT_FLOORS.map(f => `<option value="${f}" ${f === (S.reportFloor ?? -100) ? "selected" : ""}>${f} dBm</option>`).join("")}</select></label></div>
     <div class="chips no-print" id="rp_pills">${bands.map(b => `<span class="chip ${b.band === S.reportBand ? "on" : ""}" data-band="${esc(b.band)}">${esc(b.band)} <b>${b.freqs}</b></span>`).join("")}</div>
-    <p class="hint" id="rp_covnote" style="margin:6px 2px"></p>
-    <div id="rp_map" style="height:440px;border-radius:10px"></div></div>
+    <div id="rp_map" style="height:440px;border-radius:10px;margin-top:6px"></div>
+    <p class="hint" id="rp_covnote" style="margin:6px 2px"></p></div>
 
   <div class="panel" id="rp_tech" style="margin-top:10px"><h3>Technologies</h3>
     ${techs.length ? `<div class="tw"><table><thead><tr><th>Technology</th><th>Frequencies</th><th>Licensees</th><th>Bands</th><th class="no-print">Identify</th></tr></thead><tbody>
@@ -106,31 +109,47 @@ S.views.report = (v, rows) => {
   $("#rp_floor").onchange = e => { S.reportFloor = +e.target.value; drawBandHeat(gen); };
   v.querySelectorAll("[data-cov]").forEach(b => b.onclick = () => { pick(b.dataset.cov); $("#rp_cov").scrollIntoView({behavior: "smooth", block: "start"}); });
 
-  if (typeof L !== "undefined") {
-    const map = L.map("rp_map", {preferCanvas: true}); S.reportMap = map;
-    addMapLayers(map);
-    const rm = S.radius * 1609.344;
-    L.circle(S.center, {radius: rm, color: "#555", weight: 2, fill: false, interactive: false}).addTo(map);
-    L.marker(S.center, {icon: pinIcon(), interactive: false}).addTo(map);
-    map.fitBounds(L.latLng(S.center).toBounds(rm * 2.1));
-    drawBandHeat(gen);
+  // the map is kept while the report draws again (a filter, a band, the radius): its own layers are cleared and drawn again,
+  // so nothing is doubled, and it's fitted only for a new search spot (Cody 11/10)
+  if (typeof L !== "undefined" && window.RFMaps) {
+    const map = S.reportMap = RFMaps.keep("report", $("#rp_map"), el => { const m = L.map(el, {preferCanvas: true}); addMapLayers(m);
+      fitControl(m, "Fit the search area"); m._rpLayer = L.layerGroup().addTo(m); m._rpSig = L.layerGroup().addTo(m); return m; },
+      {gone: m => { if (S.reportMap === m) { S.reportMap = null; S.reportHeat = null; } }});
+    if (map) {
+      map._rpLayer.clearLayers(); map._rpSig.clearLayers();
+      const rm = S.radius * 1609.344;
+      L.circle(S.center, {radius: rm, color: "#555", weight: 2, fill: false, interactive: false}).addTo(map._rpLayer);
+      L.marker(S.center, {icon: pinIcon(), interactive: false}).addTo(map._rpLayer);
+      map._rfFit = () => map.fitBounds(L.latLng(S.center).toBounds(S.radius * 1609.344 * 2.1));  // ⤢, and a new search spot
+      RFMaps.first(map, searchKey(), map._rfFit);
+      drawBandHeat(gen);
+    }
   }
-  api("/api/meta").then(m => { if (gen === S.reportGen) $("#rp_asof").textContent = `FCC data ${m.built_at || "?"}${m.towers_built_at ? `, towers ${m.towers_built_at}` : ""}.`; }).catch(() => {});
-  if (survey.length) loadSignals(gen); else $("#rp_unlisted").textContent = "0";
+  // the data's date is the same all session: kept and shown at once on the next draw, so the line above the map doesn't grow
+  // after the map has drawn and push it down (11/10)
+  if (S.rpAsOf) $("#rp_asof").textContent = S.rpAsOf;
+  else api("/api/meta").then(m => { S.rpAsOf = `FCC data ${m.built_at || "?"}${m.towers_built_at ? `, towers ${m.towers_built_at}` : ""}.`; if (gen === S.reportGen) $("#rp_asof").textContent = S.rpAsOf; }).catch(() => {});
+  if (survey.length) loadSignals(gen).finally(() => { if (gen === S.reportGen) v.style.minHeight = ""; });
+  else { $("#rp_unlisted").textContent = "0"; v.style.minHeight = ""; }
 };
 
+// Each call has its own turn (tok): two band or floor picks in flight both drew, and the first stayed on the kept map under every
+// later one, or on top when it came back last (review 11/11). Only the newest is drawn, over nothing.
 async function drawBandHeat(gen) {
-  const map = S.reportMap, note = $("#rp_covnote");
+  const map = S.reportMap, note = $("#rp_covnote"), tok = S.rpHeatTok = (S.rpHeatTok || 0) + 1;
   if (!map || !S.reportBand) { if (note) note.textContent = "No licensed band to draw."; return; }
   if (S.reportHeat) { map.removeLayer(S.reportHeat); S.reportHeat = null; }
+  // HF: the model starts at 30 MHz (ground wave and skywave aren't modelled); it asked anyway and showed a server error
+  if (RP_HI.get(S.reportBand) < 30) { note.textContent = `${S.reportBand}: no coverage map below 30 MHz (HF goes by ground wave and skywave, which this doesn't model).`; return; }
   note.textContent = `Building ${S.reportBand} coverage…`;
   try {
     const floor = S.reportFloor ?? -100;
     const h = await api("/api/heatmap?" + params({kind: "terrain", bands: S.reportBand, layers: "uls,broadcast,noaa", floor, size: 140, alpha: 200}));
-    if (gen !== S.reportGen || !S.reportMap) return;
+    if (gen !== S.reportGen || S.reportMap !== map || tok !== S.rpHeatTok) return;
+    if (S.reportHeat) map.removeLayer(S.reportHeat);
     S.reportHeat = L.imageOverlay("data:image/png;base64," + h.png, h.bounds, {opacity: .75, interactive: false}).addTo(map);
     note.textContent = `${S.reportBand}: ${String(h.desc||"").replace(/\.\s*$/,"")}. Scale ${num(h.vmin, 0)} to ${num(h.vmax, 0)} ${h.unit} (blue weak, red strong); clear where below ${floor} dBm.`;
-  } catch (e) { if (gen === S.reportGen) note.textContent = "Coverage: " + e.message; }
+  } catch (e) { if (gen === S.reportGen && tok === S.rpHeatTok) note.textContent = "Coverage: " + e.message; }
 }
 
 // the claim grade in words (the louder of the two), the source's letter, and a badge when one origin says so alone
@@ -145,6 +164,7 @@ function claimTag(r) {
 // a header press: the findings sorted again from the answer in hand; a band's table filled again in place, its <details> left open
 rfSort.own("rpSig", () => loadSignals(S.reportGen, true));
 const RP_BAND = new Map();
+const RP_HI = new Map();  // each band's highest frequency: below 30 MHz there's no coverage to predict (HF)
 const rpBandRows = g => rfSort.data("rpBand", g, [r => r.freq_mhz, r => r.ov_alpha_tag || r.licensee || "", r => r.call_sign || "", r => typeOf(r), r => r.emissions || "",
   r => r.erp_w, r => r.dist_mi, r => r.est_rx_dbm]).slice(0, 60).map(r => `<tr><td class="mono">${fmtF(r.freq_mhz)}</td><td>${esc(r.ov_alpha_tag || r.licensee || "")}</td><td class="mono">${esc(r.call_sign || "")}</td>
         <td>${esc(typeOf(r))}</td><td class="mono">${esc(r.emissions || "")}</td><td class="n">${num(r.erp_w, 0)}</td>
@@ -189,8 +209,15 @@ async function loadSignals(gen, again) {  // again: a header press, drawn from t
         ${Object.entries(res.track).map(([s, t]) => { const n = t.confirmed + t.contradicted; return `<tr><td>${esc(s === "uls" ? "FCC licences" : (LAYERS[s]?.label || s))}</td><td class="n">${t.confirmed}</td><td class="n">${t.contradicted}</td><td class="n">${n ? Math.round(100 * t.confirmed / n) + "%" : "–"}</td><td>${t.grade ? `<b>${esc(t.grade)}</b> earned` : `${esc(t.proposed)} proposed <span class="hint">(${n} of 20 outcomes)</span>`}</td></tr>`; }).join("")}</tbody></table></div>` : ""}
       <p class="hint" style="font-size:11px">Grades: ${esc(res.rules || "")}. "Confirmed" needs two independent origins agreeing on something diagnostic (a decoded call sign, or a level that fits the licensed site), one of them your own capture. Copies of one source count once.</p>`;
     const all = $("#rp_sigall"); if (all) all.onclick = () => { S.reportSigAll = true; loadSignals(gen); };
-    if (S.reportMap && !again) for (const r of res.rows) if (r.lat != null)
-      L.circleMarker([r.lat, r.lon], {radius: r.authority === "Unlisted" ? 6 : 4, color: authColor(r.authority), weight: 1.5, fillOpacity: .7})
-        .bindPopup(`<b>${esc(r.authority)}</b><br>${fmtF(r.freq_mhz)} MHz ${esc(r.sig_type || "")} ${r.dbm != null ? num(r.dbm, 0) + " dBm" : ""}<br><span class="hint">${esc(r.authority_note || "")}</span>`).addTo(S.reportMap);
+    // each survey signal on the map; a click shows it in the results viewer, and the map stays where it is (11/10: a popup)
+    const map = S.reportMap;
+    if (map && map._rpSig && !again) { map._rpSig.clearLayers();
+      for (const r of res.rows) if (r.lat != null)
+        L.circleMarker([r.lat, r.lon], {radius: r.authority === "Unlisted" ? 6 : 4, color: authColor(r.authority), weight: 1.5, fillOpacity: .7, bubblingMouseEvents: false})
+          .on("click", e => !window.RFMeasure?.toTool(map, e, e.target.getLatLng()) && window.RFResults && RFResults.show(map, {key: `rp:${r.lat},${r.lon},${r.freq_mhz}`, label: r.authority,
+            title: `<span style="color:${authColor(r.authority)}">●</span> ${esc(r.authority)}`, sub: `${r.freq_mhz != null ? `${fmtF(r.freq_mhz)} MHz ` : ""}${esc(r.sig_type || "")}${r.dbm != null ? ` · ${num(r.dbm, 0)} dBm` : ""}`,
+            html: kvg([["Says", claimTag(r)], ["Why", esc(r.authority_note || "")], ["Label", esc(r.label || r.ident || "")], ["Source", esc(LAYERS[r.layer]?.label || r.layer)],
+              ["Distance", r.dist_mi != null ? `${num(r.dist_mi, 2)} mi ${esc(r.compass || "")}` : ""], ["Seen", esc(r.ts || "")], ["Where", `<span class="mono">${(+r.lat).toFixed(5)}, ${(+r.lon).toFixed(5)}</span>`]]),
+            zoom: [+r.lat, +r.lon]}, [+r.lat, +r.lon])).addTo(map._rpSig); }
   } catch (e) { if (gen === S.reportGen) body.innerHTML = `<p class="status">Couldn't check survey data: ${esc(e.message)}</p>`; }
 }

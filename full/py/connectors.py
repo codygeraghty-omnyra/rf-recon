@@ -15,10 +15,13 @@ known spellings), because their schemas aren't fully published.
 """
 import base64
 import csv
+import http.client
 import io
 import json
 import math
+import re
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -37,7 +40,7 @@ CREATE TABLE IF NOT EXISTS ext_point(id INTEGER PRIMARY KEY, source TEXT, layer 
     UNIQUE(source, ext_id));
 CREATE INDEX IF NOT EXISTS ext_latlon ON ext_point(lat, lon);
 CREATE TABLE IF NOT EXISTS ext_fetch(id INTEGER PRIMARY KEY, source TEXT, lat REAL, lon REAL, radius_mi REAL,
-    fetched_at TEXT, rows INTEGER, message TEXT);
+    fetched_at TEXT, rows INTEGER, message TEXT, requests INTEGER, reached_km REAL);
 CREATE TABLE IF NOT EXISTS ext_point_hist(id INTEGER PRIMARY KEY, point_id INTEGER, source TEXT, ext_id TEXT, lat REAL,
     lon REAL, label TEXT, freq_mhz REAL, dbm REAL, mode TEXT, sig_type TEXT, last_seen TEXT, details TEXT,
     fetched_at TEXT, replaced_at TEXT);
@@ -66,8 +69,20 @@ def open_db(path):
     return con
 
 
+def migrate_fetch(con):
+    """ext_fetch.requests (11/10): how many requests each fetch made, so a day's OpenCelliD budget counts requests, not
+    fetches (requests_today); and reached_km (review 11/10): how far from its centre every tile of a fetch came in whole,
+    what it covers (cells.covered). A crowd database made before them gains the columns, empty for the old rows."""
+    have = {r[1] for r in con.execute("PRAGMA table_info(ext_fetch)")}
+    for col in ("requests INTEGER", "reached_km REAL"):
+        if have and col.split()[0] not in have:
+            con.execute(f"ALTER TABLE ext_fetch ADD COLUMN {col}")
+            con.commit()
+
+
 def migrate(con):
     """Add the provenance columns to a crowd database made before 11/2 and fill them from each row's source."""
+    migrate_fetch(con)
     have = {r[1] for r in con.execute("PRAGMA table_info(ext_point)")}
     missing = [(c, t) for c, t in PROV_COLS if c not in have]
     if not missing:
@@ -100,10 +115,14 @@ def retry(fn, waits=(3, 8)):
     return fn()
 
 
-def http_json(url, headers=None, timeout=40):
+def http_json(url, headers=None, timeout=40, before=None):
+    """A JSON answer, a timed-out request tried again (retry). before(): called before every attempt, the retried ones too,
+    so a caller can count what the server was sent and stop at its budget (it raises to stop)."""
     req = urllib.request.Request(url, headers=dict({"User-Agent": UA, "Accept": "application/json"}, **(headers or {})))
 
     def once():
+        if before:
+            before()
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read().decode("utf-8", "replace"))
     return retry(once)
@@ -145,16 +164,22 @@ def upsert(con, rows):
            last_seen=excluded.last_seen, details=excluded.details, fetched_at=excluded.fetched_at""", rows)
     for (src,) in {(r[0],) for r in rows}:
         p = provenance.tag(src)
+        # only the rows just written, each by its (source, ext_id): filtered by source alone this walked every row of the
+        # source on every page (a top-up's 24 pages each read the 727k OpenCelliD rows: 3-10 s a page, review 11/10)
         con.execute("UPDATE ext_point SET origin_group=?, method=?, licence=?, precision_m=?, as_of=last_seen "
-                    "WHERE source=? AND (origin_group IS NULL OR as_of IS NOT last_seen)",
-                    (p["origin_group"], p["method"], p["licence"], p["precision_m"], src))
+                    "WHERE source=? AND ext_id IN (SELECT ext_id FROM _incoming WHERE source=?) AND (origin_group IS NULL OR as_of IS NOT last_seen)",
+                    (p["origin_group"], p["method"], p["licence"], p["precision_m"], src, src))
     con.commit()
 
 
-def log_fetch(con, source, lat, lon, radius, n, msg):
-    con.execute("INSERT INTO ext_fetch(source,lat,lon,radius_mi,fetched_at,rows,message) VALUES(?,?,?,?,?,?,?)",
-                (source, lat, lon, radius, time.strftime("%Y-%m-%d %H:%M"), n, msg))
+def log_fetch(con, source, lat, lon, radius, n, msg, requests=None, reached_km=None):
+    """One fetch in the log: where, how many rows came, what happened, how many requests it took (None: not counted) and how
+    far from its centre it came in whole (reached_km). Returns the row's id."""
+    migrate_fetch(con)
+    cur = con.execute("INSERT INTO ext_fetch(source,lat,lon,radius_mi,fetched_at,rows,message,requests,reached_km) VALUES(?,?,?,?,?,?,?,?,?)",
+                      (source, lat, lon, radius, time.strftime("%Y-%m-%d %H:%M"), n, msg, requests, reached_km))
     con.commit()
+    return cur.lastrowid
 
 
 # ---------------------------------------------------------------- WiGLE
@@ -214,7 +239,47 @@ def wigle_pages(lat, lon, radius_mi, api_name, api_token, kinds=("network",), ma
 
 # ---------------------------------------------------------------- OpenCelliD
 
-def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40):  # OpenCelliD refuses a box over 4 km²; 2 km tiles came out just over it
+# OpenCelliD allows 1,000 requests a day per user (its docs, read 11/10), and every login on a copy shares its one key. Every
+# path here (top-ups, the updater's areas, the Fetch button) stops at ALLOWANCE; top-ups stop sooner (cells.DAY_BUDGET), so
+# the rest is the scheduled updates'. A request counts when it's sent: a timed-out one tried again counts each time
+ALLOWANCE = 1000
+OLD_ROW_REQUESTS = 24  # a fetch logged before 11/10 says nothing of its requests: a whole top-up's
+_OCID = threading.RLock()  # one OpenCelliD fetch at a time on this copy, so the day's count and the coverage are checked and spent as one
+
+
+class Busy(RuntimeError):
+    """Another OpenCelliD fetch on this copy held the turn longer than the caller would wait."""
+
+
+def ocid_turn(wait=None):
+    """Take the copy's one OpenCelliD turn (release with ocid_done). wait: seconds, None for as long as it takes. False when
+    another fetch held it that long."""
+    return _OCID.acquire(timeout=-1 if wait is None else wait)
+
+
+def ocid_done():
+    _OCID.release()
+
+
+def requests_today(con, source="opencellid"):
+    """Requests made today on this copy's key: every one sent, top-ups, scheduled updates and the Fetch button alike, a fetch
+    still running too. A row logged before 11/10 has no count: the one in its message, else a whole top-up's. A crowd
+    database opened without migrate_fetch (read only, made before 11/10) has no requests column: every row is an old one."""
+    n = 0
+    # the tower bench opens a data folder read only, and this PC's crowd.db predates the column: "no such column" stopped
+    # the tower report (cells.topup_due), as reached_km did before c3caefe
+    has = "requests" in {r[1] for r in con.execute("PRAGMA table_info(ext_fetch)")}
+    for req, msg, la in con.execute(f"SELECT {'requests' if has else 'NULL'}, message, lat FROM ext_fetch WHERE source=? AND fetched_at LIKE ?",
+                                    (source, time.strftime("%Y-%m-%d") + "%")):
+        if req is not None:
+            n += req
+        elif la is not None:  # an import (no place) asks nothing of the API
+            m = re.search(r"(\d+) requests", msg or "")
+            n += int(m.group(1)) if m else OLD_ROW_REQUESTS
+    return n
+
+
+def _ocid_boxes(lat, lon, radius_mi, tile_km):
     s, n, w, e = geo.bbox(lat, lon, radius_mi)
     dlat = tile_km / 111.0
     dlon = tile_km / (111.0 * max(0.05, math.cos(math.radians(lat))))
@@ -228,22 +293,133 @@ def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40
         y += dlat
     # nearest tiles first, so a request cap still covers the middle of the area
     tiles.sort(key=lambda t: geo.haversine_km(lat, lon, (t[0] + t[2]) / 2, (t[1] + t[3]) / 2))
-    now = time.strftime("%Y-%m-%d %H:%M")
-    total, reqs, stopped = 0, 0, None
-    for la0, lo0, la1, lo1 in tiles:
+    return tiles
+
+
+def reached_km(lat, lon, radius_mi, tiles, whole):
+    """How far from the centre every tile came in whole: the nearest point of the nearest tile that didn't (not asked, or
+    its pages cut off), at most the area's own radius. A capped fetch in a dense city can reach 0: its first tile alone has
+    more cells than its requests can bring."""
+    out = radius_mi * geo.MI_KM
+    for i, (la0, lo0, la1, lo1) in enumerate(tiles):
+        if i not in whole:
+            out = min(out, geo.haversine_km(lat, lon, min(max(lat, la0), la1), min(max(lon, lo0), lo1)))
+    return round(out, 3)
+
+
+def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40, wait=None, out=None):  # OpenCelliD refuses a box over 4 km²; 2 km tiles came out just over it
+    """OpenCelliD's cells around a point, nearest tiles first, at most max_requests requests and never past the day's
+    ALLOWANCE on this copy. Logged as it goes: a row "in progress" with the requests sent so far (a crash still counts
+    them), then what happened, how many came and reached_km. One fetch at a time on the copy (wait: seconds before Busy).
+    Returns the rows kept; out (a dict) gets requests, reached_km and stopped (why it ended early, or None)."""
+    if not ocid_turn(wait):
+        raise Busy("Another OpenCelliD fetch is running on this copy: try again in a minute.")
+    try:
+        cap = min(max_requests, ALLOWANCE - requests_today(con))
+        if cap <= 0:
+            raise RuntimeError(f"OpenCelliD's {ALLOWANCE} requests for today on this copy are used: try again tomorrow.")
+        tiles = _ocid_boxes(lat, lon, radius_mi, tile_km)
+        now = time.strftime("%Y-%m-%d %H:%M")
+        rid = log_fetch(con, "opencellid", lat, lon, radius_mi, 0, "in progress", requests=0)
+        sent = [0]  # what progress() last wrote: a failure of any kind settles with it (review 11/10 round 2)
+
+        def progress(n):
+            sent[0] = n
+            con.execute("UPDATE ext_fetch SET requests=? WHERE id=?", (n, rid))
+            con.commit()
+
+        def settle(rows, msg, reqs, reached):
+            con.execute("UPDATE ext_fetch SET rows=?, message=?, requests=?, reached_km=? WHERE id=?", (rows, msg, reqs, reached, rid))
+            con.commit()
+        try:
+            total, reqs, stopped, whole = _ocid_tiles(con, tiles, key, cap, now, progress)
+        except Exception as e:  # nothing came in: the requests it spent still count (requests_today), and it covers nothing
+            from datadesk import clean
+            said = clean.scrub_text(str(e).replace(key, "(key)") if key else str(e))[:160]
+            # every request sent counts, whatever stopped it: an error without .requests (a sqlite error mid-page) settled
+            # NULL, which requests_today reads as a whole top-up's 24 (35 sent counted 24; 1 sent counted 24)
+            n = max(getattr(e, "requests", None) or 0, sent[0])
+            settle(0, f"failed after {n} requests: {said}", n, None)
+            raise
+        reach = reached_km(lat, lon, radius_mi, tiles, whole)
+        settle(total, stopped or f"{reqs} requests", reqs, reach)
+        if out is not None:
+            out.update(requests=reqs, reached_km=reach, stopped=stopped)
+        return total
+    finally:
+        ocid_done()
+
+
+class _Cap(Exception):
+    """The request budget is spent (not an OSError, so retry() never swallows it)."""
+
+
+def _keep_known(con, rows):
+    """OpenCelliD's API answer for cells this copy already has keeps what the API doesn't send: when each cell was first and
+    last measured and the PCI it was heard on (the country file's created, updated and unit), and the file's own position
+    when the API's is only that position rounded to 3 decimals. A top-up replaced them: Newburgh's AT&T on 1294461 went
+    from High to Medium, "last seen at an unknown date", and its PCIs were gone (review 11/10)."""
+    ids = [r[2] for r in rows]
+    old = {}
+    for i in range(0, len(ids), 500):
+        chunk = ids[i:i + 500]
+        for ext, la, lo, det in con.execute(f"SELECT ext_id, lat, lon, details FROM ext_point WHERE source='opencellid' AND ext_id IN ({','.join('?' * len(chunk))})",
+                                            chunk):
+            old[ext] = (la, lo, det)
+    out = []
+    for r in rows:
+        if r[2] not in old:
+            out.append(r)
+            continue
+        la, lo, det = old[r[2]]
+        try:
+            had = json.loads(det or "{}")
+        except ValueError:
+            had = {}
+        new = json.loads(r[14] or "{}")
+        r = list(r)
+        r[14] = json.dumps({**had, **{k: v for k, v in new.items() if v not in (None, "")}})
+        if la is not None and lo is not None and round(la, 3) == round(r[3], 3) and round(lo, 3) == round(r[4], 3):
+            r[3], r[4] = la, lo
+        out.append(tuple(r))
+    return out
+
+
+def _ocid_tiles(con, tiles, key, cap, now, progress=None):
+    """fetch_opencellid's requests, nearest tiles first: (rows, requests sent, why it stopped early or None, the tiles that
+    came in whole). Every attempt counts against cap, a timed-out one tried again too (it counted as one: a top-up whose
+    requests each timed out twice sent 72 and logged 24, review 11/10). An error with nothing in carries .requests, the
+    number sent, so the day's count still has them."""
+    total, reqs, whole = 0, 0, set()
+
+    def spend():
+        nonlocal reqs
+        if reqs >= cap:
+            raise _Cap()
+        reqs += 1  # asked is spent, answered or not (OpenCelliD counts a day's requests per user)
+        if progress:
+            progress(reqs)
+    for i, (la0, lo0, la1, lo1) in enumerate(tiles):
         offset = 0
-        while reqs < max_requests:
+        while True:
             q = dict(key=key, BBOX=f"{la0},{lo0},{la1},{lo1}", format="json", limit=50, offset=offset)
             try:
-                data = http_json("https://opencellid.org/cell/getInArea?" + urllib.parse.urlencode(q))
-            except OSError as e:  # still no answer after the retries: keep what came in, nearest tiles first
+                data = http_json("https://opencellid.org/cell/getInArea?" + urllib.parse.urlencode(q), before=spend)
+            except _Cap:  # the request cap: a fetch that ended where it was meant to
+                return total, reqs, None, whole
+            # still no answer after the retries, or one that isn't JSON (a 200 maintenance page) or was cut off mid-body
+            # (http.client.IncompleteRead, not an OSError): keep what came in, nearest tiles first (review 11/10 round 2)
+            except (OSError, ValueError, http.client.HTTPException) as e:
                 if not total:
+                    e.requests = reqs
                     raise
-                stopped = f"stopped after {reqs} requests ({e}); the cells already in are kept"
-                break
-            reqs += 1
-            if isinstance(data, dict) and data.get("error"):
-                raise RuntimeError(str(data.get("error")))
+                return total, reqs, f"stopped after {reqs} requests ({e}); the cells already in are kept", whole
+            if isinstance(data, dict) and data.get("error"):  # OpenCelliD's own no (a bad key, the day's limit): kept as above
+                if not total:
+                    err = RuntimeError(str(data.get("error")))
+                    err.requests = reqs
+                    raise err
+                return total, reqs, f"stopped after {reqs} requests (OpenCelliD: {str(data.get('error'))[:80]}); the cells already in are kept", whole
             cells = (data or {}).get("cells") or []
             rows = []
             for c in cells:
@@ -253,18 +429,18 @@ def fetch_opencellid(con, lat, lon, radius_mi, key, tile_km=1.9, max_requests=40
                 radio = (c.get("radio") or "").upper()
                 ident = f"{c.get('mcc')}-{c.get('mnc')}-{c.get('lac') or c.get('tac')}-{c.get('cellid')}"
                 st = sigid.classify("NR" if radio == "NR" else ("WCDMA" if radio == "UMTS" else radio))["sig_type"]
+                # the API's whole row is kept as details, its changeable flag with it (cells.changeable, the tower engine's sigma, 11/10)
                 rows.append(("opencellid", "OpenCelliD cells", ident, la, lo, radio, f"{radio} {ident}", None, None,
                              fnum(c.get("averageSignalStrength")) or None, radio, st, "", "", json.dumps(c), now,
                              ATTRIBUTION["opencellid"]))
-            upsert(con, rows)
+            if rows:
+                upsert(con, _keep_known(con, rows))
             total += len(rows)
             if len(cells) < 50:
+                whole.add(i)
                 break
             offset += 50
-        if reqs >= max_requests or stopped:
-            break
-    log_fetch(con, "opencellid", lat, lon, radius_mi, total, stopped or f"{reqs} requests")
-    return total
+    return total, reqs, None, whole
 
 
 # ---------------------------------------------------------------- RepeaterBook

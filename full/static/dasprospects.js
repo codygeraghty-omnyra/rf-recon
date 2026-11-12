@@ -95,6 +95,7 @@ window.dasLeadPanel = (d, stage) => { const L = d.lead; if (!L) return ""; const
 
 window.dasProspects = async el => {
   const P = S.dasProspects = S.dasProspects || { radius: 10, kinds: PR_KINDS.map(k => k[0]), q: "", status: "", where: null, label: "", rows: null, gen: 0 };
+  const run = P.run = (P.run || 0) + 1;  // this draw: the kept map's dots and viewer are bound to it again (prMap)
   if (!P.where && S.center) { P.where = [S.center[0], S.center[1]]; P.label = "the search pin"; }
   P.need = P.need || {}; P.sort = P.sort || "need"; P.env = P.env || "suburban"; P.colour = P.colour || "need"; P.open = P.open || new Set(); P.trig = P.trig || "";
   if (!P.kinds.includes("under_construction") && !P.ucSeen) P.kinds.push("under_construction");  // a list kept from before permits (11/4)
@@ -185,7 +186,7 @@ window.dasProspects = async el => {
     body.innerHTML = `<p class="hint">Looking within ${P.radius} mi…</p>`;
     let r;
     try { r = await api(`/api/das/prospects?lat=${P.where[0]}&lon=${P.where[1]}&radius=${P.radius}&kinds=${P.kinds.join(",")}&limit=1000`); }
-    catch (e) { if (gen === P.gen) body.innerHTML = `<p class="status err">Prospects: ${esc(e.message)}</p>`; return; }
+    catch (e) { if (gen === P.gen) { body.innerHTML = `<p class="status err">Prospects: ${esc(e.message)}</p>`; window.dasHeld?.(); } return; }
     if (gen !== P.gen || !el.isConnected) return;
     P.rows = r.prospects; P.counts = r.counts; P.sources = r.sources;
     for (const x of P.rows) x.dnc0 = x.status === "do not contact";  // sorted by the status as loaded: a row changed now stays put
@@ -287,6 +288,7 @@ window.dasProspects = async el => {
   const prFlag = x => window.dasStateFlag?.(P.rules, P.rules?.states?.[x.state] ? x.state : P.areaState);
   const prLaw = x => { const f = prFlag(x); return f ? `<div><span class="pr-law ${f.cls}" title="${esc(`${f.name}: ${f.line} (${f.read === "read" ? "read" : "search excerpt"}; the AHJ confirms it)`)}">${esc(f.short)}</span></div>` : ""; };
   const paint = () => {
+    if (P.run !== run || !body.isConnected) return;  // a draw since: its own paint is P.paint (review 11/11, third pass)
     if (!P.rules && !P.rulesAsked && window.dasStateRules) { P.rulesAsked = true; window.dasStateRules().then(r => { P.rules = r; if (body.isConnected) paint(); }); }
     P.areaState = prArea();
     const rows = prCols(prSort((P.rows || []).filter(x => (!P.noLaw || prFlag(x)?.level !== "no_mandate") && (!P.status || x.status === P.status) && prTrigOk(x, P.trig) && (!P.q || `${x.name} ${x.city} ${x.detail || ""} ${x.trigger?.label || ""}`.toLowerCase().includes(P.q.toLowerCase())))));
@@ -370,10 +372,11 @@ window.dasProspects = async el => {
             else if ((r.refused || []).length) { x.fe_tried = "refused"; run.refused++; }
             else { x.fe_tried = "none"; run.none++; }
           } catch (err) { x.fe_tried = "none"; run.none++; }
-          run.done++; paint();
+          const y = (P.rows || []).find(r => r.id === x.id); if (y && y !== x) Object.assign(y, { email: x.email, email_source: x.email_source, fe_tried: x.fe_tried });  // the list drawn since
+          run.done++; (P.paint || paint)();
           if (!run.stop && run.done < run.total) await new Promise(res => setTimeout(res, 3000));  // a person's pace, not a crawler's
         }
-        P.finding = null; paint();
+        P.finding = null; (P.paint || paint)();
         dasSay(`Read ${run.done} building site${run.done === 1 ? "" : "s"}: ${run.found} email${run.found === 1 ? "" : "s"} found, ${run.none} with none published${run.refused ? `, ${run.refused} that refused (call the number shown)` : ""}. Nothing was sent.`, true);
       }; }
     $("#prCsv").onclick = () => {
@@ -427,43 +430,84 @@ window.dasProspects = async el => {
     });
   };
   // the email: in the person's own mail (mailto), with the text to copy when the mail app doesn't open
-  const prMailBox = (m, x) => {
-    const box = $("#prMail"), href = `mailto:${encodeURIComponent(m.to || "")}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(m.body)}`;
+  const prMailBox = (m, x, into) => {  // into: the results viewer's place for it, where it doesn't scroll the page (11/10)
+    // one draft at a time: the other place's goes (review 11/11: both had the same ids, and every handler found the first)
+    if (into) { const old = $("#prMail"); if (old) old.innerHTML = ""; }
+    else { const v = P.map && window.RFResults ? RFResults.get(P.map)?.body?.querySelector("[data-prmail]") : null; if (v) v.innerHTML = ""; }
+    const box = into || $("#prMail"), q = s => box.querySelector(s), href = `mailto:${encodeURIComponent(m.to || "")}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(m.body)}`;
     box.innerHTML = `<div class="panel" style="margin-top:12px"><div class="row" style="justify-content:space-between"><b>First email to ${esc(x.name)}</b><button id="prMailX" title="Close">✕</button></div>
       <p class="hint">${window.rfMail ? "Send from my mail sends it from your own mailbox when you press it; Open in my mail hands it to your mail program instead." : "Opens in your own mail; nothing is sent from here."} ${m.to ? "" : "The public list has no email address for them: call the number above for the right person, then add their address. "}Set the status to contacted once it's sent. If they reply "no thanks", set Do not contact.</p>
       <label>Subject<input id="prMs" value="${esc(m.subject)}"></label><label>Message<textarea id="prMb" rows="12">${esc(m.body)}</textarea></label>
       <div class="row" style="gap:8px">${window.rfMail ? `<button class="primary" id="prMailSend" title="From your own mailbox; their reply sets the status (a no-thanks marks Do not contact)">✉ Send from my mail</button>` : ""}<a class="btn ${window.rfMail ? "" : "primary"}" id="prMailGo" href="${esc(href)}">Open in my mail</a><button id="prMailCopy">Copy the text</button></div>
       <div id="prMailSent"></div></div><div id="prMailThread"></div>`;
-    const re = () => { $("#prMailGo").href = `mailto:${encodeURIComponent(m.to || "")}?subject=${encodeURIComponent($("#prMs").value)}&body=${encodeURIComponent($("#prMb").value)}`; };
-    $("#prMs").oninput = re; $("#prMb").oninput = re;
-    $("#prMailCopy").onclick = async () => { try { await navigator.clipboard.writeText(`Subject: ${$("#prMs").value}\n\n${$("#prMb").value}`); dasSay("Copied."); } catch (e) { $("#prMb").select(); dasSay("Press Ctrl+C to copy."); } };
-    $("#prMailX").onclick = () => { box.innerHTML = ""; };
+    const re = () => { q("#prMailGo").href = `mailto:${encodeURIComponent(m.to || "")}?subject=${encodeURIComponent(q("#prMs").value)}&body=${encodeURIComponent(q("#prMb").value)}`; };
+    q("#prMs").oninput = re; q("#prMb").oninput = re;
+    q("#prMailCopy").onclick = async () => { try { await navigator.clipboard.writeText(`Subject: ${q("#prMs").value}\n\n${q("#prMb").value}`); dasSay("Copied."); } catch (e) { q("#prMb").select(); dasSay("Press Ctrl+C to copy."); } };
+    q("#prMailX").onclick = () => { box.innerHTML = ""; };
     if (window.rfMail) {
-      rfMail.thread($("#prMailThread"), { prospect: x.id });
-      $("#prMailSend").onclick = () => rfMail.compose($("#prMailSent"), { kind: "prospect", refs: { prospect_id: x.id }, title: `First email to ${x.name}`,
-        to: $("#prMailTo")?.value || m.to || x.email || "", subject: $("#prMs").value, body: $("#prMb").value,
-        onSent: () => { if (x.status === "new") x.status = "contacted"; rfMail.thread($("#prMailThread"), { prospect: x.id }); } });
+      rfMail.thread(q("#prMailThread"), { prospect: x.id });
+      q("#prMailSend").onclick = () => rfMail.compose(q("#prMailSent"), { kind: "prospect", refs: { prospect_id: x.id }, title: `First email to ${x.name}`,
+        to: q("#prMailTo")?.value || m.to || x.email || "", subject: q("#prMs").value, body: q("#prMb").value,
+        onSent: () => { if (x.status === "new") x.status = "contacted"; rfMail.thread(q("#prMailThread"), { prospect: x.id }); } });
     }
-    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!into) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
+  // a building in the results viewer on the map (results.js): its need, trigger and contact, Email (the draft written in
+  // the viewer) and + Job; the map and the page stay where they are (11/10: a dot scrolled the page to its row)
+  const prView = (id, frameOnly) => {
+    const x = (P.rows || []).find(r => r.id === id), map = P.map; if (!x || !map || !window.RFResults) return;
+    const tr = body.querySelector(`tr[data-pid="${CSS.escape(id)}"]`);
+    if (tr && !frameOnly) { tr.classList.add("pr-hit"); setTimeout(() => tr.classList.remove("pr-hit"), 1500); if (window.emInView) emInView(tr.closest(".tw"), tr); }
+    const o = { key: `pr:${id}`, label: x.name, title: esc(x.name),
+      sub: [esc(PR_KIND[x.kind] || x.kind || ""), x.dist_mi != null ? `${x.dist_mi < 10 ? x.dist_mi.toFixed(1) : Math.round(x.dist_mi)} mi` : "", esc(x.status || "new")].filter(Boolean).join(" · "),
+      html: kvg([["RF need", prNeedCell(x)], ["Trigger", x.trigger && !x.trigger.minor ? esc(x.trigger.label) : ""], ["Address", esc([x.address, x.city, x.state].filter(Boolean).join(", "))],
+        ["Phone", x.phone ? `<a href="tel:${esc(x.phone.replace(/[^\d+]/g, ""))}">${esc(x.phone)}</a>` : ""], ["Email", x.email ? `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a>` : ""],
+        ["Website", x.website ? `<a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">${esc(x.website)}</a>` : ""],
+        ["Who to approach", esc(x.approach || "")], ["Why", esc(x.why || "")]]) + `<div data-prmail></div>`,
+      actions: [...(x.status !== "do not contact" ? [{ label: "Email", title: "A first email to read before it goes: nothing is sent without your press",
+          run: async b => { b.disabled = true; try { prMailBox(await api(`/api/das/prospects/${encodeURIComponent(id)}/email`), x, RFResults.get(map)?.body?.querySelector("[data-prmail]")); } catch (err) { dasSay(err.message); } finally { b.disabled = false; } } }] : []),
+        x.job_id ? { label: "Job", title: "Open its job", run: () => { S.das.job = x.job_id; S.das.sub = "overview"; S.das.rview = null; render(); } }
+          : { label: "+ Job", title: "Put it on the DAS board as a Lead", run: async b => { b.disabled = true;
+              try { const j = await post(`/api/das/prospects/${encodeURIComponent(id)}/job`, { need: P.need[id] }); x.job_id = j.id; dasSay(`${x.name} is on the board as a Lead.`); paint(); prView(id, true); }
+              catch (err) { b.disabled = false; dasSay(err.message); } } }],
+      zoom: [x.lat, x.lon] };
+    const open = RFResults.get(map);
+    // the same building: with a draft in it the body stays (review 11/11); without one it shows what's known now (an RF need
+    // or an email found since stayed out: third pass)
+    if (open && open.key === o.key && (frameOnly || open.body?.querySelector("[data-prmail] > *"))) open.setFrame({ title: o.title, sub: o.sub, actions: o.actions });
+    else RFResults.show(map, o, [x.lat, x.lon]);
+  };
+  P.view = prView; P.paint = paint;  // the dots call this draw's, not the one that made them (review 11/11: after a full redraw they lit nothing and + Job broke the filters)
+  // the map is kept while the list draws again (the email sweep repaints every few seconds, a filter, a sort, a status: Cody
+  // 11/10, each made a new map): each building's dot is kept and restyled in place, added or taken off as the list changes,
+  // and the map is fitted only for a new place or radius
   const prMap = rows => {
-    const m = $("#prMap"); if (!m || !window.L) return;
-    P.ro?.disconnect();  // the old map's resize watcher, before that map goes
-    if (P.map) { try { P.map.off(); P.map.remove(); } catch (e) { /* already torn down: nothing to show */ } }
-    const map = P.map = L.map(m, { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView(P.where, 11);
-    addMapLayers(map);  // the person's own base map, offline tiles included (core.js)
-    L.circle(P.where, { radius: P.radius * 1609.34, color: "#888", weight: 1, fill: false, interactive: false }).addTo(map);
-    const pts = [];
-    P.marks = new Map();
+    const m = $("#prMap"); if (!m || !window.L || !window.RFMaps) return;
+    const map = P.map = RFMaps.keep("prospects", m, el => { const mp = L.map(el, { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView(P.where, 11);
+      addMapLayers(mp);  // the person's own base map, offline tiles included (core.js)
+      fitControl(mp, "Fit the buildings");  // ⤢: a wider Within doesn't fit by itself (review 11/11)
+      mp._prRing = L.layerGroup().addTo(mp); mp._prDots = L.layerGroup().addTo(mp); return mp; },
+      { tab: "das", gone: mp => { if (P.map === mp) { P.map = null; P.marks = null; } } });
+    if (!map) return;
+    const where = `${P.where}|${P.radius}`;
+    if (map._prWhere !== where) { map._prWhere = where; map._prRing.clearLayers(); L.circle(P.where, { radius: P.radius * 1609.34, color: "#888", weight: 1, fill: false, interactive: false }).addTo(map._prRing); }
+    const marks = P.marks && P.marks._map === map ? P.marks : (P.marks = Object.assign(new Map(), { _map: map }));
+    const pts = [], keep = new Set();
     for (const x of rows.slice(0, 1000)) {
       if (x.lat == null) continue;
-      pts.push([x.lat, x.lon]);
-      P.marks.set(x.id, L.circleMarker([x.lat, x.lon], { radius: x.priority === "high" ? 6 : 4, color: prDot(x), weight: 1, fillOpacity: .75 })
-        .bindTooltip(() => { const n = P.need[x.id]; return `${esc(x.name)} · ${esc(PR_KIND[x.kind] || "")} · ${esc(x.status)}${n ? ` · RF need: ${(PR_NEED[n.ps] || PR_NEED.unknown)[0]}${prDb(n)} (estimate)` : ""}${x.trigger && !x.trigger.minor ? ` · ${esc(x.trigger.label)}` : ""}`; }).addTo(map)
-        .on("click", () => { const tr = body.querySelector(`tr[data-pid="${CSS.escape(x.id)}"]`); if (tr) { tr.scrollIntoView({ block: "center" }); tr.classList.add("pr-hit"); setTimeout(() => tr.classList.remove("pr-hit"), 1500); } }));
+      pts.push([x.lat, x.lon]); keep.add(x.id);
+      const id = x.id, mk = marks.get(id);
+      if (mk) { mk.setStyle({ color: prDot(x) }); continue; }
+      marks.set(id, L.circleMarker([x.lat, x.lon], { radius: x.priority === "high" ? 6 : 4, color: prDot(x), weight: 1, fillOpacity: .75, bubblingMouseEvents: false })
+        .bindTooltip(() => { const y = (P.rows || []).find(r => r.id === id) || x, n = P.need[id]; return `${esc(y.name)} · ${esc(PR_KIND[y.kind] || "")} · ${esc(y.status)}${n ? ` · RF need: ${(PR_NEED[n.ps] || PR_NEED.unknown)[0]}${prDb(n)} (estimate)` : ""}${y.trigger && !y.trigger.minor ? ` · ${esc(y.trigger.label)}` : ""}`; })
+        .on("click", e => { if (!window.RFMeasure?.toTool(map, e, e.target.getLatLng())) P.view?.(id); }).addTo(map._prDots));
     }
-    if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(.1), { animate: false });
-    (P.ro = new ResizeObserver(() => { if (P.map === map && m.isConnected) map.invalidateSize(); })).observe(m);
+    for (const [id, mk] of marks) if (!keep.has(id)) { mk.remove(); marks.delete(id); }
+    // a viewer kept from the draw before gets this draw's actions (+ Job, Email), its body as it is
+    if (map._prRun !== run) { map._prRun = run; const op = window.RFResults && RFResults.get(map); if (op && /^pr:/.test(op.key)) prView(op.key.slice(3), true); }
+    window.dasHeld?.("prMap");  // back in its place after a full DAS redraw (das.js)
+    map._rfFit = () => { if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(.1), { animate: false }); else map.setView(P.where, 11); };
+    RFMaps.first(map, String(P.where), map._rfFit);
   };
   // the controls
   $("#prGo").onclick = async e => { e.target.disabled = true; try { P.where = await where(); P.q = ""; P.status = ""; await load(); } catch (x) { body.innerHTML = `<p class="status err">${esc(x.message)}</p>`; } finally { e.target.disabled = false; } };

@@ -39,7 +39,7 @@ const ADV = [["#a_svc", "svc"], ["#a_tech", "tech"], ["#a_em", "emission"], ["#a
 
   // the pin box takes addresses, places and counties too
   const wrap = $("#locWrap"), loc = $("#loc");
-  wrap.firstChild.textContent = "Pin: address, place, county, lat/lon or Maps link (or click the map)";
+  wrap.firstChild.textContent = "Pin: address, place, county, lat/lon or Maps link (or 📍 Move pin on the map)";
   loc.placeholder = "e.g. 1600 Pennsylvania Ave, Fairfax County VA, 38.8895, -77.0353";
   loc.setAttribute("autocomplete", "off");
   wrap.style.position = "relative";
@@ -114,13 +114,13 @@ const viewsSave = v => { try { localStorage.setItem(VIEWS_KEY, JSON.stringify(v)
 // what's on now, without where: a view works at any pin
 function viewLink() {
   const h = new URLSearchParams(location.hash.slice(1));
-  for (const k of ["lat", "lon", "r", "place", "state", "county", "mode", ...JOB_KEYS]) h.delete(k);  // a view is filters, not a job
+  for (const k of ["lat", "lon", "r", "place", "state", "county", "mode", "mv", ...JOB_KEYS]) h.delete(k);  // a view is filters, not a job or a map view
   return h.toString();
 }
 function viewApply(link, then) {
   const h = new URLSearchParams(location.hash.slice(1)), v = new URLSearchParams(link), keep = new URLSearchParams();
   for (const k of ["lat", "lon", "r", "place", "state", "county", "mode"]) if (h.has(k)) keep.set(k, h.get(k));
-  for (const [k, x] of v) keep.set(k, x);
+  for (const [k, x] of v) if (k !== "mv") keep.set(k, x);  // a view saved before 11/11 kept where the map was: not a filter
   filtersReset(); $("#q").value = ""; $("#rf").value = ""; rfRead(); $("#fmin").value = ""; $("#fmax").value = ""; $("#hideMobile").checked = true; searchFieldsClear();
   history.replaceState(null, "", "#" + keep.toString());
   if (window.applyUrlState()) runSearch(); else render();
@@ -232,15 +232,28 @@ function urlJob(h) {
   }
   return moved;
 }
+// the search's own part of the link: where it looked and what it asked. The link carries the search on the map (S.linkSearch,
+// kept as each search lands, or a link's own while it loads), never what the boxes say before it's run: County or Nationwide
+// pressed, a county or call sign picked and not searched, then any redraw, paired that unrun search with the last one's map
+// view, and a reload opened its results off screen; a county link lost county= while its county list loaded (review 11/11)
+const LINK_SEARCH = ["lat", "lon", "r", "state", "county", "mode", "place", "fixed", "q", "rf", "fmin", "fmax", ...ADV.map(a => a[1])];
+window.searchLink = () => {
+  const h = new URLSearchParams();
+  if (S.mode === "point") { const ll = parseLoc($("#loc").value); if (ll) { h.set("lat", ll[0]); h.set("lon", ll[1]); h.set("r", $("#radius").value); } }
+  else if (S.mode === "county") { if ($("#state").value) h.set("state", $("#state").value); if ($("#county").value) h.set("county", $("#county").value); }
+  else h.set("mode", "nationwide");
+  for (const [id, k] of [["#q", "q"], ["#rf", "rf"], ["#fmin", "fmin"], ["#fmax", "fmax"], ...ADV]) if ($(id).value) h.set(k, $(id).value);
+  if (S.placeLabel) h.set("place", S.placeLabel);
+  if (!$("#hideMobile").checked) h.set("fixed", "0");
+  return h;
+};
 window.writeUrlState = replace => {
   const h = new URLSearchParams();
   h.set("tab", S.tab);
   if (S.tab === "das" && S.das && S.das.job) { h.set("job", S.das.job); h.set("sec", S.das.sub || "overview"); }
   if (S.tab === "start" && S.start && S.start.job) { h.set("sjob", S.start.job); const n = window.startStepNo?.(S.start.step); if (n) h.set("step", n); }
-  if (S.mode === "point") { const ll = parseLoc($("#loc").value); if (ll) { h.set("lat", ll[0]); h.set("lon", ll[1]); h.set("r", $("#radius").value); } }
-  else if (S.mode === "county") { if ($("#state").value) h.set("state", $("#state").value); if ($("#county").value) h.set("county", $("#county").value); }
-  else h.set("mode", "nationwide");
-  for (const [id, k] of [["#q", "q"], ["#rf", "rf"], ["#fmin", "fmin"], ["#fmax", "fmax"], ...ADV]) if ($(id).value) h.set(k, $(id).value);
+  const sk = S.linkSearch || searchLink();
+  for (const [k, v] of sk) if (k !== "place") h.set(k, v);
   // filters: "type=" is "only these" (as every link has carried it), "xtype=" the hidden ones; "src=" the sources on,
   // when they differ from the defaults
   for (const k of ["type", "band", "cat", "cls", "carrier", "agency"]) {
@@ -248,12 +261,19 @@ window.writeUrlState = replace => {
     else if (S.hide[k].size) h.set("x" + k, [...S.hide[k]].join("|"));
   }
   if (S.side !== "all") h.set("side", S.side);
-  if (!$("#hideMobile").checked) h.set("fixed", "0");
   if (S.filterExpr) h.set("expr", S.filterExpr);
   if (S.heat.kind !== "off") h.set("heat", S.heat.kind);
   const def = layerDefaults(), on = [...S.layerOn].filter(l => LAYERS[l]);
   if (on.length !== def.size || on.some(l => !def.has(l))) h.set("src", on.join(","));
-  if (S.placeLabel) h.set("place", S.placeLabel);
+  if (sk.get("place")) h.set("place", sk.get("place"));
+  // the Map tab's view, so a link opens where it was looked at (Cody 11/10). It only ever replaces the history entry: panning
+  // and zooming never add a Back step
+  // and only once a search has drawn: before one the map shows the placeholder US, and a reload kept it for the next search
+  // (review 11/11). While the link's own search runs, its view stays in the link as it came
+  if (S.tab === "map") {
+    if (S.mvWant) h.set("mv", S.mvWant.v.join(","));
+    else if (S.searched && S.map && S.map._loaded) { const c = S.map.getCenter(); h.set("mv", `${c.lat.toFixed(6)},${c.lng.toFixed(6)},${S.map.getZoom()}`); }
+  }
   const next = "#" + h.toString();
   if (location.hash === next) return;
   // a new tab, job, section or Start step is a step Back can return to; a new pin or filter replaces the step it's on. (11/3:
@@ -272,7 +292,7 @@ window.addEventListener("popstate", () => {
   if (urlJob(h)) moved = true;
   if (moved) render();
 });
-window.applyUrlState = () => {
+window.applyUrlState = boot => {
   const h = new URLSearchParams(location.hash.slice(1));
   if (!h.toString()) return false;
   if (h.get("tab")) S.tab = h.get("tab");
@@ -290,6 +310,17 @@ window.applyUrlState = () => {
   if (h.has("expr")) S.filterExpr = h.get("expr");
   if (h.get("heat")) S.heat.kind = h.get("heat");
   if (h.has("src")) { S.layerOn = new Set(h.get("src").split(",").filter(l => LAYERS[l])); S.layerSolo = S.layerPrev = null; }
+  // a link's map view (mv=lat,lon,zoom): the Map tab restores it instead of fitting the link's own search (core.js
+  // drawLayers). Read only as DAStastic opens (boot), and only when the link carries a search: an mv left on a page with no
+  // search took over the next one (review 11/11). key: that search (searchKeyOf), so no other search takes it; a nationwide
+  // link's is its first search. In range only: a huge longitude froze the tab (Leaflet's tile loop never ends)
+  // the link's own search stays in the link as it came until it lands (a county link's county list loads first)
+  if (boot && (h.get("lat") && h.get("lon") || h.get("state") || h.get("mode") === "nationwide")) S.linkSearch = new URLSearchParams([...h].filter(([k]) => LINK_SEARCH.includes(k)));
+  if (boot && h.get("mv") && (h.get("lat") && h.get("lon") || h.get("state") || h.get("mode") === "nationwide")) {
+    const v = h.get("mv").split(",").map(Number);
+    if (v.length === 3 && v.every(Number.isFinite) && Math.abs(v[0]) <= 90 && Math.abs(v[1]) <= 180 && v[2] >= 0 && v[2] <= 22)
+      S.mvWant = {v, key: h.get("lat") && h.get("lon") ? `p:${+h.get("lat")},${+h.get("lon")}` : h.get("state") ? `c:${h.get("state")}|${h.get("county") || ""}` : null};
+  }
   advNote();
   if (h.get("lat") && h.get("lon")) {
     setMode("point"); $("#loc").value = `${h.get("lat")}, ${h.get("lon")}`;

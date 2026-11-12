@@ -49,7 +49,8 @@ window.missionTools = async (v, m) => {
     <div id="mtBody" style="margin-top:8px"></div>`;
   $("#mtSeg").onclick = e => { const b = e.target.closest("[data-v]"); if(!b) return; M.view = b.dataset.v; $$("#mtSeg button").forEach(x => x.classList.toggle("on", x === b)); show(); };
   $("#mtQ").onchange = () => { M.q = $("#mtQ").value; show(); };
-  const show = () => { clearInterval(S.mtTimer); ({replay: mtReplay, wheel: mtWheel, bearing: mtBearings}[M.view])($("#mtBody"), T, B, M); };
+  // one map for this mission's Replay or Lines of bearing (RFMaps slot "mtools"); When heard has none, so the last one goes
+  const show = () => { clearInterval(S.mtTimer); if(M.view === "wheel") window.RFMaps?.drop("mtools"); ({replay: mtReplay, wheel: mtWheel, bearing: mtBearings}[M.view])($("#mtBody"), T, B, M); };
   show();
 };
 
@@ -66,19 +67,26 @@ function mtReplay(el, T, B, M){
     <div class="row" style="gap:10px;margin-top:6px;flex-wrap:wrap;align-items:center">
       <label class="inl">Speed <select id="rpSpd">${MT_SPEEDS.map(([s, l]) => `<option value="${s}" ${s === M.speed ? "selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="inl">Show what was heard in <select id="rpWin">${MT_WINDOWS.map(([s, l]) => `<option value="${s}" ${s === M.win ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <button id="rpFit" type="button" title="Fit the map to the readings and the track">Fit readings</button>
       <span class="hint">Quiet stretches are skipped. ${esc(new Date(t0).toLocaleString())} to ${esc(new Date(t1).toLocaleString())}.</span></div>
     <div class="grid2" style="margin-top:8px;grid-template-columns:minmax(320px,1.6fr) minmax(260px,1fr)">
       <div id="rpMap" style="height:400px;border-radius:12px"></div>
       <div><h3 style="margin-top:0">Heard <span class="hint" id="rpCount"></span></h3><div class="tw" style="max-height:370px" id="rpList"></div></div></div>`;
-  if(typeof L === "undefined") return;
-  const map = L.map("rpMap", {preferCanvas: true}); addMapLayers(map);
+  if(typeof L === "undefined" || !window.RFMaps) return;
+  // one map per mission, kept while the signal filter or the view changes (Cody 11/10: each change made a new map and the old
+  // one was never removed); its layers are drawn again on it, and it's fitted only when new
+  const map = RFMaps.keep(`mtools:replay:${M.mid}`, $("#rpMap"), el => { const mp = L.map(el, {preferCanvas: true}); addMapLayers(mp); mp._mtLayer = L.layerGroup().addTo(mp); return mp; });
+  if(!map) return;
+  const g = map._mtLayer; g.clearLayers();
   const ll = [...pts.map(p => [p.lat, p.lon]), ...T.track.map(x => [x[1], x[2]])];
-  map.fitBounds(L.latLngBounds(ll).pad(0.08));
-  if(T.track.length > 1) L.polyline(T.track.map(x => [x[1], x[2]]), {color: "#888", weight: 2, opacity: .35}).addTo(map);
+  const fit = () => { if(ll.length) map.fitBounds(L.latLngBounds(ll).pad(0.08)); };
+  RFMaps.first(map, "replay", fit);
+  $("#rpFit").onclick = fit;  // the one press that fits it after it's made (a signal filter doesn't: review 11/11)
+  if(T.track.length > 1) L.polyline(T.track.map(x => [x[1], x[2]]), {color: "#888", weight: 2, opacity: .35}).addTo(g);
   const acc = mtCss("--accent", "#e07a3f");
-  const done = L.polyline([], {color: acc, weight: 3, opacity: .9}).addTo(map);
-  const me = L.circleMarker([0, 0], {radius: 7, color: "#fff", weight: 2, fillColor: acc, fillOpacity: 1}).addTo(map);
-  const dots = L.layerGroup().addTo(map);
+  const done = L.polyline([], {color: acc, weight: 3, opacity: .9}).addTo(g);
+  const me = L.circleMarker([0, 0], {radius: 7, color: "#fff", weight: 2, fillColor: acc, fillOpacity: 1}).addTo(g);
+  const dots = L.layerGroup().addTo(g);
   const paint = () => {
     const t = M.t, w = M.win * 1000;
     $("#rpT").value = Math.round((t - t0) / Math.max(1, t1 - t0) * 1000);
@@ -178,22 +186,30 @@ function mtBearings(el, T, B, M){
       ${f.behind ? `<p class="status err" style="margin:4px 0 0">${f.behind} bearing${f.behind === 1 ? " points" : "s point"} away from the fix: check ${f.behind === 1 ? "it" : "them"} (a reflection, or a bearing 180° out).</p>` : ""}
       ${f.crossing_deg < 20 ? `<p class="hint" style="margin:4px 0 0">The lines cross at a shallow angle, so the fix stretches along them. A bearing from further round the signal sharpens it.</p>` : ""}
       ${f.n < 3 ? `<p class="hint" style="margin:4px 0 0">Two bearings always meet somewhere; a third shows whether they agree.</p>` : ""}
-      <div class="row" style="margin-top:6px"><button class="primary" id="brPin">Put the pin on the fix</button><button id="brCopy">Copy the position</button><span class="hint" id="brMsg"></span></div>`
-    : `<p class="hint" style="margin:0">${g.readings.length < 2 ? "One bearing: a second, from somewhere else, gives a fix." : "These bearings run parallel, so they don't cross: take one from further round the signal."}</p>`;
-  if(typeof L === "undefined") return;
-  const map = L.map("brMap", {preferCanvas: true}); addMapLayers(map);
+      <div class="row" style="margin-top:6px"><button class="primary" id="brPin">Put the pin on the fix</button><button id="brZoom">Zoom to fix</button><button id="brCopy">Copy the position</button><span class="hint" id="brMsg"></span></div>`
+    : `<p class="hint" style="margin:0">${g.readings.length < 2 ? "One bearing: a second, from somewhere else, gives a fix." : "These bearings run parallel, so they don't cross: take one from further round the signal."}</p>
+      <div class="row" style="margin-top:6px"><button id="brZoom">Zoom to the bearings</button></div>`;
+  if(typeof L === "undefined" || !window.RFMaps) return;
+  // one map per mission, kept while a signal is picked or the line length changes (Cody 11/10: a new map each time); fitted
+  // only when new, and Zoom to fix brings the picked signal's lines and fix into view
+  const map = RFMaps.keep(`mtools:bearing:${M.mid}`, $("#brMap"), el => { const mp = L.map(el, {preferCanvas: true}); addMapLayers(mp); mp._mtLayer = L.layerGroup().addTo(mp); return mp; });
+  if(!map) return;
+  const lay = map._mtLayer; lay.clearLayers();
   const ll = [];
   for(const r of g.readings){ const end = mtDest(r.lat, r.lon, r.bearing, km); ll.push([r.lat, r.lon], end);
-    L.polyline([[r.lat, r.lon], end], {color: "#000", weight: 5, opacity: .35}).addTo(map);
-    L.polyline([[r.lat, r.lon], end], {color: acc, weight: 2.5, opacity: .95, dashArray: "8 6"}).addTo(map);
+    L.polyline([[r.lat, r.lon], end], {color: "#000", weight: 5, opacity: .35}).addTo(lay);
+    L.polyline([[r.lat, r.lon], end], {color: acc, weight: 2.5, opacity: .95, dashArray: "8 6"}).addTo(lay);
     L.circleMarker([r.lat, r.lon], {radius: 5, color: "#fff", weight: 1.5, fillColor: col, fillOpacity: 1})
-      .bindTooltip(`${num(r.bearing, 0)}°${r.dbm != null ? ` · ${num(r.dbm, 0)} dBm` : ""}${r.ts ? `<br>${esc(new Date(r.ts).toLocaleString())}` : ""}`).addTo(map); }
+      .bindTooltip(`${num(r.bearing, 0)}°${r.dbm != null ? ` · ${num(r.dbm, 0)} dBm` : ""}${r.ts ? `<br>${esc(new Date(r.ts).toLocaleString())}` : ""}`).addTo(lay); }
   if(f){ ll.push([f.lat, f.lon]);
     const fc = {good: mtCss("--good", "#3fb950"), fair: mtCss("--warn", "#d29922"), poor: mtCss("--bad", "#f85149")}[f.quality];
-    if (f.ellipse) L.polygon(f.ellipse.ring, {color: fc, weight: 2, fillOpacity: .15}).bindTooltip(`95% error ellipse · ${num(f.ellipse.a_m * 2, 0)} × ${num(f.ellipse.b_m * 2, 0)} m`).addTo(map);
-    else L.circle([f.lat, f.lon], {radius: Math.max(30, f.rms_m), color: fc, weight: 2, fillOpacity: .15}).addTo(map);
-    L.marker([f.lat, f.lon], {icon: pinIcon(), title: "Fix"}).bindTooltip(`Fix · ±${num(f.rms_m, 0)} m`).addTo(map);
-    $("#brPin").onclick = () => { $("#loc").value = `${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}`; setTab("map"); runSearch(); };
+    if (f.ellipse) L.polygon(f.ellipse.ring, {color: fc, weight: 2, fillOpacity: .15}).bindTooltip(`95% error ellipse · ${num(f.ellipse.a_m * 2, 0)} × ${num(f.ellipse.b_m * 2, 0)} m`).addTo(lay);
+    else L.circle([f.lat, f.lon], {radius: Math.max(30, f.rms_m), color: fc, weight: 2, fillOpacity: .15}).addTo(lay);
+    L.marker([f.lat, f.lon], {icon: pinIcon(), title: "Fix"}).bindTooltip(`Fix · ±${num(f.rms_m, 0)} m`).addTo(lay);
+    // movePin: a point search there (in County or Nationwide mode the pin was set and never used: review 11/11), no old place name
+    $("#brPin").onclick = () => { setTab("map"); movePin(L.latLng(f.lat, f.lon)); };
     $("#brCopy").onclick = async () => { try{ await navigator.clipboard.writeText(`${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}`); $("#brMsg").textContent = "Copied."; }catch(e){ $("#brMsg").textContent = `${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}`; } }; }
-  map.fitBounds(L.latLngBounds(ll).pad(0.12));
+  const fit = () => map.fitBounds(L.latLngBounds(ll).pad(0.12));
+  RFMaps.first(map, "bearing", fit);
+  $("#brZoom").onclick = fit;
 }

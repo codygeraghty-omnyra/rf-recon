@@ -52,6 +52,7 @@
       return box;
     },
     start(){ const m = this._map; if(m._rfDraw?._tool) m._rfDraw._cancel();  // one tool at a time (markup.js)
+      m.fire("rftool");  // and Move pin, if armed, is done (core.js)
       this._on = true; m._rfMeasuring = true; this._btn.classList.add("on"); m.getContainer().classList.add("rf-measuring");
       this._dbl = m.doubleClickZoom.enabled(); m.doubleClickZoom.disable(); this._g.addTo(m); this._reset();
       m.on("click", this._click, this); m.on("mousemove", this._move, this); m.on("dblclick", this._dblclick, this); this._show(); },
@@ -110,5 +111,7 @@
   });
   // opts.position: where on the map (default top left; the phone's full-screen map puts it bottom left, as its header
   // covers the top of the map)
-  window.RFMeasure = {add(map, opts){ if(!map._rfMeasure){ map._rfMeasure = new Measure(opts).addTo(map); } return map._rfMeasure; }, bearing, area};
+  const toTool = (map, e, ll) => { if(!map || !map._rfMeasuring) return false;
+    map.fire("click", {latlng: ll || e.latlng, layerPoint: e.layerPoint, containerPoint: e.containerPoint, originalEvent: e.originalEvent}); return true; };
+  window.RFMeasure = {add(map, opts){ if(!map._rfMeasure){ map._rfMeasure = new Measure(opts).addTo(map); } return map._rfMeasure; }, bearing, area, toTool};
 })();

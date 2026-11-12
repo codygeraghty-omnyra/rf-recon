@@ -20,7 +20,22 @@ PERSONAL_ONLY = {
                "2026-11-02). Cody or Josh settles it with the wiki's owners first.",
     "artemis": "Artemis's database is Signal Identification Wiki content.",
     "aisstream": "aisstream.io publishes no terms.",
+    "osm_towers": "OpenStreetMap's towers (ODbL) fused with the crowd's carrier cells (OpenCelliD, CC BY-SA 4.0) wait for counsel "
+                  "to rule on mixing the two licences (Cody 11/10): Cody's own build only until then.",
 }
+
+# The tables in uls.db that hold public data only (the FCC's, FAA's, NOAA's, Census places, 911 centres), and so may go to
+# another copy: the licensed-copy seed (ops/licensed_copy.py) and the install kit's full copy (kit/build_kit.py) copy these
+# by name. An ALLOW list: a table nobody named stays behind (a gap to fill), never someone's own work, Omnyra's crawls or a
+# source with no licence to pass on reaching another copy (11/10: the kit's old deny list had missed drawings, DAS mail,
+# intake, the AHJ book, seals, leads, BDA alarms and the Signal ID Wiki catalog).
+PUBLIC_TABLES = ("tx", "tx_history", "uls_contact", "tower", "tower_app", "faa", "faa_study", "fcc_grant", "fcc_grant_eq",
+                 "fcc_grant_src", "fcc_grant_watts", "fcc_grantee", "fcc_grantee_src", "fss_earth", "nwr", "place", "psap", "bcast",
+                 "mw_link", "mw_pending", "uls_pending", "meta",
+                 # named from the server's dry run, 11/10: booster registrations (place and company; their people are in
+                 # booster_contact), FAA airports and runways, the FCC rules watch's docket filings, and the record of which
+                 # FCC daily files the licences already hold (ulsdaily.py: it belongs with the tables it describes)
+                 "booster", "faa_airport", "faa_runway", "fcc_filing", "uls_daily_log")
 
 # notices every build carries (FCC Data API terms; OpenCelliD CC BY-SA 4.0; ODbL for OpenStreetMap and Overture)
 NOTICES = {

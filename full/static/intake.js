@@ -10,7 +10,7 @@
   const G = S.intake = S.intake || { open: false, data: null, can: false, busy: false, msg: "", errs: [], target: null, jobs: [], batch: null, view: null, lists: {} };
   const TEXT_PAGES = 12, SIZE_PAGES = 40, POLL_MS = 120000;
   const CHECKS = [["opens", "Opens"], ["belongs", "Belongs"], ["complete", "Complete"], ["in_date", "In date"]];
-  const SUB_WORD = { grid: "Grid test", commission: "Commissioning" };
+  const SUB_WORD = { grid: "Grid test", commission: "Commissioning", presurvey: "Pre-survey" };
   const say = (t, ok) => { if (window.dasSay) dasSay(t, ok); else alert(t); };
   const kb = b => b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round((b || 0) / 1e3))} KB`;
   const openJobId = () => S.tab === "das" && S.das && S.das.job ? S.das.job : S.tab === "start" && S.start && S.start.job ? S.start.job : null;
@@ -159,10 +159,10 @@
   /* ---------- one job's list: what it should have, and whether it now does ---------- */
   async function fillList(jid) {
     let c, j, P = null;
-    try { [c, j] = await Promise.all([api(`/api/intake/job/${jid}/checklist`), api(`/api/das/jobs/${jid}`)]); }
+    try { [c, j] = await Promise.all([api(`/api/intake/job/${jid}/checklist`), api(`/api/das/jobs/${jid}`, { dasRaw: true })]); }  // a read, not a redraw: the page's revision stays its views' (review 11/11)
     catch (e) { delete G.lists[jid]; return; }
     const d = j.data || {}, rows = [], hold = typeof DASJ !== "undefined" ? DASJ : null;
-    for (const s of c.stages) for (const n of s.needs) rows.push({ g: s.stage, t: n.text, ok: false, sub: n.sub, note: (window.startNeedHint || {})[n.key] });
+    for (const s of c.stages) for (const n of s.needs) rows.push({ g: s.stage, t: n.text, ok: false, sub: n.sub, note: (window.startNeedHint || {})[n.hint || n.key] });
     if (window.startChecks) try { for (const [, t, ok, note, sub] of window.startChecks(d)) rows.push({ g: "The job", t, ok, note, sub }); } catch (e) { /* the rest of the list still reads */ }
     try {
       P = await ahjPackets();

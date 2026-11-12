@@ -67,10 +67,34 @@ def public_host(host, resolve=socket.getaddrinfo):
     return bool(addrs) and all(a.is_global for a in addrs)
 
 
-def _urlopen(req, timeout):
-    """The real network: (status, headers, a file-like body). HTTPError answers come back as answers, not exceptions."""
+class _CheckedRedirect(urllib.request.HTTPRedirectHandler):
+    """Every redirect is checked like the first address (https, public): a server could answer 302 to
+    http://169.254.169.254/ or a loopback port and the request went there (review 11/10 round 2). check raises
+    ValueError, which stops the request before the next hop is asked."""
+
+    def __init__(self, check):
+        super().__init__()
+        self.check = check
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        self.check(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def https_public(url, resolve=socket.getaddrinfo):
+    """ValueError unless url is https to a public host (Fetcher._check's rule)."""
+    u = urllib.parse.urlsplit(url)
+    if u.scheme != "https" or not u.hostname:
+        raise ValueError(f"https only: {url[:100]}")
+    if not public_host(u.hostname, resolve):
+        raise ValueError(f"not a public address: {u.hostname}")
+
+
+def _urlopen(req, timeout, check=https_public):
+    """The real network: (status, headers, a file-like body). HTTPError answers come back as answers, not exceptions.
+    check(url): run on every redirect's address before it's followed, https to a public host by default."""
     try:
-        r = urllib.request.urlopen(req, timeout=timeout)
+        r = urllib.request.build_opener(_CheckedRedirect(check)).open(req, timeout=timeout)
         return r.status, dict(r.headers.items()), r
     except urllib.error.HTTPError as e:
         return e.code, dict(e.headers.items()) if e.headers else {}, e
@@ -91,11 +115,7 @@ class Fetcher:
         self.requests = []  # every request made, (method, url): what a test or a log can count
 
     def _check(self, url):
-        u = urllib.parse.urlsplit(url)
-        if u.scheme != "https" or not u.hostname:
-            raise ValueError(f"https only: {url[:100]}")
-        if not public_host(u.hostname, self.resolve):
-            raise ValueError(f"not a public address: {u.hostname}")
+        https_public(url, self.resolve)
 
     def get(self, url, accept="*/*", headers=None, conditional=True, expect_html=False):
         self._check(url)

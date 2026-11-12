@@ -94,7 +94,16 @@ async function packForPin(lat, lon) {
   if (saved) await idb.put("kv", saved.id, "activePack"); else await loadSitePack(s);
   // the page writes a search into the address only once it succeeds: put this pin there, or the reload brings back the last one
   const h = new URLSearchParams(location.hash.slice(1));
+  // the search that was asked (S.pendingLink, set by runSearch before it waits): the address holds the last one that landed,
+  // and the reload ran its radius, call sign, fields and Fixed sites only instead (review 11/11, third pass)
+  const asked = typeof S === "object" && S && S.pendingLink;
+  if (asked && typeof LINK_SEARCH !== "undefined") { for (const k of LINK_SEARCH) h.delete(k); for (const [k, v] of asked) h.set(k, v); }
   h.set("tab", !h.get("tab") || h.get("tab") === "data" ? "map" : h.get("tab")); h.set("lat", lat); h.set("lon", lon);  // Packs (data) -> the map
+  // a new pin is a new search: the last one's map view isn't its own (the reload opened on the old view, the new pin off
+  // screen), but a link's own search, needing a pack, keeps its view; the place name is the new search's own (a link's, or
+  // a place just picked), not dropped (review 11/11)
+  const was = new URLSearchParams(location.hash.slice(1)); if (+was.get("lat") !== +lat || +was.get("lon") !== +lon) h.delete("mv");
+  if (!asked) { const pl = typeof S === "object" && S && S.placeLabel; if (pl) h.set("place", pl); else h.delete("place"); }
   history.replaceState(null, "", "#" + h.toString());
   setTimeout(() => location.reload(), 50);
   return saved ? `Switching to ${saved.name}, already in this browser…` : `Loading ${s.name} (${s.mb.toFixed(1)} MB) from the DAStastic site…`;

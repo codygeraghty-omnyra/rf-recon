@@ -203,7 +203,7 @@ function dasProspects() {  // read-only: the pack's prospect table (the columns 
     return `<div class="card glass empty" style="--i:1"><p>This pack has no prospect lists: it was made before they went into packs (11/4). Load a newer pack of this area (Packs), or use DAStastic on the PC.</p>
       <button class="btn" data-act="map">Open the map</button></div>`;
   const c = S.center || (S.me ? [S.me.lat, S.me.lon] : null);
-  if (!c) return `<div class="card glass empty" style="--i:1"><p>Set the pin first: tap the map, search a place or use where you are. Prospects are listed within the map's radius of it.</p>
+  if (!c) return `<div class="card glass empty" style="--i:1"><p>Set the pin first: tap the map and press Search here, search a place or use where you are. Prospects are listed within the map's radius of it.</p>
     <button class="btn primary" data-act="here">Use where I am</button> <button class="btn" data-act="map">Open the map</button></div>`;
   const [s, n, w, e] = bbox(c[0], c[1], S.radius), label = Object.fromEntries(DAS_PKINDS);
   const all = q("SELECT * FROM prospect WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", [s, n, w, e])

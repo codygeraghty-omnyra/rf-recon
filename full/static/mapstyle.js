@@ -27,7 +27,7 @@ function msRegister(maps){  // your maps join the built-in ones (and the layers 
 async function msLoad(){
   try{ msRegister((await api("/api/basemaps")).maps || []); }catch(e){ msRegister([]); }
   let saved = null; try{ saved = JSON.parse(localStorage.getItem("rfr.mapLayers"))?.base; }catch(e){ /* storage blocked (a private window): the default stands */ }
-  if(saved && BASEMAPS[saved]?.own && mapPrefs().base !== saved){ mapPrefs().base = saved; if(S.tab === "map" && S.map) render(); }  // your map, picked last time
+  if(saved && BASEMAPS[saved]?.own && mapPrefs().base !== saved){ mapPrefs().base = saved; S.map?._rfSetBase?.(saved); }  // your map, picked last time, swapped in place (core.js)
 }
 const msReady = msLoad();
 
@@ -44,7 +44,8 @@ function msPaintPicker(){
     if(v === "atak"){ S.mapStyle = "atak"; if(!S.atakBaseSet){ pref.before = pref.base; pref.base = "Satellite hi-res (Esri)"; S.atakBaseSet = true; } }
     else if(v === "standard"){ S.mapStyle = "standard"; S.atakBaseSet = false; if(BASEMAPS[pref.base]?.own || pref.base === "Satellite hi-res (Esri)") pref.base = pref.before && BASEMAPS[pref.before] && !BASEMAPS[pref.before].own ? pref.before : "Street (OpenStreetMap)"; }
     else { S.mapStyle = "standard"; pref.base = v.slice(4); }
-    msSave(); render(); };
+    // the base map swaps in place and the dots are drawn again in the new style: the map stays where it is (11/10)
+    msSave(); S.map?._rfSetBase?.(pref.base); render(); };
 }
 const msMapView = S.views.map;
 S.views.map = (v, rows) => { msMapView(v, rows); msPaintPicker(); };
@@ -81,9 +82,9 @@ function msDialog(){
     try{ done(f ? await api(`/api/basemaps/import?name=${encodeURIComponent(name)}&filename=${encodeURIComponent(f.name)}`, {method:"POST", body:f})
                 : await post("/api/basemaps/import", {name, url})); }catch(e){ $("#msMsg").textContent = e.message; } };
   $("#msFile").onchange = () => { if($("#msFile").files[0]) $("#msAdd").click(); };
-  $$("#dlgBody [data-use]").forEach(b => b.onclick = () => { S.mapStyle = "standard"; mapPrefs().base = b.dataset.use; msSave(); $("#dlg").close(); render(); });
+  $$("#dlgBody [data-use]").forEach(b => b.onclick = () => { S.mapStyle = "standard"; mapPrefs().base = b.dataset.use; msSave(); S.map?._rfSetBase?.(b.dataset.use); $("#dlg").close(); render(); });
   $$("#dlgBody [data-rm]").forEach(b => b.onclick = async () => { const r = await post(`/api/basemaps/delete?id=${encodeURIComponent(b.dataset.rm)}`);
-    if(BASEMAPS[mapPrefs().base]?.own) mapPrefs().base = "Street (OpenStreetMap)"; msRegister(r.maps); msSave(); msDialog(); });
+    if(BASEMAPS[mapPrefs().base]?.own) mapPrefs().base = "Street (OpenStreetMap)"; msRegister(r.maps); msSave(); S.map?._rfSetBase?.(mapPrefs().base); msDialog(); });
   $$("#dlgBody [data-xml]").forEach(b => b.onclick = () => { const m = own.find(x=>x.id===b.dataset.xml); msDl(m.name, msXml(m.name, m.url, m.min, m.max)); });
   $$("#dlgBody [data-bxml]").forEach(b => b.onclick = () => msDl(`DAStastic - ${b.dataset.bxml}`, msXml(`DAStastic - ${b.dataset.bxml}`, MS_BUILTIN[b.dataset.bxml], 0, MS_BUILTIN_MAX[b.dataset.bxml] ?? 19)));
 }

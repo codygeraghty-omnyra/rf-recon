@@ -31,12 +31,14 @@
     const box = map.getContainer();
     let swallow = false, hintAt = 0, ctrlAt = 0;
     const hold = v => { map._rfHeld = v; apply(map); };
-    const down = e => { if (e.button === 0) { swallow = false; hold(true); } };
+    // the results viewer sits in the map's frame (results.js): a press or the wheel there is the viewer's, not the map's
+    const inViewer = e => !!(e.target && e.target.closest && e.target.closest(".rf-res"));
+    const down = e => { if (e.button === 0 && !inViewer(e)) { swallow = false; hold(true); } };
     const up = () => { if (map._rfHeld) hold(false); };
     box.addEventListener("mousedown", down);
     document.addEventListener("mouseup", up); window.addEventListener("blur", up);
     box.addEventListener("wheel", e => {
-      if (on) return;
+      if (on || inViewer(e)) return;
       if (map._rfHeld) { swallow = true; return; }  // zooming while held: the click that ends it isn't a pin move
       if (e.ctrlKey) {  // Ctrl + wheel zooms at the cursor, as on the spectrum, topology and floor plans
         e.preventDefault(); e.stopPropagation();

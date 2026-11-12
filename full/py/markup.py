@@ -118,8 +118,10 @@ def delete(con, mid, scope, scope_id):
 
 
 def drop_scope(con, scope, scope_id):
-    """A mission's or a job's drawings, when it's deleted."""
-    ensure(con)
+    """A mission's or a job's drawings, when it's deleted: part of the caller's delete, so it commits nothing (ensure()'s
+    executescript commits first: review 11/10, round 3). No table yet: no drawings."""
+    if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='map_markup'").fetchone():
+        return
     con.execute("DELETE FROM map_markup WHERE scope=? AND scope_id=?", (scope, int(scope_id)))
 
 

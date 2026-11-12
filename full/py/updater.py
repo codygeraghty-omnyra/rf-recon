@@ -44,6 +44,7 @@ SOURCES = {
     "wigle": ("WiGLE (Wi-Fi/BT/cell)", "crowd", 168, "Needs your WiGLE API name + token"),
     "opencellid": ("OpenCelliD (cell towers)", "crowd", 336, "Needs your OpenCelliD key"),
     "opencellid_us": ("OpenCelliD: every US cell", "crowd", 720, "Every cell OpenCelliD has in the US (its country files, MCC 310 to 316), so cell sites show anywhere. Needs your OpenCelliD key; a large download, monthly"),
+    "osm_towers": ("OpenStreetMap towers and masts (Overpass)", "crowd", 2160, "Towers, masts, water tanks and rooftop phone masts mapped in OpenStreetMap (ODbL), for the tower report: the mission areas here, and within 8 km of an address when a tower report tops up. Tiles of 0.2 degrees kept 90 days, one request at a time, at most 100 a day. Off until you switch it on, and Update all and All on leave it as it is: the public Overpass server asks commercial use to run its own or a paid server (the setting osm_towers.server, https to a public host). Cody's own build only until counsel rules on mixing OSM with the crowd's cells"),
     "repeaterbook": ("RepeaterBook (repeaters)", "crowd", 336, "Needs a RepeaterBook token, which Your API keys doesn't take (RepeaterBook's policy discourages tools that mix sources)"),
     "sigwiki": ("Signal ID Wiki catalog", "reference", 720, "What a signal could be: ~600 signals, modes, bandwidths"),
     "fss": ("FCC satellite earth stations (C-band)", "fcc", 168, "About 470 protected receive sites, 3.6 to 4.2 GHz, with where each dish points"),
@@ -66,6 +67,18 @@ SOURCES = {
     "usfa_fd": ("USFA fire department registry (DAS AHJ guess)", "reference", 720, "27,117 fire departments and 8,092 stations with addresses, phones and websites, for a DAS job's AHJ guess (US government; about 12 MB; frozen since June 2026)"),
     "permits": ("Building permits and certificates of occupancy", "reference", 168, "New buildings, additions, major alterations and certificates of occupancy from city and county open data, for the Trigger in DAS › Prospects. Only rows since the last pull; each dataset has its own switch, on by default only where its terms are clearly open; limited to the states above"),
 }
+# sources that run only once switched on by themselves, for their terms: Update all leaves them out while they're off, All on
+# doesn't switch them on, and Run now or the desk's Done won't run them off (review 11/10: Update all asked the public
+# Overpass server for every mission tile with osm_towers never switched on)
+SWITCH_ONLY = {"osm_towers"}
+def switch_all(cfg, on):
+    """All on / All off in a saved update.sources: All on never switches on a SWITCH_ONLY source (All off does switch it off)."""
+    for sid in SOURCES:
+        if sid not in SWITCH_ONLY or not on:
+            cfg.setdefault(sid, {})["enabled"] = bool(on)
+    return cfg
+
+
 DEFAULT_ENABLED = {"permits", "usfa_fd", "part_prices", "das_prospects", "spectrum", "uls:cell", "uls:LMpriv", "uls:LMcomm", "uls:LMbcast", "uls:paging", "uls:coast", "asr", "bcast", "nwr", "faa", "sigwiki",
                    "ttn", "satnogs", "wspr", "pskreporter", "psap", "grantee", "fss", "meshtastic", "uls_daily", "fcc_rules", "fcc_boosters"}
 # psap: placed at town centres from the place list the licence import builds; uls_daily: the day's changes go over the
@@ -237,6 +250,10 @@ class Updater:
             if not build.allowed(sid):
                 out[sid]["personal_only"] = build.PERSONAL_ONLY[sid]
         return out
+
+    def update_all_ids(self):
+        """Update all: every source, selected or not, except one that runs only once switched on (SWITCH_ONLY) while it's off."""
+        return [sid for sid, c in self.config().items() if sid not in SWITCH_ONLY or c["enabled"]]
 
     def _states(self):
         return [s for s in re.split(r"[,\s]+", (self.get("update.states", "") or "").upper()) if s]
@@ -446,6 +463,9 @@ class Updater:
         now = lambda: time.strftime("%Y-%m-%d %H:%M")
         if dlstop.stopped():  # stopped while this one waited its turn in the batch
             self._mark(ids, state="skipped", message="not run: downloads are stopped")
+            return
+        if job in SWITCH_ONLY and not (self.config().get(job) or {}).get("enabled"):  # Update all, Run now and the desk's Done alike
+            self._mark(ids, state="skipped", message="off: it runs only once switched on in Data & updates (its terms)")
             return
         self._mark(ids, state="running", message="starting…")
         try:
@@ -724,13 +744,22 @@ class Updater:
                     raise RuntimeError("add your OpenCelliD key in Settings")
                 con = connectors.open_db(self.crowd)
                 try:
-                    r = cells.load_country(con, key, uls_import.DATA_DIR, log=lambda m: self._mark(ids, message=m[:160]))
+                    # OpenCelliD serves each file twice a day: a retry asks only for the ones that didn't come
+                    got = cells.loaded_since(con, 20)
+                    todo = [m for m in cells.US_MCCS if m not in got]
+                    r = cells.load_country(con, key, uls_import.DATA_DIR, mccs=todo, log=lambda m: self._mark(ids, message=m[:160])) if todo else \
+                        {"kept": 0, "read": 0, "files": [], "missing": []}
                 finally:
                     con.close()
-                if not r["files"]:
+                if not r["files"] and not got:
                     raise RuntimeError("no country file came: " + "; ".join(r["missing"])[:260])
+                short = [m for m in cells.COUNTRY_MCCS if m not in set(r["files"]) | got]
+                if short:  # without 310 and 311 it isn't the country file (cells.country_file): tried again in 2 h, not 30 days (review 11/10)
+                    raise RuntimeError(f"MCC {' and '.join(short)} didn't come, so this isn't the whole country file yet (tried again soon; "
+                                       f"the files that came are kept): " + "; ".join(r["missing"])[:200])
                 self._mark(ids, state="ok", last_checked=now(), last_updated=now(), rows=r["kept"],
-                           message=f"{r['kept']:,} cells from MCC {', '.join(r['files'])}" + (f"; not got: {'; '.join(r['missing'])}"[:200] if r["missing"] else ""))
+                           message=(f"{r['kept']:,} cells from MCC {', '.join(r['files'])}" if r["files"] else "the country file came in today already")
+                           + (f"; not got: {'; '.join(r['missing'])}"[:200] if r["missing"] else ""))
             else:
                 import connectors
                 creds = self.get("creds", {}) or {}
@@ -739,7 +768,7 @@ class Updater:
                     self._mark(ids, state="skipped", message="no active mission area", last_checked=now())
                     return
                 con = connectors.open_db(self.crowd)
-                total, queued = 0, 0
+                total, queued, held = 0, 0, []
                 for lat, lon, radius, state in areas:
                     if job == "wigle":
                         if not (creds.get("wigle_name") and creds.get("wigle_token")):
@@ -761,13 +790,31 @@ class Updater:
                         if not creds.get("repeaterbook_token"):
                             raise RuntimeError("no RepeaterBook token: Your API keys doesn't take one (RepeaterBook's policy discourages tools that mix sources)")
                         total += connectors.fetch_repeaterbook(con, lat, lon, radius, creds["repeaterbook_token"], state)
+                    elif job == "osm_towers":  # OpenStreetMap's towers for the tower report (osmtowers.py): a kept tile isn't asked again
+                        import osmtowers
+                        main = sqlite3.connect(self.db, timeout=30)
+                        main.row_factory = sqlite3.Row
+                        try:
+                            srv, why = osmtowers.configured_server(main)  # https to a public host, plain text or JSON (review 11/10)
+                            if why:
+                                raise RuntimeError(f"{why}: nothing was asked")
+                            r = osmtowers.fetch_area(con, lat, lon, radius, con=main, server=srv)  # main: a refusal files its person task
+                        finally:
+                            main.close()
+                        total += r["rows"]
+                        if r["held"]:
+                            held.append(r)
+                            break  # a refusal, a busy server or the day's 100: no more areas this run (the kept tiles stand in)
                     else:  # the no-key open sources; an area fetched recently is skipped (-1), not downloaded again
                         import opensources
                         total += max(0, opensources.fetch(con, job, lat, lon, radius, force=force))
                 con.close()
+                if held:  # a run that stopped part-way isn't done: an error the desk can see (a refusal: a person task), tried again in
+                    # 2 h for the tiles still missing (kept ones aren't asked again). It was "ok" for 90 days with 5 of 6 tiles never fetched (review 11/10)
+                    raise RuntimeError(f"{total:,} points, then {held[0]['stopped']}; the rest is asked again in {self.RETRY_H} h")
                 self._mark(ids, state="ok", message=f"{total:,} points for {len(areas)} area(s)" + (
-                    f"; {queued} area(s) queued for the PC fetcher (WiGLE won't answer the server)" if queued else ""),
-                    last_checked=now(), last_updated=now(), rows=total)
+                    f"; {queued} area(s) queued for the PC fetcher (WiGLE won't answer the server)" if queued else "") + (
+                    f"; {held[0]['stopped']}" if held else ""), last_checked=now(), last_updated=now(), rows=total)
         except dlstop.Stopped:  # Stop all downloads: not a failure, so no quicker retry (state skipped)
             self._mark(ids, state="skipped", message=f"stopped by you {now()}: the data you had is kept", last_checked=now())
         except Exception as e:

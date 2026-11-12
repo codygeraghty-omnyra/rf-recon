@@ -80,7 +80,10 @@ function hRead(e) {
 function hCompass() {
   if (HUNT.listening) {  // a second tap turns it off: stops are then saved without a direction unless one is typed
     removeEventListener("deviceorientationabsolute", hRead); removeEventListener("deviceorientation", hRead);
-    Object.assign(HUNT, {listening: false, mag: null, samples: []}); render(); return;
+    // the button and the heading change where they are; the view isn't drawn again (that made the map again and fitted
+    // it, and scrolled to the top: review 11/11)
+    Object.assign(HUNT, {listening: false, mag: null, samples: []});
+    const b = $("#hn_cmp"); if (b) { b.textContent = "🧭 Use the compass"; b.classList.remove("primary"); } hShowHeading(); return;
   }
   if (typeof DeviceOrientationEvent === "undefined") return hSay("This phone's browser has no compass: type the bearing instead.", true);
   const start = () => {
@@ -219,7 +222,7 @@ const hColor = (p, lv) => { if (p.dbm == null) return "#8c959f";
 function hMap(r) {
   const el = $("#hn_map"); if (!el || typeof L === "undefined") return;
   if (!HUNT.map || HUNT.map.getContainer() !== el) {
-    HUNT.map?.remove();
+    HUNT.map?.remove();  // a new map for this view: fitted below
     HUNT.map = L.map(el, {preferCanvas: true, zoomControl: true, attributionControl: true});
     if (window.rfZoomBar) rfZoomBar(HUNT.map);
     if (window.RFMeasure) RFMeasure.add(HUNT.map);  // the ruler (measure.js)
@@ -246,9 +249,14 @@ function hMap(r) {
     L.marker([r.best.lat, r.best.lon], {icon: pinIcon(), keyboard: false}).bindTooltip("Best guess").addTo(layer); }
   if (HUNT.here) { all.push([HUNT.here.lat, HUNT.here.lon]);
     L.marker([HUNT.here.lat, HUNT.here.lon], {icon: L.divIcon({className: "", html: '<div class="me"></div>', iconSize: [16, 16]}), interactive: false}).addTo(layer); }
-  const fit = () => { map.invalidateSize(); if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.3), {maxZoom: 18, animate: false, padding: [18, 18]});
+  // fitted when the map is new, for a new frequency or a New hunt, and when its first stop or position comes in; never for
+  // another stop saved (Cody 11/10: each one fitted it again). It was fitted once per view, mostly before any stop, and never
+  // again (review 11/11). The mark is kept on the map, and a map replaced before its timer ran is left alone: a shared flag
+  // was used up by a removed map, and the live one stayed grey. Fit stops does it when asked
+  const fit = HUNT.fit = () => { if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.3), {maxZoom: 18, animate: false, padding: [18, 18]});
     else map.setView(S.center || [39.5, -98.35], S.center ? 14 : 4); };
-  setTimeout(fit, 0);
+  const sig = `${HUNT.freq}|${HUNT.tol}|${HUNT.since || ""}|${all.length > 0}`;
+  setTimeout(() => { if (HUNT.map !== map) return; map.invalidateSize(); if (map._hnSig !== sig) { map._hnSig = sig; fit(); } }, 0);
 }
 
 window.viewHunt = async v => {
@@ -276,6 +284,7 @@ window.viewHunt = async v => {
         <p class="hint" id="hn_msg" style="margin:8px 0 0"></p></div>
       <div class="card glass" style="--i:3"><h2>Where it probably is</h2><div id="hn_out"></div>
         <div id="hn_map" style="height:320px;border-radius:16px;margin-top:10px;overflow:hidden"></div>
+        <div class="row" style="margin-top:8px"><button class="btn small" data-act="huntfit" title="Fit the map to the stops, the best guess and you">Fit stops</button></div>
         <p class="hint" style="margin:8px 0 0">Blue: the area from levels. Orange: from directions. Dots: your stops, red strongest. Purple ring: where to stand next.</p></div>
       <div class="card glass" style="--i:4"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Stops on this frequency</h2>
           <button class="btn small" data-act="huntnew" title="Leave the stops so far out of the estimate (they stay in the Field log)">New hunt</button></div>
@@ -304,5 +313,6 @@ document.addEventListener("click", async e => {  // Find a signal's buttons (app
   else if (act === "huntopen") { S.logView = "hunt"; setTab("log"); }
   else if (act === "huntnew") { const was = HUNT.since; HUNT.since = new Date().toISOString(); hSave(); render();
     toast("New hunt: the earlier stops stay in the Field log.", () => { HUNT.since = was; hSave(); render(); }); }
+  else if (act === "huntfit") HUNT.fit?.();
   else if (act === "huntpin") { const b = hResult().r.best; if (b) { setTab("map"); setCenter([b.lat, b.lon]); } }
 });

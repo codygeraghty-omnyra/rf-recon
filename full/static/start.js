@@ -66,6 +66,11 @@ const G = S.start = S.start || {job: null, step: null, draft: {}, disc: {}, took
 // the app redraws the open tab whenever a search lands: a mission's own search can finish while someone's typing here, and a
 // redraw would wipe the form. Start draws for its own changes only (G.sig), and when it's come back to from another tab.
 const redraw = () => { G.sig = null; render(); };
+// another part of the page changed this job (the guide's Run it for me, Looks right, Undo): Start draws it again from a fresh read
+// Never over an open Change the answers form (review round 6: the redraw replaced it, with the answers being typed and the Put it back a
+// Drop had just promised): the form stays, and its Build goes as of the copy it was drawn from, so the server merges what the guide saved
+// meanwhile (a box the person didn't touch keeps the guide's value); the next draw of the step reads the job afresh
+window.startRedraw = id => { if (S.tab !== "start" || G.job == null || String(G.job) !== String(id) || document.getElementById("stForm")) return; redraw(); };
 const fmt = n => Number(n || 0).toLocaleString();
 const say = t => { if (window.dasSay) dasSay(t); else alert(t); };
 const gOf = d => (d && d.guided) || {};
@@ -83,6 +88,10 @@ const NEED_HINT = {
   ahj: "On the report, press \"This one\" beside the department. Or type it on the Overview tab.",
   code: "A call or an email to the fire marshal's office. The Code check lists what to ask and can draft the email. Their name and the date go in it.",
   plan: "The channels the building has to carry. Build it on the Pre-survey tab and save it.",
+  // a fact Run it for me filled in waits on a person's look, not a new pick (codecheck.py hint; review 11/10: the AHJ's pointed to
+  // "This one", which replaces it, and to typing it on the Overview, which changes nothing when it's the same name)
+  ahj_check: "DAStastic picked it. If it's right, press Looks right under the AHJ on the Overview tab, or beside it on the report. If not, type the right one on the Overview.",
+  plan_check: "DAStastic built it. Check it on the Pre-survey tab, then press Looks right in What's next on this job, under Check what it did.",
   profile: "Which AHJ's numbers this job is tested against. Pick them on the Requirements tab.",
   asked: "Each licensee agrees before its channels are boosted. Ask them from the Pre-survey tab.",
   donor: "A reading on the roof for each carrier.",
@@ -105,7 +114,7 @@ async function gateNote(el, j, to, label) {
   const box = el.querySelector("#stGate"), key = `${j.id}|${to}`;
   if (!box || !behind(j, to)) return;
   const draw = needs => { box.innerHTML = needs.length ? `<div class="panel no-print"><h3>Before ${esc(label)}</h3><p class="hint">The job's file still needs these. You can move on without them, with a reason.</p>
-      <ul class="st-needs">${needs.map(n => `<li>${esc(n.text)} <button class="sm" data-need="${esc(n.sub)}">Open</button>${NEED_HINT[n.key] ? `<div class="hint">${esc(NEED_HINT[n.key])}</div>` : ""}</li>`).join("")}</ul></div>` : "";
+      <ul class="st-needs">${needs.map(n => `<li>${esc(n.text)} <button class="sm" data-need="${esc(n.sub)}">Open</button>${NEED_HINT[n.hint || n.key] ? `<div class="hint">${esc(NEED_HINT[n.hint || n.key])}</div>` : ""}</li>`).join("")}</ul></div>` : "";
     box.querySelectorAll("[data-need]").forEach(b => b.onclick = () => openTool(j.id, b.dataset.need)); };
   if ((G.needs || (G.needs = {}))[key]) draw(G.needs[key]);  // a step redraws on every answer: no flicker, and the page doesn't jump
   try { const {needs} = await api(`/api/das/x/gate/${j.id}?to=${encodeURIComponent(to)}`); G.needs[key] = needs; if (box.isConnected) draw(needs); } catch (e) { /* the gate still asks at Next */ }
@@ -145,7 +154,8 @@ const stepClear = (j, id) => !!(stand(j).clear || {})[id];
 window.startChecks = d => { const g = gridRead(d), left = walkLeft(d).length;
   return [["discovery", "The Discovery report is done", !!gOf(d).discovery, "", "overview"], ["walk", "The building walk is answered", !left, left ? `${left} of ${WALK_KEYS.length} left` : "", "overview"],
     ["grid", "The grid test has readings", g.squares > 0, g.squares ? `${g.squares} squares` : "", "grid"], ...designChecks(d)]; };
-window.startParts = {walkLeft, gridRead, gridFails, designChecks, stepDone};  // the sweep holds the server's answer to these
+window.startParts = {walkLeft, gridRead, gridFails, designChecks, stepDone};
+window.startFloorWork = (d, x) => floorWork(d, x);  // what taking a floor off would lose (the Overview's floor count asks with it)  // the sweep holds the server's answer to these
 
 /* ---------- saving ---------- */
 async function saveJob(j, patch) {
@@ -161,7 +171,9 @@ function field(q, val, all) {
   const id = `st_${q.k}`, opts = typeof q.opts === "function" ? q.opts() : q.opts;
   let ctl;
   // a choice is its value, with Start's plainer words where it has them ([value, label]: the loss presets)
-  if (opts) ctl = `<select id="${id}" data-q="${q.k}"><option value="">Choose…</option>${opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o];
+  // a value on the job that isn't one of the choices (typed on the Overview) stays one, or Build would save the box's blank over it
+  const list = opts && val && !opts.some(o => (Array.isArray(o) ? o[0] : o) === val) ? [val, ...opts] : opts;
+  if (opts) ctl = `<select id="${id}" data-q="${q.k}"><option value="">Choose…</option>${list.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o];
     return `<option value="${esc(v)}" ${v === val ? "selected" : ""}>${esc(l)}</option>`; }).join("")}</select>`;
   else ctl = `<input id="${id}" data-q="${q.k}" ${q.type === "address" ? 'data-k="address" autocomplete="off"' : ""} type="${q.type === "number" ? "number" : "text"}" value="${esc(val ?? "")}">`;
   const ex = q.exact ? `<div class="st-exact" data-for="${q.exact}" ${RANGE.test(val || "") ? "" : "hidden"}><label for="st_${q.exact}">${esc(q.ask)} <span class="st-range">${val ? `It said ${esc(val)}.` : ""}</span></label>
@@ -175,6 +187,57 @@ function floorsFrom(a) {
   if (!up || down == null) return null;
   const below = Math.min(down, 20), above = Math.min(up, 200);
   return [...Array.from({length: below}, (_, i) => `B${below - i}`), ...Array.from({length: above}, (_, i) => String(i + 1))].map(name => ({name, grids: DAS.grids}));
+}
+// Start and the job's floor list (11/9: two floors corrected in Start never reached the job; reviews 11/10). The list the answers make,
+// with every floor already there kept as it is (both, where one name is on it twice), the new ones in their place. Only the floors the
+// answers drop are judged: one with work or settings on it (readings, a re-divided grid, the walk test, Design's work, the submittal's
+// settings, a plan, skipped or critical squares, its own grid or grid box, a name someone gave it) holds the list, and the form names it
+// with a button to drop it. By itself Start writes only into an empty list, or when the floor answers have just changed and the list is
+// the one Start's last write made (guided.floors_made; on a job from before that, the one its saved answers make). Otherwise it offers
+const FLOOR_Q = ["floors_up", "floors_up_n", "floors_down", "floors_down_n"];
+const floorAnswers = a => Object.fromEntries(FLOOR_Q.map(k => [k, a[k] ?? ""]));
+// what dropping a floor would lose, in words: none, nothing
+function floorWork(d, x) {
+  if (!x) return [];
+  const name = x.name, here = o => Object.keys(o || {}).some(k => String(k).split("|")[0] === name), out = [];
+  const v = ((d.design || {}).floors || {})[name], sub = (((d.design || {}).sub || {}).floors || {})[name];
+  if (!/^(B\d+|\d+)$/.test(String(name))) out.push("a name someone gave it");
+  if (here((d.grid || {}).results)) out.push("grid readings");
+  if (here((d.baseline || {}).results)) out.push("baseline readings");
+  if (Object.keys((d.grid || {}).redivided || {}).includes(name)) out.push("a re-divided grid");
+  if (((d.walk || {}).floors || []).some(w => w && w.name === name)) out.push("the walk test");
+  if (v && ((v.antennas || []).length || (v.walls || []).length || v.width_ft != null)) out.push("Design work");
+  if (sub != null && sub !== "" && !(typeof sub === "object" && !Object.keys(sub).length)) out.push("the submittal's settings");
+  if (x.plan || x.plan_src) out.push("a plan");
+  if ((x.skip || []).length) out.push("skipped squares");
+  if ((x.critical || []).length) out.push("critical squares");
+  if (x.grids !== DAS.grids || x.cols != null) out.push("its own grid");
+  if (x.gridbox) out.push("a grid box");
+  if (Object.keys(x).some(k => !["name", "grids", "start", "cols", "plan", "plan_src", "skip", "critical", "gridbox"].includes(k))) out.push("settings");
+  return out;
+}
+const sameNames = (f, g) => f.length === g.length && f.every((x, i) => x && g[i] && x.name === g[i].name);
+// the list Start's last write made: what it recorded, or on a job from before that, what its saved answers make
+const startMade = d => Array.isArray(gOf(d).floors_made) ? gOf(d).floors_made.map(name => ({name})) : floorsFrom(gOf(d).answers || {});
+// two sets of floor answers make the same floors (or neither makes any yet): answers are judged by the floors they make, not their words
+const sameMade = (x, y) => { const f = floorsFrom(x || {}), g = floorsFrom(y || {}); return !f || !g ? !f === !g : sameNames(f, g); };
+// what a save does with the floors: write (by itself), offer (a person presses), held (a floor to drop has work on it), or none.
+// from: the floor answers the form was drawn with. "Just changed" means this form changed them, and when the job's saved answers aren't
+// those any more, someone changed them since (since): Start writes nothing by itself and says so (review 11/11: a form drawn before
+// another person's change judged its own untouched answers against theirs as "just changed", and wrote its old list back over theirs)
+function floorsPlan(a, d, from) {
+  d = d || {}; const fl = floorsFrom(a); if (!fl) return {act: "none"};
+  const since = !!from && !sameMade(gOf(d).answers, from);
+  const cur = Array.isArray(d.floors) ? d.floors : [], made = fl.map(x => ({...x, start: true}));
+  if (!cur.length) return {act: since ? "offer" : "write", fl: made, since};
+  const want = new Set(fl.map(x => x.name)), have = new Set(cur.map(x => x && x.name));
+  const gone = cur.filter(x => x && !want.has(x.name)), adds = fl.filter(x => !have.has(x.name));
+  if (!gone.length && !adds.length) return {act: "none"};  // these floors are all there (in another order, or one name twice): nothing to do
+  const list = made.flatMap(x => { const on = cur.filter(y => y && y.name === x.name); return on.length ? on : [x]; });
+  const held = gone.map(x => ({name: x.name, what: floorWork(d, x)})).filter(x => x.what.length);
+  if (held.length) return {act: "held", fl: list, held, since};
+  const was = floorsFrom(from || gOf(d).answers || {}), changed = !was || !sameNames(fl, was), mine = startMade(d);
+  return {act: !since && changed && mine && sameNames(cur, mine) ? "write" : "offer", fl: list, since};
 }
 const floorsSaid = (pick, exact) => RANGE.test(pick || "") && +exact >= 1 ? String(Math.round(+exact)) : pick;
 const buildingAnswers = el => Object.fromEntries([...el.querySelectorAll("[data-q]")].map(x => [x.dataset.q, x.value.trim()]));
@@ -207,6 +270,105 @@ function wireForm(v, j) {
   // a range opens its one question; another pick takes it away, with the number given for the old range
   form.querySelectorAll("select[data-q]").forEach(s => s.addEventListener("change", () => { const box = form.querySelector(`.st-exact[data-for="${s.dataset.q}_n"]`); if (!box) return;
     const r = RANGE.test(s.value); box.hidden = !r; box.querySelector(".st-range").textContent = r ? `It said ${s.value}.` : ""; box.querySelector("input").value = ""; }));
+  // the floors (floorsPlan), judged on the job as the server has it now (peek: a read that leaves this page's revision alone, so its
+  // saves still go as of the copy the form was drawn from, j, and a change someone else made since is merged or asked about, never
+  // overwritten: review 11/10). On a job already made they go to it as soon as they're answered (11/9); opening only says what it would do.
+  // from: the floor answers this form was drawn with, moved on by its own floor writes: a change judged against them is this form's own,
+  // and saved answers that aren't them any more are someone else's (review 11/11)
+  const peek = async () => j ? await api(`/api/das/jobs/${j.id}`, {dasRaw: true}).catch(() => j) : null;
+  const floorsOf = x => Array.isArray(((x || {}).data || {}).floors) ? x.data.floors : [];
+  let from = j ? floorAnswers(gOf(j.data).answers || {}) : null, dropped = null;
+  // Start's own floor writes, judged again on the job as it is now and saved as of that copy (dasrev.js dasJobPatch), with the floor
+  // answers that made them and the names Start made (review 11/10: saved as of the form's older copy, a floor added after someone else
+  // had changed the list went to the end of it). ok(fp): the judgement now still allows it. The form's other answers go with Build
+  // Start's floor writes are floor operations the server works out on the job as it is (dasrev.js dasFloorOps, dasfloors.py; review
+  // round 6: six rounds of writing the whole list from a copy that could be old). What Start decides (write by itself, offer, held)
+  // is still judged here on the job as read inside the save queue; the server takes a floor off only while nothing on it would go unseen
+  // (work on it, or a change since that read), and a refusal comes back as the held note with what is on it now
+  const floorOps = fn => window.dasFloorOps(j.id, fn);
+  const counts = a => { const fl = floorsFrom(a) || [], up = fl.filter(x => /^\d+$/.test(x.name)).length; return {fl, up, down: fl.length - up}; };
+  const heldOf = (refused, fp) => ({act: "held", fl: (fp && fp.fl) || [], since: !!(fp && fp.since), held: refused.map(r => ({name: r.name, what: r.what}))});
+  const putFloors = async (ok, again = 1) => {
+    let fp = null, wrote = null, back = [];
+    const r = await floorOps(cur => { const a = buildingAnswers(form); fp = floorsPlan(a, cur.data, from); if (!ok(fp)) return false; wrote = floorAnswers(a);
+      const c = counts(a), want = new Set(c.fl.map(x => x.name)), have = new Set(floorsOf(cur).map(x => x && x.name));
+      // a floor dropped here that these answers bring back comes back as it was, plan, skips and all, not as a blank one (review round 5)
+      back = dropped ? dropped.floors.filter(f => want.has(f.x.name) && !have.has(f.x.name)) : [];
+      return {ops: [...back.map(f => ({op: "put_back", floor: f.x, after: f.prev, before: f.next})),
+        {op: "set_count", above: c.up, below: c.down, start: true, if_unchanged_since: cur.rev}, {op: "start_answers", answers: wrote}]}; });
+    // a floor added or changed since the read, with nothing on it (review round 7: the held note read "Floor 4 has , and these answers
+    // drop it", and its Drop did nothing): judged again on the job the refusal came with
+    if (r.refused && again > 0 && r.refused.every(x => !(x.what || []).length)) return putFloors(ok, again - 1);
+    if (r.refused) return {job: r.job, fp: heldOf(r.refused, fp)};
+    // the Put it back stays for the floors still off (review round 5: any floor write here cleared it, a moment after the confirm promised it)
+    if (wrote) { from = wrote; if (dropped) { const names = back.map(f => f.x.name), rest = dropped.floors.filter(f => !names.includes(f.x.name)); dropped = rest.length ? {...dropped, floors: rest} : null; } }
+    return {job: r.job, fp: wrote ? {act: "none"} : fp};
+  };
+  // Drop floor X: exactly the floors the note named come off the list as it is now, and only while each has just what the confirm said
+  // (review 11/11: it saved the answers' whole list, so floors nobody named went or came too, and work saved on a named floor since went
+  // unmentioned): judged here on the job as read in the queue, and by the server on the job as it is (remove, with what was shown as
+  // confirm). Every other difference stays the offer's. The answers go with it when what's left is the answers' own list. Put it back
+  // puts exactly those floors back beside the floors they followed, and the answers where they are still what the drop left
+  const dropFloors = async held => {
+    const said = JSON.stringify(held), gone = new Set(held.map(x => x.name)); let out = null;
+    const r = await floorOps(cur => { const d = cur.data || {}, a = buildingAnswers(form), list = floorsOf(cur), fp = floorsPlan(a, d, from);
+      if (fp.act !== "held" || JSON.stringify(fp.held) !== said) return false;
+      const keep = list.filter(x => !(x && gone.has(x.name))), g = gOf(d), mine = startMade(d), now = floorAnswers(g.answers || {});
+      const whole = !fp.since && floorsPlan(a, {...d, floors: keep}, from).act === "none", made = whole || (mine && sameNames(list, mine));
+      const ops = list.filter(x => x && gone.has(x.name)).map(x => ({op: "remove", name: x.name, if_unchanged_since: cur.rev, confirm: floorWork(d, x)}));
+      if (made) ops.push({op: "start_answers", ...(whole ? {answers: floorAnswers(a)} : {})});
+      // each floor with the floors either side of it, so Put it back puts it where it was even when floors came or went since (round 5)
+      out = {floors: list.map((x, i) => ({x, i, prev: (list[i - 1] || {}).name, next: (list[i + 1] || {}).name})).filter(o => o.x && gone.has(o.x.name)), from,
+        guided: made ? {answers: whole ? now : null, wrote: whole ? floorAnswers(a) : now} : null};
+      return {ops}; });
+    if (r.refused) out = null;
+    // a second Drop adds its floors; what Put it back goes back to is the first drop's, compared with what the newest left (round 6:
+    // putting back two drops restored the answers between them)
+    if (out) { dropped = dropped ? {floors: [...dropped.floors, ...out.floors], from: dropped.from, guided: dropped.guided ? {...dropped.guided, wrote: (out.guided || dropped.guided).wrote} : out.guided} : out;
+      if (out.guided && out.guided.answers) from = floorAnswers(buildingAnswers(form)); }
+    return floorsNow(true, r.job);  // what's left of the change is offered, not written straight away, so the Put it back stays on screen
+  };
+  const putBack = async () => {
+    const o = dropped; if (!o) return;
+    const ops = o.floors.map(f => ({op: "put_back", floor: f.x, after: f.prev, before: f.next}));
+    if (o.guided) ops.push({op: "start_answers", ...(o.guided.answers ? {answers: o.guided.answers} : {}), if_answers: o.guided.wrote});
+    const r = await floorOps(() => ({ops}));
+    const res = r.results || [], back = res.some(x => ops[x.op] && ops[x.op].op === "put_back" && x.done);
+    // the form's starting answers go back only when the job's did (review round 6: they went back though the answers hadn't, and the
+    // form then said someone else had changed them)
+    if (o.guided && o.guided.answers && res.some(x => ops[x.op] && ops[x.op].op === "start_answers" && x.done)) from = o.from;
+    dropped = null;
+    if (!back) say(`Floor ${words(o.floors.map(f => f.x.name))} is on the job already.`);
+    return floorsNow(true, r.job);
+  };
+  const note = (() => { const q = form.querySelector('.st-q[data-for="floors_down"]'); if (!q) return null;
+    const p = document.createElement("p"); p.className = "hint"; p.id = "stFloorNote"; p.hidden = true; q.after(p); return p; })();
+  const words = xs => xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs[0] || "";
+  const sayFloors = (fp, cur) => { if (!note) return; note.hidden = !["held", "offer"].includes(fp.act) && !dropped;
+    const names = (fp.held || []).map(x => x.name), one = names.length === 1, what = [...new Set((fp.held || []).flatMap(x => x.what))];
+    const off = dropped ? dropped.floors.map(f => f.x.name) : [];
+    note.innerHTML = (off.length ? `${off.length === 1 ? "Floor" : "Floors"} ${esc(words(off))} came off the job. <button class="sm" id="stPutBack">Put ${off.length === 1 ? "it" : "them"} back</button> ` : "")
+      + (["held", "offer"].includes(fp.act) && fp.since ? "Someone changed the job's floor answers since this form opened, so Start changes the floors only when you press. " : "")
+      + (fp.act === "held" ? `${one ? "Floor" : "Floors"} ${esc(words(names))} ${what.length ? `${one ? "has" : "have"} ${esc(words(what))}` : `${one ? "was" : "were"} added or changed since`}, and these answers drop ${one ? "it" : "them"}. Start leaves the job's floors as they are. <button class="sm" id="stDropFloors">Drop ${one ? "floor" : "floors"} ${esc(words(names))}</button>`
+      : fp.act === "offer" ? `The job's floors (${esc(cur.map(x => x.name).join(", ") || "none")}) don't match these answers (${esc(fp.fl.map(x => x.name).join(", "))}). <button class="sm" id="stUseFloors">Use these floors</button>` : "");
+    // every button drawn gets its press here: a re-check draws a new one (review 11/10: the redrawn button had no handler)
+    const use = note.querySelector("#stUseFloors"), drop = note.querySelector("#stDropFloors"), again = note.querySelector("#stPutBack");
+    if (use) use.onclick = () => press(f => ["offer", "write"].includes(f.act) && sameNames(f.fl, fp.fl));
+    const work = what.filter(w => w !== "a name someone gave it");  // a name isn't something on the floor
+    if (drop) drop.onclick = () => { if (!confirm(`Drop ${one ? "floor" : "floors"} ${words(names)} from the job?${work.length ? ` What's on ${one ? "it" : "them"} (${words(work)}) leaves the report.` : ""} Put ${one ? "it" : "them"} back, here, undoes it.`)) return;
+      return act(() => dropFloors(fp.held)); };
+    if (again) again.onclick = () => act(putBack);
+  };
+  const act = async f => { try { await f(); } catch (e) { say("Not saved: " + e.message); } };
+  // a press is judged again on the job as it is then: when that has changed, the form says what it would do now
+  const press = async ok => act(async () => { const r = await putFloors(ok); sayFloors(r.fp, floorsOf(r.job)); });
+  const floorsNow = async (opening, got) => {
+    if (!j) return;
+    const now = got || await peek();
+    let fp = floorsPlan(buildingAnswers(form), now.data, from); if (opening && fp.act === "write") fp = {...fp, act: "offer"};
+    if (fp.act === "write") return press(f => f.act === "write");
+    sayFloors(fp, floorsOf(now)); };
+  if (j) { form.querySelectorAll(FLOOR_Q.map(k => `[data-q="${k}"]`).join(",")).forEach(x => x.addEventListener("change", () => floorsNow(false))); floorsNow(true); }
   v.querySelector("#stGo").onclick = async () => {
     const a = buildingAnswers(form), msg = v.querySelector("#stLeft");
     G.draft = {...G.draft, ...a}; msg.hidden = true;
@@ -216,12 +378,18 @@ function wireForm(v, j) {
       const data = {client: a.client, address: (place && place.full) || a.address, lat: place ? place.lat : keep ? j.data.lat : null, lon: place ? place.lon : keep ? j.data.lon : null,
         area_sqft: a.area ? +a.area : null, construction: a.construction, building_type: a.building_type};
       const rough = place && place.rough ? {at: place.rough, lat: place.lat, lon: place.lon} : null;
-      // the floors Start asked about fill an empty floor list, so the Grid test opens on them (UX review 11/8 #5). A list already
-      // there is the job's own: never written over from here
-      const fl = floorsFrom(a);
-      if (fl && !(j && Array.isArray(j.data.floors) && j.data.floors.length)) data.floors = fl;
-      if (j) data.guided = guidedPatch(j.data, {answers: {...(gOf(j.data).answers || {}), ...a}, discovery: null, rough});
-      else { data.guided = {answers: a, rough}; for (const k of Object.keys(data)) if (data[k] == null || data[k] === "") delete data[k]; }
+      // the floors Start asked about fill the floor list, so the Grid test opens on them (UX review 11/8 #5; floorsPlan says when). On a
+      // job already made they go on their own, as of the copy they're judged on; the rest of the form goes as of the form's copy, j, on
+      // the job's answers as they are now, so the floors Start just recorded stay
+      let base = j;
+      if (j) base = (await putFloors(f => f.act === "write")).job;
+      else { const fp = floorsPlan(a, null); if (fp.act === "write") data.floors = fp.fl; }
+      // the answers on the job as they are now, with the ones this form changed: a floor answer it didn't change isn't written back over
+      // one someone changed since (review 11/11)
+      const own = Object.fromEntries(Object.entries(a).filter(([k, x]) => !FLOOR_Q.includes(k) || x !== ((from || {})[k] ?? "")));
+      if (j) data.guided = guidedPatch(base.data, {answers: {...(gOf(base.data).answers || {}), ...own}, discovery: null, rough});
+      else { data.guided = {answers: a, rough, floors_made: data.floors ? data.floors.map(x => x.name) : undefined};
+        for (const k of Object.keys(data)) if (data[k] == null || data[k] === "") delete data[k]; }
       const name = a.client || (j ? j.name : data.address || `New job ${today()}`);
       const saved = j ? await post(`/api/das/jobs/${j.id}`, {name, data, rev: j.rev}) : await post("/api/das/jobs", {name, stage: "Lead", data});
       G.job = saved.id; G.draft = {}; G.took = null; G.step = "discovery"; G.disc[saved.id] = null;
@@ -345,7 +513,8 @@ function discoveryHtml(j, R) {
     ${lawLine(R)}
     ${rows.some(r => r[1]) ? `<div class="kvg">${rows.filter(r => r[1]).map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v)}</div>`).join("")}</div>` : ""}
     <h4>Who decides</h4><p class="st-auth">The AHJ, usually the fire marshal, has final authority over this building. What's in the code they have to enforce, and they can require more.</p>
-    ${suggest.length ? `<table><thead><tr><th>Most likely AHJ</th><th>Phone</th><th>Why</th><th class="no-print"></th></tr></thead><tbody>${suggest.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.phone || "")}</td><td>${esc(x.why || "")}</td><td class="no-print"><button class="sm" data-ahj="${esc(x.name)}" ${d.ahj === x.name ? "disabled" : ""}>${d.ahj === x.name ? "Picked" : "This one"}</button></td></tr>`).join("")}</tbody></table>`
+    ${suggest.length ? `<table><thead><tr><th>Most likely AHJ</th><th>Phone</th><th>Why</th><th class="no-print"></th></tr></thead><tbody>${suggest.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.phone || "")}</td><td>${esc(x.why || "")}</td><td class="no-print">${(() => { const mine = d.ahj === x.name, guess = mine && ((d.auto || {}).open || []).includes("ahj");  // Run it for me's pick waits on a person (review 11/10)
+      return `<button class="sm${guess ? " primary" : ""}" data-ahj="${esc(x.name)}" ${guess ? 'data-guess="1"' : ""} ${mine && !guess ? "disabled" : ""}>${guess ? "Looks right" : mine ? "Picked" : "This one"}</button>`; })()}</td></tr>`).join("")}</tbody></table>`
       : `<p class="hint">${esc(R.ahj.error || "No department list on this copy. Ask the city or county for the fire marshal's office.")}</p>`}
     ${ps && !R.noPin ? `<h4>Public safety radio</h4>${bands.length ? `<p>In play here: <b>${esc(bands.join(", "))}</b>.</p>` : ""}
       ${R.lead.length ? `<table><thead><tr><th>System</th><th>Call sign</th><th>Band</th><th>Technology</th><th>Inside (estimate)</th></tr></thead><tbody>${R.lead.map(s => {
@@ -385,13 +554,20 @@ async function stepDiscovery(el, j) {
   el.querySelector("#stNext").onclick = () => goStep(j, "survey");
   // a person picks the AHJ: a guess filled in by itself would clear the gate without anyone deciding
   el.querySelectorAll("[data-ahj]").forEach(b => b.onclick = async () => { const x = (R.ahj.suggestions || []).find(s => s.name === b.dataset.ahj) || {name: b.dataset.ahj};
+    // Run it for me's pick, looked at: confirmed as it is, its contact untouched (review 11/10: re-picking replaced a contact a person chose)
+    if (b.dataset.guess) { b.disabled = true; try { await window.dasAutoOk(j, "ahj"); redraw(); } catch (e) { b.disabled = false; say("Not saved: " + e.message); } return; }
     let c = null; try { c = await window.dasAhjContact?.(x); } catch (e) { /* the name still saves: the contact can go on the Overview */ }
-    const got = await saveJob(j, {ahj: x.name, ...(c ? {contacts: {...(j.data.contacts || {}), ahj: c.id}} : {})}); if (got) redraw(); });
+    const got = await saveJob(j, {ahj: x.name, ...(c ? {contacts: {...(j.data.contacts || {}), ahj: c.id}} : {})});
+    if (got && got.data.ahj === x.name) await window.dasAutoMine?.(got, "ahj", x.name, {also: c ? ["contacts.ahj"] : []}).catch(() => null);  // a person's own pick: no guess left, no Undo to erase it
+    if (got) redraw(); });
   gateNote(el, j, "Pre-survey", "Survey");
   window.rfMail?.jobAll(document.getElementById("stMail"), j);  // here, not with the other steps: the save above names the main system
 }
 function editBuilding(el, j) {
-  const ans = gOf(j.data).answers || {}, a = {...ans, address: j.data.address || "", building_type: ans.building_type || j.data.building_type || ""};  // a type set on the Overview shows here
+  // what's on the job shows here (a type set on the Overview, the floor area Run it for me filled in): Build saves these boxes, so a
+  // blank answer over a value on the job cleared it (review 11/11: Change the answers, then Build, cleared Run it for me's 45,000 sq ft)
+  const ans = gOf(j.data).answers || {}, d = j.data || {}, on = k => d[k] != null && d[k] !== "" ? String(d[k]) : "";
+  const a = {...ans, address: d.address || "", ...Object.fromEntries(BUILDING.filter(q => q.to && q.k !== "address" && on(q.to)).map(q => [q.k, on(q.to)]))};
   el.innerHTML = `<div class="panel"><h3>The building</h3>${FORM_NOTE}<div class="st-form" id="stForm">${BUILDING.map(q => field(q, a[q.k], a)).join("")}</div>
     <p class="status err" id="stLeft" hidden></p><div class="st-next"><button class="primary" id="stGo">Build the Discovery report</button></div></div>`;
   wireForm(el, j);

@@ -59,11 +59,14 @@ const dxPasses = d => { const isB = (d.booster_class || "Class A (channelized)")
 async function dxSetConsent(j, row, patch){
   return post(`/api/das/x/consent/${j.id}`, { key: row.key, licensee: row.licensee, calls: row.calls, ...patch });
 }
-// a consent email sent from the job marks that licensee "asked" (never downgrades a "given")
+// a consent email sent from the job marks that licensee "asked" (never downgrades a "given"): the server checks that on the job as it is
+// at the save (only_if_unasked; review round 5: the check here was on the copy the email list was drawn from, so a "given" marked since
+// on the board's Needs you went back to "asked" and lost its date)
+// The check is the server's alone, on the record as it is (review round 6: one here on the copy the button was drawn from skipped the
+// record when the licensee had been set back to "not asked" since, so the email went and nothing said it was asked)
 window.dasConsentSent = async (j, lic, ss) => {
-  const k = dxKey(lic), cur = ((j.data || {}).consents || {})[k];
-  if(cur && ["given", "refused", "not needed"].includes(cur.status)) return;
-  try{ await dxSetConsent(j, { key: k, licensee: lic, calls: ss.map(s => s.call_sign) }, { status: "asked", date: today() }); }
+  const k = dxKey(lic);
+  try{ await dxSetConsent(j, { key: k, licensee: lic, calls: ss.map(s => s.call_sign) }, { status: "asked", date: today(), only_if_unasked: true }); }
   catch(e){ dasSay("Consent status not saved: " + e.message); }
 };
 /* ---------- the job's one list of emails (dasmail.js jobAll): who still has to be asked, in the letters' own words ---------- */
@@ -104,7 +107,7 @@ window.dasJobMailRows = async (j, r) => {
       const car = carrierName(c), ap = cell.approvals[car] || {}, m = window.dasCellConsentMail(j, car);
       if(ap.asked || ap.consent || sent.has(`J${j.id} CONSENT ${(m.refs.extra || "").toUpperCase()}`)) continue;
       add({ ...m, key: `carrier:${j.id}:${m.refs.extra}`, to_name: car, want_file: "consent", blocked: m.to ? "" : `No consent address on file for ${car}. Type the one they gave you.`, why: `${car} hasn't been asked for its consent (47 CFR 20.21(c))`,
-        after: async () => { cell.approvals[car] = { ...(cell.approvals[car] || {}), asked: today() }; await post(`/api/das/jobs/${j.id}`, { data: { cellular: cell } }); } });
+        after: () => dxCarrierPatch(j.id, car, { asked: today() }) });
     }
   }
   // one press reaches every licensee on the list, so the Pre-survey's warning about these addresses comes with it
@@ -113,6 +116,18 @@ window.dasJobMailRows = async (j, r) => {
   return { rows, note: scope.ps && !plan.length && j.stage !== "Lead" ? "Licensee consent requests join this list once the channel plan is saved."
     : fcc ? "Licensee addresses come from each licence's FCC record. That's often a radio shop or a consultant, not the agency: check them before you press." : "" };
 };
+
+// one carrier's approval keys, set on the job as it is now (dasrev.js dasJobPatch: read without moving this page's revision, saved as
+// of that copy). Review 11/11: the consent send posted the whole cellular section from the copy its list was drawn from, so it erased a
+// consent date marked a moment before on the same list, or an earlier send's asked date, or another person's donor reading; and Mark
+// given read the job through api(), which moved the page's revision, so the next save from that view overwrote others' changes unasked
+async function dxCarrierPatch(jid, car, keys){
+  const fn = cur => { const C = ((cur.data || {}).cellular) || {}, A = C.approvals || {};
+    return { cellular: { ...C, approvals: { ...A, [car]: { ...(A[car] || {}), ...keys } } } }; };
+  if(window.dasJobPatch) return window.dasJobPatch(jid, fn);
+  const cur = await api(`/api/das/jobs/${jid}`, { dasRaw: true });
+  return post(`/api/das/jobs/${jid}`, { data: fn(cur), rev: cur.rev });
+}
 
 // the AHJ's contact, found or made, so an email to the AHJ has somewhere to go: Use as AHJ, This one and Run it for me all land here
 window.dasAhjContact = async x => {
@@ -169,12 +184,19 @@ async function dxPassband(el, j, r, chosen){
     <p class="hint">${esc(pb.source)}: base and fixed stations within ${num(pb.area?.radius_mi, 0)} mi whose frequencies fall inside a passband (downlink and uplink each from the lowest to the highest planned channel). A chosen system's licensee includes its other licences in the span. Contacts are each licence's own FCC record: often a consulting engineer or a radio shop, not the agency.</p>`;
   const sysFor = x => x.chosen ? (chosen || []).filter(s => dxKey(s.licensee) === x.key) : dxSys(x);
   $("#pxAll").onchange = e => { S.das.pxAll = e.target.checked; dxPassband(el, j, r, chosen); };
+  // a refused change: the table drawn again from the job as it is (a read, not a redraw of the page)
+  const afresh = async () => { try{ j = await api(`/api/das/jobs/${j.id}`, { dasRaw: true }); }catch(e){ /* the table stays as it was */ } if(el.isConnected) dxPassband(el, j, r, chosen); };
   el.querySelectorAll("[data-pxc]").forEach(s => s.onchange = async () => { const x = rows[+s.dataset.pxc], dt = el.querySelector(`[data-pxd="${s.dataset.pxc}"]`);
     if(["asked", "given", "refused"].includes(s.value) && !dt.value) dt.value = today();
-    try{ j = await dxSetConsent(j, x, { status: s.value, date: dt.value }); dxPassband(el, j, r, chosen); dxConsentAll(j, need.map(n => n.key === x.key ? { ...n, consent: { status: s.value } } : n)); }
-    catch(e){ dasSay("Not saved: " + e.message); } });
+    // the row holds what this saved at once, so the next edit on it, before the table is drawn again, says it was typed against that
+    // (review round 7: it sent the old status, and the person's own change was refused as someone else's)
+    try{ j = await dxSetConsent(j, x, { status: s.value, date: dt.value, was: x.consent.status }); x.consent = { ...x.consent, status: s.value, date: dt.value }; dxPassband(el, j, r, chosen); dxConsentAll(j, need.map(n => n.key === x.key ? { ...n, consent: { status: s.value } } : n)); }
+    catch(e){ dasSay("Not saved: " + e.message); afresh(); } });
   el.querySelectorAll("[data-pxd]").forEach(i => i.onchange = async () => { const x = rows[+i.dataset.pxd];
-    try{ j = await dxSetConsent(j, x, { status: x.consent.status, date: i.value }); }catch(e){ dasSay("Not saved: " + e.message); } });
+    // the date only: the server keeps the status the job has now (review round 5: this sent the status the table was drawn with, and
+    // put an "asked" back over a "given" saved since)
+    // with the status it was typed against: one saved since (Mark given) stays, and the table is drawn again to show it (round 6)
+    try{ j = await dxSetConsent(j, x, { date: i.value, was: x.consent.status }); x.consent = { ...x.consent, date: i.value }; }catch(e){ dasSay("Not saved: " + e.message); afresh(); } });
   el.querySelectorAll("[data-pxl]").forEach(b => b.onclick = () => dasConsent(j, sysFor(rows[+b.dataset.pxl])));
   el.querySelectorAll("[data-pxm]").forEach(b => b.onclick = () => { const x = rows[+b.dataset.pxm], ss = sysFor(x), a = dxAddr(x.calls);
     rfMail.compose(el.querySelector(`[data-pxbox="${b.dataset.pxm}"]`), { kind: "job", refs: { job_id: j.id, topic: "CONSENT", extra: ss[0]?.call_sign || x.calls[0] },
@@ -209,8 +231,7 @@ async function dxMark(jid, r, how){  // saves, then says what's left to offer on
     return null;
   }
   if(r.kind === "carrier"){  // the Pre-survey's carrier table: a consent date on the carrier's row
-    const C = (await api(`/api/das/jobs/${jid}`)).data.cellular || {}, all = C.approvals || {};
-    await post(`/api/das/jobs/${jid}`, { data: { cellular: { ...C, approvals: { ...all, [r.carrier]: { ...(all[r.carrier] || {}), consent: r.date } } } } });
+    await dxCarrierPatch(jid, r.carrier, { consent: r.date });
     return null;
   }
   const pb = await api(`/api/das/x/passband/${jid}`).catch(() => ({ licensees: [] }));
@@ -524,11 +545,18 @@ const dxBcast = B => {
 /* ---------- AHJ guess (Overview) ---------- */
 window.dasAhjGuess = (el, j, save) => {
   const d = j.data || {}, G = d.ahj_guess;
+  // Run it for me filled the AHJ and nobody has looked: the job's record reads "not on file" until a person says so
+  // (nextstep.py R1.c). On 11/9 the only way to say so was Looks right in the guide's "Check what it did", so it sits here too
+  const chosen = !!(d.ahj && ((d.auto || {}).open || []).includes("ahj") && window.dasAutoOk);
+  const decide = async () => { j = el._ahjJob = await window.dasAutoOk(j, "ahj"); return j; };
+  el._ahjJob = j;  // the latest copy, for the AHJ field's listener below (wired once, while this box redraws itself)
   const card = (x, i) => `<div style="border-top:1px solid var(--line);padding:5px 0"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
       <span><b>${esc(x.name)}</b>${x.phone ? ` · ${esc(x.phone)}` : ""}${x.website ? ` · <a href="${esc(/^https?:/i.test(x.website) ? x.website : "https://" + x.website)}" target="_blank" rel="noopener">website</a>` : ""}
         <div class="hint">${esc(x.hq)}${x.dept_type ? ` · ${esc(x.dept_type)}` : ""}${x.stations ? ` · ${x.stations} station${x.stations === 1 ? "" : "s"}` : ""}</div><div class="hint">${esc(x.why.join("; "))}</div></span>
       <button class="sm" data-ahj="${i}">Use as AHJ</button></div></div>`;
-  el.innerHTML = `<div class="row" style="gap:8px;align-items:center;margin-top:6px"><button id="ahjGo" title="Fire departments covering this address, from the USFA National Fire Department Registry and the Census place the building is in">Suggest the AHJ (USFA fire department list)</button><span class="hint" id="ahjMsg"></span></div>
+  el.innerHTML = `${chosen ? `<div class="row" id="ahjOk" data-job="${esc(String(j.id))}" style="gap:8px;align-items:center;margin-top:6px"><span>DAStastic filled in <b>${esc(d.ahj)}</b> for you. It counts once a person says so.</span>
+      <button class="sm primary" id="ahjOkGo">Looks right</button><span class="hint">or change it above</span></div>` : ""}
+    <div class="row" style="gap:8px;align-items:center;margin-top:6px"><button id="ahjGo" title="Fire departments covering this address, from the USFA National Fire Department Registry and the Census place the building is in">Suggest the AHJ (USFA fire department list)</button><span class="hint" id="ahjMsg"></span></div>
     <div id="ahjOut">${G ? `${G.list.length ? G.list.slice(0, 4).map(card).join("") : '<p class="hint">No department matched this address.</p>'}<p class="hint">${esc(G.where || "")} · ${esc(G.source || "")}, looked ${esc(G.at)}. ${esc(G.note || "")}</p>` : ""}</div>
     <div id="ahjHere">${dxHere(d.ahj_here)}</div>
     <div class="row" style="gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button id="twGo">FAA notice for the donor mast</button>
@@ -552,6 +580,20 @@ window.dasAhjGuess = (el, j, save) => {
     catch(e){ const h = await keepHere().catch(() => ({})); if(!h.error && h.at) window.dasAhjGuess(el, j, save);
       const b2 = $("#ahjGo"), m2 = $("#ahjMsg"); if(b2) b2.disabled = false; if(m2) m2.textContent = e.message; } };
   $("#ahjGo").onclick = go;
+  if (chosen) $("#ahjOkGo").onclick = async () => { const b = $("#ahjOkGo"); b.disabled = true;
+    try { await decide(); render(); } catch (e) { b.disabled = false; dasSay("Not saved: " + e.message); } };
+  // typing an AHJ over one DAStastic filled in is a person's own choice (das.js saves the name; this clears the mark and Run it for
+  // me's Undo). Wired once per field, since this box redraws itself without the Overview; it writes nothing when there's nothing left.
+  // Only once the typed name is the job's: das.js's save goes first, and one that failed or lost a clash (Keep theirs) leaves the
+  // guess waiting (review 11/10: it cleared the mark either way, so an unchecked guess passed the gate)
+  const typed = el.parentElement && el.parentElement.querySelector('input[data-k="ahj"]');
+  if (typed && window.dasAutoMine && !typed.dataset.ahjWired) {
+    typed.dataset.ahjWired = "1";
+    typed.addEventListener("change", async () => {
+      try { const said = typed.value; el._ahjJob = await window.dasAutoMine(el._ahjJob, "ahj", said);
+        if (((el._ahjJob.data || {}).ahj || "").trim() === said.trim()) el.querySelector("#ahjOk")?.remove(); }
+      catch (e) { dasSay("Not saved: " + e.message); } });
+  }
   $("#twGo").onclick = async () => { if(d.lat == null){ alert("Set the building's location first."); return; } const b = $("#twGo"), msg = $("#twMsg"); b.disabled = true; msg.textContent = "Checking…";
     try{ const r = await api(`/api/das/x/towair/${j.id}?bldg_m=${encodeURIComponent($("#twB").value || 0)}&mast_m=${encodeURIComponent($("#twM").value || 0)}`);
       j = await save({ towair: r }); window.dasAhjGuess(el, j, save); }
@@ -561,7 +603,8 @@ window.dasAhjGuess = (el, j, save) => {
     catch(e){ b.disabled = false; msg.textContent = e.message; } };
   el.querySelectorAll("[data-ahj]").forEach(b => b.onclick = async () => { const x = G.list[+b.dataset.ahj];
     try{ const c = await window.dasAhjContact(x);
-      await save({ ahj: x.name, contacts: { ...(j.data.contacts || {}), ahj: c.id } });
+      j = await save({ ahj: x.name, contacts: { ...(j.data.contacts || {}), ahj: c.id } });
+      if (j && (j.data || {}).ahj === x.name && window.dasAutoMine) await window.dasAutoMine(j, "ahj", x.name, { also: ["contacts.ahj"] });  // saved as a person's own pick: no guess left, no Undo to erase it
       render(); }
     catch(e){ dasSay("Not saved: " + e.message); } });
 };

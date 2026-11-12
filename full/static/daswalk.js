@@ -167,10 +167,10 @@ function wkCompare(d, f, fw, onPlan, a, b, sig, met){ const ar=wkAr(f, fw, onPla
 function wkDiffHeat(ptsA, ptsB, W, H, cols){ const ha=wkHeat(ptsA, W, H, cols), hb=wkHeat(ptsB, W, H, cols), v=new Float32Array(ha.v.length).fill(NaN), al=new Float32Array(ha.v.length);
   for(let k=0;k<v.length;k++) if(!isNaN(ha.v[k])&&!isNaN(hb.v[k])){ v[k]=hb.v[k]-ha.v[k]; al[k]=Math.min(ha.al[k], hb.al[k]); }
   return {cols:ha.cols, rows:ha.rows, v, al}; }
-// red where B is worse, white where the same, blue where better; full colour at ±span (10 dB, 1 DAQ, 6 dB SINR)
+// red where B is worse, white where the same, blue where better; full colour at ±span (10 dB, 1 DAQ, 6 dB SINR).
+// The colours are RFScale's change scale (static/rfscale.js, 11/10): every map's colours live there.
 const wkDiffSpan = met => met==="daq"?1:met==="sinr"||met==="rsrq"?6:10;
-function wkDiffRgb(dv, span){ const t=Math.max(-1, Math.min(1, dv/span)), w=[245,245,245], r=[207,34,46], b=[31,111,235], c=t<0?r:b, k=Math.abs(t);
-  return w.map((x,i)=>Math.round(x+(c[i]-x)*k)); }
+const wkDiffRgb = (dv, span) => RFScale.diff(dv, span);
 
 // what to show: public safety (every channel, or one), or a carrier's cells below / from 3.3 GHz (dascell.js), or one band
 function wkSignals(pts){ const ps=new Set(), cell=new Map(); let anyPs=false;
@@ -193,21 +193,14 @@ function wkVal(p, sig, met){ const [kind, a, b, c]=sig.split("|");
   const wr=rs.filter(r=>has(r.rsrp)), best=wr.length?wr.reduce((x,y)=>+y.rsrp>+x.rsrp?y:x):rs[0];
   return has(best[met])&&isFinite(+best[met])?+best[met]:null; }
 // the colour scale: the job's requirement for that metric when it has one (public safety: the AHJ profile; cellular: the
-// cellular target, dascell.js), else the lowest to the highest reading
-function wkScale(d, sig, met, vals){ const [kind, a, b]=sig.split("|"); let thr=null, span=15, unit=" dBm", what;
+// cellular target, dascell.js), else the lowest to the highest reading. The spans, the colours and the cellular pass lines
+// are RFScale's (static/rfscale.js, 11/10), the one scale the survey tiles and the other maps use: red weak, green good.
+function wkScale(d, sig, met, vals){ const [kind, a, b]=sig.split("|"); let thr=null, what;
   if(kind==="ps"){ what=`the AHJ profile${DASJ.profile_name?` (${DASJ.profile_name})`:""}`;
-    if(met==="dl"||met==="ul") thr=DASJ.threshold; else if(met==="daq"){ thr=DASJ.daq; span=1.5; unit=""; } else if(met==="sinr"){ thr=daqEq().sinr; span=8; unit=" dB"; } }
-  else { const P=cellProfile(d); what=`the cellular target (${P.name})`;
-    if(met==="rsrp") thr=cellThr(P, a, b); else if(met==="sinr"){ thr=P.sinr; span=8; unit=" dB"; } else { span=6; unit=" dB"; } }
-  if(thr==null||!isFinite(+thr)){ const v=vals.filter(isFinite); return {thr:null, lo:v.length?Math.min(...v):0, hi:v.length?Math.max(...v):1, unit, what}; }
-  return {thr:+thr, span, unit, what}; }
-const WK_STOPS = [[-1,[142,27,27]],[-1e-6,[229,83,75]],[0,[250,178,25]],[1/3,[166,212,106]],[1,[47,163,95]]];
-const WK_SMOOTH = [[-1,[229,83,75]],[0,[250,178,25]],[1,[47,163,95]]];
-function wkRgb(v, sc){ let t, st=WK_STOPS;
-  if(sc.thr!=null) t=(v-sc.thr)/sc.span; else { st=WK_SMOOTH; t=sc.hi>sc.lo?(v-sc.lo)/(sc.hi-sc.lo)*2-1:0; }
-  t=Math.max(-1, Math.min(1, t));
-  for(let i=1;i<st.length;i++) if(t<=st[i][0]){ const [t0,c0]=st[i-1], [t1,c1]=st[i], k=t1>t0?(t-t0)/(t1-t0):0; return c0.map((c,j)=>Math.round(c+(c1[j]-c)*k)); }
-  return st[st.length-1][1]; }
+    thr=met==="dl"||met==="ul"?DASJ.threshold:met==="daq"?DASJ.daq:met==="sinr"?daqEq().sinr:null; }
+  else { const P=cellProfile(d); what=`the cellular target (${P.name})`; thr=RFScale.passLine(met, a, b, P); }
+  return RFScale.scale(met, thr, vals, what); }
+const wkRgb = (v, sc) => RFScale.rgb(v, sc);
 // a square's outline: the public-safety score, or the carrier's coverage target (dascell.js cellSquare) when a carrier is shown
 const wkSqState = (d, raw, sig) => { if(!sig||sig.startsWith("ps")) return scored(d, eff(d, raw)); const [,c,l]=sig.split("|"), x=cellSquare(d, raw, `${c}|${l}`); return x?x.pass:null; };
 const wkPass = (v, sc) => sc.thr==null ? null : v>=sc.thr;
@@ -523,7 +516,7 @@ function wkMount(panel, j0, save, ctx){
     let s="";
     for(let q=1;q<=n;q++){ const c=(q-1)%cols, r=Math.floor((q-1)/cols), pts=[[c/cols,r/rows],[(c+1)/cols,r/rows],[(c+1)/cols,(r+1)/rows],[c/cols,(r+1)/rows]].map(([u,v])=>wkUV(u, v, f, A, onPlan));
       const p=wkSqState(dv, res[`${f.name}|${q}`], sig), mid=wkUV((c+.07)/cols, (r+.1)/rows, f, A, onPlan);  // the label in the square's corner: the centre is where you test
-      s+=`<polygon points="${pts.map(t=>`${(t.x*W).toFixed(1)},${(t.y*H).toFixed(1)}`).join(" ")}" fill="none" stroke="${crit.has(q)?"#fab219":p===false?"#e5534b":p?"#2fa35f":"#111"}" stroke-opacity="${p==null&&!crit.has(q)?.35:.9}" stroke-width="${crit.has(q)||p!=null?2:1}" ${skip.has(q)?'stroke-dasharray="4 4"':""}/>`
+      s+=`<polygon points="${pts.map(t=>`${(t.x*W).toFixed(1)},${(t.y*H).toFixed(1)}`).join(" ")}" fill="none" stroke="${crit.has(q)?RFScale.INK.amber:p===false?RFScale.INK.fail:p?RFScale.INK.pass:"#111"}" stroke-opacity="${p==null&&!crit.has(q)?.35:.9}" stroke-width="${crit.has(q)||p!=null?2:1}" ${skip.has(q)?'stroke-dasharray="4 4"':""}/>`
         +`<text x="${(mid.x*W).toFixed(1)}" y="${(mid.y*H).toFixed(1)}" text-anchor="start" dominant-baseline="hanging" font-size="11" fill="#111" fill-opacity=".6" style="paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-opacity:.6">${esc(f.name)}-${q}${crit.has(q)?" ★":""}</text>`; }
     // the walk's line and its taps
     for(const leg of wkLegs(pv().wps)){ if(leg.length>1) s+=`<polyline points="${leg.map(w=>`${(w.x*W).toFixed(1)},${(w.y*H).toFixed(1)}`).join(" ")}" fill="none" stroke="#1f6feb" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>`;
@@ -539,12 +532,9 @@ function wkMount(panel, j0, save, ctx){
     // legend
     const lg=$p("#wkLegend");
     if(!sig||!vals.length) lg.innerHTML=`<p class="hint" style="margin:0">${on.length?"Nothing measured for this choice yet.":"No readings on this floor yet."}</p>`;
-    else { const lo=sc.thr!=null?sc.thr-sc.span:sc.lo, hi=sc.thr!=null?sc.thr+sc.span:sc.hi, steps=[0,.25,.5,.75,1].map(t=>wkRgb(lo+(hi-lo)*t, sc));
-      const nPass=sc.thr!=null?vals.filter(x=>x.v>=sc.thr).length:null, label=WK_METRICS[sig.startsWith("cell")?"cell":"ps"].find(([k])=>k===met)?.[1]||met;
-      lg.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono">${num(lo,met==="daq"?1:0)}</span>
-        <span style="flex:0 1 220px;min-width:120px;height:12px;border-radius:6px;background:linear-gradient(90deg,${steps.map(c=>`rgb(${c})`).join(",")})"></span><span class="mono">${num(hi,met==="daq"?1:0)}${esc(sc.unit)}</span>
-        <span class="hint">${sc.thr!=null?`${esc(label)}: pass at ≥ ${num(sc.thr,met==="daq"?1:0)}${esc(sc.unit)}, from ${esc(sc.what)} · ${nPass} of ${vals.length} points pass (${dasPct(nPass, vals.length)}%)`
-          :`${esc(label)}: no requirement set for it, so colours run from the lowest to the highest reading`}</span></div>`; }
+    else { const nPass=sc.thr!=null?vals.filter(x=>x.v>=sc.thr).length:null, label=WK_METRICS[sig.startsWith("cell")?"cell":"ps"].find(([k])=>k===met)?.[1]||met;
+      // the legend is RFScale's (the same bar and words on every map); the walk adds how many of its points pass
+      lg.innerHTML=RFScale.legendHtml(sc, {label, dig:met==="daq"?1:0, note:nPass!=null?`${nPass} of ${vals.length} points pass (${dasPct(nPass, vals.length)}%)`:""}); }
     // the score: the walk, and the grid as the walk leaves it
     const tapped=on.filter(p=>p.by!=="time").length, timed=on.filter(p=>p.by==="time").length, out=P.filter(p=>p.x==null).length, wait=on.filter(p=>!(p.rs||[]).length).length;
     const sqW=new Set(Object.keys(res).filter(k=>k.startsWith(`${f.name}|`)&&readingsOf(res[k]).some(x=>x.walk))).size;
@@ -889,8 +879,8 @@ async function wkPicture(j, d, f, fw, sig, met, planImg, passLabel){
   g.font=`${Math.round(13*Math.max(1,s))}px sans-serif`; g.fillStyle="#444";
   const cap=`${vals.length} points${sc.thr!=null?`, ${nPass} at or above ${num(sc.thr,dig)}${sc.unit} (${dasPct(nPass, vals.length)}%), from ${sc.what}`:", no requirement set for this metric"} · drawn ${today()} · the grid squares decide pass / fail`;
   { const words=cap.split(" "); let line="", y=46; for(const w of words){ const t=line?line+" "+w:w; if(g.measureText(t).width>W-24&&line){ g.fillText(line, 12, y); line=w; y+=17*Math.max(1,s); } else line=t; } g.fillText(line, 12, y); }
-  const lo=sc.thr!=null?sc.thr-sc.span:sc.lo, hi=sc.thr!=null?sc.thr+sc.span:sc.hi, bx=12, by=top+H+14, bw=Math.min(360, W/2.5);
-  for(let k=0;k<bw;k++){ g.fillStyle=`rgb(${wkRgb(lo+(hi-lo)*k/bw, sc)})`; g.fillRect(bx+k, by, 1, 14); }
+  const [lo, hi]=RFScale.range(sc), bx=12, by=top+H+14, bw=Math.min(360, W/2.5);
+  RFScale.legendBar(g, bx, by, bw, 14, sc);
   g.fillStyle="#111"; g.font=`${Math.round(12*Math.max(1,s))}px sans-serif`; g.fillText(`${num(lo,dig)}`, bx, by+30); g.textAlign="right"; g.fillText(`${num(hi,dig)}${sc.unit}`, bx+bw, by+30);
   g.textAlign="left"; g.fillText(sc.thr!=null?`pass at ≥ ${num(sc.thr,dig)}${sc.unit}`:"lowest to highest reading", bx+bw+14, by+12);
   return {url:c.toDataURL("image/png"), short:`${what.replace(/\s*\(.*\)$/,"")} ${label}`.replace(/[,]/g,""), caption:`Floor ${f.name}${passLabel?` · ${passLabel}`:""} · ${what} · ${label} · ${cap}`}; }

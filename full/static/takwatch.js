@@ -44,7 +44,7 @@
     const stopPoll = () => { if (timer) clearInterval(timer); timer = null; };
     layer.onAdd = function (m) {
       L.LayerGroup.prototype.onAdd.call(this, m); map = m;
-      box = L.control({ position: "bottomleft" }); box.onAdd = () => { const d = L.DomUtil.create("div", "tak-box"); d.style.cssText = "background:var(--panel,#fff);padding:4px 8px;border-radius:8px;font-size:12px;max-width:320px"; return d; };
+      box = L.control({ position: "bottomleft" }); box.onAdd = () => { const d = L.DomUtil.create("div", "tak-box"); d.style.cssText = "background:var(--panel,#fff);padding:4px 8px;border-radius:8px;font-size:12px;max-width:320px"; L.DomEvent.disableClickPropagation(d); return d; };  // a click on the box stays off the map (11/10)
       box.addTo(m);
       if (!net() && (document.body.classList.contains("remote") || (typeof S !== "undefined" && S.me && S.me.server))) { note("<b>TAK:</b> the TAK team layer runs on the PC only: the server isn't on your local network."); return; }
       note(net() ? "<b>TAK:</b> listening on this phone's Wi-Fi…" : "<b>TAK:</b> listening…"); poll(); timer = setInterval(poll, 5000);

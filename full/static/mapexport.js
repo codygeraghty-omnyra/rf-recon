@@ -47,6 +47,7 @@
   }
   async function svgImage(svg){
     const c = svg.cloneNode(true), r = svg.getBoundingClientRect(); c.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    if(svg.parentElement?.classList.contains("leaflet-pane")) for(const p of ["transform", "left", "top"]) c.style.removeProperty(p);
     if(!c.getAttribute("width")) c.setAttribute("width", r.width); if(!c.getAttribute("height")) c.setAttribute("height", r.height);
     const live = svg.querySelectorAll("*"), copy = c.querySelectorAll("*");  // the page's CSS on Leaflet's paths, written in
     live.forEach((n, i) => { const s = getComputedStyle(n); for(const p of ["stroke", "fill", "stroke-width", "stroke-opacity", "fill-opacity", "opacity", "stroke-dasharray"]) copy[i].style.setProperty(p, s.getPropertyValue(p)); });
@@ -107,7 +108,8 @@
     const c = map.getCenter(), date = stamp();
     const scale = el.querySelector(".leaflet-control-scale-line")?.textContent || "";
     const credit = (el.querySelector(".leaflet-control-attribution")?.innerText || "").replace(/\s+/g, " ").trim();
-    const left = `DAStastic${window.S?.mission?.name ? ` · ${S.mission.name}` : ""} · ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)} · ${date}${scale ? ` · scale bar ${scale}` : ""}`;
+    const mn = typeof S === "object" && S ? S.mission?.name : "";  // S is a top-level const (core.js), never on window
+    const left = `DAStastic${mn ? ` · ${mn}` : ""} · ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)} · ${date}${scale ? ` · scale bar ${scale}` : ""}`;
     g.fillStyle = "#fff"; g.textAlign = "left"; g.fillText(left, 8 * k, H + FOOT / 2);
     g.fillStyle = "#cfcfcf"; g.textAlign = "right"; g.fillText(credit, W - 8 * k, H + FOOT / 2, Math.max(60 * k, W - g.measureText(left).width - 24 * k));
     return {cv, tiles: count};

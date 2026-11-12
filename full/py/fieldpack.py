@@ -37,7 +37,7 @@ import sigid  # noqa: E402
 import uls_import  # noqa: E402
 
 PACK_VERSION = 1
-PACK_DIR = os.environ.get("RF_RECON_PACKS") or os.path.join(paths.ROOT, "field packs")
+PACK_DIR = paths.work_dir("RF_RECON_PACKS", "field packs")  # never the shared Drive from a test run (paths.work_dir)
 BIG_MB = 300  # unpacked size a phone can hold in memory comfortably; bigger packs get a warning
 
 SCHEMA = """

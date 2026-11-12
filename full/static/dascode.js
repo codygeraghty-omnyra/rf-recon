@@ -89,7 +89,7 @@ window.dasMoveStage = async (id, to, after, o = {}) => {
     if (!needs.length) { await post(`/api/das/jobs/${id}`, { stage: to }); return done(true); }
     const box = document.createElement("div"); box.className = "cc-gate"; box.setAttribute("role", "dialog");
     box.innerHTML = `<div class="cc-gate-box"><h3 style="margin:0 0 6px">${esc(o.title || `Not ready for ${to}`)}</h3><p class="hint" style="margin:0 0 8px">${esc(o.intro || "Still needed:")}</p>
-      <ul>${needs.map((n, i) => `<li>${esc(n.text)} <button class="sm" data-go="${i}">Go there</button>${o.hints?.[n.key] ? `<div class="hint">${esc(o.hints[n.key])}</div>` : ""}</li>`).join("")}</ul>
+      <ul>${needs.map((n, i) => `<li>${esc(n.text)} <button class="sm" data-go="${i}">Go there</button>${o.hints?.[n.hint || n.key] ? `<div class="hint">${esc(o.hints[n.hint || n.key])}</div>` : ""}</li>`).join("")}</ul>
       <label style="display:block;margin-top:10px">${esc(o.whyLabel || "Move anyway: why?")} <span class="hint">This goes in the job's log.</span><input id="ccWhy" placeholder="${esc(o.placeholder || "We took this job over part way through")}" value="${esc(o.why || "")}"></label>
       <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-end"><button id="ccStay">${esc(o.stay || "Stay in this stage")}</button><button id="ccAnyway" class="primary" ${o.why ? "" : "disabled"}>${esc(o.go || "Move anyway")}</button></div><p class="hint" id="ccGateMsg"></p></div>`;
     document.body.append(box);

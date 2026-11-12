@@ -5,7 +5,9 @@ grouped into sites, with the public FCC record of the tower each site most likel
 Each cell gets its global cell identity: MCC-MNC (the operator) plus the cell ID, split into the site and the sector
 (LTE: eNB = ECI / 256, sector = ECI % 256; 5G NR: gNB with the common 24-bit split, which varies by operator;
 UMTS: RNC = CI / 65536). A site's cells are matched to the nearest registered antenna structure (FCC ASR) within
-1 km of their average position, and that tower's owner, height and the FCC licensees on it come along. A sector's
+1 km of their average position that stands or may be built (Constructed or Granted: never a Terminated, Dismantled,
+Cancelled, Dismissed or Withdrawn registration), and that tower's owner, height and the FCC licensees on it come
+along. Each site says how far it is from the pin and which way (bearing in degrees, compass point). A sector's
 direction is estimated as the bearing from the tower to the cell's crowd position (its samples lean toward the area
 the sector serves): an estimate, not a record.
 
@@ -112,48 +114,99 @@ def crowd_sources():
     return [s for s in ("opencellid", "wigle") if build.allowed(s)]
 
 
-def gather(con, crowd, lat, lon, radius_mi, mission=None):
-    """Every cell around a point from the crowd sources and your captures, decoded."""
-    s, n, w, e = geo.bbox(lat, lon, radius_mi)
-    cells = {}
+class Collector:
+    """Cells as they're read, one per global cell identity: a cell seen in several rows or sources is averaged. Where a cell
+    is comes from the crowd's rows (OpenCelliD, WiGLE) whenever it has any: your own readings (captures) say where the phone
+    was, not the tower, so they add the channel, the PCI and the level and count as heard on site (survey), never the
+    position or the crowd's samples (review 11/10: a walk round the building pulled its cells to it and made a tower there).
+    A cell only your readings have stands where they were taken (crowd_points 0)."""
 
-    def add(src, radio, ident, la, lo, extra):
+    def __init__(self):
+        self.cells = {}
+
+    def add(self, src, radio, ident, la, lo, extra):
         p = parse_id(ident)
         if not p or la is None:
             return
         d = decode(radio, *p)
-        c = cells.setdefault(d["gci"], dict(d, lat=la, lon=lo, sources=[], samples=0, range_m=None, dbm=None, first=None, last=None,
-                                            channel=None, pci=None, points=0, _lat=0.0, _lon=0.0))
+        c = self.cells.setdefault(d["gci"], dict(d, lat=la, lon=lo, sources=[], samples=0, range_m=None, dbm=None, first=None, last=None,
+                                                 channel=None, pci=None, changeable=None, points=0, crowd_points=0, crowd_samples=0, survey=0, crowd_last=None,
+                                                 _lat=0.0, _lon=0.0, _clat=0.0, _clon=0.0))
         if src not in c["sources"]:
             c["sources"].append(src)
         c["points"] += 1
         c["_lat"] += la
         c["_lon"] += lo
-        c["lat"], c["lon"] = c["_lat"] / c["points"], c["_lon"] / c["points"]
+        if str(src).startswith("Survey: "):
+            c["survey"] += 1
+        else:
+            c["crowd_points"] += 1
+            c["_clat"] += la
+            c["_clon"] += lo
+            if extra.get("samples"):
+                c["crowd_samples"] += int(extra["samples"])
+            if extra.get("last"):  # the crowd's own date, apart from your readings' (the tower engine's staleness, round 3)
+                c["crowd_last"] = max(c["crowd_last"] or "", extra["last"])
+        if c["crowd_points"]:
+            c["lat"], c["lon"] = c["_clat"] / c["crowd_points"], c["_clon"] / c["crowd_points"]
+        else:
+            c["lat"], c["lon"] = c["_lat"] / c["points"], c["_lon"] / c["points"]
         for k in ("samples",):
             if extra.get(k):
                 c[k] += int(extra[k])
-        for k in ("range_m", "dbm", "channel", "pci"):
-            if extra.get(k) not in (None, ""):
+        for k in ("range_m", "dbm", "channel", "pci", "changeable"):
+            if extra.get(k) not in (None, "") and not (k == "channel" and str(extra[k]).strip() in ("0", "0.0")):  # 0: not reported (WiGLE)
                 c[k] = extra[k]
         for k, better in (("first", min), ("last", max)):
             if extra.get(k):
                 c[k] = better(c[k], extra[k]) if c[k] else extra[k]
 
-    srcs = crowd_sources()  # WiGLE is personal-only (build.py): team logins and the sold build never see its cells
-    for r in crowd.execute(f"SELECT * FROM ext_point WHERE source IN ({','.join('?' * len(srcs))}) AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
-                           (*srcs, s, n, w, e)):
-        try:
-            det = json.loads(r["details"] or "{}")
-        except ValueError:
-            det = {}
-        radio = (r["kind"] or r["mode"] or det.get("radio") or det.get("gentype") or "").upper()
-        if radio not in CELL_KINDS:
-            continue
-        ts = lambda v: time.strftime("%Y-%m-%d", time.gmtime(int(v))) if str(v or "").isdigit() else (str(v)[:10] if v else None)
-        add("OpenCelliD" if r["source"] == "opencellid" else "WiGLE", radio, r["ext_id"], r["lat"], r["lon"],
+    def done(self):
+        out = list(self.cells.values())
+        for c in out:
+            for k in ("_lat", "_lon", "_clat", "_clon"):
+                c.pop(k, None)
+        return out
+
+
+def _day(v):
+    return time.strftime("%Y-%m-%d", time.gmtime(int(v))) if str(v or "").isdigit() else (str(v)[:10] if v else None)
+
+
+def crowd_row(r):
+    """One crowd row (ext_point, as a sqlite3.Row) -> Collector.add's arguments, or None when it isn't a cell."""
+    try:
+        det = json.loads(r["details"] or "{}")
+    except ValueError:
+        det = {}
+    radio = (r["kind"] or r["mode"] or det.get("radio") or det.get("gentype") or "").upper()
+    if radio not in CELL_KINDS:
+        return None
+    return ("OpenCelliD" if r["source"] == "opencellid" else "WiGLE", radio, r["ext_id"], r["lat"], r["lon"],
             {"samples": det.get("samples"), "range_m": det.get("range"), "dbm": r["dbm"], "channel": det.get("channel"), "pci": heard_code(det),
-             "first": ts(det.get("created") or det.get("firsttime") or r["first_seen"]), "last": ts(det.get("updated") or det.get("lasttime") or r["last_seen"])})
+             "changeable": changeable(det) if r["source"] == "opencellid" else None,
+             "first": _day(det.get("created") or det.get("firsttime") or r["first_seen"]), "last": _day(det.get("updated") or det.get("lasttime") or r["last_seen"])})
+
+
+def capture_row(r):
+    """One of your own captured cells (capture_point with its capture's name) -> Collector.add's arguments."""
+    return (f"Survey: {r['capture_name']}", r["kind"], r["ident"], r["lat"], r["lon"],
+            {"dbm": r["dbm"], "channel": r["channel"], "samples": 1, "first": (r["ts"] or "")[:10] or None, "last": (r["ts"] or "")[:10] or None})
+
+
+def gather(con, crowd, lat, lon, radius_mi, mission=None):
+    """Every cell around a point from the crowd sources and your captures, decoded."""
+    s, n, w, e = geo.bbox(lat, lon, radius_mi)
+    col = Collector()
+    srcs = crowd_sources()  # WiGLE is personal-only (build.py): team logins and the sold build never see its cells
+    # "+source": with no statistics SQLite took the (source, ext_id) index and read every OpenCelliD row in the copy (727k on
+    # the server) to test the box, 3-10 s a call and once per radius step of a tower report (review 11/10); the unary plus
+    # leaves it the location index (tests/test_query_plans.py)
+    for r in crowd.execute(f"SELECT * FROM ext_point WHERE +source IN ({','.join('?' * len(srcs))}) AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
+                           (*srcs, s, n, w, e)):
+        got = crowd_row(r)
+        if got:
+            col.add(*got)
     q = ("SELECT p.*, c.name AS capture_name FROM capture_point p JOIN capture c ON c.id=p.capture_id WHERE p.lat BETWEEN ? AND ? "
          "AND p.lon BETWEEN ? AND ? AND UPPER(p.kind) IN ('LTE','NR','GSM','UMTS','WCDMA','CDMA')")
     args = [s, n, w, e]
@@ -161,17 +214,51 @@ def gather(con, crowd, lat, lon, radius_mi, mission=None):
         q += " AND p.mission_id=?"
         args.append(mission)
     for r in con.execute(q, args):
-        add(f"Survey: {r['capture_name']}", r["kind"], r["ident"], r["lat"], r["lon"],
-            {"dbm": r["dbm"], "channel": r["channel"], "samples": 1, "first": (r["ts"] or "")[:10] or None, "last": (r["ts"] or "")[:10] or None})
+        col.add(*capture_row(r))
     lim = radius_mi * geo.MI_KM
     out = []
-    for c in cells.values():
-        for k in ("_lat", "_lon"):
-            c.pop(k)
+    for c in col.done():
         c["dist_mi"] = round(geo.haversine_km(lat, lon, c["lat"], c["lon"]) / geo.MI_KM, 2)
         if c["dist_mi"] * geo.MI_KM <= lim:
             out.append(c)
     return out
+
+
+BIG3 = ("AT&T", "Verizon", "T-Mobile")
+
+
+def brand(operator):
+    """A cell's operator as the tower report names its carrier: FirstNet runs on AT&T's sites, ex-Sprint is T-Mobile's."""
+    return {"FirstNet (AT&T)": "AT&T", "T-Mobile (ex-Sprint)": "T-Mobile"}.get(operator or "", operator or "")
+
+
+def group(cells, fold=False):
+    """Cells -> sites, one per (network, radio, site id): {key: [cells]}. One rule for sites() and the tower engine.
+    fold (the tower engine): every AT&T code is one network, FirstNet's 313-100 included (its cells are on AT&T's eNBs), and so
+    are T-Mobile's and Verizon's; ex-Sprint codes stay a network of their own (their own eNB numbering) though named T-Mobile.
+    A UMTS cell is its own site there: its ID's top 16 bits are the RNC, which runs a whole region's NodeBs, and averaging
+    them put a made-up tower at the building (review 11/10)."""
+    groups = {}
+    for c in cells:
+        net = c["plmn"]
+        sid = c["site_id"]
+        if fold:
+            op = c["operator"]
+            net = "T-Mobile (ex-Sprint)" if op == "T-Mobile (ex-Sprint)" else brand(op) if brand(op) in BIG3 else c["plmn"]
+            if c["radio"] == "UMTS":
+                sid = f"{c['area']}-{c['cid']}"
+        groups.setdefault((net, c["radio"], sid), []).append(c)
+    return groups
+
+
+def changeable(det):
+    """OpenCelliD's changeable flag, kept for the tower engine's uncertainty (11/10): 1 when the position was worked out
+    from the crowd's measurements, 0 when it was given and never recomputed (the engine then takes it as exact, 50 m).
+    None when the row doesn't say (a country-file row kept before 11/10, or another source). OpenCelliD's own
+    database-format page (wiki.opencellid.org/docs/downloads/database-format, read 11/10) marks the column deprecated,
+    "Always 1", so a 0 is honoured if one comes but nothing counts on it."""
+    v = str(det.get("changeable", "")).strip().lower()
+    return 1 if v in ("1", "true") else 0 if v in ("0", "false") else None
 
 
 def heard_code(det):
@@ -275,14 +362,37 @@ def enrich(res, con, spec):
     return res
 
 
+LIVE_STATUS = ("Constructed", "Granted")  # towers.STATUS's words for a registration that stands or may be built
+
+
+def live_towers(con, s, n, w, e):
+    """The registered towers in a box that stand or may be built (Constructed, Granted). Never a Terminated, Dismantled,
+    Cancelled, Dismissed or Withdrawn one: New York alone has 645 of those, and a crowd site used to snap to whichever was
+    nearest (tower design survey, 11/10). A tower table with no status column (a hand-made test copy) is read as it is."""
+    try:
+        cols = {r[1] for r in con.execute("PRAGMA table_info(tower)")}
+    except Exception:
+        return []
+    if not cols:
+        return []
+    q = "SELECT * FROM tower WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?"
+    if "status" in cols:
+        q += f" AND status IN ({','.join('?' * len(LIVE_STATUS))})"
+    return [dict(r) for r in con.execute(q, (s, n, w, e, *(LIVE_STATUS if "status" in cols else ())))]
+
+
+def where_from(lat, lon, la, lo):
+    """How far and which way a point is from the pin: dist_mi, bearing (whole degrees true, 0 to 359) and compass point."""
+    b = geo.bearing_deg(lat, lon, la, lo)
+    return {"dist_mi": round(geo.haversine_km(lat, lon, la, lo) / geo.MI_KM, 2), "bearing": round(b) % 360, "compass": geo.compass(b)}
+
+
 def sites(con, crowd, lat, lon, radius_mi, mission=None):
     """Cells grouped into sites (one eNB / gNB / RNC each), with the FCC tower each most likely sits on."""
     cells = gather(con, crowd, lat, lon, radius_mi, mission)
-    groups = {}
-    for c in cells:
-        groups.setdefault((c["plmn"], c["radio"], c["site_id"]), []).append(c)
+    groups = group(cells)
     s, n, w, e = geo.bbox(lat, lon, radius_mi + 1)
-    towers = [dict(r) for r in con.execute("SELECT * FROM tower WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?", (s, n, w, e))]
+    towers = live_towers(con, s, n, w, e)
     out = []
     for (plmn, radio, sid), cs in groups.items():
         la = sum(c["lat"] for c in cs) / len(cs)
@@ -304,10 +414,12 @@ def sites(con, crowd, lat, lon, radius_mi, mission=None):
             c["az_est"] = round(geo.bearing_deg(ax, ay, c["lat"], c["lon"])) if tw and dd > 0.05 else None
             c["offset_m"] = round(dd * 1000)
         cs.sort(key=lambda c: (c["sector"] is None, c["sector"] or 0))
+        at = (tw["lat"], tw["lon"]) if tw else (la, lo)
+        # bearing and compass from the pin (11/10): the Discovery report printed s.compass and nothing ever set it
         out.append({"key": f"{plmn}|{radio}|{sid}", "operator": cs[0]["operator"], "plmn": plmn, "radio": radio,
-                    "site_kind": cs[0]["site_kind"], "site_id": sid, "lat": tw["lat"] if tw else la, "lon": tw["lon"] if tw else lo,
+                    "site_kind": cs[0]["site_kind"], "site_id": sid, "lat": at[0], "lon": at[1],
                     "located": "on FCC-registered tower" if tw else "average of its cells' crowd positions",
-                    "dist_mi": round(geo.haversine_km(lat, lon, tw["lat"] if tw else la, tw["lon"] if tw else lo) / geo.MI_KM, 2),
+                    **where_from(lat, lon, *at),
                     "cells": cs, "tower": tw, "sources": sorted({x for c in cs for x in c["sources"]}),
                     "samples": sum(c["samples"] for c in cs), "last": max((c["last"] for c in cs if c["last"]), default=None)})
     out.sort(key=lambda x: x["dist_mi"])
@@ -368,29 +480,180 @@ def load_country(crowd, key, folder, mccs=US_MCCS, log=None, get=None):
     return out
 
 
-FETCH_RADIUS_MI, FETCH_REQUESTS = 3.0, 24  # the nearest tiles first; OpenCelliD's free key allows 1,000 requests a day
-FETCH_PER_DAY, FETCH_KEEP_DAYS = 25, 30
+FETCH_RADIUS_MI, FETCH_REQUESTS = 3.0, 24  # the nearest tiles first; a top-up costs 24 requests
+FETCH_KEEP_DAYS, COUNTRY_KEEP_DAYS = 30, 30
+# OpenCelliD allows 1,000 requests a day per user (connectors.ALLOWANCE, which every path stops at), and every login on a
+# copy shares its one key. Top-ups stop where the day's requests would pass 800: the other 200 are the scheduled updates'
+DAY_BUDGET = 800
+UPDATER_SHARE = connectors.ALLOWANCE - DAY_BUDGET
+# a fetch covers a spot COVER_MARGIN_KM inside the distance it came in whole to (connectors.reached_km), or within
+# SAME_SPOT_KM of where it was asked: it once covered a fixed 4.4 x 5 km box whatever its radius or how far its 24 requests
+# reached (a 0.25 mi Fetch covered a pin 3.2 km off; a city tile's 1,500 cells are more than 24 requests bring, review 11/10)
+COVER_MARGIN_KM, SAME_SPOT_KM = 1.0, 0.25
+COUNTRY_MCCS = ("310", "311")  # AT&T, T-Mobile and Verizon: a load without both isn't the country file
+_COUNTRY = re.compile(r"imported (31[0-6])\.csv(?:\.gz)?( \(states .*\))?")  # import_ocid's log row, with the states it kept if any
+_WORLD = re.compile(r"imported cell_towers\.csv(?:\.gz)?( \(states .*\))?")  # OpenCelliD's whole-world file
+# a whole import is one at country scale: an import of 310 or 311 kept to some states was logged with no "(states ...)" until
+# f169a98, so a row's name alone can't say it's whole (round 3). OpenCelliD's US export of 2026-10-06 held 556,562 cells in
+# 310 and 146,729 in 311 (a reviewer's scratch load of it); five midwest states are about 6% of that, two about 2%. Only the
+# world file, unlimited and at country scale, with its own cells round the spot, says the crowd's extent isn't known; any
+# other file is its MCC's or a region's (round 2 and 3: a two-cell CSV, a state-kept file or Canada's 302.csv.gz lifted the
+# limit at every address)
+COUNTRY_FILE_ROWS = 50000  # each of 310 and 311, loaded whole
+WHOLE_IMPORT_ROWS = 100000  # the world file (some 40 million cells)
 
 
-def fetch_near(crowd, lat, lon, key):
-    """OpenCelliD's cells around an address, on request. The crowd data otherwise covers only the mission areas, so a new
-    address had no cell sites at all (the 11/4 demo, at both addresses the customer gave). An area fetched in the last month
-    isn't asked again, and a day's fetches are capped, because every login shares the one key."""
+def _since(days):
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - days * 86400))
+
+
+def _fetches_near(crowd, lat, lon, since=None):
+    """OpenCelliD fetches that ended (whole, or at their request cap) round a spot: (fetched_at, km from the spot, reached_km).
+    A fetch that failed, stopped part-way (a timeout, OpenCelliD's daily limit) or is still running covers nothing."""
+    d = 0.3
+    # a crowd database opened without connectors.migrate (read only, made before 11/10) has no reached_km: its fetches cover
+    # only the spot they were asked at
+    has = "reached_km" in {r[1] for r in crowd.execute("PRAGMA table_info(ext_fetch)")}
+    q = (f"SELECT fetched_at, lat, lon, {'reached_km' if has else 'NULL'} FROM ext_fetch WHERE source='opencellid' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? "
+         "AND COALESCE(message, '') NOT LIKE 'failed%' AND COALESCE(message, '') NOT LIKE 'stopped%' AND COALESCE(message, '') <> 'in progress'")
+    args = [lat - d, lat + d, lon - d / max(0.05, math.cos(math.radians(lat))), lon + d / max(0.05, math.cos(math.radians(lat)))]
+    if since:
+        q += " AND fetched_at>=?"
+        args.append(since)
+    return [(at, geo.haversine_km(lat, lon, la, lo), reached) for at, la, lo, reached in crowd.execute(q, args)]
+
+
+def covered(crowd, lat, lon, days=FETCH_KEEP_DAYS):
+    """When OpenCelliD was last asked about this spot within `days`, or None: a fetch that ended whole or at its cap and came
+    in whole at least COVER_MARGIN_KM past the spot, or was asked within SAME_SPOT_KM of it (asking again would bring the
+    same nearest tiles). An answer with nothing in it counts: an empty area asked again spent 24 requests every time (tower
+    design survey, 11/10). A fetch that failed or stopped part-way doesn't (a 429 after one tile covered a month)."""
+    hits = [at for at, dist, reached in _fetches_near(crowd, lat, lon, _since(days)) if dist <= max((reached or 0) - COVER_MARGIN_KM, SAME_SPOT_KM)]
+    return max(hits) if hits else None
+
+
+def _imports(crowd):
+    """OpenCelliD files imported into this copy: [(fetched_at, mcc or "world" or None, kept to some states, cells)], newest
+    first. A US MCC file kept to some states is still that MCC's (it read as no MCC at all, so a state-kept 310.csv.gz
+    lifted the crowd's reach everywhere, review 11/10 round 2); "world" is OpenCelliD's cell_towers.csv."""
+    out = []
+    for at, msg, n in crowd.execute("SELECT fetched_at, message, rows FROM ext_fetch WHERE source='opencellid' AND lat IS NULL AND rows>0 "
+                                    "AND message LIKE 'imported %' ORDER BY fetched_at DESC"):
+        m = _COUNTRY.fullmatch(msg or "")
+        kind = m.group(1) if m else "world" if _WORLD.fullmatch(msg or "") else None
+        out.append((at, kind, "(states" in (msg or ""), n or 0))
+    return out
+
+
+def _minutes(at):
+    try:
+        return time.mktime(time.strptime(at[:16], "%Y-%m-%d %H:%M")) / 60
+    except (TypeError, ValueError):
+        return None
+
+
+def country_file(crowd):
+    """When OpenCelliD's whole-US country file last came in whole, or None: MCC 310 and 311 (every AT&T, T-Mobile and Verizon
+    cell) each loaded with no state limit, within a day and a half of each other (load_country logs one row a file). Any
+    import counted before (review 11/10): a state-limited import, one MCC file, or a two-cell CSV turned top-ups off at every
+    address in the country for a month. Each at country scale too (COUNTRY_FILE_ROWS): a state-kept import logged before its
+    states went into the log row reads as a whole one by name (round 3)."""
+    whole = [(at, mcc) for at, mcc, states, n in _imports(crowd) if mcc in COUNTRY_MCCS and not states and n >= COUNTRY_FILE_ROWS]
+    best = None
+    for at310, m in whole:
+        if m != "310":
+            continue
+        for at311, m2 in whole:
+            if m2 == "311" and _minutes(at310) is not None and _minutes(at311) is not None and abs(_minutes(at310) - _minutes(at311)) <= 36 * 60:
+                best = max(best or "", max(at310, at311))
+    return best or None
+
+
+def loaded_since(crowd, hours):
+    """The US MCC files loaded whole (no state limit) in the last `hours`: the updater asks OpenCelliD again only for the rest
+    (it serves each file twice a day)."""
+    since = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - hours * 3600))
+    return {mcc for at, mcc, states, _n in _imports(crowd) if mcc and mcc != "world" and not states and at >= since}
+
+
+def crowd_reach_km(crowd, lat, lon):
+    """How far from a spot this copy's OpenCelliD cells are known to reach: None (no limit known) when the country file ever
+    came in whole, or OpenCelliD's world file (cell_towers.csv) came in with no state limit, at country scale
+    (WHOLE_IMPORT_ROWS) and with its own cells round the spot (file_cells_near); else how far past the spot the area fetches came in whole, 0 with
+    none. A report's verdict says "not known" past it where that could change it: a top-up that fetched 3 mi let the
+    verdict read "none within 20 mi" (review 11/10). A state-kept import says nothing outside its states, and a small one
+    nothing about anywhere (round 2: either brought that "none" back at every address)."""
+    if country_file(crowd):
+        return None
+    whole = any(kind == "world" and not states and n >= WHOLE_IMPORT_ROWS for _at, kind, states, n in _imports(crowd))
+    if whole and file_cells_near(crowd, lat, lon):
+        return None
+    return round(max([0.0] + [(reached or 0) - dist for _at, dist, reached in _fetches_near(crowd, lat, lon)]), 3)
+
+
+def file_cells_near(crowd, lat, lon, mi=FETCH_RADIUS_MI):
+    """An OpenCelliD cell a file brought within mi of a spot: its row carries the file's dates (import_ocid writes created and
+    updated; getInArea's rows have neither, and _keep_known keeps a file's dates on a cell a top-up asked again). A top-up's
+    own new cells said a country file "has cells here" and an imported file covered the spot (review 11/10 round 3)."""
+    s, n, w, e = geo.bbox(lat, lon, mi)
+    return crowd.execute("SELECT 1 FROM ext_point WHERE +source='opencellid' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? "
+                         "AND instr(details, ?) > 0 LIMIT 1", (s, n, w, e, '"updated"')).fetchone() is not None
+
+
+def has_cells_near(crowd, lat, lon, mi=FETCH_RADIUS_MI):
+    s, n, w, e = geo.bbox(lat, lon, mi)
+    return crowd.execute("SELECT 1 FROM ext_point WHERE +source='opencellid' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 1",
+                         (s, n, w, e)).fetchone() is not None
+
+
+def requests_today(crowd):
+    """OpenCelliD requests made today on this copy's key, every path's (connectors.requests_today)."""
+    return connectors.requests_today(crowd)
+
+
+def topup_due(crowd, lat, lon):
+    """Whether OpenCelliD should be asked about this spot now (plan 11/10, replacing "fetch when there are no sites"): no
+    fetch covered it in 30 days, and the country file is missing, over 30 days old, or has no cell within 3 mi of it. With
+    the country file loaded an area never had zero sites, so a new address never got fresh cells."""
+    cov, cf = covered(crowd, lat, lon), country_file(crowd)
+    fresh_country = bool(cf and cf >= _since(COUNTRY_KEEP_DAYS))
+    near = fresh_country and file_cells_near(crowd, lat, lon)
+    why = (f"OpenCelliD was asked about this area in the last month ({cov[:10]})" if cov else
+           f"the country file came in {cf[:10]}, under a month ago, and has cells here" if near else
+           f"the country file came in {cf[:10]} but has no OpenCelliD cell within {FETCH_RADIUS_MI:g} mi of here" if fresh_country else
+           "no fetch covered this spot in the last 30 days" + (f" and the country file is from {cf[:10]}" if cf else " and there's no whole country file"))
+    return {"due": not cov and not near, "why": why, "covered": cov, "country_file": cf,
+            "requests_today": requests_today(crowd), "budget": DAY_BUDGET, "cost": FETCH_REQUESTS}
+
+
+def fetch_near(crowd, lat, lon, key, wait=120):
+    """OpenCelliD's cells around an address, when a top-up is due here (topup_due) and the day's budget has room. The crowd
+    data otherwise covers only the mission areas and the country file, so a new address had no cell sites at all (the 11/4
+    demo, at both addresses the customer gave). Checked and spent in the copy's one OpenCelliD turn: two top-ups at once
+    both passed the checks and each spent 24 (40 at once went to 960 of the 800, review 11/10). Says how many requests it
+    sent, how far it came in whole and why it stopped early, if it did."""
     if not key:
         raise ValueError("This copy has no OpenCelliD key (Data & updates).")
-    since = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() - FETCH_KEEP_DAYS * 86400))
-    if crowd.execute("SELECT 1 FROM ext_fetch WHERE source='opencellid' AND fetched_at>=? AND rows>0 AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? LIMIT 1",
-                     (since, lat - 0.02, lat + 0.02, lon - 0.03, lon + 0.03)).fetchone():
-        return {"rows": 0, "skipped": "fetched for this area in the last month"}
-    day = crowd.execute("SELECT COUNT(*) FROM ext_fetch WHERE source='opencellid' AND fetched_at LIKE ?", (time.strftime("%Y-%m-%d") + "%",)).fetchone()[0]
-    if day >= FETCH_PER_DAY:
-        raise RuntimeError(f"OpenCelliD's share for today is used ({day} areas): try again tomorrow.")
-    return {"rows": connectors.fetch_opencellid(crowd, lat, lon, FETCH_RADIUS_MI, key, max_requests=FETCH_REQUESTS)}
+    if not connectors.ocid_turn(wait):
+        return {"rows": 0, "skipped": "Another OpenCelliD fetch is running on this copy: try again in a minute."}
+    try:
+        due = topup_due(crowd, lat, lon)
+        if not due["due"]:
+            return {"rows": 0, "skipped": due["why"]}
+        if due["requests_today"] + FETCH_REQUESTS > DAY_BUDGET:
+            raise RuntimeError(f"OpenCelliD's share for today is used ({due['requests_today']} of {DAY_BUDGET} requests; "
+                               f"{UPDATER_SHARE} more are kept for the scheduled updates): try again tomorrow.")
+        got = {}
+        rows = connectors.fetch_opencellid(crowd, lat, lon, FETCH_RADIUS_MI, key, max_requests=FETCH_REQUESTS, out=got)
+        return {"rows": rows, **got}
+    finally:
+        connectors.ocid_done()
 
 
-def import_ocid(crowd, name, data, boxes=None, log=None):
+def import_ocid(crowd, name, data, boxes=None, log=None, states=None):
     """An OpenCelliD download (cell_towers.csv, or a country file like 310.csv.gz) -> the crowd layer.
-    boxes: [(s, n, w, e)] to keep (the states in Data & updates); None keeps everything."""
+    boxes: [(s, n, w, e)] to keep (the states in Data & updates, named in states); None keeps everything. The log row says
+    which states it was kept to, so a state-limited 310.csv.gz is never taken for the country file (country_file)."""
     if hasattr(data, "read"):  # an open file: a whole country is never held in memory
         raw, pos = data, data.tell()
         magic = raw.read(2)
@@ -417,7 +680,8 @@ def import_ocid(crowd, name, data, boxes=None, log=None):
         ident = f"{r.get('mcc')}-{r.get('net')}-{r.get('area')}-{r.get('cell')}"
         det = {"radio": radio, "mcc": r.get("mcc"), "mnc": r.get("net"), "lac": r.get("area"), "cellid": r.get("cell"),
                "range": r.get("range"), "samples": r.get("samples"), "created": r.get("created"), "updated": r.get("updated"),
-               "unit": r.get("unit")}  # the PCI (LTE, 5G) or PSC (3G) the crowd heard: -1 when it didn't
+               "unit": r.get("unit"),  # the PCI (LTE, 5G) or PSC (3G) the crowd heard: -1 when it didn't
+               "changeable": r.get("changeable")}  # 0: a position given exactly, not worked out (the tower engine's sigma, 11/10)
         sig = sigid.classify("NR" if radio == "NR" else ("WCDMA" if radio == "UMTS" else radio))["sig_type"]
         avg = connectors.fnum(r.get("averagesignal"))
         batch.append(("opencellid", "OpenCelliD cells", ident, la, lo, radio, f"{radio} {ident}", None, None, avg or None, radio, sig,
@@ -431,5 +695,6 @@ def import_ocid(crowd, name, data, boxes=None, log=None):
     if batch:
         connectors.upsert(crowd, batch)
         n += len(batch)
-    connectors.log_fetch(crowd, "opencellid", None, None, None, n, f"imported {name}")
+    kept_to = f" (states {', '.join(states)})" if boxes and states else " (states kept to boxes)" if boxes else ""
+    connectors.log_fetch(crowd, "opencellid", None, None, None, n, f"imported {name}{kept_to}")
     return {"kept": n, "read": seen}

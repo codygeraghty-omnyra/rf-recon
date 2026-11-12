@@ -151,7 +151,7 @@ def _sheet(s, pos, sst, biff8):
     for rid, b in _records(s, pos):
         if rid == 0x0A:  # the sheet's end
             break
-        if rid in (0xFD, 0x203, 0x27E, 0x204, 0xD6, 0x06, 0xBD) and len(b) >= 6:
+        if rid in (0xFD, 0x203, 0x27E, 0x204, 0xD6, 0x06, 0xBD, 0x205) and len(b) >= 6:
             row, col = struct.unpack_from("<HH", b, 0)
         if rid == 0xFD and len(b) >= 10:  # a string from the shared table
             i = struct.unpack_from("<I", b, 6)[0]
@@ -163,11 +163,16 @@ def _sheet(s, pos, sst, biff8):
         elif rid == 0xBD:  # several compact numbers in a row
             for k, i in enumerate(range(4, len(b) - 2, 6)):
                 cells[row, col + k] = _text(_rk(struct.unpack_from("<I", b, i + 2)[0]))
+        elif rid == 0x205 and len(b) >= 8:  # a TRUE / FALSE cell (an error cell, the flag at 7, stays blank): read as ''
+            if b[7] == 0:  # until round 5 of the 11/10 survey review, so a Registered column of them was blank throughout
+                cells[row, col] = "TRUE" if b[6] else "FALSE"
         elif rid in (0x204, 0xD6):  # a string held in the cell
             cells[row, col] = _uni(b[6:]) if biff8 else b[8:8 + struct.unpack_from("<H", b, 6)[0]].decode("latin-1", "replace")
         elif rid == 0x06 and len(b) >= 14:  # a formula's last value; a text answer follows in a STRING record
             if b[12:14] == b"\xff\xff" and b[6] == 0:
                 last_formula = (row, col)
+            elif b[12:14] == b"\xff\xff" and b[6] == 1:  # a TRUE / FALSE answer
+                cells[row, col] = "TRUE" if b[8] else "FALSE"
             elif b[12:14] != b"\xff\xff":
                 cells[row, col] = _text(struct.unpack_from("<d", b, 6)[0])
         elif rid == 0x207 and last_formula:
@@ -181,6 +186,21 @@ def _sheet(s, pos, sst, biff8):
             rows[r] += [""] * (c + 1 - len(rows[r]))
         rows[r][c] = v
     return rows
+
+
+def datemode(data):
+    """1904 when the workbook counts its dates from 1904 (Excel for Mac 2008 and older: its DATEMODE record, 0x22, is 1),
+    else 1900, as Excel counts them; 1900 too for a file this can't follow. Read as 1900, a 1904 workbook's dates came out 4
+    years and a day early (review 11/10, round 3)."""
+    try:
+        for rid, b in _records(workbook_stream(data)):
+            if rid == 0x22 and len(b) >= 2:
+                return 1904 if struct.unpack_from("<H", b, 0)[0] == 1 else 1900
+            if rid == 0x0A:  # the globals end: no DATEMODE
+                break
+    except (ValueError, struct.error, IndexError):
+        pass
+    return 1900
 
 
 def tables(data):

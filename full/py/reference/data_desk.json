@@ -222,6 +222,21 @@
     "date": "2026-11-08",
     "url": "https://www.arcgis.com/home/item.html?id=73b11d64ccc44fdd84d4ac7446676813"
    }
+  },
+  "overpass-api-openstreetmap": {
+   "route": "server",
+   "scrub": "structures",
+   "owner": "Cody",
+   "terms_checked": {
+    "date": "2026-11-10",
+    "url": "https://wiki.openstreetmap.org/wiki/Overpass_API"
+   },
+   "quota": {
+    "per_day": 100,
+    "note": "The main server: under 10,000 queries and 1 GB a day, divided by 100 for anything set up to run regularly; no parallel requests; after a 429 or 406 pause 30 s. osmtowers.py stops a day at 100 requests, asks one at a time and pauses 30 s (or the Retry-After) after a 429 or 406."
+   },
+   "note": "Terms read 2026-11-10 on the providers' own pages. https://wiki.openstreetmap.org/wiki/Overpass_API (main instance overpass-api.de): \"You can assume that you don't disturb other users when you do less than 10,000 queries per day\" and \"download less than 1 GB data per day\"; \"If you set something up that uses the Overpass API regularly, then divide those numbers by 100\"; \"No parallel running of multiple scripts\"; \"If you receive an HTTP error code such as 429 or 406, pause for 30 seconds before making a new request\"; apps should send a User-Agent that identifies them; no key or sign-up; \"Commercial use should use self-hosted or paid Overpass servers\". https://dev.overpass-api.de/overpass-doc/en/preface/commons.html: 429 is the rate limit, 504 the server's run-time or memory budget; an app for more than OSM mappers shouldn't rely on the public instances as its backend. https://www.openstreetmap.org/copyright: ODbL; credit OpenStreetMap and its contributors and say the data is under the ODbL; free to copy, distribute, transmit and adapt; share-alike for an altered or built-upon database. https://osmfoundation.org/wiki/Licence/Attribution_Guidelines (adopted 2021-06-25, page edited 2026-09-10): attribution to \"OpenStreetMap\", making clear the data is ODbL, a link to openstreetmap.org/copyright. So: OSM towers (osmtowers.py, 11/10) ask one server, one request at a time, at most 100 a day, keep tiles 90 days, and credit \"© OpenStreetMap contributors (ODbL)\" in every tower report and API answer. The updater source osm_towers is off by default; the commercial-use line is why a copy run for a customer needs its own server.",
+   "person_task": "Before OpenStreetMap towers run for a customer (Andy's copy, any sold copy): counsel rules first on fusing OSM (ODbL) with the crowd's carrier cells (CC BY-SA); until then osm_towers is Cody's own build only (build.PERSONAL_ONLY, Cody 11/10). After that, give that copy an Overpass server the terms allow for commercial use, a paid instance (Josh: Geofabrik, Overspan, Tracestrack, Mapsource or Overpass.ch on the wiki's list) or one Omnyra runs itself, and set it as osm_towers.server (as the admin, POST /api/settings {\"osm_towers_server\": \"https://...\"}: https to a public host only); then switch osm_towers on there. The public main server's policy says commercial use should use self-hosted or paid servers (read 2026-11-10). Cody decides whether Omnyra's own copy uses the public server meanwhile (light use: 100 requests a day at most)."
   }
  }
 }

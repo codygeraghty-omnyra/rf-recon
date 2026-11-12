@@ -33,6 +33,10 @@ a { color: var(--accent); }
 
 /* ---------- map ---------- */
 #map { position: fixed; inset: 0; z-index: 0; background: var(--bg); }
+/* "Search here" where empty map was tapped (app.js hereOffer, 11/10) */
+.here-offer { position: absolute; z-index: 1002; padding: 5px; border-radius: 14px; }
+body:has(#map > .rf-res) .rfn-fab { display: none !important; }  /* over the viewer's corner, taps there opened Note */
+#map.rf-res-over { z-index: 26; }  /* a short screen (on its side): the map and its sheet go over the search box and chips, under the header and bar */
 body:not([data-tab="map"]) #map { visibility: hidden; }
 .leaflet-container { font-family: var(--font); background: var(--bg); }
 .leaflet-bottom { bottom: calc(env(safe-area-inset-bottom) + 76px); }
@@ -234,7 +238,7 @@ details + details { border-top: 1px solid var(--line); }
 </form>
 <div id="suggest" class="glass over" hidden></div>
 <div class="mapchips">
-  <span class="pill glass over" id="summary">Tap the map or search</span>
+  <span class="pill glass over" id="summary">Tap the map, then Search here, or search</span>
   <label class="pill glass over" title="Radius">◎ <select id="radius" aria-label="Radius"></select></label>
   <span class="spacer"></span>
   <button class="pill glass over" type="button" id="logBtn">＋ Log</button>
@@ -259,6 +263,7 @@ details + details { border-top: 1px solid var(--line); }
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="zoombar.js"></script>
 <script src="measure.js"></script>
+<script src="results.js"></script>
 <script src="vendor/sqljs/sql-wasm.js"></script>
 <script src="theme/look.js"></script>
 <script src="tak.js"></script>

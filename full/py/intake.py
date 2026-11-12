@@ -41,6 +41,7 @@ import zlib
 
 import das
 import dashist
+import survey
 import uls_import
 
 MB = 1024 * 1024
@@ -97,6 +98,8 @@ KINDS = {
     "prohibited_list": {"label": "FCC prohibited entities list", "act": "press"},
     # these can't be placed from the file alone: the press keeps a copy in Files, and the job's own tab places the readings
     "walk": {"label": "Walk log", "act": "press", "tab": "grid"}, "compass": {"label": "COMPASS report", "act": "press", "tab": "grid"},
+    # a drive or walk survey (survey.py, 11/10): a phone or scanner log whose positions spread over 300 m, or the survey template
+    "survey": {"label": "Survey log", "act": "press", "tab": "presurvey"},
     "noise": {"label": "Noise log", "act": "press", "tab": "commission"}, "gain": {"label": "BDA gain table", "act": "press", "tab": "commission"},
     "job_json": {"label": "DAStastic job", "act": "own", "tab": "das", "home": "DAS, Import jobs"},
     "talkgroups": {"label": "Talk groups", "act": "own", "tab": "map", "home": "the emitter's page: the file doesn't say whose they are"},
@@ -772,6 +775,21 @@ def _nums(rows, col, limit=400):
     return out
 
 
+SURVEY_SPREAD_M = 300  # a log whose positions spread further is a drive or walk survey, not a walk on a floor plan (11/10)
+
+
+def _walk_or_survey(rows, lat, lon, why, conf, f, acc=None, net=None):
+    """A phone or scanner log: a walk test on a floor plan, or a drive or walk survey when its positions spread over 300 m.
+    The spread is the good fixes' (survey.spread_m: none worse than 50 m, the outermost few left out), never a G-NetTrack
+    network fix (net: its Location column, N): one stale fix 600 m off made an indoor walk a survey (review 11/10).
+    acc: the accuracy column."""
+    pts = ((r.get(lat), r.get(lon), r.get(acc) if acc else None) for r in rows if not (net and str(r.get(net) or "").strip().upper() == "N"))
+    spread = survey.spread_m(pts) if lat and lon else 0
+    if spread > SURVEY_SPREAD_M:
+        return "survey", conf, f"{why}, its positions spread over {spread:,.0f} m", dict(f, spread_m=round(spread))
+    return "walk", conf, why, f
+
+
 def _table_kind(name, raw):
     """What a table holds, from its columns. -> (kind, confidence, why, facts). Extension alone is never trusted: .txt, .csv and .dat each
     mean five things here. maybe: what it could also be, when the columns can't say."""
@@ -798,14 +816,19 @@ def _table_kind(name, raw):
     tg = das.guess_mapping(head, network.TG_ALIASES)
     if (tg.get("hex") or (tg.get("dec") and has("decimal", "tgid", "talkgroup", "talkgroupid"))) and not reads:
         return "talkgroups", .9, "Decimal or Hex talk group columns", f
+    if all(c in head for c in survey.CSV_COLUMNS):
+        return "survey", .98, "DAStastic's survey columns (the template or an export)", f
+    # G-NetTrack Pro before the grid test's columns: its Level and Location read as a floor and a square, so a full log was
+    # filed as grid results (found 11/10; the old check only ever saw a four-column test file)
+    if has("timestamp") and has("networktech") and has("level") and has("operatorname", "operator"):
+        return _walk_or_survey(rows, n.get("latitude"), n.get("longitude"), "A G-NetTrack Pro log", .95, f, n.get("accuracy"), n.get("location"))
     if "floor" in gm and "grid" in gm and reads:
         vals = _nums(rows, gm[reads[0]])
         if not rows or (vals and sum(v <= 40 for v in vals) >= .8 * len(vals)):
             return "grid", .95, f"{gm['floor']}, {gm['grid']} and {gm[reads[0]]} columns", dict(f, map=gm)
-    if has("timestamp") and has("networktech") and has("level") and has("operatorname", "operator"):
-        return "walk", .95, "A G-NetTrack Pro log", f
     if "time" in gm and "rsrp" in gm:
-        return "walk", .85, f"{gm['time']} and {gm['rsrp']} columns", f
+        sm = survey.columns(head)  # where it was taken, by the survey's own names (GPS Latitude, Accuracy)
+        return _walk_or_survey(rows, sm.get("lat"), sm.get("lon"), f"{gm['time']} and {gm['rsrp']} columns", .85, f, sm.get("acc"))
     cm = das.guess_mapping(head, das.CONTACT_ALIASES)
     pm = das.guess_mapping(head, das.PART_ALIASES)
     qm = das.guess_mapping(head, das.QUOTE_ALIASES)
@@ -1905,6 +1928,10 @@ def _plan(con, it, job):
     if k == "sweep":
         n = f.get("points")
         return {"say": f"Adds one sweep of {n} points to the job, and keeps the export in Files.", "complete": [True, f"{n} points"]}
+    if k == "survey":
+        rows, spread = f.get("rows"), f.get("spread_m")
+        return {"say": f"Keeps this drive or walk survey log in the job's Files ({rows or 'its'} rows{f', positions spread over {spread:,} m' if spread else ''}): "
+                       "a survey of the area, not a walk on a floor plan.", "complete": [None, ""]}
     if k in ("walk", "compass", "noise", "gain"):
         rows = f.get("rows")
         tab = {"walk": "Grid test", "compass": "Grid test", "noise": "Commissioning", "gain": "Commissioning"}[k]

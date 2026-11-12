@@ -41,10 +41,11 @@ ORIGIN = {
     "psap": ("reference", "declared", "US government public data"),
     "fss": ("FCC filings", "declared", "US government public data"),
     "custom": ("imported", "unknown", "whatever the file's owner allows"),
+    "osm_towers": ("crowd map", "declared", "ODbL"),  # OpenStreetMap's mapped towers and masts (osmtowers.py, 11/10)
 }
 PRECISION_M = {"opencellid": 1000, "wigle": 150, "repeaterbook": 1500, "wspr": 2500, "pskreporter": 2500, "ttn": 100,
                "satnogs": 100, "uls": 30, "towers": 10, "broadcast": 30,
-               "meshtastic": 400, "helium": 1000}  # how far a stated position can be off (mesh nodes and Helium blur theirs)
+               "meshtastic": 400, "helium": 1000, "osm_towers": 20}  # how far a stated position can be off (mesh nodes and Helium blur theirs)
 
 # A-F per source and claim (research table, section 3 rule 2). New users or instruments start at F: no track record
 GRADES = {

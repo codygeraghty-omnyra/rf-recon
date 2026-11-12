@@ -65,9 +65,10 @@
   function wire(sites) {  // the panel's presses: Open Cell sites, a site's full record, a tower
     box.querySelectorAll("[data-cellgo]").forEach(b => b.onclick = () => setTab("cells"));
     box.querySelectorAll("tr[data-cs]").forEach(tr => tr.onclick = () => { const rec = box.querySelector(`tr[data-csrec="${tr.dataset.cs}"]`); if (rec) rec.hidden = !rec.hidden; });
-    // Topology's tower table says "Click one for its sites, cells and channel numbers": a tower opens as it does on Cell sites (cells.js)
+    // Topology's tower table says "Click one for its sites, cells and channel numbers": a tower opens as it does on Cell sites,
+    // in the results viewer on this tab (cells.js, emitter.js emCellView; 11/10: it jumped to the Map tab)
     box.querySelectorAll("tr[data-tw]").forEach(tr => tr.onclick = () => { const s = sites.find(x => x.tower?.reg === tr.dataset.tw);
-      if (s && typeof emitOpen === "function" && typeof emCellRow === "function") emitOpen(emCellRow(s, s.cells[0]), "cell"); });
+      if (s && typeof emCellView === "function") emCellView($("#view"), s); });
   }
   for (const t of Object.keys(S.views)) { const orig = S.views[t];
     const w = function (v, rows) { off(); const out = orig.call(this, v, rows); Promise.resolve(out).then(() => { if (S.tab === t) mount(v, t); }, () => {}); return out; };

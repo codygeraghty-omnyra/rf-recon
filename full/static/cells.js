@@ -122,9 +122,10 @@ S.views.cells = async v => {
   $("#csOp").onchange=e=>{ C.op=e.target.value; render(); };
   $("#csRadio").onchange=e=>{ C.radio=e.target.value; render(); };
   let t; $("#csQ").oninput=e=>{ clearTimeout(t); t=setTimeout(()=>{ C.q=e.target.value; render(); const i=$("#csQ"); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },350); };
-  v.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=()=>{ const s=all[+tr.dataset.i]; emitOpen(emCellRow(s, s.cells[0]), "cell"); });
+  // a row shows its site in the results viewer here, on this tab (Cody 11/10: it jumped to the Map tab); Show on map goes there
+  v.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=()=>emCellView(v, all[+tr.dataset.i]));
   v.querySelectorAll("#csBy [data-by]").forEach(b=>b.onclick=()=>{ C.by=b.dataset.by; render(); });
-  v.querySelectorAll("tr[data-tw]").forEach(tr=>tr.onclick=()=>{ const s=all.find(x=>x.tower?.reg===tr.dataset.tw); if(s) emitOpen(emCellRow(s, s.cells[0]), "cell"); });
+  v.querySelectorAll("tr[data-tw]").forEach(tr=>tr.onclick=()=>{ const s=all.find(x=>x.tower?.reg===tr.dataset.tw); if(s) emCellView(v, s); });
   $("#csImp").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; $("#csMsg").textContent=`Importing ${f.name} (${(f.size/1e6).toFixed(0)} MB)… large country files take a few minutes.`;
     try{ const x=await api(`/api/cells/import?name=${encodeURIComponent(f.name)}`,{method:"POST", body:f}); $("#csMsg").textContent=`${x.kept.toLocaleString()} cells kept of ${x.read.toLocaleString()} in the file${x.states.length?` (${x.states.join(", ")})`:""}.`; setTimeout(render,1200); }
     catch(err){ $("#csMsg").textContent="Import: "+err.message; } };

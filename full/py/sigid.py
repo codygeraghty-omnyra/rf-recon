@@ -320,34 +320,14 @@ def wifi_channel_to_mhz(ch, freq=None):
 
 
 def earfcn_to_dl_mhz(n):
-    """LTE EARFCN -> downlink MHz for common US bands (approximate band table)."""
-    try:
-        n = int(n)
-    except (TypeError, ValueError):
-        return None
-    table = [  # (band, f_dl_low, n_offs_dl, n_low, n_high)
-        (2, 1930.0, 600, 600, 1199), (4, 2110.0, 1950, 1950, 2399), (5, 869.0, 2400, 2400, 2649),
-        (7, 2620.0, 2750, 2750, 3449), (12, 729.0, 5010, 5010, 5179), (13, 746.0, 5180, 5180, 5279),
-        (14, 758.0, 5280, 5280, 5379), (17, 734.0, 5730, 5730, 5849), (25, 1930.0, 8040, 8040, 8689),
-        (26, 859.0, 8690, 8690, 9039), (29, 717.0, 9660, 9660, 9769), (30, 2350.0, 9770, 9770, 9869),
-        (41, 2496.0, 39650, 39650, 41589), (48, 3550.0, 55240, 55240, 56739), (66, 2110.0, 66436, 66436, 67335),
-        (71, 617.0, 68586, 68586, 68935),
-    ]
-    for band, f, offs, lo, hi in table:
-        if lo <= n <= hi:
-            return round(f + 0.1 * (n - offs), 3)
-    return None
+    """LTE EARFCN -> downlink MHz. A thin wrapper over cellspec's one converter (11/10): its table had its own copy of
+    the bands, without B70 or B85."""
+    import cellspec
+    hit = cellspec.earfcn_dl_mhz(n)
+    return hit[1] if hit else None
 
 
 def nrarfcn_to_mhz(n):
-    try:
-        n = int(n)
-    except (TypeError, ValueError):
-        return None
-    if 0 <= n < 600000:
-        return round(0.005 * n, 3)
-    if 600000 <= n < 2016667:
-        return round(3000 + 0.015 * (n - 600000), 3)
-    if 2016667 <= n <= 3279165:
-        return round(24250.08 + 0.06 * (n - 2016667), 3)
-    return None
+    """NR-ARFCN -> MHz on the global raster: a thin wrapper over cellspec's one converter (11/10)."""
+    import cellspec
+    return cellspec.nrarfcn_mhz(n)

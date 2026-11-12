@@ -74,6 +74,9 @@ button:disabled{opacity:.5;cursor:default}
 .tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 13px;white-space:nowrap;color:var(--muted)}
 .tabs button.on{border-bottom-color:var(--accent);color:var(--ink);font-weight:600}
 .status{color:var(--muted);font-size:13px;margin:6px 0}
+/* the status line keeps a line's room, so a message coming and going ("Building heatmap…") doesn't move the map under it
+   (review 11/11: 19 px each time, 41-62 px with the tools row) */
+#status{min-height:19px}
 .status.err{color:var(--bad)}
 .hint{color:var(--muted);font-size:12px}
 .mono{font-family:var(--mono)}
@@ -587,7 +590,6 @@ body.rail-none .filter-line{display:none}
   #mapTop{order:-1;display:flex;flex-direction:column}
   #mapTop .maptools{order:2;margin-top:8px}
   #mapTop #mapHint{order:1}
-  #mapTop #emitPanel{order:3}
 }
 .rail-all{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
 .rail-why{margin-top:9px;font-size:12px;line-height:1.4;color:var(--muted)}
@@ -842,6 +844,7 @@ body.rail-none #filters{display:none}
 <script src="static/measure.js"></script>
 <script src="static/markup.js"></script>
 <script src="static/mapexport.js"></script>
+<script src="static/results.js"></script>
 <script src="static/vendor/cytoscape.min.js"></script>
 <script src="static/rfparse.js"></script>
 <script src="static/rfsort.js"></script>
@@ -889,6 +892,7 @@ body.rail-none #filters{display:none}
 <script src="static/dxf.js"></script>
 <script src="static/dascell.js"></script>
 <script src="static/dasx.js"></script>
+<script src="static/rfscale.js"></script>
 <script src="static/daswalk.js"></script>
 <script src="static/dascommission.js"></script>
 <script src="static/dascellcomm.js"></script>

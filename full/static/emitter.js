@@ -5,7 +5,9 @@
    - Network: its licence's base stations and mobiles, the same system under other call signs, simulcast sites,
      others sharing its channels, the tower, the channel's other users, microwave sites, your labels and talk groups;
    - Cell site: for a cell, its global cell ID, the site's sectors with their estimated directions, and the tower.
-   The overlays stay on the map until the panel is closed. */
+   The overlays stay on the map until the panel is closed. Since 11/10 (Cody, after Andy's demo on 11/9) it all shows in the
+   results viewer inside the map's frame (results.js), with the entry's details as a tab; nothing fits or pans the map by
+   itself, and "Zoom to" in the viewer shows the whole of what a tab draws. */
 
 const EM_MODELS = [["suburban", "Hata, suburban"], ["urban", "Hata, urban"], ["open", "Hata, open land"], ["free", "Free space (best case)"]];
 const EM_RX = [[1.5, "1.5 m: handheld / vehicle"], [3, "3 m"], [10, "10 m: rooftop / donor antenna"], [30, "30 m"]];
@@ -25,34 +27,53 @@ function emDefaults(r){
     h:r.height_tip_m ?? 30, haat:r.haat_m ?? "", az:r.azimuth ?? "", bw:r.beamwidth ?? "", cell:false};
 }
 
-// a dot clicked on the map: everything at that spot, highlighted in the list or table, and listed in the panel
+// a dot clicked on the map (or a list or table row): everything at that spot in the results viewer on the map, lit up in the
+// list and the table. The map and the page stay where they are (11/10: the panel under the map scrolled the page to it)
 document.head.insertAdjacentHTML("beforeend", `<style>#mapTable tr.sel td{background:color-mix(in srgb,var(--accent) 22%,transparent)}</style>`);
-function emitSpot(rs){
+// a pick inside a list or table that scrolls by itself is brought into view there: that box scrolls, never the page
+function emInView(box, el){
+  if(!box || !el || box.scrollHeight<=box.clientHeight+1) return;
+  const b=box.getBoundingClientRect(), r=el.getBoundingClientRect(), top=b.top+(box.querySelector("thead")?.offsetHeight||0);  // a sticky header covers its top (review 11/11)
+  if(r.top<top) box.scrollTop-=top-r.top+4; else if(r.bottom>b.bottom) box.scrollTop+=r.bottom-b.bottom+4;
+}
+window.emInView = emInView;
+function emitSpot(rs, pick){
   const items=groupItems(rs), fids=new Set(items.map(r=>r.fid));
   $$("#mapTable tr[data-fid]").forEach(tr=>tr.classList.toggle("sel", fids.has(tr.dataset.fid)));
-  const first=$$("#mapTable tr.sel")[0]; if(first) first.scrollIntoView({block:"nearest"});
-  const keep=S.emit&&S.emit.site&&S.emit.site[0]?.lat===items[0]?.lat&&S.emit.site[0]?.lon===items[0]?.lon;
-  if(keep) return;
-  S.emit={r:items[0], site:items, tab:"info", opt:emDefaults(items[0]), cov:null, net:null, cell:null, err:{}};
+  const first=$$("#mapTable tr.sel")[0]; if(first) emInView(first.closest(".tw"), first);
+  if(!items.length) return;
+  const key=`${items[0].lat},${items[0].lon}`, r=(pick&&(items.find(x=>x.fid===pick.fid)||pick))||items[0];
+  const e=S.emit;
+  if(e && e.key===key && e.site){ if(pick && e.r!==r){ Object.assign(e, {r, tab:"detail", opt:emDefaults(r), cov:null, net:null, cell:null, err:{}, mark:null}); emitPanel(); emitDraw(); } return; }
+  S.emit={key, r, site:items, tab:pick||items.length===1?"detail":"info", opt:emDefaults(r), cov:null, net:null, cell:null, err:{}};
   emitPanel(); emitDraw();
-  const p=$("#emitPanel"); if(p) p.scrollIntoView({block:"nearest", behavior:"smooth"});
 }
 window.emitSpot = emitSpot;
-// and the other way: a row picked in the map's table shows it on the map and in the panel
+function emitNoSpot(r){
+  if(!S.map || !window.RFResults){ openDetail(r.fid); return; }
+  if(S.emit) emitClose();  // the spot shown before, and what it drew, go: this one has no place on the map
+  $$("#mapTable tr[data-fid]").forEach(tr=>tr.classList.toggle("sel", tr.dataset.fid===r.fid));  // lit in the table, the last spot's rows not
+  const draw=()=>RFResults.show(S.map, {key:`fid:${r.fid}`, label:titleOf(r), title:detailTitle(r), sub:"No location on file (a mobile or area entry)",
+    fill:body=>fillDetail(body, r, {saved:()=>{ render(); draw(); }})});
+  draw();
+}
+window.emitNoSpot = emitNoSpot;
+// a row picked in the map's table shows in the viewer, as a dot does; the map stays where it is
 document.addEventListener("click", ev=>{ const tr=ev.target.closest("#mapTable tr[data-fid]"); if(!tr||ev.target.closest("a,button")) return;
-  const r=S.rows.find(x=>x.fid===tr.dataset.fid); if(!r||r.lat==null) return;
-  selectFeature(r, true); emitSpot(S.rows.filter(x=>x.lat===r.lat&&x.lon===r.lon)); });
+  const r=S.rows.find(x=>x.fid===tr.dataset.fid); if(!r) return;
+  selectFeature(r); if(r.lat==null) emitNoSpot(r); else emitSpot(S.rows.filter(x=>x.lat===r.lat&&x.lon===r.lon), r); });
 
-// open the panel for one emitter on the Map tab; tab = coverage | network | cell
+// one emitter's coverage, network or cell site (tab = coverage | network | cell) in the Map tab's viewer; from another tab
+// it's the explicit way to the Map tab (an Analyzer row's details, Search's Network and Coverage, Show on map)
 function emitOpen(r, tab){
   if(!r || r.lat==null){ $("#status").textContent="That entry has no location to work from."; return; }
-  S.emit = {r, tab: tab || (emIsCell(r) ? "cell" : "coverage"), opt: emDefaults(r), cov:null, net:null, cell:null, err:{}};
+  S.emit = {key:`${r.lat},${r.lon}`, r, tab: tab || (emIsCell(r) ? "cell" : "coverage"), opt: emDefaults(r), cov:null, net:null, cell:null, err:{}};
   try{ $("#dlg").close(); }catch(e){ /* the dialog was already closed */ }
   if(S.tab!=="map") setTab("map"); else { emitPanel(); emitDraw(); }
   emitLoad();
 }
 window.emitOpen = emitOpen;
-function emitClose(){ S.emit=null; if(S.emitLayer&&S.map) S.map.removeLayer(S.emitLayer); S.emitLayer=null; const p=$("#emitPanel"); if(p) p.innerHTML=""; }
+function emitClose(){ S.emit=null; if(S.emitLayer&&S.map) S.map.removeLayer(S.emitLayer); S.emitLayer=null; if(S.map&&window.RFResults) RFResults.close(S.map, false); }
 
 async function emitLoad(){
   const e=S.emit; if(!e) return;
@@ -65,10 +86,7 @@ async function emitLoad(){
     e.err[t]=null;
   }catch(err){ e.err[t]=err.message; }
   if(S.emit!==e) return;
-  e.busy=false; emitPanel(); emitDraw();
-  if(!e.err[t] && !(e.fitted||(e.fitted={}))[t] && S.map){ e.fitted[t]=true;  // show the whole of it the first time
-    const pts=t==="coverage"&&e.cov ? e.cov.contour : t==="network"&&e.net ? [[e.r.lat,e.r.lon],...e.net.sites.map(s=>[s.lat,s.lon])] : t==="cell"&&e.cell ? [[e.cell.lat,e.cell.lon],...e.cell.cells.map(c=>[c.lat,c.lon])] : null;
-    if(pts&&pts.length>1) S.map.fitBounds(L.latLngBounds(pts).pad(.08)); }
+  e.busy=false; emitPanel(); emitDraw();  // nothing fits the map by itself (11/10): the viewer's Zoom to shows the whole of it
 }
 
 function emCovQuery(){
@@ -91,25 +109,29 @@ async function emCellSite(r){
   throw new Error("No site found for this cell.");
 }
 
-/* ---------- the panel under the map ---------- */
+/* ---------- the results viewer on the Map tab (results.js) ---------- */
+// the tabs an entry has: everything at its spot, its details, and its coverage, network or cell site
+function emTabs(e){ const r=e.r;
+  return [...(e.site&&e.site.length>1?[{id:"info", label:`On this spot (${e.site.length})`}]:[]), ...(r.fid?[{id:"detail", label:"Details"}]:[]),
+    ...((erpOf(r)||emIsCell(r))&&r.layer!=="towers"?[{id:"coverage", label:"Coverage"}]:[]), ...(emIsUls(r)?[{id:"network", label:"Network"}]:[]),
+    ...(emIsCell(r)?[{id:"cell", label:"Cell site"}]:[])]; }
 function emitPanel(){
-  const el=$("#emitPanel"), e=S.emit; if(!el) return;
-  if(!e){ el.innerHTML=""; return; }
-  const r=e.r, tabs=[...(e.site?[["info",`On this spot (${e.site.length})`]]:[]), ...((erpOf(r)||emIsCell(r))&&r.layer!=="towers"?[["coverage","Coverage"]]:[]),
-    ...(emIsUls(r)?[["network","Network"]]:[]), ...(emIsCell(r)?[["cell","Cell site"]]:[])];
-  el.innerHTML=`<div class="panel" style="margin-top:10px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-      <h3 style="margin:0">◎ ${r.freq_mhz?`<span class="mono">${fmtF(r.freq_mhz)} MHz</span> · `:""}${esc(emName(r))}</h3>
-      <div class="seg" id="emTabs">${tabs.map(([k,l])=>`<button data-et="${k}" class="${e.tab===k?"on":""}">${l}</button>`).join("")}</div>
-      <span class="row" style="gap:6px">${emSurvey(r)&&(r.ident||r.freq_mhz)?`<button id="emMeas" title="Measured heatmap of this signal from your survey data">Measured heatmap</button>`:""}
-        <button id="emDetail">Details</button><button id="emClose">✕ Close</button></span></div>
-    <div id="emBody" style="margin-top:8px">${e.busy?'<p class="status">Working it out…</p>':e.err[e.tab]?`<p class="status err">${esc(e.err[e.tab])}</p>`:""}</div></div>`;
-  $("#emTabs").onclick=ev=>{ const b=ev.target.closest("button"); if(!b) return; e.tab=b.dataset.et; emitPanel(); emitDraw(); emitLoad(); };
-  $("#emClose").onclick=emitClose;
-  $("#emDetail").onclick=()=>{ if(r.fid) openDetail(r.fid); };
-  if($("#emMeas")) $("#emMeas").onclick=()=>{ S.heat.kind="measured"; S.heat.ident=r.ident||(r.ext_id||"").replace(/^\w+:/,"")||""; S.heat.freq=r.ident?"":(r.freq_mhz??""); S.heat.signal=emName(r); render(); loadHeat(); };
-  if(e.busy||e.err[e.tab]) return;
-  const body=$("#emBody");
-  if(e.tab==="info") emSpotBody(body); else if(e.tab==="coverage") emCoverageBody(body); else if(e.tab==="network") emNetworkBody(body); else emCellBody(body);
+  const e=S.emit; if(!S.map || !window.RFResults) return;
+  if(!e){ RFResults.close(S.map, false); return; }
+  const r=e.r, tabs=emTabs(e); if(!tabs.some(t=>t.id===e.tab)) e.tab=tabs[0]?.id;
+  const go=t=>{ e.tab=t; e.mark=null; emitPanel(); emitDraw(); emitLoad(); };
+  RFResults.show(S.map, {key:`em:${e.key}`, label:emName(r),
+    title:`◎ ${r.freq_mhz?`<span class="mono">${fmtF(r.freq_mhz)} MHz</span> · `:""}${esc(emName(r))}`,
+    sub:[esc(r._cell?r._cell.radio:typeOf(r)), r.dist_mi!=null?`${num(r.dist_mi,2)} mi ${esc(r.compass||"")} from the pin`:""].filter(Boolean).join(" · "),
+    tabs, tab:e.tab, onTab:go,
+    fill:body=>{
+      if(e.busy){ body.innerHTML='<p class="status">Working it out…</p>'; return; }
+      if(e.err[e.tab]){ body.innerHTML=`<p class="status err">${esc(e.err[e.tab])}</p>`; return; }
+      if(e.tab==="info") emSpotBody(body); else if(e.tab==="detail") fillDetail(body, r, {go});
+      else if(e.tab==="coverage") emCoverageBody(body); else if(e.tab==="network") emNetworkBody(body); else emCellBody(body); },
+    actions:emSurvey(r)&&(r.dbm!=null||r.ident||r.ext_id||r.freq_mhz)?[{label:"Measured heatmap", title:"Measured heatmap of this signal from your survey data",
+      run:()=>{ S.heat.kind="measured"; S.heat.ident=r.ident||(r.ext_id||"").replace(/^\w+:/,"")||""; S.heat.freq=r.ident||r.ext_id?"":(r.freq_mhz??""); S.heat.signal=emName(r); render(); loadHeat(); }}]:[],
+    zoom:()=>emZoomPts(e), onClose:emitClose}, [r.lat, r.lon]);
 }
 
 // everything at the clicked spot; pick one to see its coverage, network or details
@@ -123,9 +145,8 @@ function emSpotBody(el){
       <td style="white-space:nowrap">${(erpOf(r)||emIsCell(r))&&r.layer!=="towers"?`<button data-go="coverage" data-i="${i}">Coverage</button> `:""}${emIsUls(r)?`<button data-go="network" data-i="${i}">Network</button> `:""}${emIsCell(r)?`<button data-go="cell" data-i="${i}">Cell site</button> `:""}<button data-go="detail" data-i="${i}">Details</button></td></tr>`; }).join("")}</tbody></table></div>
     <p class="hint">${rs[0].dist_mi!=null?`${num(rs[0].dist_mi,2)} mi ${esc(rs[0].compass||"")} from the pin · `:""}${rs[0].lat.toFixed(5)}, ${rs[0].lon.toFixed(5)}. Click an entry to pick it, or a button to see its coverage, network or full details.</p>`;
   el.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=ev=>{ const r=rs[+tr.dataset.i], b=ev.target.closest("[data-go]");
-    if(b&&b.dataset.go==="detail"){ openDetail(r.fid); return; }
-    e.r=r; e.opt=emDefaults(r); e.cov=e.net=e.cell=null; e.err={}; if(e.fitted) e.fitted={};
-    if(b){ e.tab=b.dataset.go; emitPanel(); emitDraw(); emitLoad(); } else emitPanel(); });
+    e.r=r; e.opt=emDefaults(r); e.cov=e.net=e.cell=null; e.err={}; e.mark=null;
+    if(b){ e.tab=b.dataset.go; emitPanel(); emitDraw(); emitLoad(); } else { emitPanel(); emitDraw(); } });
 }
 
 function emCoverageBody(el){
@@ -218,7 +239,7 @@ function emNetworkBody(el){
       ${n.links.fcc?` · <a href="${n.links.fcc}" target="_blank" rel="noopener">FCC licence ↗</a>`:""} · <a href="${n.links.radioreference}" target="_blank" rel="noopener">RadioReference ↗</a></p>
     <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">${[[n.sites.length,"base / fixed sites"],[n.mobiles.length,`mobile entries (about ${n.units.toLocaleString()} radios)`],[n.simulcast.length,"simulcast channels"],
       [n.system.length,"other call signs, same system"],[n.shared.length,"others sharing its channels"],[n.colocated.length,"others on the tower"],[n.cochannel.length,"same channel nearby"],[n.talkgroups.length,"talk groups"]]
-      .map(([k,l])=>`<span class="tag">${k} ${l}</span>`).join("")}<button id="emFit">Fit the network on the map</button></div>
+      .map(([k,l])=>`<span class="tag">${k} ${l}</span>`).join("")}<button id="emFit">Zoom to the network</button></div>
     ${sec(`Base stations and fixed sites (${n.sites.length})`, tbl(["Site","Distance","Type","Frequencies (MHz)","ERP","Tower"], n.sites.map(s=>`<tr data-ll="${s.lat},${s.lon}" style="cursor:pointer"><td>${esc([s.address,s.city,s.state].filter(Boolean).join(", ")||`${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}`)}</td>
       <td class="n">${s.dist_mi!=null?num(s.dist_mi,1)+" mi":""}</td><td>${esc(s.classes.join(" "))}</td><td class="mono">${fl(s.freqs)}</td><td class="n">${s.erp_w?num(s.erp_w)+" W":""}</td><td class="mono">${esc(s.tower_reg||"")}</td></tr>`)), true)}
     ${sec(`Mobiles, portables and control stations (${n.mobiles.length} entries, about ${n.units.toLocaleString()} radios)`, tbl(["MHz","Type","Radios","Area of operation"], n.mobiles.map(m=>`<tr><td class="mono">${fmtF(m.freq)}</td><td>${esc(classLabel(m.class))} <span class="mono hint">${esc(m.class||"")}</span></td><td class="n">${m.units||""}</td><td>${esc(m.area)}</td></tr>`)), true)}
@@ -240,7 +261,9 @@ function emNetworkBody(el){
       <div class="row" style="gap:8px"><label class="inl">For <select id="emTgSys"><option value="${esc(L_.call_sign)}">this call sign</option><option value="${esc(L_.licensee)}">every licence of ${esc(L_.licensee)}</option></select></label>
         <label class="inl">Import <input type="file" id="emTgFile" accept=".csv,.tsv,.txt,.xlsx,.json"></label>${n.talkgroups.length?'<button id="emTgDel">Remove these talk groups</button>':""}<span class="hint" id="emTgMsg"></span></div>`
       + tbl(["Decimal","Hex","Alpha tag","Mode","Description","Tag","Category"], n.talkgroups.map(t=>`<tr><td class="mono">${t.dec}</td><td class="mono">${esc(t.hex||"")}</td><td>${esc(t.alpha_tag||"")}</td><td>${esc(t.mode||"")}</td><td>${esc(t.description||"")}</td><td>${esc(t.tag||"")}</td><td>${esc(t.category||"")}</td></tr>`)), n.talkgroups.length>0)}`;
-  el.querySelectorAll("tr[data-ll]").forEach(tr=>tr.onclick=()=>{ const [a,b]=tr.dataset.ll.split(",").map(Number); if(S.map) S.map.setView([a,b], Math.max(S.map.getZoom(),13)); });
+  // a row's site is ringed on the map, which stays where it is (11/10: it panned and zoomed to it)
+  el.querySelectorAll("tr[data-ll]").forEach(tr=>tr.onclick=()=>{ S.emit.mark=tr.dataset.ll.split(",").map(Number);
+    el.querySelectorAll("tr[data-ll].sel").forEach(x=>x.classList.remove("sel")); tr.classList.add("sel"); emitDraw(); });
   $("#emFit").onclick=emFit;
   $("#emTgFile").onchange=async ev=>{ const f=ev.target.files[0]; if(!f) return; $("#emTgMsg").textContent="Reading…";
     try{ const r=await api(`/api/talkgroups/import?system=${encodeURIComponent($("#emTgSys").value)}&name=${encodeURIComponent(f.name)}`,{method:"POST", body:await f.arrayBuffer()});
@@ -248,8 +271,8 @@ function emNetworkBody(el){
   if($("#emTgDel")) $("#emTgDel").onclick=async()=>{ for(const s of new Set(n.talkgroups.map(t=>t.system))) await post(`/api/talkgroups/delete?system=${encodeURIComponent(s)}`); S.emit.net=null; emitLoad(); };
 }
 
-function emCellBody(el){
-  const s=S.emit.cell, r=S.emit.r; if(!s){ el.innerHTML='<p class="hint">Loading…</p>'; return; }
+function emCellBody(el, s=S.emit?.cell, r=S.emit?.r){  // the Map tab's cell site, or any site given (emCellView)
+  if(!s){ el.innerHTML='<p class="hint">Loading…</p>'; return; }
   const me=r._cell, t=s.tower;
   el.innerHTML=`<div class="grid2" style="margin-top:0"><div>
       <div class="kvg"><div>Operator</div><div><b>${esc(s.operator)}</b> <span class="mono hint">${esc(s.plmn)}</span></div>
@@ -307,6 +330,17 @@ function emCellLicensed(s){
       <p style="margin:0">Not collected: anything that identifies a person, such as subscriber IDs (TMSI, IMSI) or the contents of calls and pages.</p></details>`;
 }
 
+// A cell site in the results viewer on a page (Cell sites, Topology: Cody 11/10, their rows jumped to the Map tab): its
+// sectors, tower and licensed bands, on the tab where it was clicked. "Show on map" is the explicit way to the Map tab.
+function emCellView(host, s){
+  if(!window.RFResults){ emitOpen(emCellRow(s, s.cells[0]), "cell"); return; }
+  RFResults.show(host, {key:`cs:${s.key||`${s.plmn}|${s.radio}|${s.site_id}`}`, label:`${s.operator} ${s.radio} ${s.site_id}`,
+    title:`${esc(s.operator)} ${esc(s.radio)} ${esc(String(s.site_kind||"").split(" ")[0])} <span class="mono">${esc(String(s.site_id))}</span>`,
+    sub:[s.dist_mi!=null?`${num(s.dist_mi,2)} mi from the pin`:"", s.tower?`FCC tower ${esc(s.tower.reg)}`:"", `${s.cells.length} cell${s.cells.length===1?"":"s"}`].filter(Boolean).join(" · "),
+    fill:body=>emCellBody(body, s, emCellRow(s, s.cells[0])),
+    actions:[{label:"Show on map", primary:true, title:"On the Map tab, with its sectors drawn", run:()=>emitOpen(emCellRow(s, s.cells[0]), "cell")}]});
+}
+window.emCellView = emCellView;
 // a cell (from a site) as a row the panel can open
 function emCellRow(site, c){
   return {layer:"cell", fid:null, lat:site.lat, lon:site.lon, kind:site.radio, ident:c.gci, _cell:c, _site:site, freq_mhz:null};
@@ -321,6 +355,7 @@ function emitDraw(){
   const e=S.emit; if(!e) return;
   const r=e.r, g=S.emitLayer, quiet={interactive:false, bubblingMouseEvents:false, renderer:S.quietR}, live={bubblingMouseEvents:false, renderer:S.dotsR};
   L.circleMarker([r.lat,r.lon],{radius:11, color:"#f0a020", weight:3, fill:false, ...quiet}).addTo(g);
+  if(e.mark) L.circleMarker(e.mark,{radius:15, color:"#1f6feb", weight:3, dashArray:"5 4", fill:false, ...quiet}).addTo(g);  // a network row picked
   if(e.tab==="coverage" && e.cov){ const c=e.cov;
     S.emitHeat=L.imageOverlay("data:image/png;base64,"+c.png, c.bounds, {opacity:e.opt.opacity, interactive:false}).addTo(g);
     L.polygon(c.contour,{color:"#f0a020", weight:2, dashArray:"6 4", fill:false, ...quiet}).addTo(g);
@@ -342,10 +377,17 @@ function emitDraw(){
       L.circleMarker([c.lat,c.lon],{radius:3, color:"#f0a020", fillOpacity:1, ...quiet}).addTo(g); }
     L.marker([s.lat,s.lon],{icon:pinIcon(), interactive:false}).addTo(g); }
 }
-function emFit(){ const e=S.emit; if(!e||!S.map) return; const pts=[[e.r.lat,e.r.lon]];
-  if(e.net){ for(const s of e.net.sites) pts.push([s.lat,s.lon]); for(const m of e.net.microwave) pts.push([m.lat,m.lon]); for(const k of e.net.mw_links||[]) pts.push([k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]); }
-  if(e.cov) pts.push(...e.cov.bounds);
-  S.map.fitBounds(L.latLngBounds(pts).pad(.1)); }
+// what Zoom to shows on each tab: the coverage's reach, the network's sites and links, the cell site's sectors, or the entry
+function emZoomPts(e){
+  if(!e) return null; const r=e.r, pts=[[r.lat,r.lon]];
+  if(e.mark) return [pts[0], e.mark];  // a network row picked: it and the item (review 11/11: it was ringed off screen)
+  if(e.tab==="coverage"&&e.cov) pts.push(...e.cov.bounds);
+  if(e.tab==="network"&&e.net){ for(const s of e.net.sites) pts.push([s.lat,s.lon]); for(const m of e.net.microwave) pts.push([m.lat,m.lon]); for(const k of e.net.mw_links||[]) pts.push([k.tx_lat,k.tx_lon],[k.rx_lat,k.rx_lon]); }
+  if(e.tab==="cell"&&e.cell){ pts.push([e.cell.lat,e.cell.lon]); for(const c of e.cell.cells) if(c.lat!=null) pts.push([c.lat,c.lon]); }
+  return pts.length>1?pts:[r.lat,r.lon];
+}
+// Zoom to the network (its own button): the viewer's Zoom to, which leaves room for the viewer
+function emFit(){ const v=S.map&&window.RFResults&&RFResults.get(S.map); if(v) v.zoomTo(); }
 
-// called by drawMap after it builds the map, so the panel and overlays survive re-renders
+// called by drawLayers after it draws the results, so the viewer and the overlays come back on a map made again
 window.emitAfterDraw = () => { if(S.emit){ emitPanel(); emitDraw(); } };

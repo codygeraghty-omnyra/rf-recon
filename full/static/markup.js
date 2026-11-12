@@ -14,7 +14,7 @@
   const len = m => m / 1609.344 >= 0.2 ? `${n(m / 1609.344, 2)} mi` : `${n(m * 3.28084, 0)} ft`;
   const sq = m2 => m2 / 2589988.11 >= 0.5 ? `${n(m2 / 2589988.11, 2)} sq mi` : m2 / 4046.8564 >= 0.1 ? `${n(m2 / 4046.8564, 2)} acres` : `${n(m2 * 10.7639, 0)} sq ft`;
   const area = ll => window.RFMeasure ? RFMeasure.area(ll) : 0;
-  const scopeOf = map => (map._rfScope && map._rfScope()) || (window.S && S.missionId
+  const scopeOf = map => (map._rfScope && map._rfScope()) || (typeof S === "object" && S && S.missionId
     ? {scope: "mission", id: S.missionId, name: `mission “${S.mission?.name || S.missionId}”`} : {scope: "scratch", id: 0, name: "this copy (no mission open)"});
   const keyOf = s => `${s.scope}:${s.id}`;
   const all = new Set();  // every Draw on a live map, for refresh() after a mission is opened
@@ -57,14 +57,15 @@
       return box;
     },
     // drawn at once with what's known, then again when the server's list arrives (until then the buttons weren't there)
-    open(){ if(this._map._rfMeasure?._on) this._map._rfMeasure.stop(); this._panel.hidden = false; this._btn.classList.add("on"); this._show(); this.load(); },
+    open(){ if(this._map._rfMeasure?._on) this._map._rfMeasure.stop(); this._map.fire("rftool"); this._panel.hidden = false; this._btn.classList.add("on"); this._show(); this.load(); },
     close(){ this._cancel(); this._sel = null; this._panel.hidden = true; this._btn.classList.remove("on"); },
     async load(){ const s = scopeOf(this._map); this._scopeKey = keyOf(s);
       try{ const r = await call(`/api/markup?scope=${s.scope}&id=${s.id}`); this._items = r.items; this._msg = ""; }
       catch(err){ this._items = []; this._msg = `Drawings: ${err.message}`; }
+      if(!this._map) return;  // the map went while the list loaded (a tab left: RFMaps, 11/10)
       this._render(); this._show(); },
     // ---- drawing one
-    _start(tool){ this._sel = null; this._tool = tool; this._pts = []; const m = this._map; m._rfMeasuring = true;
+    _start(tool){ this._sel = null; this._tool = tool; this._pts = []; const m = this._map; m.fire("rftool"); m._rfMeasuring = true;  // Move pin, if armed, is done
       this._dz = m.doubleClickZoom.enabled(); m.doubleClickZoom.disable(); m.getContainer().classList.add("rf-measuring"); this._show(); },
     // the click that finishes a drawing (a point, an area's first corner) is still on its way to the map's other click
     // handlers, so the pin stays put until it's done (in testing 11/10 that click moved the pin)
@@ -105,7 +106,9 @@
         const lyr = it.kind === "point" ? L.circleMarker(ll(geo.coordinates), {...o, radius: 7, color: "#111", weight: 1.5, fillColor: c, fillOpacity: 1})
           : it.kind === "line" ? L.polyline(geo.coordinates.map(ll), o) : L.polygon(geo.coordinates[0].slice(0, -1).map(ll), {...o, fillOpacity: .15});
         lyr.bindTooltip(tip, {permanent: true, direction: it.kind === "point" ? "top" : "center", offset: it.kind === "point" ? [0, -8] : [0, 0], className: "rf-dr-label"});
-        lyr.on("click", () => { if(this._tool) return; this._sel = it.id; this.open(); this._render(); });  // bubblingMouseEvents:false keeps it off the map
+        lyr.on("click", ev => { const m = this._map;  // bubblingMouseEvents:false keeps it off the map, so a tool on gets it here
+          if(m._rfMeasuring){ m.fire("click", {latlng: ev.latlng, layerPoint: ev.layerPoint, containerPoint: ev.containerPoint, originalEvent: ev.originalEvent}); return; }
+          this._sel = it.id; this.open(); this._render(); });
         lyr.addTo(g); } },
     _show(){ const pn = this._panel; if(pn.hidden) return; const s = scopeOf(this._map), sel = this._items.find(i => i.id === this._sel);
       // no taller than the map, clear of its bottom-left readout and scale (seen 11/10 on a 600-pixel map), scrolling inside

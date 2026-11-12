@@ -125,7 +125,9 @@ window.missionHunt = (v, m) => {
         <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="primary" id="hnSave" style="font-size:16px">Save this stop</button>
           <button id="hnNoDir" hidden title="The compass wasn't steady: keep this stop's level, leave its direction out">Save the level only</button></div>
         <p class="hint" id="hnMsg" style="margin:6px 0 0"></p></div>
-      <div><div id="hnMap" style="height:300px;border-radius:10px"></div><div id="hnOut" style="margin-top:8px"></div></div></div>
+      <div><div id="hnMap" style="height:300px;border-radius:10px"></div>
+        <div class="row" style="gap:8px;margin-top:6px"><button id="hnFit" type="button" title="Fit the map to the stops, the best guess and you">Fit stops</button></div>
+        <div id="hnOut" style="margin-top:8px"></div></div></div>
     <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">How it works, and tips for a rogue booster</summary>
       <ul class="hint" style="margin:6px 0 0;padding-left:18px">
         <li>Levels alone: a signal gets weaker with distance, so stops on different sides of it show where it is. Take stops around it, not in a line; 5 or more spread over the area give a tight answer.</li>
@@ -182,9 +184,14 @@ window.missionHunt = (v, m) => {
   $("#hnSave").onclick = e => save(e.currentTarget, false);
   $("#hnNoDir").onclick = e => save(e.currentTarget, true);
 
-  let map = null, layer = null;
+  let fitStops = null;
+  let fitAsked = false;  // pressed while the panel drew again, before its answer was back: done when it is (it did nothing)
+  $("#hnFit").onclick = () => { if (fitStops) fitStops(); else fitAsked = true; };  // the one press that fits the map to the stops after the first draw
+  const make = el => { const mp = L.map(el, { preferCanvas: true }); addMapLayers(mp); mp._hnLayer = L.layerGroup().addTo(mp); return mp; };
   async function draw() {
     if (!panel.open || !$("#hnOut")) return;
+    // the panel drawn again: its kept map goes back in its place at once, not after the answer (an empty box stood there)
+    if (window.RFMaps && RFMaps.get("hunt")?._rfKey === `hunt:${m.id}`) RFMaps.keep(`hunt:${m.id}`, $("#hnMap"), make);
     const f = +($("#hnFreq").value || H.freq);
     const q = new URLSearchParams({ ...(f ? { freq: f, tol_khz: H.tol } : {}), ...(HUNT.here ? { lat: HUNT.here.lat, lon: HUNT.here.lon } : {}) });
     let r; try { r = await api(`/api/missions/${m.id}/hunt?${q}`); } catch (e) { $("#hnOut").innerHTML = `<p class="status err">${esc(e.message)}</p>`; return; }
@@ -208,10 +215,13 @@ window.missionHunt = (v, m) => {
         ${trend != null ? `<p style="margin:0 0 4px;color:${trend >= 3 ? "var(--good)" : trend <= -3 ? "var(--warn)" : "inherit"}">${trend >= 3 ? `Warmer: ${num(trend, 0)} dB stronger than the stop before.` : trend <= -3 ? `Colder: ${num(-trend, 0)} dB weaker than the stop before. Turn back toward the stronger stop.` : "About the same as the stop before."}</p>` : ""}
         ${r.level ? `<p class="hint" style="margin:0">Strongest so far: ${num(r.level.strongest.dbm, 0)} dBm. The readings fit a signal falling off as distance to the power ${r.level.n_exp} (${r.level.n_exp <= 2.5 ? "open ground" : r.level.n_exp >= 3.5 ? "built up" : "mixed"}).</p>` : ""}
         ${best ? `<div class="row" style="gap:8px;margin-top:6px"><button id="hnPin">Put the pin there</button><span class="hint">then Show what's here lists what's licensed there and the buildings nearby</span></div>` : ""}`;
-    if ($("#hnPin")) $("#hnPin").onclick = () => { $("#loc").value = `${best.lat.toFixed(6)}, ${best.lon.toFixed(6)}`; window.setMode?.("point"); window.runSearch?.(); huntSay("Pin moved to the best guess."); };
-    if (typeof L === "undefined") return;
-    if (!map || !document.body.contains(map.getContainer())) { map = L.map("hnMap", { preferCanvas: true }); addMapLayers(map); layer = L.layerGroup().addTo(map);
-      new ResizeObserver(() => map.invalidateSize()).observe(map.getContainer()); }
+    if ($("#hnPin")) $("#hnPin").onclick = () => { movePin(L.latLng(best.lat, best.lon)); huntSay("Pin moved to the best guess."); };
+    if (typeof L === "undefined" || !window.RFMaps) return;
+    // one map per mission, kept while the Mission tab draws again (Cody 11/10: each draw made a new map and left the old one
+    // and its resize watcher running); fitted on the first draw or a new frequency only (RFMaps, results.js)
+    const map = RFMaps.keep(`hunt:${m.id}`, $("#hnMap"), make);
+    if (!map) return;
+    const layer = map._hnLayer;
     layer.clearLayers();
     const all = [], lo = Math.min(...lv.map(p => +p.dbm), 0), hi = Math.max(...lv.map(p => +p.dbm), -200);
     for (const p of pts) { all.push([p.lat, p.lon]);
@@ -228,7 +238,9 @@ window.missionHunt = (v, m) => {
       L.circleMarker(t, { radius: 13, color: "#8250df", weight: 3, dashArray: "5 4", fillColor: "#8250df", fillOpacity: .12 }).bindTooltip("Next stop").addTo(layer);
       L.circleMarker(t, { radius: 3, color: "#8250df", weight: 1, fillColor: "#8250df", fillOpacity: 1, interactive: false }).addTo(layer); }
     if (HUNT.here) { all.push([HUNT.here.lat, HUNT.here.lon]); L.circleMarker([HUNT.here.lat, HUNT.here.lon], { radius: 8, color: "#fff", weight: 3, fillColor: "#1f6feb", fillOpacity: 1 }).bindTooltip("You").addTo(layer); }
-    if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.25), { maxZoom: 18, padding: [18, 18] }); else map.setView([m.lat, m.lon], 15);
+    fitStops = () => { if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.25), { maxZoom: 18, padding: [18, 18] }); else map.setView([m.lat, m.lon], 15); };
+    RFMaps.first(map, `${f || ""}`, fitStops);
+    if (fitAsked) { fitAsked = false; fitStops(); }
   }
   if (H.open) draw();
 };

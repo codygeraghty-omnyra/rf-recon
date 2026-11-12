@@ -7,13 +7,22 @@
    can open the job, an AHJ reviewer's login, the files they see, the review thread, read-only share links). */
 
 const DASREV = {rev: {}, q: {}, client: (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).slice(0, 36)};
+// Run it for me's saves go under a client id of their own (review 11/11): under the page's, the server counted them as this page's own
+// (dashist._states), so a view drawn before the run saved its older copy over what the run wrote (People's contacts over the AHJ's
+// contact, a Pre-survey answer over the plan) with no dialog. Under its own, the page's later saves merge with them, or ask. 40 at most (das.py)
+DASREV.auto = DASREV.client.slice(0, 35) + ":auto";
+// a patch worked out on the current copy (dasJobPatch) isn't what this page's views show either, so it goes under an id of its own too
+// (review 11/11, round 5: a consent date set by dxCarrierPatch was saved over by the same page's Lifecycle carrier table, drawn before it)
+DASREV.patch = DASREV.client.slice(0, 34) + ":patch";
 const dasRevSeen = (j, full) => { if(j && j.id != null && j.rev != null && (full || DASREV.rev[j.id] == null)) DASREV.rev[j.id] = j.rev; };
 const dasWho = w => !w || w === "local" ? "this PC" : w;
 
 window.dasJobApi = async (path, opts) => {
   const m = path.match(/^\/api\/das\/jobs(?:\/(\d+))?$/), post = (opts?.method || "GET").toUpperCase() === "POST";
   if(!(post && m[1])){
-    const r = await api(path, {...(opts || {}), dasRaw: true});
+    // a page drawing one job says so, and which page it is: the server then folds no other page's later save into the revision it
+    // drew (dashist.seen, rounds 6 and 7), while this page's own saves still fold
+    const r = await api(m[1] ? `${path}?view=${encodeURIComponent(DASREV.client)}` : path, {...(opts || {}), dasRaw: true});
     if(Array.isArray(r?.jobs)) r.jobs.forEach(x => dasRevSeen(x, false)); else dasRevSeen(r, true);
     return r; }
   const id = m[1], body = JSON.parse(opts.body || "{}");
@@ -22,13 +31,78 @@ window.dasJobApi = async (path, opts) => {
   return run;
 };
 
-async function dasRevSave(path, id, body){
+// A change worked out on the job as the server has it now (review, 11/10): after this page's saves in flight, read the current copy
+// WITHOUT taking its revision as this page's (a GET through dasJobApi would, and the page's later saves would then overwrite other
+// people's edits without asking), work the patch out on it, and save. rev "current" (the default): the patch was derived from that
+// copy, so it goes as of that revision. rev "page": it goes as of the copy this page was drawn from, so anything someone changed since
+// is merged or asked about. fn(cur) returns the data patch (or a promise of it), or false for nothing to change: no save, cur comes
+// back. opts.client: the save's client id (DASREV.patch unless given: Run it for me's is DASREV.auto). opts.redo: on a clash, read
+// again and work the patch out again instead of asking (review round 5: Run it for me's "only into what's empty" was judged once, so
+// Keep yours on its clash wrote its guess over another person's AHJ saved in between)
+window.dasJobPatch = (id, fn, opts = {}) => {
+  const key = String(id), path = `/api/das/jobs/${key}`;
+  const run = (DASREV.q[key] || Promise.resolve()).catch(() => {}).then(async () => {
+    for (let i = 0; ; i++) {
+      const cur = await api(path, {dasRaw: true});
+      const patch = await fn(cur);
+      if (patch === false) return cur;
+      // floor changes in the patch (patch.floorOps) go as operations the server works out on the job as it is (dasfloors.py)
+      const {floorOps, ...data} = patch;
+      const body = {data, ...(opts.rev === "page" ? {} : {rev: cur.rev}), client: opts.client || DASREV.patch, ...(floorOps ? {ops: floorOps} : {})};
+      try { const r = await dasRevSave(floorOps ? `${path}/floors` : path, key, body, {noAsk: !!opts.redo && i < 3}); return floorOps ? r.job : r; }
+      // a refused floor change says why, in the server's words (review round 7: Plans showed only "Not saved.")
+      catch (e) { if (e.refused) { if (typeof dasSay === "function") dasSay(e.refused.map(r => r.said).join(" ")); return e.job; } if (!e.clash) throw e; }
+    }
+  });
+  DASREV.q[key] = run;
+  return run;
+};
+
+// Floor changes as operations (review round 6): add, remove, rename, put_back, set, union, set_count, fill, start_answers (dasfloors.py),
+// applied by the server to the job as it is when they land, after this page's saves in flight. A floor with work on it, or changed since
+// the page drew it, is refused with what is on it now: o.ask (true for a confirm with the server's words, or a function given the
+// refusals) can confirm exactly that and send again. ops, or fn(cur) giving {ops, data} worked out on the job as it is (false: nothing).
+// o.data: other sections, saved as of o.rev (the page's revision unless given). Answers {job, results, refused?, declined?}
+window.dasFloorOps = (id, ops, o = {}) => {
+  const key = String(id), path = `/api/das/jobs/${key}`;
+  const run = (DASREV.q[key] || Promise.resolve()).catch(() => {}).then(async () => {
+    let body;
+    if (typeof ops === "function") {
+      const cur = await api(path, {dasRaw: true}), got = await ops(cur);
+      if (got === false) return {job: cur, results: []};
+      body = {ops: got.ops, ...(got.data ? {data: got.data, rev: cur.rev} : {})};
+    } else body = {ops, ...(o.data ? {data: o.data, rev: o.rev != null ? o.rev : DASREV.rev[key]} : {})};
+    body.client = o.client || DASREV.patch;
+    for (let i = 0; i < 4; i++) {
+      try { return await dasRevSave(`${path}/floors`, key, body); }
+      catch (e) {
+        if (!e.refused) throw e;
+        const can = e.refused.every(r => r.why === "work" || r.why === "changed");
+        const ok = can && o.ask && await (typeof o.ask === "function" ? o.ask(e.refused) : dasFloorAsk(e.refused));
+        if (!ok) { if (!can) dasSay(e.refused.map(r => r.said).join(" ")); return {job: e.job, results: [], refused: e.refused, declined: can}; }
+        // confirmed: exactly what is on each floor now, as of the copy the refusal came with
+        body = {...body, ops: body.ops.map((x, k) => { const mine = e.refused.filter(r => r.op === k); if (!mine.length) return x;
+          const y = {...x, if_unchanged_since: e.job.rev};
+          if (x.op === "set_count") y.confirm = {...(x.confirm || {}), ...Object.fromEntries(mine.map(r => [r.name, r.what]))}; else y.confirm = mine[0].what;
+          return y; })};
+      }
+    }
+    throw new Error("The floors kept changing while this saved. Reload the job, then make the change again.");
+  });
+  DASREV.q[key] = run;
+  return run;
+};
+const dasFloorAsk = refused => Promise.resolve(confirm(`${refused.map(r => r.said).join(" ")} Take ${refused.length === 1 ? "it" : "them"} off the job anyway? What's on ${refused.length === 1 ? "it" : "them"} leaves the report.`));
+
+async function dasRevSave(path, id, body, o = {}){
   if(body.rev == null && DASREV.rev[id] != null) body.rev = DASREV.rev[id];
-  body.client = DASREV.client;
+  body.client = body.client || DASREV.client;
   for(let i = 0; i < 4; i++){
     const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
     if(r.status === 401){ location.href = "/remote/login"; throw new Error("Signed out."); }
     const t = await r.text(); let j; try{ j = JSON.parse(t); }catch(e){ throw new Error(t.slice(0, 200) || r.statusText); }
+    if(r.status === 409 && j.refused){ const e = new Error(j.error || "Not saved."); e.refused = j.refused; e.job = j.job; throw e; }
+    if(r.status === 409 && j.conflict && o.noAsk){ const e = new Error(j.error || "Someone else changed it."); e.clash = true; throw e; }
     if(r.status === 409 && j.conflict){
       const how = await dasRevAsk(j);
       body.resolve = {...(body.resolve || {}), ...Object.fromEntries(j.sections.map(s => [s.key, how]))};
@@ -45,7 +119,7 @@ async function dasRevSave(path, id, body){
 function dasRevAsk(c){
   return new Promise(ok => {
     const d = document.createElement("dialog"); d.className = "dasrev-dlg"; d.setAttribute("aria-labelledby", "drvH");
-    const names = c.sections.map(s => s.label), by = [...new Set(c.sections.map(s => dasWho(s.by)))].join(" and ");
+    const names = c.sections.map(s => s.label), by = [...new Set(c.sections.map(s => s.auto ? `Run it for me (for ${dasWho(s.by)})` : dasWho(s.by)))].join(" and ");
     const at = c.sections.map(s => s.at).filter(Boolean).sort().pop() || "";
     d.innerHTML = `<div class="dasrev-b"><h3 id="drvH" style="margin:0 0 6px">Someone else changed ${esc(names.join(", "))} just now</h3>
       <p class="hint" style="margin:0 0 12px">${esc(by)} saved ${names.length === 1 ? "it" : "them"}${at ? ` at ${esc(at.slice(11, 16))}` : ""}. Your other changes save either way.</p>
@@ -84,7 +158,21 @@ window.dasHistory = async function(el, j){
       const undo = b.dataset.undo != null, rev = +(b.dataset.undo ?? b.dataset.to), it = items.find(x => x.rev === rev);
       if(!confirm(undo ? `Undo this change (${it.sections.map(s => s.label).join(", ")})? It saves as a new revision.` : `Put the whole job back as it was after revision ${rev}? It saves as a new revision; nothing is lost from the history.`)) return;
       el.querySelector("#dhMsg").textContent = "Saving…";
-      try{ const r = await post(`/api/das/jobs/${j.id}/restore`, {rev, mode: undo ? "undo" : "to"}); dasRevSeen(r, true); dasSay(undo ? "Undone. The history has it as a new change." : `Restored to revision ${rev}.`); render(); }
+      // Undo of a floor change is that change's inverse on the job as it is (das.py restore_job, review round 7): a floor it added that
+      // has something on it now, or changed since, is asked about in the server's words, and confirmed exactly that
+      const send = async body => { const r = await fetch(`/api/das/jobs/${j.id}/restore`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+        if(r.status === 401){ location.href = "/remote/login"; throw new Error("Signed out."); }
+        const t = await r.json().catch(() => ({})); return {ok: r.ok, status: r.status, t}; };
+      try{ let body = {rev, mode: undo ? "undo" : "to"}, out = null;
+        for(let i = 0; i < 3 && !out; i++){ const {ok, status, t} = await send(body);
+          if(status === 409 && t.refused){
+            const can = t.refused.every(x => x.why === "work" || x.why === "changed");
+            if(!can || !confirm(`${t.refused.map(x => x.said).join(" ")} Take ${t.refused.length === 1 ? "it" : "them"} off the job anyway, to undo this change?`)){ el.querySelector("#dhMsg").textContent = can ? "Not undone." : t.error; return; }
+            body = {...body, confirm: Object.fromEntries(t.refused.map(x => [x.name, x.what])), since: t.job.rev}; continue; }
+          if(!ok || t.error) throw new Error(t.error || `Not saved (${status}).`);
+          out = t; }
+        if(!out) throw new Error("The job kept changing while this saved. Open History again and press Undo.");
+        dasRevSeen(out, true); dasSay(undo ? "Undone. The history has it as a new change." : `Restored to revision ${rev}.`); render(); }
       catch(e){ el.querySelector("#dhMsg").textContent = e.message; } });
   };
   draw();
