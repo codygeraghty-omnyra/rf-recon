@@ -44,6 +44,10 @@ const ADV = [["#a_svc", "svc"], ["#a_tech", "tech"], ["#a_em", "emission"], ["#a
   loc.setAttribute("autocomplete", "off");
   wrap.style.position = "relative";
   wrap.insertAdjacentHTML("beforeend", '<div id="suggest" class="panel" hidden style="position:absolute;left:0;right:0;top:100%;z-index:2000;padding:4px;max-height:340px;overflow:auto"></div><span class="hint" id="locLabel"></span>');
+  // ＋ Mark: what's typed in the Pin box becomes a marker, and the pin stays (Cody 11/11). In the box's own label: inside its
+  // right end while it has the focus on the one-line bar (beside it, the bar ran to a second line at 1366 and 1700 px and
+  // the map moved down), beside it on a phone (index.html)
+  wrap.insertAdjacentHTML("beforeend", '<button id="locMark" type="button" title="Mark what\'s typed in the Pin box (an address, place or lat, lon) with a marker; the pin stays where it is. Shift+Enter does it from the box.">＋ Mark</button>');
 })();
 
 function advNote() {
@@ -150,8 +154,12 @@ document.addEventListener("pointerdown", e => { if (!viewsEl.hidden && !e.target
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !viewsEl.hidden) { viewsOpen(false); e.stopPropagation(); } }, true);
 
 /* ---------- address autocomplete ---------- */
-const sug = { items: [], active: -1, timer: null, seq: 0 };
-function closeSuggest() { const b = $("#suggest"); b.hidden = true; b.innerHTML = ""; sug.items = []; sug.active = -1; }
+// q: the text the list answers; picked: an item moved to with the arrows since (review 11/11: a list from an earlier
+// prefix, still on screen while the next answer was on its way, was taken for the typed text)
+const sug = { items: [], active: -1, timer: null, seq: 0, q: "", picked: false, enters: 0, marking: false };
+function closeSuggest() { const b = $("#suggest"); b.hidden = true; b.innerHTML = ""; sug.items = []; sug.active = -1; sug.q = ""; sug.picked = false; }
+// the list's pick for what's in the box now: the one moved to with the arrows, or the first when the list answers this text
+const listPick = q => !$("#suggest").hidden && sug.items.length && (sug.picked || sug.q === q) ? sug.items[Math.max(0, sug.active)] : null;
 function paintSuggest(online) {
   const box = $("#suggest");
   if (!sug.items.length) { box.innerHTML = `<div class="hint" style="padding:6px">${online === false ? "Offline: only towns and counties from the FCC data, and none match." : "No match. Try a town, county or street address."}</div>`; box.hidden = false; return; }
@@ -167,7 +175,7 @@ async function lookup(q) {
   try {
     const r = await api(`/api/geocode?q=${encodeURIComponent(q)}${near}`);
     if (seq !== sug.seq || $("#loc").value.trim() !== q) return null;
-    sug.items = r.results; sug.active = sug.items.length ? 0 : -1; paintSuggest(r.online);
+    sug.items = r.results; sug.active = sug.items.length ? 0 : -1; sug.q = q; sug.picked = false; paintSuggest(r.online);
     return r.results;
   } catch (e) { return null; }
 }
@@ -190,30 +198,91 @@ async function choosePlace(r) {
 }
 $("#loc").addEventListener("input", () => {
   const q = $("#loc").value.trim();
-  $("#locLabel").textContent = ""; S.placeLabel = null;
+  $("#locLabel").textContent = ""; S.placeLabel = null; sug.picked = false;
+  // ＋ Mark shows in the box once its text is something new (index.html): on the focus a click gives, it sat where a second
+  // click or a double-click on the coordinates landed, and marked the pin (review 11/11)
+  $("#locWrap").classList.toggle("typed", !!q && $("#loc").value !== S.locSearched?.v);
   clearTimeout(sug.timer);
   if (q.length < 3 || parseLoc(q) || /^https?:/i.test(q)) { closeSuggest(); return; }
   sug.timer = setTimeout(() => lookup(q), 250);
 });
-$("#loc").addEventListener("blur", () => setTimeout(closeSuggest, 150));
+// a Tab to ＋ Mark keeps the list and its pick (it was gone by the time Enter pressed ＋ Mark: review 11/11); leaving both goes
+$("#loc").addEventListener("blur", e => { if (e.relatedTarget?.id !== "locMark") setTimeout(closeSuggest, 150); });
+$("#locMark").addEventListener("blur", e => { if (e.relatedTarget?.id !== "loc") setTimeout(closeSuggest, 150); });
 // capture phase on the wrapper, so Enter on a suggestion doesn't also fire the plain search
 $("#locWrap").addEventListener("keydown", async e => {
+  if (e.target.id === "locMark") return;  // Enter or Space on ＋ Mark presses it, not the box's Enter (which searches)
   const open = !$("#suggest").hidden && sug.items.length;
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     if (!open) return;
     e.preventDefault();
-    sug.active = (sug.active + (e.key === "ArrowDown" ? 1 : -1) + sug.items.length) % sug.items.length;
+    sug.active = (sug.active + (e.key === "ArrowDown" ? 1 : -1) + sug.items.length) % sug.items.length; sug.picked = true;
     paintSuggest();
   } else if (e.key === "Escape") closeSuggest();
+  else if (e.key === "Enter" && e.shiftKey) { e.preventDefault(); e.stopPropagation(); markTyped(); }  // ＋ Mark: a marker there, the pin stays
   else if (e.key === "Enter") {
     const q = $("#loc").value.trim();
     if (parseLoc(q) || !q) return;  // coordinates: the normal search runs
     e.preventDefault(); e.stopPropagation();
-    if (open) return choosePlace(sug.items[Math.max(0, sug.active)]);
-    const res = await lookup(q);  // typed fast and hit Enter: take the best match
-    if (res && res.length) choosePlace(res[0]);
+    const pick = listPick(q); if (pick) return choosePlace(pick);
+    clearTimeout(sug.timer);  // typed fast and hit Enter: the best match for this text (the box's own lookup would void this one)
+    // and only if nothing newer has happened since: a slow answer moved the pin over a search typed after it (follow-up review 11/11)
+    const n = ++sug.enters, gen = S.searchGen;
+    const best = await geocodeBest(q);
+    if (best && n === sug.enters && gen === S.searchGen && $("#loc").value.trim() === q) choosePlace(best);
   }
 }, true);
+
+/* ---------- ＋ Mark: a marker where the Pin box says, the pin left where it is (Cody 11/11) ----------
+   Coordinates or a Maps link as typed; an address or place: the suggestion picked with the arrows, else the best match. The
+   marker is kept with the Search map's drawings (markup.js RFMarkup.markAt). The box goes back to the spot the pin searched,
+   the status line says where the marker went, and Zoom to is offered only when it's off the map's view. */
+// the best match for this text, asked for now and kept whatever the box's own lookups do (their newer one voided it, and
+// a typist's Shift+Enter said "Nothing found": review 11/11)
+async function geocodeBest(q) {
+  const near = S.center ? `&lat=${S.center[0]}&lon=${S.center[1]}` : "";
+  try { return (await api(`/api/geocode?q=${encodeURIComponent(q)}${near}`)).results?.[0] || null; } catch (e) { return null; }
+}
+// one at a time: while it looks the place up and saves, the status line says so and another press waits for it (a second
+// press made a second marker); the box goes back to the pin only if it still says what was marked (text typed meanwhile was
+// wiped: follow-up review 11/11)
+async function markTyped(ev) {
+  if (ev && ev.detail > 1) return;  // the second click of a double-click: one press, one marker
+  if (sug.marking) return;
+  sug.marking = true;
+  try { await markNow(); } finally { sug.marking = false; }
+}
+async function markNow() {
+  const st = $("#status"), q = $("#loc").value.trim();
+  st.className = "status";
+  if (!window.RFMarkup) return;
+  if (!RFMarkup.canEdit(S.map)) { st.textContent = "View only: markers are added by a full login."; return; }
+  if (!q) { st.textContent = "Type an address, place or lat, lon in the Pin box, then press ＋ Mark."; return; }
+  let at = parseLoc(q), name = "";
+  if (!at) {
+    let r = listPick(q);
+    if (!r) { clearTimeout(sug.timer); st.textContent = `Finding “${q}”…`; r = await geocodeBest(q); }
+    if (!r || r.lat == null) { closeSuggest(); st.textContent = `Nothing found for “${q}”: try the street, town and state, or lat, lon.`; st.className = "status err"; return; }
+    at = [+r.lat, +r.lon]; name = r.label;
+  }
+  if ($("#loc").value.trim() === q) closeSuggest();
+  let it;
+  try { it = await RFMarkup.markAt(at, name); }
+  catch (e) { st.textContent = `Not marked: ${e.message}`; st.className = "status err"; return; }
+  if (!it) { st.textContent = "Not marked: the map couldn't keep it (its message says why)."; st.className = "status err"; return; }
+  const k = S.locSearched;  // the box shows the pin's own spot again, as its search had it, unless something new was typed
+  if ($("#loc").value.trim() === q) { $("#loc").value = k ? k.v : ""; $("#locLabel").textContent = k ? k.label : ""; S.placeLabel = k ? k.place : null; $("#locWrap").classList.remove("typed"); }
+  const ll = L.latLng(at), map = S.map, seen = S.tab === "map" && !!map && map.getContainer().isConnected && map.getBounds().contains(ll);
+  const mi = S.center ? L.latLng(S.center).distanceTo(ll) / 1609.344 : null, label = it.label.length > 60 ? `${it.label.slice(0, 58)}…` : it.label;
+  // one line, and Zoom to a link in it: a button is taller than the line (44 px on a touch screen), and the map under the
+  // status line moved down when it came
+  st.innerHTML = `Marked “${esc(label)}” at <span class="mono">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</span>${mi != null ? `, ${mi < 0.1 ? `${Math.round(mi * 5280)} ft` : `${mi.toFixed(mi < 10 ? 2 : 1)} mi`} from the pin` : ""}.${seen ? "" : ' <a href="#" id="markZoom" role="button" class="hint" style="color:var(--accent);font-weight:600" title="Show the marker on the map (the pin stays where it is)">Zoom to</a>'}`;
+  const z = $("#markZoom");
+  if (z) z.onclick = e => { e.preventDefault(); if (S.tab !== "map") setTab("map"); const m = S.map; if (m) m.setView(ll, Math.max(m.getZoom(), 16)); z.remove(); };
+}
+// a press on ＋ Mark keeps the focus in the box, so a suggestion moved to with the arrows is still there to mark
+$("#locMark").addEventListener("mousedown", e => e.preventDefault());
+$("#locMark").addEventListener("click", markTyped);
 
 /* ---------- the view as a link ---------- */
 // the open DAS job and its section, and the Start job and its step (UX review 11/8 #2: a reload or a phone dropping the tab put
@@ -266,6 +335,7 @@ window.writeUrlState = replace => {
   const def = layerDefaults(), on = [...S.layerOn].filter(l => LAYERS[l]);
   if (on.length !== def.size || on.some(l => !def.has(l))) h.set("src", on.join(","));
   if (sk.get("place")) h.set("place", sk.get("place"));
+  if (S.tab === "towers" && window.RFTowers) RFTowers.linkParams(h);  // the carriers picked on the Towers tab (towers.js)
   // the Map tab's view, so a link opens where it was looked at (Cody 11/10). It only ever replaces the history entry: panning
   // and zooming never add a Back step
   // and only once a search has drawn: before one the map shows the placeholder US, and a reload kept it for the next search
@@ -309,6 +379,7 @@ window.applyUrlState = boot => {
   if (h.get("fixed") === "0") $("#hideMobile").checked = false;
   if (h.has("expr")) S.filterExpr = h.get("expr");
   if (h.get("heat")) S.heat.kind = h.get("heat");
+  if (h.has("carriers") && window.RFTowers) RFTowers.fromLink(h.get("carriers"));  // the Towers tab's carriers (towers.js)
   if (h.has("src")) { S.layerOn = new Set(h.get("src").split(",").filter(l => LAYERS[l])); S.layerSolo = S.layerPrev = null; }
   // a link's map view (mv=lat,lon,zoom): the Map tab restores it instead of fitting the link's own search (core.js
   // drawLayers). Read only as DAStastic opens (boot), and only when the link carries a search: an mv left on a page with no

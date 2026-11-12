@@ -64,13 +64,17 @@ def query(lat, lon, radius_m):
 
 
 def _ask(q, ask=None):
-    """The first good Overpass answer from the public servers, asked at once (das.OVERPASS_MIRRORS)."""
+    """The first good Overpass answer from the servers this copy may ask (das.overpass_servers: its own, else the public ones
+    on the personal build only), asked at once."""
     if ask:
         return ask(q)
+    servers = das.overpass_servers()
+    if not servers:
+        raise das.no_overpass()
     from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as Late
     errors = []
-    ex = ThreadPoolExecutor(len(das.OVERPASS_MIRRORS))
-    jobs = {ex.submit(das._overpass, url, q): urllib.parse.urlparse(url).netloc for url in das.OVERPASS_MIRRORS}
+    ex = ThreadPoolExecutor(len(servers))
+    jobs = {ex.submit(das._overpass, url, q): urllib.parse.urlparse(url).hostname for url in servers}  # never a login in the text
     try:
         for f in as_completed(jobs, timeout=das.OSM_WAIT_S + 5):
             try:
@@ -166,10 +170,12 @@ def near(lat, lon, radius_m=400, fresh=False, ask=None):
             data, note = _ask(query(lat, lon, radius_m), ask), None
             data = {"elements": [{k: e.get(k) for k in ("type", "id", "tags", "geometry")} for e in data.get("elements", [])]}
             _keep(key, data)
-        except ValueError:
+        except ValueError as e:
             if not kept:
                 raise
-            data, note = kept["v"], "OpenStreetMap's servers didn't answer: the copy kept on " + time.strftime("%Y-%m-%d", time.localtime(kept["at"]))
+            # none asked (a sold copy with no server of its own) isn't a busy server: a retry won't help (11/11 review)
+            data, note = kept["v"], ("OpenStreetMap isn't asked on this copy" if isinstance(e, das.NoOverpass) else "OpenStreetMap's servers didn't answer") \
+                + ": the copy kept on " + time.strftime("%Y-%m-%d", time.localtime(kept["at"]))
     out = []
     for t in group(data):
         d = min(geo.haversine_km(lat, lon, a, b) for a, b in t.pop("_pts")) * 1000

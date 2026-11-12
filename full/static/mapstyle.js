@@ -7,14 +7,13 @@
 const MS_BUILTIN = {  // the tile addresses behind the built-in maps, for exporting them to ATAK
   "Street (OpenStreetMap)": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   "Satellite (USGS)": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
-  "Satellite + labels (USGS)": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}",
   "Satellite hi-res (Esri)": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   "Topo (USGS)": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
   "Terrain relief (USGS)": "https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/{z}/{y}/{x}",
 };
 // each built-in map's deepest zoom, so ATAK doesn't ask for tiles the source doesn't have (USGS answers "not found"
 // above 16, checked 11/10; until then the export said 19 for all of them). ATAK stretches the last zoom past it.
-const MS_BUILTIN_MAX = {"Satellite (USGS)": 16, "Satellite + labels (USGS)": 16, "Topo (USGS)": 16, "Terrain relief (USGS)": 16};
+const MS_BUILTIN_MAX = {"Satellite (USGS)": 16, "Topo (USGS)": 16, "Terrain relief (USGS)": 16};
 try{ S.mapStyle = localStorage.getItem("rfr.mapStyle") || "standard"; }catch(e){ S.mapStyle = "standard"; }
 S.ownMaps = [];
 const msName = m => `Mine: ${m.name}`;
@@ -41,8 +40,8 @@ function msPaintPicker(){
   sel.value = cur;
   sel.onchange = () => { const v = sel.value, pref = mapPrefs();
     if(v === "import"){ sel.value = cur; msDialog(); return; }
-    if(v === "atak"){ S.mapStyle = "atak"; if(!S.atakBaseSet){ pref.before = pref.base; pref.base = "Satellite hi-res (Esri)"; S.atakBaseSet = true; } }
-    else if(v === "standard"){ S.mapStyle = "standard"; S.atakBaseSet = false; if(BASEMAPS[pref.base]?.own || pref.base === "Satellite hi-res (Esri)") pref.base = pref.before && BASEMAPS[pref.before] && !BASEMAPS[pref.before].own ? pref.before : "Street (OpenStreetMap)"; }
+    if(v === "atak"){ S.mapStyle = "atak"; if(!S.atakBaseSet){ pref.before = pref.base; pref.base = baseSatellite(); S.atakBaseSet = true; } }
+    else if(v === "standard"){ S.mapStyle = "standard"; S.atakBaseSet = false; if(BASEMAPS[pref.base]?.own || baseShown(pref.base) === baseSatellite()) pref.base = pref.before && BASEMAPS[pref.before] && !BASEMAPS[pref.before].own ? pref.before : baseDefault(); }
     else { S.mapStyle = "standard"; pref.base = v.slice(4); }
     // the base map swaps in place and the dots are drawn again in the new style: the map stays where it is (11/10)
     msSave(); S.map?._rfSetBase?.(pref.base); render(); };
@@ -74,7 +73,7 @@ function msDialog(){
       : '<p class="hint">None yet.</p>'}</div>
     <div class="sec"><h3>Send DAStastic's maps to ATAK</h3><p class="hint" style="margin-top:0">A map source file for ATAK / WinTAK / iTAK (Import, then the file), so ATAK shows the same ground as DAStastic.
       OpenStreetMap's tile servers are for light use: in ATAK, prefer the USGS or Esri maps.</p>
-      ${Object.entries(MS_BUILTIN).map(([n])=>`<button data-bxml="${esc(n)}" style="margin:2px">⇩ ${esc(n)}</button>`).join("")}</div>`;
+      ${Object.entries(MS_BUILTIN).filter(([n])=>baseOk(n)).map(([n])=>`<button data-bxml="${esc(n)}" style="margin:2px">⇩ ${esc(n)}</button>`).join("")}</div>`;
   $("#dlg").showModal();
   const done = async r => { msRegister(r.maps); $("#msMsg").textContent = "Added."; msDialog(); };
   $("#msAdd").onclick = async () => { const f = $("#msFile").files[0], url = $("#msUrl").value.trim(), name = $("#msName").value.trim();
@@ -84,7 +83,7 @@ function msDialog(){
   $("#msFile").onchange = () => { if($("#msFile").files[0]) $("#msAdd").click(); };
   $$("#dlgBody [data-use]").forEach(b => b.onclick = () => { S.mapStyle = "standard"; mapPrefs().base = b.dataset.use; msSave(); S.map?._rfSetBase?.(b.dataset.use); $("#dlg").close(); render(); });
   $$("#dlgBody [data-rm]").forEach(b => b.onclick = async () => { const r = await post(`/api/basemaps/delete?id=${encodeURIComponent(b.dataset.rm)}`);
-    if(BASEMAPS[mapPrefs().base]?.own) mapPrefs().base = "Street (OpenStreetMap)"; msRegister(r.maps); msSave(); S.map?._rfSetBase?.(mapPrefs().base); msDialog(); });
+    if(BASEMAPS[mapPrefs().base]?.own) mapPrefs().base = baseDefault(); msRegister(r.maps); msSave(); S.map?._rfSetBase?.(mapPrefs().base); msDialog(); });
   $$("#dlgBody [data-xml]").forEach(b => b.onclick = () => { const m = own.find(x=>x.id===b.dataset.xml); msDl(m.name, msXml(m.name, m.url, m.min, m.max)); });
   $$("#dlgBody [data-bxml]").forEach(b => b.onclick = () => msDl(`DAStastic - ${b.dataset.bxml}`, msXml(`DAStastic - ${b.dataset.bxml}`, MS_BUILTIN[b.dataset.bxml], 0, MS_BUILTIN_MAX[b.dataset.bxml] ?? 19)));
 }

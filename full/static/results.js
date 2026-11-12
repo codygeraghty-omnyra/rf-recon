@@ -94,6 +94,9 @@
        with tab (the one shown) and onTab(id) when the caller draws each tab itself.
      actions: [{label, title, primary, run(button)}]. zoom: [lat, lon], bounds or points, or a function giving one: "Zoom to",
        the one thing here that moves the map. anchor: [lat, lon], where a Card sits beside.
+     mark: [lat, lon] for "Mark it" (Cody 11/11), a marker on the item named after it (markName, else label, else the title):
+       offered beside Zoom to wherever there's a place (mark, else the anchor, else a one-point zoom) and a way to keep it
+       (the map's _rfMark: markup.js, the phone app; on a page, RFMarkup.markAt); mark: false for none.
    Layouts, picked in the viewer's header and kept in this browser (rfr.viewer) for every map: Automatic (a side panel when
    the map is 700 px wide or more, a bottom sheet under that), Side panel (360 px, Wider for 540), Bottom sheet (peek, half,
    full) or Card (beside the item, following it as the map moves, never panning it). The map's own controls move aside for a
@@ -102,7 +105,9 @@
    drawing. */
 (function(){
   const LAYOUTS = [["auto", "Automatic"], ["side", "Side panel"], ["sheet", "Bottom sheet"], ["card", "Card"]];
-  const PREF = "rfr.viewer", SHEET = {peek: "30%", half: "52%", full: "calc(100% - 64px)"}, NEXT = {open: "full", peek: "half", half: "full", full: "peek"};
+  // a tap on the grip grows the sheet (map-still: open or half > full > peek > half); a drag snaps to the nearest of STEPS and the
+  // arrow keys step through them, from the opening size as from half (towers-tab review 11/11)
+  const PREF = "rfr.viewer", SHEET = {peek: "30%", half: "52%", full: "calc(100% - 64px)"}, NEXT = {open: "full", peek: "half", half: "full", full: "peek"}, STEPS = ["peek", "half", "full"];
   let pref = "auto";
   try{ const p = localStorage.getItem(PREF); if(LAYOUTS.some(l => l[0] === p)) pref = p; }catch(e){ /* storage blocked (a private window): Automatic */ }
   const open = new Set();
@@ -124,7 +129,7 @@
 .rf-res-page[data-lay=sheet]{height:var(--rf-res-h,52vh);bottom:78px;max-height:calc(100% - 84px)}
 .rf-res[data-lay=card]{width:min(320px,calc(100% - 20px));max-height:min(72%,460px)}
 .rf-res-top{display:flex;flex-direction:column;flex:none;min-height:0}
-.rf-res-grip{display:block;flex:none;position:relative;width:100%;height:16px;min-height:0!important;margin:0;padding:0!important;border:0!important;border-radius:0;background:transparent!important;cursor:pointer}
+.rf-res-grip{display:block;flex:none;position:relative;width:100%;height:16px;min-height:0!important;margin:0;padding:0!important;border:0!important;border-radius:0;background:transparent!important;cursor:ns-resize;touch-action:none}
 .rf-res-grip::before{content:"";position:absolute;left:50%;top:6px;width:46px;height:5px;margin-left:-23px;border-radius:3px;background:var(--line,#8888)}
 .rf-res-hd{display:flex;align-items:flex-start;gap:8px;padding:9px 8px 4px 12px;flex:none}
 .rf-res-hd [data-rx]{flex:none;padding:2px 9px;font-size:13px}
@@ -148,7 +153,7 @@
   }
   // Esc closes the newest viewer (RFKeys "results"), but not while measuring or drawing on its map: Esc ends those first
   let keyed = false;
-  const busy = v => !!(v.map && (v.map._rfMeasuring || v.map._rfDraw?._tool || v.map._rfPinArmed
+  const busy = v => !!(v.map && (v.map._rfMeasuring || v.map._rfDraw?._tool || v.map._rfPinArmed || v.map._rfMarkArmed
     || v.box.querySelector(":scope > .rf-pinmenu:not([hidden])")));  // Esc ends those first, the Move pin here menu too (it sits over the viewer)
   const newest = () => [...open].reverse().find(v => v.el.isConnected && !busy(v));
   function keys(){
@@ -235,11 +240,35 @@
       // the map's own controls make room: the right-hand ones move left of a side panel, the bottom ones up over a sheet
       v.box.classList.toggle("rf-res-on-side", lay === "side"); v.box.classList.toggle("rf-res-on-sheet", lay === "sheet");
       if(lay === "side") v.box.style.setProperty("--rf-res-w", `${el.offsetWidth}px`);
-      if(lay === "sheet") v.box.style.setProperty("--rf-res-hpx", `${Math.min(el.offsetHeight + (inset.bottom || 0) + 6, v.box.clientHeight - (inset.top || 0) - 50)}px`);
+      // the bottom controls (the scale, the credits) ride on a sheet's top edge, but never up over the top ones (layers, zoom, the
+      // lock) nor under the header (towers-tab and map-still, review 11/11)
+      if(lay === "sheet"){ const b0 = v.box.getBoundingClientRect(), tops = [...v.box.querySelectorAll(".leaflet-top .leaflet-control")].map(c => c.getBoundingClientRect().bottom - b0.top);
+        const bot = Math.max(0, ...[...v.box.querySelectorAll(".leaflet-bottom")].map(c => c.offsetHeight)), lift = el.offsetHeight + (inset.bottom || 0) + 6;
+        let cap = v.box.clientHeight - (inset.top || 0) - 50;
+        if(tops.length) cap = Math.min(cap, Math.max(0, v.box.clientHeight - Math.max(...tops) - bot - 6));
+        v.box.style.setProperty("--rf-res-hpx", `${Math.min(lift, cap)}px`); }
       v.box.classList.toggle("rf-res-over", lay === "sheet" && !!inset.short);
     }
     if(lay === "card") place(v);
   }
+  // Mark it: where, what it's called and how it's kept, or null when there's no place or no way to keep a marker
+  const plain = h => { try{ return new DOMParser().parseFromString(String(h || ""), "text/html").body.textContent || ""; }catch(e){ return String(h || ""); } };
+  const pt = a => Array.isArray(a) && a.length === 2 && a.every(x => typeof x === "number" && isFinite(x)) ? a : null;
+  function markOf(v){
+    const o = v.o; if(o.mark === false) return null;
+    const keep = v.map ? v.map._rfMark : window.RFMarkup?.markAt; if(typeof keep !== "function") return null;
+    if(window.RFMarkup && !RFMarkup.canEdit(v.map)) return null;  // a view-only login, or a job shared to look at only, sees no way to add one
+    const at = pt(o.mark) || pt(v.anchor) || (typeof o.zoom !== "function" ? pt(o.zoom) : null); if(!at) return null;
+    const name = String((o.markName ?? o.label ?? plain(o.title)) || "").replace(/^[^\p{L}\p{N}]+/u, "").trim().slice(0, 120);
+    return {at, name, keep};
+  }
+  // the marker is made and the item stays in the viewer; the button says so until another item is shown
+  const markAct = (v, mk) => ({label: v.marked === v.o.key ? "✓ Marked" : "Mark it", marked: v.marked === v.o.key,
+    title: `A marker here, named “${mk.name || "Marker"}”: the pin and the map stay where they are`,
+    run: async b => { if(v.marked === v.o.key || b.disabled) return; b.disabled = true;
+      try{ const r = await mk.keep(L.latLng(mk.at[0], mk.at[1]), mk.name); if(r){ v.marked = v.o.key; b.textContent = "✓ Marked"; } }
+      catch(e){ b.title = `Not marked: ${e.message}`; console.error(e); }
+      finally{ b.disabled = v.marked === v.o.key; } }});
   // the frame: grip, header, tools, tabs and actions, drawn again on their own; the body (and what's typed or scrolled in it)
   // is left alone. The control that had the focus gets it back (a keyboard press on Wider or a tab lost it: review 11/11)
   function frame(v){
@@ -247,23 +276,42 @@
     el.dataset.lay = lay; el.classList.toggle("wide", !!v.wide);
     el.setAttribute("aria-label", (o.label || String(o.title || "Result").replace(/<[^>]*>/g, "")).slice(0, 120));
     const tabs = (o.tabs || []).filter(Boolean), had = v.top && v.top.contains(document.activeElement) ? document.activeElement : null;
+    // Mark it sits in the tools row beside Zoom to (both are about the item's place), not in a row of actions: most items have
+    // no actions, and a row of its own took 44 px from an opening sheet's body (a dot's viewer showed 61 px of it, a phone on
+    // its side 29: seeded sweep 11/11). Its data-ra is its place in v.acts, after the caller's actions
+    const mk = markOf(v), acts = v.acts = [...(o.actions || []), ...(mk ? [markAct(v, mk)] : [])], own = mk ? acts.slice(0, -1) : acts;
+    const btn = (a, i) => `<button data-ra="${i}" class="${a.primary ? "primary" : ""}" ${a.title ? `title="${esc(a.title)}"` : ""}${a.marked ? " disabled" : ""}>${a.label}</button>`;
     const again = had && ["rx", "rz", "rw", "rg", "rl", "rt", "ra"].map(k => had.dataset[k] != null ? `[data-${k}${k === "rt" || k === "ra" ? `="${CSS.escape(had.dataset[k])}"` : ""}]` : "").find(Boolean);
     if(!v.top){ el.innerHTML = '<div class="rf-res-top"></div><div class="rf-res-bd" tabindex="-1"></div>'; v.top = el.firstChild; v.body = el.lastChild;
       v.body.addEventListener("scroll", () => { v.scroll = v.body.scrollTop; }, {passive: true}); }
-    v.top.innerHTML = `${lay === "sheet" ? `<button class="rf-res-grip" data-rg aria-label="Bigger or smaller (peek, half, full)" title="Bigger or smaller"></button>` : ""}
+    v.top.innerHTML = `${lay === "sheet" ? `<button class="rf-res-grip" data-rg aria-label="Bigger or smaller: drag, tap (half, full, peek) or the arrow keys" title="Drag, or tap: half, full, peek"></button>` : ""}
       <div class="rf-res-hd"><div class="rf-res-tt"><div class="rf-res-t">${o.title || ""}</div>${o.sub ? `<div class="rf-res-s">${o.sub}</div>` : ""}</div>
         <button data-rx aria-label="Close" title="Close (Esc)">✕</button></div>
-      <div class="rf-res-tools">${o.zoom && v.map ? `<button data-rz title="Zoom the map to it (the only thing here that moves the map)">Zoom to</button>` : ""}${lay === "side" ? `<button data-rw aria-pressed="${!!v.wide}">${v.wide ? "Narrower" : "Wider"}</button>` : ""}
+      <div class="rf-res-tools">${o.zoom && v.map ? `<button data-rz title="Zoom the map to it (the only thing here that moves the map)">Zoom to</button>` : ""}${mk ? btn(acts[acts.length - 1], acts.length - 1) : ""}${lay === "side" ? `<button data-rw aria-pressed="${!!v.wide}">${v.wide ? "Narrower" : "Wider"}</button>` : ""}
         <select data-rl aria-label="Where results show" title="Where results show: beside the map, under it or as a card. Kept in this browser for every map.">${LAYOUTS.map(([k, l]) => `<option value="${k}" ${pref === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
       ${tabs.length > 1 ? `<div class="rf-res-tabs" role="tablist">${tabs.map(t => `<button role="tab" data-rt="${esc(t.id)}" class="${t.id === v.tab ? "on" : ""}" aria-selected="${t.id === v.tab}">${t.label}</button>`).join("")}</div>` : ""}
-      ${(o.actions || []).length ? `<div class="rf-res-acts">${o.actions.map((a, i) => `<button data-ra="${i}" class="${a.primary ? "primary" : ""}" ${a.title ? `title="${esc(a.title)}"` : ""}>${a.label}</button>`).join("")}</div>` : ""}`;
+      ${own.length ? `<div class="rf-res-acts">${own.map(btn).join("")}</div>` : ""}`;
     const on = (q, fn) => v.top.querySelectorAll(q).forEach(b => b.onclick = e => { e.stopPropagation(); e.preventDefault(); fn(b); });  // each button stops its own click (measure.js)
     on("[data-rx]", () => close(v, true));
     on("[data-rz]", () => zoomTo(v));
     on("[data-rw]", () => { v.wide = !v.wide; frame(v); });
-    on("[data-rg]", () => { v.size = NEXT[v.size] || "half"; layout(v); });
+    on("[data-rg]", () => { if(v.dragged){ v.dragged = false; return; } v.size = NEXT[v.size] || "half"; layout(v); });
+    const grip = el.querySelector("[data-rg]");
+    if(grip){
+      grip.onkeydown = e => { const k = {ArrowUp: 1, ArrowDown: -1}[e.key]; if(!k) return; e.preventDefault(); e.stopPropagation();
+        v.size = STEPS[Math.max(0, Math.min(STEPS.length - 1, STEPS.indexOf(STEPS.includes(v.size) ? v.size : "half") + k))]; layout(v); };
+      // a drag on the grip: the sheet follows the finger, then snaps to the nearest step
+      grip.onpointerdown = e => { const y0 = e.clientY, h0 = el.offsetHeight, H = v.box.clientHeight; let moved = false;
+        try{ grip.setPointerCapture(e.pointerId); }catch(err){ /* a synthetic pointer: the moves still come to the grip */ }
+        const mv = ev => { const dy = ev.clientY - y0; if(Math.abs(dy) > 6) moved = true; if(moved) el.style.setProperty("--rf-res-h", `${Math.max(48, Math.min(H - 16, h0 - dy))}px`); };
+        const up = () => { grip.removeEventListener("pointermove", mv); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); if(!moved) return;
+          v.dragged = true; setTimeout(() => { v.dragged = false; }, 400);
+          const f = el.offsetHeight / H, at = {peek: .30, half: .52, full: (H - 64) / H};
+          v.size = STEPS.reduce((a, b) => Math.abs(at[b] - f) < Math.abs(at[a] - f) ? b : a, "half"); layout(v); };
+        grip.addEventListener("pointermove", mv); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up); };
+    }
     on("[data-rt]", b => { const id = b.dataset.rt; if(o.onTab) o.onTab(id, handle(v)); else { v.tab = id; paint(v); } });
-    on("[data-ra]", b => { const a = o.actions[+b.dataset.ra]; if(a && a.run) a.run(b, handle(v)); });
+    on("[data-ra]", b => { const a = v.acts[+b.dataset.ra]; if(a && a.run) a.run(b, handle(v)); });
     const sel = v.top.querySelector("[data-rl]"); if(sel) sel.onchange = () => setLayout(sel.value);
     layout(v);
     if(again) v.top.querySelector(again)?.focus({preventScroll: true});
@@ -308,7 +356,11 @@
     return {el: v.el, get body(){ return v.body; }, get tab(){ return v.tab; }, key: v.o.key, map: v.map,
       close: () => close(v, true), zoomTo: () => zoomTo(v), set: o => show(v.map || v.box, {...v.o, ...o}, v.anchor),
       // new actions (or title) only: the body, and a draft typed in it, stay as they are
-      setFrame: o => { v.o = {...v.o, ...o}; frame(v); }};
+      setFrame: o => { v.o = {...v.o, ...o}; frame(v); },
+      // a new title only, in place: the actions and what's under the pointer stay (markup.js renames a marker from a change
+      // event, and a frame drawn again there took the button a click had started on)
+      retitle: (title, label) => { v.o = {...v.o, title, ...(label != null ? {label} : {})}; const t = v.top?.querySelector(".rf-res-t"); if(t) t.innerHTML = title;
+        v.el.setAttribute("aria-label", String(label ?? title).replace(/<[^>]*>/g, "").slice(0, 120)); }};
   }
   function show(host, o = {}, anchor){
     const box = boxOf(host); if(!box) return null;
@@ -318,6 +370,7 @@
     if(!v){ const el = document.createElement("div"); el.className = "rf-res"; el.tabIndex = -1; el.setAttribute("role", "region");
       v = {map: typeof host.getContainer === "function" ? host : null, box, el, size: "open", wide: false}; v.page = !v.map; open.add(v); attach(v); }
     const same = !!v.o && v.o.key === o.key, tab0 = v.tab;
+    if(!same) v.marked = null;  // Mark it is offered again for the next item
     v.o = o; v.anchor = anchor ?? o.anchor ?? null;
     if(!same || o.tab != null) v.tab = o.tab ?? (o.tabs || []).filter(Boolean)[0]?.id ?? null;
     paint(v, same && v.tab === tab0);

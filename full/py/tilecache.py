@@ -18,17 +18,34 @@ import uls_import
 
 _USGS = "https://basemap.nationalmap.gov/arcgis/rest/services/{}/MapServer/tile/{{z}}/{{y}}/{{x}}"
 # source id (as app.py's TILE_SOURCES) -> (URL, deepest zoom kept)
-MAPS = {"usgs-imagery": (_USGS.format("USGSImageryOnly"), 16), "usgs-imagery-topo": (_USGS.format("USGSImageryTopo"), 16),
+# USGS's Imagery Topo ("Satellite + labels") is gone: USGS retires it on 2026-11-16 (usgs.gov, read 11/10)
+MAPS = {"usgs-imagery": (_USGS.format("USGSImageryOnly"), 16),
         # relief to 16 like the others (Cody 11/10, sharper maps): USGS serves it to 16 (17 answers "not found", checked
         # 11/10) and the map shows it to 16, but until now only 13 was kept, so with no signal it went blank above 13.
         # Its tiles are small (3-4 KB at 14-16, read 11/10): about 30 MB more for a 15-mile area.
         "usgs-topo": (_USGS.format("USGSTopo"), 16), "usgs-relief": (_USGS.format("USGSShadedReliefOnly"), 16)}
+# maps no longer served (app.py's tile() answers 404 for them): their kept tiles are dead weight, about 0.35 GB a mission
+# area on the server, and a full kit would carry them (11/11 review). drop_retired removes them at every start.
+RETIRED = ("usgs-imagery-topo",)
 UA = "RF-Recon/2.0 (site-survey tool; area tile cache for no-signal use)"
 WORKERS = 4  # polite: USGS states no rate limit
 
 
 def tile_dir():
     return os.path.join(uls_import.DATA_DIR, "tiles")
+
+
+def drop_retired(log=print):
+    """Remove the kept tiles of retired maps (RETIRED); returns the folders removed."""
+    import shutil
+    gone = []
+    for src in RETIRED:
+        d = os.path.join(tile_dir(), src)
+        if os.path.isdir(d):
+            shutil.rmtree(d, ignore_errors=True)
+            gone.append(src)
+            log(f"Removed the kept tiles of {src}, a map no longer served", flush=True)
+    return gone
 
 
 def xy(lat, lon, z):

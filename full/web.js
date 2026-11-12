@@ -90,9 +90,11 @@ async function pcPanels(v) {
   v.querySelectorAll(".grid2").forEach(g => { if ([...g.children].every(c => c.hidden)) g.hidden = true; });
   for (const f of NOT_HERE) v.querySelector(`[data-cred="${f}"]`)?.closest('div[style*="border-top"]')?.remove();
   const say = (sel, from, to) => { const el = [...v.querySelectorAll(sel)].find(x => x.innerHTML.includes(from)); if (el) el.innerHTML = el.innerHTML.replace(from, to); };
-  say(".panel p.hint", "Free accounts of your own, kept only in this PC's database.", "Free accounts of your own, kept only in this browser (never sent anywhere but to the service they're for).");
+  say(".panel p.hint", "Free accounts of your own, sealed for your Windows account on this PC, outside every database file, so no copy, kit or backup carries them.","Free accounts of your own, kept only in this browser (never sent anywhere but to the service they're for).");
   say(".panel h3", "Crowd / imported layers on this computer", "Crowd / imported layers in this browser");
-  say(".panel p.hint", "The USGS maps and county lines you view are kept on this PC, so areas you looked at before a trip keep working with no signal. Street (OpenStreetMap) and Esri's hi-res satellite are for use with signal only (their terms don't allow keeping them for offline use): with no signal the map shows USGS Topo instead.", "SatNOGS stations come from a copy on the DAStastic site (SatNOGS Network, CC BY-SA 4.0), refreshed with the packs.");
+  // the PC's map note (mission.js) as the web version has it: USGS maps only, kept in this browser (11/11 follow-up review:
+  // e813ff3 changed the text looked for, so nothing matched and the PC's Street and Esri note showed)
+  say(".panel p.hint", "The USGS maps and county lines you view are kept on this PC, so areas you looked at before a trip keep working with no signal. Street (OpenStreetMap) and Esri's hi-res satellite are for use with signal only (their terms don't allow keeping them for offline use): with no signal the map shows USGS Topo instead.", "The web version shows the USGS maps only, and keeps the ones you view in this browser, so areas you looked at before a trip keep working with no signal. SatNOGS stations come from a copy on the DAStastic site (SatNOGS Network, CC BY-SA 4.0), refreshed with the packs.");
   say("#fiMsg", "On the PC.", "The maker shows from the FCC's grantee list, and the grants open in your browser.");
 }
 async function packPanels(v) {

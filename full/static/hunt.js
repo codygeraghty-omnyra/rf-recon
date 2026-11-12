@@ -186,7 +186,10 @@ window.missionHunt = (v, m) => {
 
   let fitStops = null;
   let fitAsked = false;  // pressed while the panel drew again, before its answer was back: done when it is (it did nothing)
-  $("#hnFit").onclick = () => { if (fitStops) fitStops(); else fitAsked = true; };  // the one press that fits the map to the stops after the first draw
+  // the one press that fits the map to the stops after the first draw. The kept map holds its last drawn stops' fit (_hnFit), so a
+  // press while the panel draws again (the Mission tab redrawn, its hunt answer not back on a busy copy) fits at once: it waited
+  // for that answer, and the merged sweep's Fit stops check read the map before it came (11/11)
+  $("#hnFit").onclick = () => { const mp = window.RFMaps && RFMaps.get("hunt"); if (fitStops) fitStops(); else if (mp && mp._hnFit) mp._hnFit(); else fitAsked = true; };
   const make = el => { const mp = L.map(el, { preferCanvas: true }); addMapLayers(mp); mp._hnLayer = L.layerGroup().addTo(mp); return mp; };
   async function draw() {
     if (!panel.open || !$("#hnOut")) return;
@@ -194,7 +197,7 @@ window.missionHunt = (v, m) => {
     if (window.RFMaps && RFMaps.get("hunt")?._rfKey === `hunt:${m.id}`) RFMaps.keep(`hunt:${m.id}`, $("#hnMap"), make);
     const f = +($("#hnFreq").value || H.freq);
     const q = new URLSearchParams({ ...(f ? { freq: f, tol_khz: H.tol } : {}), ...(HUNT.here ? { lat: HUNT.here.lat, lon: HUNT.here.lon } : {}) });
-    let r; try { r = await api(`/api/missions/${m.id}/hunt?${q}`); } catch (e) { $("#hnOut").innerHTML = `<p class="status err">${esc(e.message)}</p>`; return; }
+    let r; try { r = await api(`/api/missions/${m.id}/hunt?${q}`); } catch (e) { if ($("#hnOut")) $("#hnOut").innerHTML = `<p class="status err">${esc(e.message)}</p>`; return; }  // the tab may be gone by then
     if (!$("#hnOut")) return;  // the tab was left while it worked
     const pts = r.readings.filter(p => p.lat != null), lv = pts.filter(p => p.dbm != null);
     const last = lv[0], prev = lv[1], best = r.best;
@@ -239,6 +242,7 @@ window.missionHunt = (v, m) => {
       L.circleMarker(t, { radius: 3, color: "#8250df", weight: 1, fillColor: "#8250df", fillOpacity: 1, interactive: false }).addTo(layer); }
     if (HUNT.here) { all.push([HUNT.here.lat, HUNT.here.lon]); L.circleMarker([HUNT.here.lat, HUNT.here.lon], { radius: 8, color: "#fff", weight: 3, fillColor: "#1f6feb", fillOpacity: 1 }).bindTooltip("You").addTo(layer); }
     fitStops = () => { if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.25), { maxZoom: 18, padding: [18, 18] }); else map.setView([m.lat, m.lon], 15); };
+    map._hnFit = fitStops;
     RFMaps.first(map, `${f || ""}`, fitStops);
     if (fitAsked) { fitAsked = false; fitStops(); }
   }

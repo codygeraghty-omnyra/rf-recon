@@ -198,6 +198,8 @@ def init():
     cdb().close()
     threading.Thread(target=ensure_places, daemon=True).start()
     threading.Thread(target=ensure_sigwiki, daemon=True).start()
+    import tilecache  # tiles of a map no longer served (Imagery Topo, retired 11/16) go from the disk
+    threading.Thread(target=tilecache.drop_retired, daemon=True).start()
     threading.Thread(target=mail_loop, daemon=True).start()
     import ulscontacts  # licences' own contacts for a database built before they were kept (once, from the saved files)
     threading.Thread(target=ulscontacts.ensure_quiet, args=(DB_PATH, uls_import.DATA_DIR), daemon=True).start()
@@ -858,13 +860,19 @@ def backup_user_data():
         con = sqlite3.connect(DB_PATH, timeout=60)
         try:
             survey.sweep(con)  # an import a stopped copy left hidden, and one still coming in never goes in (survey.BACKUP_WHERE)
+            # the drawings' table brought up to date first, as any drawings request does: one from before deleted_at (every copy
+            # until someone opens a map after the update) failed the whole backup on markup.BACKUP_WHERE (seeded sweep 11/11:
+            # "Backup of your work failed: no such column: deleted_at")
+            markup.ensure(con)
+            markup.purge(con)  # drawings deleted over a day ago go for good; those deleted since stay out (markup.BACKUP_WHERE)
+            wheres = {**survey.BACKUP_WHERE, **markup.BACKUP_WHERE}
             con.execute("ATTACH DATABASE ? AS b", (tmp,))
             for t in USER_TABLES:
                 ddl = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()
                 if not ddl:
                     continue
                 con.execute(re.sub(r'^CREATE TABLE (IF NOT EXISTS )?"?' + t + r'"?', f"CREATE TABLE b.{t}", ddl[0], count=1))
-                where = " WHERE k <> 'creds'" if t == "setting" else f" WHERE {survey.BACKUP_WHERE[t]}" if t in survey.BACKUP_WHERE else ""
+                where = " WHERE k <> 'creds'" if t == "setting" else f" WHERE {wheres[t]}" if t in wheres else ""
                 con.execute(f"INSERT INTO b.{t} SELECT * FROM main.{t}" + where)
             con.commit()
             con.execute("DETACH DATABASE b")
@@ -1870,7 +1878,6 @@ _USGS = "https://basemap.nationalmap.gov/arcgis/rest/services/{}/MapServer/tile/
 TILE_SOURCES = {  # id -> URL template; {bbox} sources are ArcGIS exports rendered per tile (EPSG:3857)
     "osm": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     "usgs-imagery": _USGS.format("USGSImageryOnly"),
-    "usgs-imagery-topo": _USGS.format("USGSImageryTopo"),
     "usgs-topo": _USGS.format("USGSTopo"),
     "usgs-relief": _USGS.format("USGSShadedReliefOnly"),
     # blankTile=false: a tile Esri doesn't have is a 404, not its grey "Map data not yet available" image, so the map
@@ -1880,7 +1887,14 @@ TILE_SOURCES = {  # id -> URL template; {bbox} sources are ArcGIS exports render
                 "?bbox={bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&dpi=96&f=image",
 }
 ONLINE_ONLY = {"osm", "esri-imagery"}  # their terms forbid keeping tiles for offline use: fetched each time, never on disk
-TILE_UA = "RF-Recon/2.0 (personal site-survey tool; local cache)"
+TILE_BUILD = {"osm": "osm_tiles", "esri-imagery": "esri_imagery"}  # tile sources a sold copy leaves out (build.PERSONAL_ONLY says why)
+
+
+def tile_allowed(src):
+    """Whether this copy, for this person, may show a tile source (Cody 11/10: OpenStreetMap's tiles and Esri's imagery stay off
+    a sold copy; its maps are USGS)."""
+    return build.allowed(TILE_BUILD[src]) if src in TILE_BUILD else True
+TILE_UA = "DAStastic/1.0 (site survey map; contact via omnyra.ai)"  # OSM's tile policy asks a proxy to name itself and a contact
 WEB_MERCATOR = 20037508.342789244
 
 
@@ -2408,9 +2422,14 @@ class H(BaseHTTPRequestHandler):
                 lat, lon = fnum(qs, "lat"), fnum(qs, "lon")
                 if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
                     raise ValueError("The tower report needs a pin.")
-                return self.send(200, towerfuse.report(con, cc, lat, lon, max(0.5, min(fnum(qs, "radius", 5.0), 20.0)), fstr(qs, "carriers") or None,
-                                                       int(max(1, min(fnum(qs, "n", 3), 10))), far_mi=get_setting("towers.far_mi", 10),
-                                                       data_dir=uls_import.DATA_DIR))
+                r = towerfuse.report(con, cc, lat, lon, max(0.5, min(fnum(qs, "radius", 5.0), 20.0)), fstr(qs, "carriers") or None,
+                                     int(max(1, min(fnum(qs, "n", 3), 10))), far_mi=get_setting("towers.far_mi", 10), data_dir=uls_import.DATA_DIR)
+                # what every login needs from the copy's settings (a team login can't read /api/settings): the Towers tab's crowd
+                # readings default (map.crowd_default), and whether a top-up can fetch at all (an OpenCelliD key; never the key)
+                r["crowd_default"] = bool(get_setting("map.crowd_default", False))
+                if isinstance(r.get("topup"), dict):
+                    r["topup"]["key"] = bool((get_setting("creds", {}) or {}).get("opencellid_key", ""))
+                return self.send(200, r)
             if p == "/api/towers/enb" and method == "GET":
                 return self.send(200, towerfuse.site_by_id(con, cc, fstr(qs, "q"), fstr(qs, "carrier") or "AT&T", fstr(qs, "radio") or "LTE",
                                                            int(max(22, min(fnum(qs, "bits", 24), 32)))))
@@ -3040,20 +3059,24 @@ class H(BaseHTTPRequestHandler):
 
     def markup_route(self, method, p, qs):
         """Drawings on the maps (markup.py, Cody 11/10): a mission's, a DAS job's (its access list: view to see, edit to
-        change), or this copy's scratch ones. GET /api/markup lists, /api/markup/export gives KML or GeoJSON; POST
-        /api/markup saves one, /api/markup/delete removes one. A view-only login can't POST (remote.refused)."""
+        change), or this copy's scratch ones. GET /api/markup lists, with edit: whether this login may change them (a
+        view-only login, or a job shared to look at only, gets no way to add a marker: review 11/11); /api/markup/export
+        gives KML or GeoJSON; POST /api/markup saves one (only the fields sent), /api/markup/delete removes one,
+        /api/markup/restore puts a deleted one back as it was (Undo). A view-only login can't POST (remote.refused)."""
         import markup
         con = db()
         try:
             markup.ensure(con)
             d = self.body_json() if method == "POST" else {}
             scope, sid = markup.scope_of(d.get("scope") or fstr(qs, "scope") or "scratch", d.get("scope_id", fstr(qs, "id")))
+            who, role = self.team()
+            edit = not who or remote.writer(role)
             if scope == "job":
-                self.job_gate(con, sid, "edit" if method == "POST" else "view")
+                edit = self.job_gate(con, sid, "edit" if method == "POST" else "view") in ("edit", "owner") and edit
             elif scope == "mission" and not con.execute("SELECT 1 FROM mission WHERE id=?", (sid,)).fetchone():
                 raise LookupError(f"Mission {sid} was deleted. Reload to see the current ones.")
             if method == "GET" and p == "/api/markup":
-                return self.send(200, {"scope": scope, "scope_id": sid, "items": markup.listing(con, scope, sid)})
+                return self.send(200, {"scope": scope, "scope_id": sid, "edit": bool(edit), "items": markup.listing(con, scope, sid)})
             if method == "GET" and p == "/api/markup/export":
                 rows = markup.listing(con, scope, sid)
                 name = re.sub(r"[^\w .-]+", "", fstr(qs, "name") or "")[:80].strip() or f"DAStastic drawings - {scope} {sid}"
@@ -3066,6 +3089,8 @@ class H(BaseHTTPRequestHandler):
             if method == "POST" and p == "/api/markup/delete":
                 markup.delete(con, d.get("id"), scope, sid)
                 return self.send(200, {"ok": True})
+            if method == "POST" and p == "/api/markup/restore":
+                return self.send(200, markup.restore(con, d.get("id"), scope, sid))
             return self.send(404, {"error": "not found"})
         except LookupError as e:
             return self.send(404, {"error": str(e)})
@@ -3501,8 +3526,11 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"layers": rows, "fetches": fetches})
             if p == "/api/settings":
                 creds = get_setting("creds", {}) or {}
+                own = das.overpass_setting()
                 return self.send(200, {"creds": {k: ("•••• set" if v else "") for k, v in creds.items()},
-                                       "states": get_setting("update.states", ""), "bdc_states": get_setting("bdc.states", "")})
+                                       "states": get_setting("update.states", ""), "bdc_states": get_setting("bdc.states", ""),
+                                       "map_crowd_default": bool(get_setting("map.crowd_default", False)),
+                                       "overpass_url": own, "overpass_refused": das.overpass_refused(own) if own else None})
             if p == "/api/build":  # personal or sold, what the sold build leaves out and why, and the data notices
                 return self.send(200, build.info())
             if p in ("/api/crowd/pull/queue", "/api/crowd/pull/status"):  # the PC fetcher's work list, and how it stands (crowdpull.py)
@@ -3562,9 +3590,14 @@ class H(BaseHTTPRequestHandler):
         url = TILE_SOURCES.get(src)
         if not url:
             return self.send(404, {"error": "unknown tile source"})
+        if not tile_allowed(src):
+            return self.send(404, b"", "image/png")
         if src in ONLINE_ONLY:
             try:
-                req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)), headers={"User-Agent": TILE_UA})
+                hdr = {"User-Agent": TILE_UA}
+                if src == "osm" and self.headers.get("Referer"):  # the policy: a proxy keeps the page's Referer, never strips it
+                    hdr["Referer"] = self.headers["Referer"]
+                req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)), headers=hdr)
                 with urllib.request.urlopen(req, timeout=15) as r:
                     data, cc = r.read(), r.headers.get("Cache-Control") or "max-age=86400"
                 if tile_type(data) == "application/octet-stream":
@@ -3846,6 +3879,12 @@ class H(BaseHTTPRequestHandler):
                     srv, why = osmtowers.server_of(d["osm_towers_server"] or "")
                     if why:
                         return self.send(400, {"error": why})
+                if "overpass_url" in d:  # this copy's own Overpass server (das.overpass_own): admins only (remote.BLOCKED)
+                    url = (d["overpass_url"] or "").strip() if isinstance(d["overpass_url"], str) else None
+                    why = "it isn't a web address" if url is None else das.overpass_refused(url) if url else None
+                    if why:
+                        return self.send(400, {"error": f"Not saved: {why}. It must be an https address on the internet."})
+                    set_setting(das.OVERPASS_OWN_SETTING, url)
                 creds = get_setting("creds", {}) or {}
                 for k, v in (d.get("creds") or {}).items():
                     if v == "__clear__":
@@ -3857,6 +3896,8 @@ class H(BaseHTTPRequestHandler):
                     set_setting("update.states", d["states"])
                 if "bdc_states" in d:  # carrier coverage (bdc.py) loads per state: its own list
                     set_setting("bdc.states", ",".join(s for s in re.split(r"[,\s]+", (d["bdc_states"] or "").upper()) if s in bdc.STATES))
+                if "map_crowd_default" in d:  # the Towers tab shows the crowd's readings at first (off unless set: Andy 11/9, towers only)
+                    set_setting("map.crowd_default", bool(d["map_crowd_default"]))
                 if "osm_towers_server" in d:  # the Overpass server a copy's own or paid account gives (osmtowers.server_of): https, public
                     set_setting("osm_towers.server", srv or "")
                 return self.send(200, {"ok": True})

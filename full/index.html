@@ -469,6 +469,12 @@ body.remote nav [data-t="data"], body.remote:not(.tak-net) #takPush{display:none
 /* Start: one job, step by step (start.js). It has no search bar: the questions are the page. PIM, Parts and Data & updates
    never read the pin either (UX review 11/8 #1: on a phone its search form filled their first screen). core.js sets no-pin */
 body.no-pin #searchPanel,body.no-pin #status,body.no-pin .filter-line{display:none}
+/* Towers (towers.js) reads one spot (Cody 11/11; Andy only wants to see the towers): of the Map tab's search toolbar it keeps the
+   address box and ◎ GPS beside it (on site, the report where Andy stands in one tap). County / Nationwide, the radius and its
+   slider, the licensee and frequency row, Fixed sites only, Show what's here, FCC fields and the results' count line go, so on a
+   phone the report is on screen right after the address is picked */
+body.tab-towers #modeSeg,body.tab-towers #searchPanel label:has(#radius),body.tab-towers #searchPanel .bar-slide,body.tab-towers #countyWrap,
+body.tab-towers #searchPanel>.row+.row,body.tab-towers #advSearch,body.tab-towers .filter-line{display:none!important}
 .st{max-width:980px;margin:0 auto}
 .st-hero h2,.st-top h2{margin:0;font-size:24px;font-weight:700}
 .st-hero{margin:10px 2px 14px}.st-hero p{margin:6px 0 0;max-width:640px;color:var(--ink-2)}
@@ -570,8 +576,12 @@ body.rail-none .filter-line{display:none}
   /* a picked place reads in the box, one line; a click shows the coordinates to edit */
   #locWrap{position:relative}
   #locLabel{position:absolute!important;left:10px;right:8px;top:50%;transform:translateY(-50%);margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;color:var(--ink);pointer-events:none}
-  #locWrap:focus-within #locLabel{visibility:hidden}
+  #locWrap:has(#loc:focus) #locLabel{visibility:hidden}  /* the place stays readable while ＋ Mark has the focus (review 11/11) */
   #locWrap:has(#locLabel:not(:empty)) #loc:not(:focus){color:transparent}
+  /* ＋ Mark (search.js) inside the Pin box's right end while it has the focus and new text: beside it, the bar ran to two lines */
+  #locMark{position:absolute;right:3px;top:50%;transform:translateY(-50%);display:none;padding:1px 8px;font-size:11.5px;line-height:18px}
+  #locWrap.typed:focus-within #locMark{display:block}  /* once the text is new (search.js): not on the focus a click gives */
+  #locWrap.typed:focus-within #loc{padding-right:62px}
   #searchPanel .seg button{padding:5px 9px;font-size:12px}
   #searchPanel input:not([type=checkbox]):not([type=range]){padding:6px 8px;font-size:12.5px}
   #searchPanel label.inl{font-size:12.5px;white-space:nowrap}
@@ -585,8 +595,14 @@ body.rail-none .filter-line{display:none}
   #advSearch[open]{flex:1 1 100%}
 }
 /* the FCC data line gives way before the header wraps: a signed-in header has one more chip, and a second row costs the map 46 px */
+body.rf-viewonly #locMark{display:none!important}  /* a view-only login adds no markers (markup.js) */
 @media (min-width:901px){ #meta{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right} }
 @media (max-width:699px){
+  /* ＋ Mark beside the Pin box, on the box's line (search.js puts it in the box's label) */
+  #locWrap{flex-flow:row wrap;align-items:center;column-gap:8px}
+  #locWrap>.lb,#locWrap>#locLabel{flex:0 0 100%}
+  #locWrap>#locLabel{order:1}
+  #locWrap>#loc{flex:1 1 0;min-width:0}
   #mapTop{order:-1;display:flex;flex-direction:column}
   #mapTop .maptools{order:2;margin-top:8px}
   #mapTop #mapHint{order:1}
@@ -744,6 +760,7 @@ body.rail-none #filters{display:none}
   <nav class="tabs no-print" id="tabs">
     <button data-t="start" title="One job, step by step: no RF background needed">Start</button>
     <button data-t="map" class="on">Map</button>
+    <button data-t="towers" title="Towers only: per carrier, the 3 closest to the address and what's on each">Towers</button>
     <button data-t="find" title="Search everything DAStastic holds (Ctrl+K)">Search</button>
     <button data-t="report">Area report</button>
     <button data-t="analyzer">Analyzer</button>
@@ -876,6 +893,7 @@ body.rail-none #filters{display:none}
 <script src="static/emitter.js"></script>
 <script src="static/sigmeta.js"></script>
 <script src="static/cells.js"></script>
+<script src="static/towers.js"></script>
 <script src="static/find.js"></script>
 <script src="static/das.js"></script>
 <script src="static/start.js"></script>

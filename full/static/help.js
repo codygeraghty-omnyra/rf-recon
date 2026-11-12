@@ -49,12 +49,23 @@ const HELP = [
   ["map", "Map", `
     <ul><li>Every result as a dot, sized by how many entries share the site; towers outlined. Click a dot for what's there, then <i>Details</i>.</li>
     <li>The pin moves only when you ask: press <b>📍 Move pin</b> (top left), then click where it goes, or right-click the map (a long press on a touch screen) and pick <b>Move pin here</b>. A plain click leaves it where it is. Rings mark distance. <b>List</b> / <b>Table</b> switches the side list.</li>
+    <li><b>Markers</b> mark a spot and leave the pin where it is, on every map with Draw:
+      <ul><li>Right-click the map (a long press on a touch screen) and pick <b>＋ Marker here</b>.</li>
+      <li>Press <b>＋ Marker</b> (top left), then click where it goes. Shift-click to drop several. Esc or the button again stops.</li>
+      <li>Type an address, a place or lat, lon in the Pin box and press <b>＋ Mark</b> at the box's right end (or Shift+Enter). It says where the marker went; <b>Zoom to</b> shows it.</li>
+      <li>Press <b>Mark it</b> on anything shown beside the map: the marker takes its name.</li></ul>
+      Click a marker to name it, add a note, change its colour, copy where it is, open Street View, <b>Move</b> it, <b>Delete</b> it (Undo for a few seconds) or <b>Search here</b>, the one button there that moves the pin.
+      Markers stay with the open mission, the DAS job or this copy, and are listed and exported (KML, GeoJSON) with the drawings (Draw, the pen button).
+      A view-only login sees them but can't add or change them. In DAStastic lite: tap the map, then <b>＋ Marker here</b>; <b>⚑</b> lists them, nearest first, and exports KML.</li>
     <li><b>Zoom bar</b> at the top right of every map (the layers button is top left): − and +, and 🔒, mouse-wheel zoom on or off for every map. It is locked whenever DAStastic opens, so the wheel scrolls the page; <b>hold the left mouse button (or Ctrl) and scroll</b> to zoom anyway. Click 🔒 to let the wheel zoom until DAStastic is opened again. Pinch still zooms.</li>
-    <li><b>Layers</b> (top right of the map): Street, USGS satellite / satellite + labels / topo / terrain relief, Esri hi-res satellite;
+    <li><b>Layers</b> (top left of the map): Street, USGS satellite / topo / terrain relief, Esri hi-res satellite (a copy sold to others and DAStastic lite show the USGS maps only and open on Topo);
       overlays for county and state lines, microwave backhaul links (FCC), live ships (AIS: the owner's personal build only) and live NEXRAD weather radar.
       USGS maps and county lines you view are kept by the copy serving the page (this PC, or the server), and a mission area's USGS maps are kept ahead
-      (to zoom 16; shaded relief to 13). The web version and DAStastic lite keep the USGS map tiles you view in that browser; county lines aren't kept there.
-      Street and Esri are for use with signal only (their terms): with no signal the map shows USGS Topo, and goes back to your map when signal returns.</li>
+      (to zoom 16). The web version and DAStastic lite keep the USGS map tiles you view in that browser; county lines aren't kept there.
+      Street and Esri are for use with signal only (their terms): with no signal the map shows USGS Topo, and goes back to your map when signal returns.
+      USGS satellite + labels is gone: USGS retires that map on November 16, 2026, and a saved choice of it opens USGS satellite. A
+      "DAStastic - Satellite + labels (USGS)" map source exported to ATAK, WinTAK or iTAK stops working then: delete it there. In DAStastic lite,
+      save the map around the pin again for places you'll work with no signal.</li>
     <li><b>Boundaries</b> (in Layers): <i>State</i>, <i>County</i> and <i>City / town</i> lines, each on its own, or <i>All boundaries</i> for the three, from the Census Bureau's 1:500,000 boundary files (2025; cities, towns, villages, boroughs and census-designated places). They draw under every other layer and never take a click; counties load for the states in view from zoom 7, cities and towns from zoom 9. State and county names show where they fit; city and town names only on the satellite and relief maps, since the others name them already. In DAStastic lite they're under Layers and filters, and the web version and lite keep the ones you've seen for use with no signal.</li>
     <li><b>Heatmap</b>: <i>Predicted with terrain</i> (Okumura-Hata, suburban, from the 60 strongest licensed transmitters, with the hills counted for
       the 25 strongest where terrain is kept), <i>Predicted from licences</i> (free space: best case), <i>Measured</i> (your captures and WiGLE),
@@ -135,6 +146,23 @@ const HELP = [
     <li><b>Operator</b>, <b>Technology</b> and the text box narrow the list; click a site for its sectors, estimated coverage and tower.</li>
     <li>Carrier coverage at the pin (FCC Broadband Map) and the speed checks and fixed wireless offered there show above, where loaded.</li>
     <li><b>Import an OpenCelliD download</b> (a free account's country file, 310 to 316 for the US) keeps the cells in the states set in Data &amp; updates.</li></ul>`],
+  ["towers", "Towers", `
+    <ul><li>Type an address in the box and pick it, or press <b>◎ GPS</b> beside it for where you stand ("Your location"): the report
+      runs by itself (the tab has no other search fields; on a phone it comes straight on screen). AT&amp;T, Verizon and T-Mobile, each with a verdict (in reach, marginal, far: no off-air BDA, or not known yet
+      where this copy's crowd cells don't reach) and its 3 closest towers. Every verdict says a roof reading decides.</li>
+    <li>The map shows towers only: <b>■</b> registered with the FCC, <b>▲</b> mapped in OpenStreetMap (Cody's own build), <b>◆</b> a carrier's
+      licensed site, <b>○</b> estimated from crowd cells, with a bubble for how far off it may be. Grey: no carrier known there.
+      The credit line under the scale bar names the licences; <b>Credits</b> shows them in full.</li>
+    <li>Click a tower for its tiles; the map stays where it is (<b>Zoom to</b> moves it). A tower outside every carrier's 3 closest is
+      looked up when clicked. <b>⚙ Tiles</b> picks and orders the tiles, which also sets the printed report's columns and the CSV's first
+      columns. Tap a band for its downlink MHz and licensed block. Bearings are from true north; the distance tile and the printed report
+      give the magnetic one for a compass too.</li>
+    <li>Under a tower's tiles: Street View, Google Maps and ⎙ Tower report (print or save as PDF, with a map and what to check on site:
+      each channel with its PCIs, and old cells apart, "check it's still on the air"); <b>More</b> has 🎯 Hunt (Find a signal), ☆ Save
+      (with the open DAS job or mission, where the map's ✎ Draw lists it), CSV, 🔗 a link that opens this report, ⚙ Tiles and All towers.
+      On a phone the results sheet can be dragged, or tapped (half, peek, full); ✕ closes it and <b>Summary</b> brings it back.</li>
+    <li><b>Show crowd readings</b> adds the OpenCelliD and survey points: where phones were, not towers. Off unless Data &amp; updates says otherwise.</li>
+    <li>When the report says a top-up is due, <b>Top up this area</b> asks OpenCelliD for fresh cells here (a view-only login can't).</li></ul>`],
   ["hunt", "Find a signal", `
     <ul><li>Mission › 🎯 <b>Find a signal</b>: walk toward a signal (a rogue booster, a stuck transmitter). Type what you're looking for (MHz) and how
       close a match counts (one channel up to 5 MHz; a rogue BDA rebroadcasts a whole band, so 1 MHz).</li>

@@ -7,6 +7,8 @@
   "sigwiki": "The Signal Identification Wiki grants no licence to reuse its content (its Copyrights page, read 2026-11-02). Cody or Josh settles it with the wiki's owners first.",
   "artemis": "Artemis's database is Signal Identification Wiki content.",
   "aisstream": "aisstream.io publishes no terms.",
+  "osm_tiles": "OpenStreetMap's own map tiles are for light, non-commercial use; a product sold to others uses other maps.",
+  "esri_imagery": "Esri's World Imagery isn't licensed for a product sold to others without an Esri licence; its maps are USGS.",
   "osm_towers": "OpenStreetMap's towers (ODbL) fused with the crowd's carrier cells (OpenCelliD, CC BY-SA 4.0) wait for counsel to rule on mixing the two licences (Cody 11/10): Cody's own build only until then."
  },
  "notices": {

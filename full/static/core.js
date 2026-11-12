@@ -98,11 +98,16 @@ function params(extra){
 async function runSearch(){
   const st=$("#status"); st.className="status";
   pinArm(false);  // a search sets the spot: Move pin, if it was armed, is done (review 11/11: it stayed armed, and a stray click moved the pin)
-  if(S.mode==="point" && !parseLoc($("#loc").value)){ st.textContent="Type an address, place or county (pick a suggestion), enter coordinates, or use 📍 Move pin on the map."; if(S.tab!=="map") setTab("map"); return; }
+  if(window.RFMarkup) RFMarkup.disarm();  // and an armed ＋ Marker or a marker's Move (markup.js)
+  // with no spot the Map tab is where one can be dropped; the Towers tab keeps its own page (its address box is the whole search)
+  if(S.mode==="point" && !parseLoc($("#loc").value)){ st.textContent="Type an address, place or county (pick a suggestion), enter coordinates, or use 📍 Move pin on the map."; if(S.tab!=="map" && S.tab!=="towers") setTab("map"); return; }
   if(S.mode==="county" && !$("#state").value){ st.textContent="Pick a state."; st.className="status err"; return; }
   st.textContent="Searching…"; $("#go").disabled=true;
   S.lastQuery=params().toString(); searchDirty();
+  // what the Pin box said for this search: ＋ Mark (search.js) puts it back after marking a place typed there
+  S.locSearched={v:$("#loc").value, label:$("#locLabel")?.textContent||"", place:S.placeLabel||null}; $("#locWrap")?.classList.remove("typed");
   const link=S.pendingLink=window.searchLink?.();  // this search's part of the link, written once it's the one on the map (search.js); the web version's pack reload carries it
+  if(S.tab==="towers" && window.RFTowers) RFTowers.prefetch();  // the tower report starts beside the area search, not after it (towers.js)
   const gen=S.searchGen=(S.searchGen||0)+1;  // a slow earlier search must not overwrite a newer one (pin drags, radius slider)
   // what this search looks at, read from what it asks: the mode buttons can be pressed before it's back (review 11/11)
   const key=searchKeyOf(params());
@@ -164,7 +169,7 @@ function renderFacets(rows){ if(window.railRender) window.railRender(rows); }
 // the tabs that never read the pin (Start, PIM, Parts, Data & updates) lose the pin bar and its status line, and the tabs that
 // list what a search found say what to do before one has run (UX review 11/8 #1 and #11: on a phone the pin search filled
 // their first screen, and an empty tab blamed the filters before anyone had searched)
-const NO_PIN_TABS=new Set(["start","pim","parts","data"]), PIN_TABS=new Set(["report","analyzer","dashboard","topology","profile","agencies","spectrum","cells"]);
+const NO_PIN_TABS=new Set(["start","pim","parts","data"]), PIN_TABS=new Set(["report","analyzer","dashboard","topology","profile","agencies","spectrum","cells","towers"]);
 const pinFirst=pad=>`<p class="status pin-first"${pad?' style="padding:10px"':""}>Type an address or drop a pin, then press <b>Show what's here</b>.</p>`;
 function setTab(t){ S.tab=t; render(); }
 function getFile(url){ location.href=url; }  // a file the server makes (the web version fetches it through the page instead)
@@ -176,6 +181,7 @@ function render(){
   $$("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.t===S.tab));
   document.body.classList.toggle("tab-start", S.tab==="start");
   document.body.classList.toggle("no-pin", NO_PIN_TABS.has(S.tab));
+  document.body.classList.toggle("tab-towers", S.tab==="towers");  // the Towers tab shows the address box only (index.html)
   const tb=$("#tabs"), on=$("#tabs button.on");  // on a phone the tab bar scrolls sideways: keep the open tab on screen
   if(on && tb.scrollWidth>tb.clientWidth){ const l=on.offsetLeft-tb.offsetLeft, r=l+on.offsetWidth;
     if(l<tb.scrollLeft || r>tb.scrollLeft+tb.clientWidth) tb.scrollLeft=l-(tb.clientWidth-on.offsetWidth)/2; }
@@ -186,7 +192,7 @@ function render(){
   if(S.tab!=="map") $("#mapTop").innerHTML="";  // the map's slot under the search bar
   const fn = S.views[S.tab];
   S.viewGen=(S.viewGen||0)+1;  // a tab that waits for data checks this after the wait: a newer draw since means stop
-  if(fn && !S.searched && PIN_TABS.has(S.tab)) v.innerHTML=pinFirst();
+  if(fn && !S.searched && PIN_TABS.has(S.tab) && S.tab!=="towers") v.innerHTML=pinFirst();  // Towers says its own: it has no Show what's here
   else if(fn) fn(v, rows); else v.innerHTML="";
   rfSort.soon();  // a table drawn again keeps the sort it had
   if(window.writeUrlState) window.writeUrlState();
@@ -227,7 +233,7 @@ S.views.map = (v, rows) => {
     <div class="mapwrap" id="mapwrap">
       <div id="map"></div>
     </div>
-    <span class="hint" id="mapHint">${S.center?"Click a dot or a row to see it beside the map; the map stays where it is. To move the pin: 📍 Move pin (top left), or right-click where it goes (a long press on a touch screen).":""}</span>`;
+    <span class="hint" id="mapHint">${S.center?"Click a dot or a row to see it beside the map; the map stays where it is. To move the pin: 📍 Move pin (top left), or right-click where it goes (a long press on a touch screen). To mark a spot and leave the pin: ＋ Marker, or right-click and ＋ Marker here.":""}</span>`;
   v.innerHTML = `<div class="side" id="side" style="${S.listMode==="table"?"display:none":""}"></div>
     <div id="mapTable"></div>`;
   $("#heatKind").value=S.heat.kind;
@@ -306,15 +312,30 @@ const ESRI="Esri, Vantor, Earthstar Geographics";
 //     Not OpenStreetMap: its volunteer servers ask for no heavy use.
 //   above: on the USGS satellite map, Esri's imagery from zoom 17, where USGS has nothing; with no signal USGS's
 //     stretched tiles still show underneath.
-const ESRI_ABOVE={src:"esri-imagery", from:17, maxNativeZoom:20, fallback:19, attribution:ESRI};
+const ESRI_ABOVE={src:"esri-imagery", name:"Satellite hi-res (Esri)", from:17, maxNativeZoom:20, fallback:19, attribution:ESRI};
+// needs: the build.py source a map's tiles are; a sold copy leaves it out (baseOk).
+// "Satellite + labels (USGS)" is gone: USGS retires its Imagery Topo map on 2026-11-16 (usgs.gov, read 11/10); a saved
+// choice of it opens Satellite (USGS).
 const BASEMAPS={
-  "Street (OpenStreetMap)":{src:"osm", maxNativeZoom:19, maxZoom:21, attribution:"© OpenStreetMap contributors", online:true},
+  "Street (OpenStreetMap)":{src:"osm", needs:"osm_tiles", maxNativeZoom:19, maxZoom:21, attribution:"© OpenStreetMap contributors", online:true},
   "Satellite (USGS)":{src:"usgs-imagery", maxNativeZoom:16, maxZoom:21, hidpi:true, above:[ESRI_ABOVE], attribution:USGS},
-  "Satellite + labels (USGS)":{src:"usgs-imagery-topo", maxNativeZoom:16, maxZoom:21, attribution:USGS},
-  "Satellite hi-res (Esri)":{src:"esri-imagery", maxNativeZoom:20, fallback:19, maxZoom:21, hidpi:true, attribution:ESRI, online:true},
+  "Satellite hi-res (Esri)":{src:"esri-imagery", needs:"esri_imagery", maxNativeZoom:20, fallback:19, maxZoom:21, hidpi:true, attribution:ESRI, online:true},
   "Topo (USGS)":{src:"usgs-topo", maxNativeZoom:16, maxZoom:21, attribution:USGS},
   "Terrain relief (USGS)":{src:"usgs-relief", maxNativeZoom:16, maxZoom:21, hidpi:true, attribution:USGS},
 };
+const BASE_RENAMED={"Satellite + labels (USGS)":"Satellite (USGS)"};
+// Which maps this copy shows (Cody 11/10). A sold copy (team logins, licensed copies, the install kit, the web version)
+// leaves out OpenStreetMap's own tiles and Esri's imagery (build.py osm_tiles, esri_imagery: their terms don't cover a
+// product sold to others; the server refuses their tiles too) and opens on Topo (USGS). Until this copy says it's the
+// personal build, it's treated as sold.
+function baseOk(name){ const b=BASEMAPS[name]; if(!b) return false; if(!b.needs) return true;
+  return S.build?.build==="personal" && !S.build?.left_out?.[b.needs]; }
+function baseDefault(){ return baseOk("Street (OpenStreetMap)") ? "Street (OpenStreetMap)" : "Topo (USGS)"; }
+// a saved choice this copy can't show opens the closest map it can (imagery for Esri's imagery: ATAK style saved Esri on
+// every copy before 11/10), else the default; the choice stays saved
+const BASE_STANDIN={"Satellite hi-res (Esri)":"Satellite (USGS)"};
+function baseShown(name){ name=BASE_RENAMED[name]||name; if(baseOk(name)) return name; const s=BASE_STANDIN[name]; return s&&baseOk(s) ? s : baseDefault(); }
+function baseSatellite(){ return baseOk("Satellite hi-res (Esri)") ? "Satellite hi-res (Esri)" : "Satellite (USGS)"; }  // ATAK style's imagery
 const HIDPI=(window.devicePixelRatio||1)>=1.5;
 const RfTiles=L.TileLayer.extend({
   initialize(url, o){ o={...o};
@@ -339,9 +360,10 @@ const RfTiles=L.TileLayer.extend({
       catch(err){ fail(); } };
     img.onerror=fail; img.src=src; },
 });
-function baseLayer({src, url, online, above, ...opt}){  // url: a map you imported
+function baseLayer({src, url, online, above, needs, ...opt}){  // url: a map you imported
   const main=new RfTiles(url||`/tiles/${src}/{z}/{x}/{y}.png`, opt);
-  if(!above) return main;
+  above=(above||[]).filter(a=>baseOk(a.name));  // Esri above USGS's zoom 16: the personal build only
+  if(!above.length) return main;
   return L.layerGroup([main, ...above.map(a=>new RfTiles(`/tiles/${a.src}/{z}/{x}/{y}.png`,
     {minZoom:a.from, maxNativeZoom:a.maxNativeZoom, fallback:a.fallback, maxZoom:opt.maxZoom, hidpi:opt.hidpi, attribution:a.attribution, zIndex:2}))]);
 }
@@ -382,21 +404,24 @@ const OVERLAYS={
 };
 function mapPrefs(){
   if(!S.mapLayers){ let saved={}; try{ saved=JSON.parse(localStorage.getItem("rfr.mapLayers"))||{}; }catch(e){ /* storage blocked (a private window): the default stands */ }
-    S.mapLayers={base:BASEMAPS[saved.base]?saved.base:"Street (OpenStreetMap)", overlays:(saved.overlays||[]).filter(n=>OVERLAYS[n])}; }
+    // nothing saved: null, so the default is worked out each time (baseShown) and never saved; one worked out before this copy
+    // said which build it is would be the sold copy's (11/11 review)
+    S.mapLayers={base:BASEMAPS[BASE_RENAMED[saved.base]||saved.base]?(BASE_RENAMED[saved.base]||saved.base):null, overlays:(saved.overlays||[]).filter(n=>OVERLAYS[n])}; }
   return S.mapLayers;
 }
 function addMapLayers(map){
   if(window.rfZoomBar) rfZoomBar(map);  // − / + and the wheel-zoom lock on every map (zoombar.js, Cody 11/4)
   const pref=mapPrefs(), bases={}, overs={};
-  for(const [name,cfg] of Object.entries(BASEMAPS)) bases[name]=baseLayer(cfg);
+  for(const [name,cfg] of Object.entries(BASEMAPS)) if(baseOk(name)) bases[name]=baseLayer(cfg);
   for(const [name,make] of Object.entries(OVERLAYS)) overs[name]=make();
   if(window.RFBounds) RFBounds.link(map, overs);  // All boundaries switches the other three (boundaries.js)
-  bases[pref.base].addTo(map);
+  bases[baseShown(pref.base)].addTo(map);  // the saved choice stays saved: a map this copy can't show isn't overwritten
   for(const n of pref.overlays) overs[n].addTo(map);
   const ctl=L.control.layers(bases, overs, {position:"topleft"}).addTo(map);  // layers on the left, the zoom bar on the right (Cody 11/4)
   if(window.RFMeasure) RFMeasure.add(map);  // the ruler, under the layers (measure.js, Cody 11/10)
   if(window.RFMarkup) RFMarkup.add(map);  // Draw: points, lines and areas kept with the mission or job (markup.js)
   if(window.RFMapExport) RFMapExport.add(map);  // save the view as a sharp PNG (mapexport.js)
+  if(window.RFMarkup) RFMarkup.button(map);  // ＋ Marker, armed for one click (markup.js): on the Search map, just above Move pin
   let unloading=false;  // map.remove() (leaving the tab) removes every layer; that isn't a choice to save
   map.on("unload",()=>{ unloading=true; });
   const save=()=>{ if(unloading) return; try{ localStorage.setItem("rfr.mapLayers", JSON.stringify(pref)); }catch(e){ /* storage blocked (a private window): not remembered, nothing else lost */ } };
@@ -404,21 +429,23 @@ function addMapLayers(map){
   let standIn=false, swapping=false, misses=0, timer=null;
   // one base map on at a time; a map of your own imported after this map was made joins its layers list when picked
   const swap=name=>{ swapping=true;
-    if(!bases[name] && BASEMAPS[name]){ bases[name]=baseLayer(BASEMAPS[name]); ctl.addBaseLayer(bases[name], name); }
+    if(!bases[name] && baseOk(name)){ bases[name]=baseLayer(BASEMAPS[name]); ctl.addBaseLayer(bases[name], name); }
     for(const [n,b] of Object.entries(bases)) if(n!==name && map.hasLayer(b)) map.removeLayer(b);
     if(bases[name] && !map.hasLayer(bases[name])) bases[name].addTo(map); swapping=false; };
   // the base map changed somewhere else (Map style, Your own maps): swapped on this map in place, as the layers button
   // does, instead of the whole map being made again (mapstyle.js, 11/10)
   map._rfBases=bases;
-  map._rfSetBase=name=>{ if(!BASEMAPS[name]) return; if(standIn){ standIn=false; misses=0; clearInterval(timer); }
-    pref.base=name; swap(name); save(); if(navigator.onLine===false && BASEMAPS[name]?.online) noSignal(); };
-  const noSignal=()=>{ if(standIn || !BASEMAPS[pref.base]?.online || unloading) return; standIn=true; swap(NO_SIGNAL_BASE);
+  // Any known map: the copy shows what it can of it (11/11 review: Standard after ATAK style set back a saved Street on a sold
+  // copy, which returned here before any swap, so ATAK's satellite map, or your own, stayed on screen under "Standard")
+  map._rfSetBase=name=>{ name=BASE_RENAMED[name]||name; if(!BASEMAPS[name]) return; if(standIn){ standIn=false; misses=0; clearInterval(timer); }
+    const shown=baseShown(name); pref.base=name; swap(shown); save(); if(navigator.onLine===false && BASEMAPS[shown]?.online) noSignal(); };
+  const noSignal=()=>{ const shown=baseShown(pref.base); if(standIn || !BASEMAPS[shown]?.online || unloading) return; standIn=true; swap(NO_SIGNAL_BASE);
     // its tiles are kept by the copy serving the page: this PC's own, or the server's (out of reach with no signal)
-    $("#status").textContent=`No signal: showing ${NO_SIGNAL_BASE}, ${S.me||S.remote?"where this browser already has it (the server keeps the rest, out of reach with no signal)":"kept on this device"}. ${pref.base} isn't kept for use with no signal (its terms), so it comes back when signal does.`;
+    $("#status").textContent=`No signal: showing ${NO_SIGNAL_BASE}, ${S.me||S.remote?"where this browser already has it (the server keeps the rest, out of reach with no signal)":"kept on this device"}. ${shown} isn't kept for use with no signal (its terms), so it comes back when signal does.`;
     timer=setInterval(check, 30000); };
-  const back=()=>{ if(!standIn) return; standIn=false; misses=0; clearInterval(timer); if(!unloading) swap(pref.base); };
+  const back=()=>{ if(!standIn) return; standIn=false; misses=0; clearInterval(timer); if(!unloading) swap(baseShown(pref.base)); };
   const check=async()=>{ if(navigator.onLine===false) return; const z=Math.min(map.getZoom(),18), c=map.project(map.getCenter(),z).divideBy(256).floor();
-    const u=L.Util.template(bases[pref.base]._url, {x:c.x, y:c.y, z, s:"a", r:""});
+    const u=L.Util.template(bases[baseShown(pref.base)]._url, {x:c.x, y:c.y, z, s:"a", r:""});
     try{ if((await fetch(u, {cache:"no-store", mode:u.startsWith("/")?"same-origin":"cors"})).ok) back(); }catch(e){ /* still no signal: the next check, 30 s on, tries again */ } };
   for(const [n,b] of Object.entries(bases)) if(BASEMAPS[n]?.online){
     b.on("tileload", ()=>{ misses=0; });
@@ -427,7 +454,11 @@ function addMapLayers(map){
   addEventListener("offline", onOff); addEventListener("online", onOff);
   map.on("unload", ()=>{ clearInterval(timer); removeEventListener("offline", onOff); removeEventListener("online", onOff); });
   if(navigator.onLine===false) noSignal();
-  map.on("baselayerchange", e=>{ if(swapping) return;
+  // Leaflet also says "baselayerchange" when the map first gets its view and the shown base joins it: not a pick, so a saved
+  // choice this copy can't show (a sold copy, a saved Street) isn't overwritten by the default shown in its place. Opened
+  // with no signal, the base joining is the stand-in (11/11 review: that saved Topo over the personal build's Street or Esri,
+  // which then never came back); it's already on screen, so a pick of it can't come this way.
+  map.on("baselayerchange", e=>{ if(swapping || e.name===(standIn?NO_SIGNAL_BASE:baseShown(pref.base))) return;
     if(standIn){ standIn=false; misses=0; clearInterval(timer); }  // a map picked by hand ends the stand-in
     pref.base=e.name; save(); if(navigator.onLine===false && BASEMAPS[e.name]?.online) noSignal(); });
   map.on("overlayadd", e=>{ if(!pref.overlays.includes(e.name)) pref.overlays.push(e.name); save(); });
@@ -469,6 +500,7 @@ function ensureMap(){
     const MovePin=L.Control.extend({onAdd(){ const b=L.DomUtil.create("button","leaflet-bar rf-movepin"); b.id="pinMove"; b.type="button";
       L.DomEvent.disableClickPropagation(b); L.DomEvent.on(b,"click",e=>{ L.DomEvent.stop(e); pinArm(!map._rfPinArmed); }); return b; }});
     const mp=new MovePin({position:"topleft"}).addTo(map); mp.getContainer().parentNode.prepend(mp.getContainer()); pinArm(false);  // first in the stack: a sheet from below doesn't cover it
+    map._rfPinMenu=true;  // this map's right-click menu has Move pin here and ＋ Marker here (markup.js leaves it to pinMenu)
     map.on("contextmenu", e=>{ if(!map._rfMeasuring) pinMenu(e); });
     map.on("rftool", ()=>pinArm(false));  // Measure or Draw started (measure.js, markup.js): one thing at a time
     pinKeys();
@@ -491,11 +523,13 @@ function ensureMap(){
     map.on("moveend", ()=>{ if(S.tab==="map" && S.map===map && window.writeUrlState && new URLSearchParams(location.hash.slice(1)).get("tab")==="map") window.writeUrlState(true); });
     // armed by Move pin: this click is where the pin goes, on a dot, a link or a drawing too. It's taken on its way down,
     // before those (they opened the viewer and the pin stayed armed: review 11/11). Not a click that ends a drag, nor one on
-    // the map's controls or the viewer (outside the map pane); measuring and drawing take their clicks (measure.js, markup.js)
+    // the map's controls or the viewer (outside the map pane); measuring and drawing take their clicks (measure.js, markup.js).
+    // The bare map is the container itself: Leaflet's tiles take no pointer events, so where no dot is drawn (an area with no
+    // results) the click landed on the container, and Move pin ignored it (found 11/11 with markers on an empty copy)
     map.getContainer().addEventListener("click", e=>{
       // a plain click only: not the one that ends a shift-drag box zoom (the pin went to its corner), nor one on a popup in
       // the map pane (its ✕ moved the pin: review 11/11)
-      if(!map._rfPinArmed || map._rfMeasuring || map._rfDraw?._tool || !e.target.closest?.(".leaflet-map-pane") || e.target.closest(".leaflet-popup")
+      if(!map._rfPinArmed || map._rfMeasuring || map._rfDraw?._tool || !(e.target===map.getContainer() || e.target.closest?.(".leaflet-map-pane")) || e.target.closest?.(".leaflet-popup")
         || map.dragging?.moved() || map.boxZoom?.moved?.() || e.shiftKey) return;
       e.stopPropagation(); e.preventDefault(); movePin(map.mouseEventToLatLng(e)); }, true);
     return map;
@@ -506,26 +540,32 @@ function movePin(ll){ pinArm(false); setMode("point"); $("#loc").value=`${ll.lat
 function pinArm(on){
   const map=S.map; if(!map) return;
   if(on){ if(map._rfMeasure?._on) map._rfMeasure.stop(); if(map._rfDraw?._tool) map._rfDraw._cancel(); }  // one tool at a time, this way too (review 11/11)
+  if(on && window.RFMarkup) RFMarkup.disarm(map);  // and an armed ＋ Marker or a marker's Move ends
   map._rfPinArmed=!!on; map.getContainer().classList.toggle("rf-pin-arming", !!on);
   const b=$("#pinMove"); if(b){ b.classList.toggle("on", !!on); b.setAttribute("aria-pressed", String(!!on));
     b.textContent=on?"📍 Click where it goes":"📍 Move pin"; b.title=on?"Click the map where the pin goes. Esc or this button cancels.":"Move the pin: then click where it goes (once). Or right-click the map (a long press on a touch screen)."; }
 }
-// right-click or long-press: "Move pin here" where it was pressed; any other press, a move of the map or Esc closes it
+// right-click or long-press: "Move pin here" where it was pressed, and beside it "＋ Marker here" (a marker there, the pin left
+// where it is: markup.js, Cody 11/11); any other press, a move of the map or Esc closes it
 function pinMenu(e){
   const map=S.map; if(!map) return; const box=map.getContainer();
   pinArm(false);  // the menu is the other way to move it: Move pin, if armed, is done
+  if(window.RFMarkup) RFMarkup.disarm(map);  // and an armed ＋ Marker
   let m=box.querySelector(":scope > .rf-pinmenu");
   if(!m){ m=L.DomUtil.create("div","rf-pinmenu",box); L.DomEvent.disableClickPropagation(m); L.DomEvent.disableScrollPropagation(m); }
-  m.innerHTML='<button type="button" data-pm>📍 Move pin here</button>'; m.hidden=false;
-  const p=e.containerPoint; m.style.left=`${Math.max(4, Math.min(p.x, box.clientWidth-190))}px`; m.style.top=`${Math.max(4, Math.min(p.y, box.clientHeight-56))}px`;
+  const mark=!!(map._rfDraw && window.RFMarkup && RFMarkup.canEdit(map));  // not for a view-only login
+  m.innerHTML='<button type="button" data-pm>📍 Move pin here</button>'+(mark?'<button type="button" data-pmk>＋ Marker here</button>':""); m.hidden=false;
+  const p=e.containerPoint; m.style.left=`${Math.max(4, Math.min(p.x, box.clientWidth-(m.offsetWidth||190)-4))}px`; m.style.top=`${Math.max(4, Math.min(p.y, box.clientHeight-(m.offsetHeight||52)-4))}px`;
   const off=()=>{ m.hidden=true; map.off("movestart click zoomstart", off); };
   m.querySelector("[data-pm]").onclick=ev=>{ L.DomEvent.stop(ev); off(); movePin(e.latlng); };
+  const k=m.querySelector("[data-pmk]"); if(k) k.onclick=ev=>{ L.DomEvent.stop(ev); off(); map._rfDraw.drop(e.latlng); };
   map.on("movestart click zoomstart", off);
 }
 function pinKeys(){
   if(S.pinKeyed || !window.RFKeys) return; S.pinKeyed=true;
   const menu=()=>S.map?.getContainer().querySelector(":scope > .rf-pinmenu:not([hidden])");
-  RFKeys.scope("pin", {active:()=>!!(S.map && (S.map._rfPinArmed || menu())), keys:{escape:()=>{ pinArm(false); const m=menu(); if(m) m.hidden=true; }}});
+  const esc=()=>{ pinArm(false); const m=menu(); if(m) m.hidden=true; };  // Shift still held from a click is "shift+escape" (review 11/11)
+  RFKeys.scope("pin", {active:()=>!!(S.map && (S.map._rfPinArmed || menu())), keys:{escape:esc, "shift+escape":esc}});
 }
 document.head.insertAdjacentHTML("beforeend", `<style>.rf-movepin{padding:4px 9px;font:600 12px system-ui;cursor:pointer;background:var(--panel,#fff);color:var(--ink,#111)}
 .rf-movepin.on{background:var(--accent,#2f6fed);color:#fff}
@@ -823,8 +863,12 @@ $("#hideMobile").addEventListener("change",searchDirty);
 for(const id of ["#loc","#q","#fmin","#fmax","#rf"]) $(id).addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
 let rT; const radiusChanged=v=>{ $("#radius").value=v; $("#radiusSlider").value=v; clearTimeout(rT); rT=setTimeout(()=>{ if(parseLoc($("#loc").value)) runSearch(); },450); };
 $("#radius").oninput=e=>radiusChanged(e.target.value); $("#radiusSlider").oninput=e=>radiusChanged(e.target.value);
-$("#gpsBtn").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>movePin(L.latLng(p.coords.latitude, p.coords.longitude)),
-  err=>{ $("#status").textContent="GPS unavailable: "+err.message+" (browsers only allow GPS on localhost or HTTPS)."; }, {enableHighAccuracy:true}):null;
+// ◎ GPS: the search where the device stands, named "Your location (lat, lon)" (the Towers tab's report, title, print and link
+// say it; the last address's name stayed on the GPS spot before). On Towers it sits beside the address box: one tap on site.
+// A search sets the spot, so Move pin, if armed, is done.
+$("#gpsBtn").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{ const ll=`${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
+    pinArm(false); $("#loc").value=ll; S.placeLabel=`Your location (${ll})`; $("#locLabel").textContent="📍 "+S.placeLabel; setMode("point"); runSearch(); },
+  err=>{ $("#status").textContent="GPS unavailable: "+err.message+" (browsers only allow GPS on localhost or HTTPS)."; }, {enableHighAccuracy:true, timeout:20000, maximumAge:30000}):null;
 $("#state").onchange=async()=>{ const cs=await api("/api/counties?state="+$("#state").value);
   $("#county").innerHTML='<option value="">— whole state —</option>'+cs.map(c=>`<option value="${esc(c.county)}">${esc(c.county)} (${c.n.toLocaleString()})</option>`).join(""); };
 $("#clearChips").onclick=()=>{ filtersReset(); render(); };
@@ -839,8 +883,12 @@ try{ const t=localStorage.getItem("theme"); if(t) document.documentElement.datas
 
 async function boot(){
   try{
-    const [meta, states, lib, bld] = await Promise.all([api("/api/meta"), api("/api/states"), api("/api/sigid"), api("/api/build").catch(()=>null)]);
-    S.build=bld;  // personal or sold, what the sold build leaves out, the data notices (build.py)
+    const asks=[api("/api/meta"), api("/api/states"), api("/api/sigid")];
+    asks.forEach(a=>a.catch(()=>{}));  // a failure is read below (Promise.all), not reported as unhandled while the build is awaited
+    // personal or sold, what the sold build leaves out, the data notices (build.py): on its own, so another request failing
+    // doesn't leave the personal build on the sold copy's maps all session, saving Topo (11/11 review: /api/sigid answering 500)
+    S.build=await api("/api/build").catch(()=>null);
+    const [meta, states, lib] = await Promise.all(asks);
     S.lib=lib.library; S.bandplan=lib.bandplan; S.meta=meta;
     $("#meta").textContent = meta.built_at ? `FCC data ${meta.built_at}${meta.uls_daily_asof?` + daily changes to ${meta.uls_daily_asof.slice(0,10)}`:""} · ${Number(meta.tx_rows||0).toLocaleString()} entries${meta.towers_rows?` · ${Number(meta.towers_rows).toLocaleString()} towers`:""}` : "No FCC data yet — see Data & updates";
     $("#state").innerHTML='<option value="">—</option>'+states.map(s=>`<option>${esc(s.state)}</option>`).join("");

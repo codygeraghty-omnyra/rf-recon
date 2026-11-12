@@ -89,9 +89,10 @@ PARAMS = {
 }
 CARRIERS = ("AT&T", "Verizon", "T-Mobile")
 ATTRIBUTION_LINES = [
-    "Cell tower data from OpenCellID, licensed under CC BY-SA 4.0. Changes: DAStastic groups the cells into sites, estimates each "
-    "site's position and matches it to the registered or mapped structure it most likely sits on.",
-    "© OpenStreetMap contributors (ODbL)",
+    "Cell tower data from OpenCellID, licensed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), from "
+    "opencellid.org. Changes: DAStastic groups the cells into sites, estimates each site's position and matches it to the "
+    "registered or mapped structure it most likely sits on.",
+    "© OpenStreetMap contributors (ODbL): https://www.openstreetmap.org/copyright",
     "FCC antenna structure registrations and licences (US government public data).",
 ]
 WIGLE_LINE = "Data © WiGLE.net contributors (wigle.net)"
@@ -976,7 +977,7 @@ def county_spec(con, lat, lon, data_dir):
         return {"empty": True, "why": f"Carrier spectrum couldn't be read here: {e}"}
 
 
-OSM_LINE = "© OpenStreetMap contributors (ODbL)"
+OSM_LINE = ATTRIBUTION_LINES[1]  # where a link can't be followed (paper, a CSV) the licence and the copyright page are named in full
 
 
 def attribution(wigle=False):
@@ -1054,7 +1055,7 @@ def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=N
                        "legacy_on_towers": first["legacy"]["on_towers"], "heard_only": len(first["heard_only"]), "runs": len(runs)},
             "licensed_where": (spec or {}).get("county"), "licensed_note": (spec or {}).get("why") if (spec or {}).get("empty") else
             "Licensed, not measured: the bands each carrier holds in the county (FCC market licences); which are on the air at a tower only a scan says.",
-            "crowd_reach_mi": reach_mi, "topup": due, "attribution": text, "attribution_lines": lines}
+            "crowd_reach_mi": reach_mi, "stale_days": P["stale_days"], "topup": due, "attribution": text, "attribution_lines": lines}
 
 
 # ---------------------------------------------------------------- one site by its ID (eNB / gNB)

@@ -337,7 +337,7 @@ function emCellView(host, s){
   RFResults.show(host, {key:`cs:${s.key||`${s.plmn}|${s.radio}|${s.site_id}`}`, label:`${s.operator} ${s.radio} ${s.site_id}`,
     title:`${esc(s.operator)} ${esc(s.radio)} ${esc(String(s.site_kind||"").split(" ")[0])} <span class="mono">${esc(String(s.site_id))}</span>`,
     sub:[s.dist_mi!=null?`${num(s.dist_mi,2)} mi from the pin`:"", s.tower?`FCC tower ${esc(s.tower.reg)}`:"", `${s.cells.length} cell${s.cells.length===1?"":"s"}`].filter(Boolean).join(" · "),
-    fill:body=>emCellBody(body, s, emCellRow(s, s.cells[0])),
+    fill:body=>emCellBody(body, s, emCellRow(s, s.cells[0])), mark:s.lat!=null?[+s.lat, +s.lon]:false,  // Mark it: a marker on the site (results.js)
     actions:[{label:"Show on map", primary:true, title:"On the Map tab, with its sectors drawn", run:()=>emitOpen(emCellRow(s, s.cells[0]), "cell")}]});
 }
 window.emCellView = emCellView;

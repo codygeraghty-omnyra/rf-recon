@@ -18,6 +18,8 @@ window.missionBoot = async () => {
   // signed in through the remote door (remote.py): view and full logins are "remote" (no Data & updates, no keys);
   // an admin login (the server's owner) gets everything, plus a Sign out button
   try{ const me=await api("/api/me"); S.me=me.remote?me:null; S.remote=me.remote&&me.role!=="admin"?me:null; window.phoneBoot&&phoneBoot(me); }catch(e){ S.remote=null; S.me=null; }
+  // a login that can't change anything (view, AHJ): the ways to add a marker go (markup.js; the server refuses them anyway)
+  document.body.classList.toggle("rf-viewonly", !!S.me && !["full","admin"].includes(S.me.role));
   if(S.remote){
     document.body.classList.add("remote"); if(S.tab==="data") setTab("map");
     $("#netLed").className="led on"; $("#netText").textContent=`${S.remote.role==="full"?"Signed in":"View only"} · ${S.remote.user}`;
@@ -444,6 +446,10 @@ S.views.data = async (v) => {
       ${dasNote("the pre-survey reads the FCC licences and towers kept for these states")}
       <label style="margin-top:8px">Carrier coverage states (FCC Broadband Map: about 100 MB to 2 GB of download a state)<input id="uBdcStates" value="${esc(settings.bdc_states||"")}" placeholder="SC,NC,MN"></label>
       ${dasNote("the cellular pre-survey shows carriers only for buildings in these states")}
+      <div class="row" style="align-items:center;margin-top:10px"><label class="switch"><input type="checkbox" id="uCrowdDef" ${settings.map_crowd_default?"checked":""}><span></span></label><b>Towers tab: show crowd readings at first</b></div>
+      <p class="hint" style="margin:2px 0 0">Off, the Towers tab's map shows towers only; its <i>Show crowd readings</i> box adds the OpenCelliD and survey points when ticked.</p>
+      ${"overpass_url" in settings?`<label style="margin-top:8px">This copy's own OpenStreetMap (Overpass) server, for building outlines and tunnels (overpass.url; blank = none)<input id="uOverpass" value="${esc(settings.overpass_url||"")}" placeholder="https://overpass.example.com/api/interpreter"></label>
+      <p class="hint" id="uOverpassMsg" style="margin:4px 0 0">${settings.overpass_refused?`Not asked: ${esc(settings.overpass_refused)}.`:settings.overpass_url?"Asked alone, in place of the public servers.":S.build?.build==="personal"?"None: this copy asks the free public servers.":"None: a sold copy doesn't ask the free public servers (their terms), so building outlines come from Overture and tunnels need one."}</p>`:""}
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
   <div class="panel" id="waysPanel" hidden><h3>Ways in: who can use this version and its data</h3>
@@ -721,6 +727,10 @@ S.views.data = async (v) => {
     catch(e){ m.textContent=e.message; } b.disabled=false; };
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
   $("#uBdcStates").onchange=e=>post("/api/settings",{bdc_states:e.target.value});
+  $("#uCrowdDef").onchange=e=>post("/api/settings",{map_crowd_default:e.target.checked});
+  if($("#uOverpass")) $("#uOverpass").onchange=async e=>{ const m=$("#uOverpassMsg");
+    try{ await post("/api/settings",{overpass_url:e.target.value.trim()}); m.textContent=e.target.value.trim()?"Saved: asked alone, in place of the public servers.":"Saved: none set."; }
+    catch(err){ m.textContent=err.message; } };
   // Only a box a person typed, pasted or dropped into is saved (Cody 11/10): the browser's autofill put the sign-in email into
   // every plain-text box (WiGLE's API name, Digi-Key's Client ID) and Save sent them all. Autofill fires input events but
   // never a trusted keydown, paste or drop, so those mark a box as the person's own.

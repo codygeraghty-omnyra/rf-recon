@@ -307,6 +307,15 @@
      ]
     },
     {
+     "name": "Markers",
+     "text": "Mark a spot and the pin stays where it is: right-click (a long press) and pick Marker here, press Marker and click where it goes (Shift-click for several), type an address, place or lat, lon in the Pin box and press Mark (or Shift+Enter), or press Mark it on anything in the viewer. Click a marker to name it, add a note, colour it, copy where it is, open Street View, move it, delete it (with Undo) or search there. Markers stay with the mission, the DAS job or this copy and export with the drawings as KML or GeoJSON. DAStastic lite keeps its own on the phone, with a list and KML.",
+     "src": [
+      "static/markup.js",
+      "static/results.js",
+      "phone/app.js"
+     ]
+    },
+    {
      "name": "Rings, scale and readout",
      "text": "Labelled distance rings at a round step and the radius ring, a miles and kilometres scale bar, and a readout of the cursor's position, distance and bearing from the pin.",
      "src": [
@@ -325,7 +334,7 @@
     },
     {
      "name": "Base maps",
-     "text": "Street (OpenStreetMap), Satellite and Satellite + labels (USGS), Satellite hi-res (Esri), Topo and Terrain relief (USGS), remembered. With no signal, a street or Esri map shows USGS Topo and comes back when signal does.",
+     "text": "Street (OpenStreetMap), Satellite (USGS), Satellite hi-res (Esri), Topo and Terrain relief (USGS), remembered. A copy sold to others (team logins, licensed copies, the install kit, the web version) and DAStastic lite show the USGS maps only and open on Topo. With no signal, a street or Esri map shows USGS Topo and comes back when signal does. Satellite + labels is gone (USGS retires it November 16, 2026): a saved choice of it opens Satellite (USGS), and a map source of it exported to ATAK or WinTAK stops then, so delete it there.",
      "src": [
       "d-2026-11-02",
       "d-2026-10-27",
@@ -4940,7 +4949,7 @@
     },
     {
      "name": "Maps kept for mission areas",
-     "text": "The four USGS base maps to zoom 16 (shaded relief to 13) and terrain for each mission area, about 1.3 GB an area. Monthly when on, off by default; kept tiles aren't fetched again.",
+     "text": "The three USGS base maps (satellite, topo and terrain relief) to zoom 16 and terrain for each mission area, about 0.8 GB an area. Monthly when on, off by default; kept tiles aren't fetched again.",
      "where": "server, pc",
      "src": [
       "d-2026-11-03",
@@ -5000,7 +5009,7 @@
     },
     {
      "name": "Base maps and overlays",
-     "text": "OpenStreetMap street and Esri hi-res satellite, read live and never kept; USGS imagery, topo and relief and Census county lines, kept as viewed; NEXRAD radar from Iowa State, live every 5 minutes. No keys.",
+     "text": "OpenStreetMap street and Esri hi-res satellite on the owner's personal build only, read live and never kept; USGS imagery, topo and relief and Census county lines, kept as viewed; NEXRAD radar from Iowa State, live every 5 minutes. No keys.",
      "src": [
       "d-2026-11-02",
       "d-2026-10-27",

@@ -84,9 +84,17 @@
 .rfb-lbl.place span{font-weight:500;font-size:10.5px;color:var(--accent-2,var(--accent,#f0a07a))}
 </style>`);
   }
-  // city and town names only on a base map that doesn't name places itself (the base maps with names had every town twice)
+  // city and town names only on a base map that doesn't name places itself (the base maps with names had every town twice):
+  // the map on screen, not a saved choice this copy can't show (11/11 review: a saved Esri drew names over Topo on a sold copy)
   const PLAIN = /^(Satellite \(USGS\)|Satellite hi-res \(Esri\)|Terrain relief \(USGS\))$/;
-  const plainBase = () => { try { return RB.plainBase ? !!RB.plainBase() : typeof mapPrefs === "function" && (PLAIN.test(mapPrefs().base) || S.mapStyle === "atak"); } catch (e) { return false; } };
+  // The base layer on this map now (core.js map._rfBases), so the no-signal stand-in counts too (11/11 follow-up review: a
+  // saved Esri drew names over the Topo standing in for it); ATAK style still names places over a map of your own
+  const plainBase = map => { try {
+    if (RB.plainBase) return !!RB.plainBase();
+    const on = map?._rfBases && Object.entries(map._rfBases).find(([, l]) => map.hasLayer(l))?.[0];
+    if (on) return PLAIN.test(on) || (S.mapStyle === "atak" && !!(typeof BASEMAPS === "object" && BASEMAPS[on]?.own));
+    return typeof mapPrefs === "function" && (PLAIN.test(typeof baseShown === "function" ? baseShown(mapPrefs().base) : mapPrefs().base) || S.mapStyle === "atak");
+  } catch (e) { return false; } };
   function panes(map) {
     const mp = map.getPane("mapPane");
     for (const [n, z] of PANES) {
@@ -237,7 +245,7 @@
       if (!map || !lab) return;
       lab.clearLayers();
       const z = map.getZoom(), [z0, z1] = LABEL_Z[this.kind];
-      if (z < z0 || z > z1 || !this._shown.length || (this.kind === "place" && !plainBase())) return;
+      if (z < z0 || z > z1 || !this._shown.length || (this.kind === "place" && !plainBase(map))) return;
       const vb = map.getBounds().pad(-.03), cand = [], big = this.kind === "state";
       for (const st of this._shown) for (const f of this._parts.get(st)?.feats || []) {
         const b = boxOf(f);

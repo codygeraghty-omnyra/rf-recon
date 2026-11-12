@@ -3,7 +3,7 @@
    Packs (.rfpack) are made by DAStastic on the PC and kept in the DAStastic folder in Google Drive. The phone's file
    picker loads them from there and they stay on this phone. Nothing is uploaded anywhere. */
 
-const APP_VERSION = "1.0", BUILD = "63a1e7367a";  // publish.py writes BUILD
+const APP_VERSION = "1.0", BUILD = "d54a729035";  // publish.py writes BUILD
 const PACK_VERSION = 1;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -51,12 +51,13 @@ const typeOf = r => r.layer === "towers" ? "Tower / structure" : (r.sig_type || 
 const colorOf = r => r.layer === "towers" ? LAYERS.towers.color : (S.meta?.sig_lib?.[r.sig_type]?.color || LAYERS[r.layer]?.color || "#8c959f");
 const DIGITAL = /P25|DMR|NXDN|Digital|Data|TETRA/;
 const USGS = id => `https://basemap.nationalmap.gov/arcgis/rest/services/${id}/MapServer/tile/{z}/{y}/{x}`;
-const BASES = {  // USGS maps are public domain, so they can be saved for offline; OpenStreetMap's rules forbid bulk saving
+// USGS maps only (Cody 11/11: the free phone app goes USGS only, like a copy sold to others): public domain, so they can be
+// saved for offline. Street (OpenStreetMap) is gone; a saved choice of it opens Topo (setBase), and Satellite + labels
+// ('hybrid', retired by USGS 11/16) opens Satellite (start).
+const BASES = {
   topo: {label: "Topo (USGS)", url: USGS("USGSTopo"), max: 16, save: true, attr: "USGS The National Map"},
-  imagery: {label: "Satellite (USGS)", url: USGS("USGSImageryOnly"), max: 16, save: true, attr: "USGS The National Map"},
-  hybrid: {label: "Satellite + labels", url: USGS("USGSImageryTopo"), max: 16, save: true, attr: "USGS The National Map"},
-  street: {label: "Street (OpenStreetMap)", url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", max: 19, save: false,
-    attr: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}};
+  imagery: {label: "Satellite (USGS)", url: USGS("USGSImageryOnly"), max: 16, save: true, attr: "USGS The National Map"}};
+const GONE = {street: "Street (OpenStreetMap) is gone", hybrid: "Satellite + labels is gone (USGS retires it on November 16)"};
 const RADII = [0.5, 1, 2, 5, 10, 25];
 const MAX_ROWS = 20000;
 
@@ -76,7 +77,7 @@ const idb = (() => {
     const t = d.transaction(store, mode), req = fn(t.objectStore(store));
     t.oncomplete = () => res(req?.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("Storage is full"));
   }); };
-  return {get: (s, k) => run(s, "readonly", o => o.get(k)), all: s => run(s, "readonly", o => o.getAll()),
+  return {get: (s, k) => run(s, "readonly", o => o.get(k)), all: s => run(s, "readonly", o => o.getAll()), range: (s, lo, hi) => run(s, "readonly", o => o.getAll(IDBKeyRange.bound(lo, hi))),
     put: (s, v, k) => run(s, "readwrite", o => k === undefined ? o.put(v) : o.put(v, k)), del: (s, k) => run(s, "readwrite", o => o.delete(k))};
 })();
 const kv = {get: k => idb.get("kv", k).catch(() => undefined), set: (k, v) => idb.put("kv", v, k).catch(() => {})};
@@ -290,7 +291,16 @@ function initMap() {
   // at once: a finger held still before a pan (600 ms on an iPhone) moved it and searched there (review 11/11).
   map._rfResInset = mapInset;
   map.on("click", e => { if (map._rfMeasuring) return; closeSuggest(); hereOffer(e); });
-  map.on("contextmenu", e => { if (map._rfMeasuring) return; closeSuggest(); hereOffer(e, true); });
+  map.on("contextmenu", e => { if (map._rfMeasuring || MK.arm) return; closeSuggest(); hereOffer(e, true); });
+  // markers (below): Mark it in the viewer (results.js) drops one on a site, named after it; a marker's Move takes the next
+  // tap, on a dot too, before the dot or the map sees it (as the PC app's Move pin does)
+  map._rfMark = (ll, name) => addMarker(L.latLng(ll), name);
+  map.getContainer().addEventListener("click", ev => {
+    if (!MK.arm || map._rfMeasuring || !(ev.target === map.getContainer() || ev.target.closest?.(".leaflet-map-pane")) || map.dragging?.moved()) return;  // the bare map too: tiles take no taps
+    ev.stopPropagation(); ev.preventDefault();
+    const m = MK.list.find(x => x.id === MK.arm), ll = map.mouseEventToLatLng(ev); mkArm(null);
+    if (m) mkMove(m, ll);
+  }, true);
   addEventListener("offline", noSignal);
   addEventListener("online", signalCheck);
   setInterval(signalCheck, 30000);
@@ -305,20 +315,181 @@ function mapInset() {
 }
 // "Search here" where empty map was tapped: one tap more to search there; a move of the map or another tap takes it away.
 // Above the finger, not under it (the next try at a small dot landed on it: review 11/11), and inside the free band between
-// the chips and the bottom bar; it takes no tap for its first 400 ms
+// the chips and the bottom bar; it takes no tap for its first 400 ms. Beside it "＋ Marker here" (Cody 11/11): a marker
+// there, opened in the viewer, and the pin left where it is
 function hereOffer(e, hold) {
   const box = map.getContainer(); let m = box.querySelector(":scope > .here-offer");
   if (!e) { if (m) m.hidden = true; return; }
+  if (MK.arm) return;  // a marker's Move takes this tap (initMap)
   if (!m) { m = L.DomUtil.create("div", "here-offer glass over", box); L.DomEvent.disableClickPropagation(m);
-    m.innerHTML = '<button class="btn small" type="button" data-here>Search here</button>';
+    m.innerHTML = '<button class="btn small" type="button" data-here>Search here</button><button class="btn small" type="button" data-mark>＋ Marker here</button>';
     map.on("movestart zoomstart", () => { m.hidden = true; }); }
   if (!hold && !m.hidden && m._at && m._at.distanceTo(e.containerPoint) < 4) { m.hidden = true; return; }  // the same spot again: put away
   const p = e.containerPoint; m._at = p; m.hidden = false;
-  const ins = mapInset(), h = m.offsetHeight || 46, lo = ins.top || 6, hi = box.clientHeight - (ins.bottom || 6) - h - 6;
+  const ins = mapInset(), h = m.offsetHeight || 46, w = m.offsetWidth || 250, lo = ins.top || 6, hi = box.clientHeight - (ins.bottom || 6) - h - 6;
   const above = p.y - 18 - h, y = above >= lo ? above : Math.min(p.y + 18, hi);
-  m.style.left = `${Math.max(6, Math.min(p.x - 60, box.clientWidth - 130))}px`; m.style.top = `${Math.round(Math.max(lo, Math.min(y, hi)))}px`;
+  m.style.left = `${Math.max(6, Math.min(p.x - 60, box.clientWidth - w - 6))}px`; m.style.top = `${Math.round(Math.max(lo, Math.min(y, hi)))}px`;
   const shown = Date.now();
   m.querySelector("[data-here]").onclick = ev => { L.DomEvent.stop(ev); if (Date.now() - shown < 400) return; m.hidden = true; setCenter([e.latlng.lat, e.latlng.lng], false); };
+  m.querySelector("[data-mark]").onclick = async ev => { L.DomEvent.stop(ev); if (Date.now() - shown < 400) return; m.hidden = true;
+    const mk = await addMarker(e.latlng); if (mk) openMarker(mk); };
+}
+
+/* ---------- markers (Cody 11/11: "add ways to add pins or markers to the map without having the location of the scan/search") ----------
+   ＋ Marker here beside Search here (a tap on empty map or a long press), and Mark it in the viewer on a site, named after it.
+   None of them moves the pin or searches. Kept on this phone in the database's kv store, one record a marker ("mk:<id>"; a
+   store of their own would need the database's version raised, and the full web version, web/shim.js, opens it at version
+   1): one list for all was written whole, so a second tab, or the installed app beside a browser tab, wiped the other's
+   (review 11/11). A change in one tab redraws the others (BroadcastChannel). A tap on a marker, or on its name,
+   opens it in the viewer: name, note, colour, where it is (Copy, Street View, Google Maps), Move (the next tap), Delete (Undo
+   in the toast), Zoom to, and Search here: the one thing here that moves the pin. ⚑ on the map lists them, nearest first, to
+   open, delete or export as KML. */
+const MK = {list: [], layer: null, arm: null};
+const MK_COLORS = ["#ff7a1a", "#e5534b", "#2f81f7", "#3fb950", "#d29922", "#a371f7", "#ffffff"];
+const mkColor = c => /^#[0-9a-f]{6}$/i.test(c || "") ? c : MK_COLORS[0];
+// a flag on a pole, its foot on the spot: not the pin's teardrop, nor a site's dot
+const mkIcon = c => L.divIcon({className: "mk-flag", iconSize: [28, 34], iconAnchor: [7, 32], tooltipAnchor: [12, -20],
+  html: `<svg width="28" height="34" viewBox="0 0 24 30" aria-hidden="true"><path d="M6 28V3" stroke="#fff" stroke-width="4.2" stroke-linecap="round"/><path d="M6 28V3" stroke="#111" stroke-width="2" stroke-linecap="round"/><path d="M6.5 3.5h14l-4 5 4 5h-14z" fill="${mkColor(c)}" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></svg>`});
+const MK_KEY = id => `mk:${id}`, MK_CH = "BroadcastChannel" in window ? new BroadcastChannel("rfr-markers") : null;
+async function loadMarkers() {
+  const old = await kv.get("markers");  // this branch's first builds kept one list: each marker becomes its own record
+  if (Array.isArray(old)) { for (const m of old) if (m && m.id != null) await idb.put("kv", m, MK_KEY(m.id)); await idb.del("kv", "markers"); }
+  const l = await idb.range("kv", "mk:", "mk:\uffff");
+  MK.list = l.filter(m => m && isFinite(m.lat) && isFinite(m.lon)).sort((a, b) => a.id - b.id);
+  drawMarkers();
+  if (!$("#sheet").hidden && $("#sheet").dataset.mk) markersSheet();
+  // an open viewer follows its marker: closed if another tab deleted it, shown again if it changed there (its title only
+  // while a box in it is being typed in), so nothing in it works on a copy that's gone (follow-up review 11/11)
+  const h = window.RFResults && map && RFResults.get(map), id = h && /^mk:/.test(h.key) ? +h.key.slice(3) : null;
+  if (id != null) { const m = mkGet(id);
+    if (!m) { RFResults.close(map, false); if (MK.arm === id) mkArm(null); toast("That marker was deleted in another tab."); }
+    else if (h.el.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) h.retitle(`⚑ ${esc(m.label)}`, m.label);
+    else openMarker(m); }
+}
+const mkGet = id => MK.list.find(x => x.id === id);
+// one marker written or deleted, and the other tabs told (both reject when the phone's storage is full: the caller says so)
+const mkPut = async m => { await idb.put("kv", m, MK_KEY(m.id)); MK_CH?.postMessage("changed"); };
+// a change to one marker: read as it's stored now and only the changed fields written (another tab may have changed the
+// rest), never a marker that's no longer stored (it came back after another tab deleted it). Answers the record, or null
+async function mkPatch(id, patch) {
+  const stored = await idb.get("kv", MK_KEY(id));
+  if (!stored) { MK.list = MK.list.filter(x => x.id !== id); drawMarkers(); return null; }
+  const m = {...stored, ...patch}; await mkPut(m);
+  const i = MK.list.findIndex(x => x.id === id); if (i >= 0) MK.list[i] = m; else MK.list.push(m);
+  drawMarkers(); return m;
+}
+const mkGone = id => { if (RFResults.get(map)?.key === `mk:${id}`) RFResults.close(map, false); if (MK.arm === id) mkArm(null); toast("That marker was deleted in another tab."); };
+const mkDel = async m => { await idb.del("kv", MK_KEY(m.id)); MK_CH?.postMessage("changed"); };
+if (MK_CH) MK_CH.onmessage = () => loadMarkers().catch(e => console.error(e));
+function drawMarkers() {
+  if (!map) return;
+  if (!MK.layer) MK.layer = L.layerGroup().addTo(map);
+  MK.layer.clearLayers();
+  for (const m of MK.list) {  // a marker takes its own taps, its name too (a tap on the name offered Search here: review 11/11)
+    const open = ev => { if (ev && ev.originalEvent) L.DomEvent.stopPropagation(ev); if (!MK.arm) openMarker(m); };
+    const tt = L.tooltip({permanent: true, direction: "right", className: "mk-label", interactive: true}).setContent(esc(m.label)).on("click", open);
+    L.marker([m.lat, m.lon], {icon: mkIcon(m.color), keyboard: false, title: m.label}).bindTooltip(tt).on("click", open).addTo(MK.layer);
+  }
+  const b = $("#mkBtn"); if (b) { b.hidden = !MK.list.length; b.textContent = `⚑ ${MK.list.length}`; b.setAttribute("aria-label", `Markers: ${MK.list.length}`); }
+}
+// "Marker N": one more than the highest N, so a deleted one's number isn't given twice
+const mkNext = () => `Marker ${MK.list.reduce((k, m) => Math.max(k, +((/^Marker (\d+)$/.exec(m.label || "") || [])[1] || 0)), 0) + 1}`;
+async function addMarker(ll, label) {
+  ll = L.latLng(ll);
+  // an id no other tab makes in the same millisecond
+  const m = {id: Date.now() * 1000 + Math.floor(Math.random() * 1000), lat: +ll.lat.toFixed(7), lon: +ll.lng.toFixed(7), label: String(label || "").trim().slice(0, 120) || mkNext(), note: "", color: MK_COLORS[0], ts: new Date().toISOString()};
+  MK.list.push(m);
+  try { await mkPut(m); } catch (e) { MK.list = MK.list.filter(x => x !== m); toast(`The marker wasn't kept: ${e.message || e}`); return null; }
+  drawMarkers(); return m;
+}
+const mkFrom = () => { const me = S.me && Date.now() - S.me.ts < 600000 ? [S.me.lat, S.me.lon] : null; return me ? {at: me, word: "from you"} : S.center ? {at: S.center, word: "from the pin"} : null; };
+const mkDist = (m, f) => { if (!f) return ""; const mi = distKm(f.at[0], f.at[1], m.lat, m.lon) / MI_KM;
+  return `${mi < 0.1 ? `${Math.round(mi * 5280)} ft` : `${num(mi, mi < 10 ? 2 : 1)} mi`} ${compass(bearing(f.at[0], f.at[1], m.lat, m.lon))} ${f.word}`; };
+// each action finds its marker by id when it runs: another tab's change gives MK.list new records (follow-up review 11/11)
+function mkActs(m) {
+  const id = m.id, armed = MK.arm === id, now = () => mkGet(id);
+  return [{label: armed ? "Tap where it goes" : "Move", primary: armed, title: armed ? "Tap where the marker goes; Move again cancels" : "Move it: then tap where it goes",
+      run: () => { if (armed) return mkArm(null); const cur = now(); if (cur) mkArm(cur); else mkGone(id); }},
+    {label: "Delete", title: "Delete it (Undo in the message)", run: () => { const cur = now(); if (cur) mkDelete(cur); else mkGone(id); }},
+    {label: "Search here", title: "Search around this marker: the pin moves here", run: () => { mkArm(null); const cur = now() || m; setCenter([cur.lat, cur.lon], false); }}];
+}
+function openMarker(m) {
+  if (!map || !window.RFResults) return;
+  hereOffer(null); closeSheet();
+  if (S.tab !== "map") setTab("map");
+  RFResults.show(map, {key: `mk:${m.id}`, label: m.label, title: `⚑ ${esc(m.label)}`, sub: esc(["Marker", mkDist(m, mkFrom())].filter(Boolean).join(" · ")), mark: false,
+    fill: body => mkBody(body, m), actions: mkActs(m), zoom: [m.lat, m.lon], onClose: () => { if (MK.arm === m.id) mkArm(null); }}, [m.lat, m.lon]);
+}
+function mkBody(body, m) {
+  const c = `${(+m.lat).toFixed(5)}, ${(+m.lon).toFixed(5)}`;
+  body.innerHTML = `<div class="field"><label for="mk_n">Name</label><input id="mk_n" maxlength="120" value="${esc(m.label)}" autocomplete="off" enterkeyhint="done"></div>
+    <div class="field"><label for="mk_t">Note</label><textarea id="mk_t" rows="2" maxlength="2000" placeholder="What's here">${esc(m.note || "")}</textarea></div>
+    <div class="chips" role="group" aria-label="Colour" style="margin:0 0 10px">${MK_COLORS.map(x => `<button type="button" class="mk-sw${x === mkColor(m.color) ? " on" : ""}" data-mkc="${x}" style="background:${x}" aria-label="Colour ${x}" aria-pressed="${x === mkColor(m.color)}"></button>`).join("")}</div>
+    <div class="row"><span class="mono">${c}</span><button class="btn small" type="button" data-mkcopy>Copy</button></div>
+    <p style="margin:8px 0 4px"><a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${m.lat},${m.lon}" target="_blank" rel="noopener">Street View ↗</a> ·
+      <a href="https://www.google.com/maps/search/?api=1&query=${m.lat},${m.lon}" target="_blank" rel="noopener">Google Maps ↗</a></p>
+    <p class="hint" data-mkmsg style="margin:4px 0 0">On this phone only.</p>`;
+  const say = t => { const p = $("[data-mkmsg]", body); if (p) p.textContent = t; }, name = $("#mk_n", body), note = $("#mk_t", body);
+  // the marker as it's stored when the change is kept, the changed field only; the title in place (a frame drawn again from
+  // the change took the button the tap that left the box was on)
+  const id = m.id, cur = () => mkGet(id) || m;
+  const keep = async patch => { let r;
+    try { r = await mkPatch(id, patch); } catch (e) { say(`Not kept: ${e.message || e}`); return; }
+    if (!r) { mkGone(id); return; }
+    RFResults.get(map)?.retitle(`⚑ ${esc(r.label)}`, r.label); say("Saved."); };
+  // kept as it's left (or on Done): no Save to press. An emptied name keeps the one it had
+  name.onchange = () => { const v = name.value.trim(); if (!v) { name.value = cur().label; return; } if (v !== cur().label) keep({label: v.slice(0, 120)}); };
+  name.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); name.blur(); } };
+  note.onchange = () => { if (note.value.trim() !== (cur().note || "")) keep({note: note.value.slice(0, 2000)}); };
+  body.querySelectorAll("[data-mkc]").forEach(b => b.onclick = () => { body.querySelectorAll("[data-mkc]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", String(x === b)); }); keep({color: b.dataset.mkc}); });
+  $("[data-mkcopy]", body).onclick = async () => { try { await navigator.clipboard.writeText(c); say(`Copied ${c}.`); } catch (e) { say(`Couldn't copy: ${c}`); } };
+}
+// Move: the next tap on the map is where it goes (initMap takes it); Esc, Move again or closing the viewer cancels
+function mkArm(m) {
+  MK.arm = m ? m.id : null; map._rfMarkArmed = !!m; map.getContainer().classList.toggle("mk-arming", !!m);
+  if (m) hereOffer(null);
+  const h = RFResults.get(map), cur = h && MK.list.find(x => `mk:${x.id}` === h.key); if (cur) h.setFrame({actions: mkActs(cur)});
+}
+async function mkMove(m, ll) {
+  let r; try { r = await mkPatch(m.id, {lat: +ll.lat.toFixed(7), lon: +ll.lng.toFixed(7)}); } catch (e) { toast(`Not moved: ${e.message || e}`); return; }
+  if (!r) { mkGone(m.id); return; }
+  if (RFResults.get(map)?.key === `mk:${r.id}`) openMarker(r);
+}
+async function mkDelete(m) {
+  const i = MK.list.findIndex(x => x.id === m.id); if (i < 0) { mkGone(m.id); return; }
+  m = MK.list[i];
+  MK.list.splice(i, 1); if (MK.arm === m.id) mkArm(null);
+  try { await mkDel(m); } catch (e) { MK.list.splice(i, 0, m); toast(`Not deleted: ${e.message || e}`); return; }
+  if (RFResults.get(map)?.key === `mk:${m.id}`) RFResults.close(map, false);
+  drawMarkers(); if (!$("#sheet").hidden && $("#sheet").dataset.mk) markersSheet();
+  toast(`Deleted “${m.label}”.`, async () => { if (!MK.list.some(x => x.id === m.id)) MK.list.splice(Math.min(i, MK.list.length), 0, m); await mkPut(m).catch(() => {}); drawMarkers(); if (!$("#sheet").hidden && $("#sheet").dataset.mk) markersSheet(); });
+}
+// the list: nearest first from where you are (a fix from the last 10 minutes) or the pin; a tap opens one in the viewer
+function markersSheet() {
+  const f = mkFrom(), rows = MK.list.map(m => ({m, d: f ? distKm(f.at[0], f.at[1], m.lat, m.lon) : null}));
+  if (f) rows.sort((a, b) => a.d - b.d);
+  openSheet("Markers", MK.list.length ? `${MK.list.length} on this phone${f ? `, nearest first ${f.word === "from you" ? "from where you are" : "from the pin"}` : ""}.` : "None yet.",
+    (rows.length ? `<div class="card glass" style="padding:4px 12px;margin:4px 0 12px">${rows.map(({m}) => `<div class="item" data-mk="${m.id}"><span class="dot" style="background:${mkColor(m.color)}"></span>
+      <div class="main"><div class="t">${esc(m.label)}</div><div class="s">${esc(mkDist(m, f) || `${(+m.lat).toFixed(5)}, ${(+m.lon).toFixed(5)}`)}</div></div>
+      <button class="btn small danger" type="button" data-mkdel="${m.id}" aria-label="Delete ${esc(m.label)}">Delete</button></div>`).join("")}</div>
+      <div class="row"><button class="btn primary" type="button" data-mkkml>Export KML</button><button class="btn" type="button" data-act="close">Close</button></div>`
+      : `<p>Tap the map (or press and hold), then <b>＋ Marker here</b>. Or press <b>Mark it</b> on a site.</p>`), sh => {
+    sh.dataset.mk = "1";
+    sh.onclick = e => { const d = e.target.closest("[data-mkdel]"), r = e.target.closest(".item[data-mk]");
+      if (e.target.closest("[data-mkkml]")) { exportMarkers(); return; }
+      if (d) { e.stopPropagation(); const m = MK.list.find(x => x.id === +d.dataset.mkdel); if (m) mkDelete(m); return; }
+      if (r) { const m = MK.list.find(x => x.id === +r.dataset.mk); if (m) { closeSheet(); openMarker(m); } } };
+  });
+}
+function markersKml() {
+  const kc = c => { const h = mkColor(c).slice(1); return `ff${h.slice(4, 6)}${h.slice(2, 4)}${h.slice(0, 2)}`; };  // KML is aabbggrr
+  return ['<?xml version="1.0" encoding="UTF-8"?>', '<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>DAStastic markers</name>',
+    ...MK.list.map(m => `<Placemark><name>${esc(m.label)}</name><description>${esc(m.note || "")}</description><Style><IconStyle><color>${kc(m.color)}</color></IconStyle></Style><Point><coordinates>${m.lon},${m.lat},0</coordinates></Point></Placemark>`),
+    "</Document></kml>"].join("\n");
+}
+async function exportMarkers() {
+  const d = new Date(), stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+  await shareFile(new File([markersKml()], `DAStastic markers ${stamp}.kml`, {type: "application/vnd.google-earth.kml+xml"}));
 }
 function setBase(id) {
   S.base = BASES[id] ? id : "topo";
@@ -326,8 +497,8 @@ function setBase(id) {
   drawBase(navigator.onLine === false && !BASES[S.base].save ? "topo" : S.base);
   window.RFBounds?.restyle();  // city and town names show only on the satellite map, which doesn't name places itself
 }
-// Street (OpenStreetMap) is for use with signal only: its tile policy forbids keeping tiles for offline use, so the phone
-// never saves them (sw.js). With no signal the map shows Topo until signal returns, without changing the map you picked.
+// A map for use with signal only (save: false; none since Street went, 11/11) would show Topo with no signal until signal
+// returns, without changing the map you picked.
 let standIn = false, misses = 0;
 function drawBase(id) {
   const b = BASES[id];
@@ -572,7 +743,7 @@ function openSheet(title, sub, body, onOpen) {
     <button class="ibtn" type="button" data-act="close" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="sb">${body}</div>`;
   sh.hidden = false; $("#scrim").hidden = false;
-  sh.onclick = null;  // the sheet is reused: drop the last one's handler
+  sh.onclick = null; delete sh.dataset.mk;  // the sheet is reused: drop the last one's handler, and the Markers list's mark
   onOpen?.(sh);
 }
 function closeSheet() { $("#sheet").hidden = true; $("#scrim").hidden = true; }
@@ -707,7 +878,11 @@ function logCsv() {  // the columns DAStastic on the PC reads in Mission, Import
   return {name: `DAStastic field log ${stamp}.csv`, text: lines.join("\r\n") + "\r\n"};
 }
 async function exportLog() {
-  const {name, text} = logCsv(), file = new File([text], name, {type: "text/csv"});
+  const {name, text} = logCsv();
+  await shareFile(new File([text], name, {type: "text/csv"}));
+}
+// the phone's share sheet (to Drive, mail, ATAK), else a download: the field log and the markers' KML
+async function shareFile(file) {
   try {
     if (navigator.canShare?.({files: [file]})) { await navigator.share({files: [file], title: file.name}); return; }
   } catch (e) { if (e.name === "AbortError") return; }
@@ -746,9 +921,9 @@ async function viewPacks(v) {
       don't need Drive for it: pick one and it downloads to this phone (most under 13 MB; California 32 MB and Texas 28 MB, so use Wi-Fi for the big ones). A search outside your pack offers its state too.</p>
       <div class="row"><select id="spSel" style="flex:1"><option value="">Getting the list…</option></select><button class="btn primary" data-act="sitepack">Load</button></div></div>`
     + `<div class="card glass" style="--i:4"><h2>Map without signal</h2><p style="margin:0 0 10px">Map tiles you've looked at stay on the phone. To save more before you go, set the pin and radius,
-      then save that area (USGS maps, zoom 8 to 15). Street maps can't be saved: OpenStreetMap's rules don't allow it.</p>
+      then save that area (USGS maps, zoom 8 to 15).</p>
       <div class="row"><button class="btn" data-act="savemap">Save the map around the pin</button><button class="btn small danger" data-act="clearmap">Clear saved map</button></div>
-      <p class="hint" id="mapsave"></p></div>`
+      <p class="hint" id="mapsave">${esc(S.mapNote || "")}</p></div>`
     + `<div class="card glass" style="--i:5"><h2>This phone</h2><dl class="kv">${kvs([["Storage used", est ? `${num(est.usage / 1e6)} MB` : ""],
       ["Kept when space is low", persisted == null ? "" : persisted ? "Yes" : "Not guaranteed (add to home screen)"], ["App version", `${APP_VERSION} (${BUILD})`]])}</dl>
       <p class="hint" style="margin:0">Your packs and field log stay in this phone's browser storage. Nothing is sent anywhere.</p></div>`
@@ -790,6 +965,7 @@ async function saveMap() {
   out.textContent = `Saving ${b.label}: 0 of ${int(tiles.length)} tiles…`;
   await Promise.all([work(), work(), work(), work()]);
   out.textContent = saving.stop ? `Stopped after ${int(done)} tiles.` : `Saved ${int(done - failed)} tiles of ${b.label} for ${Math.max(S.radius, 1)} mi around the pin${failed ? ` (${failed} failed: no signal?)` : ""}.`;
+  if (!saving.stop && done > failed && S.mapNote) { S.mapNote = null; kv.set("mapNote", null); }  // saved again: the note has done its work
   saving = null;
 }
 
@@ -904,7 +1080,7 @@ document.addEventListener("click", async e => {
     else if (r) openSheet(esc(r.label || r.licensee), esc(`${r.state || ""} · no fixed site (mobile or area licence)`), rowHtml(r)); }
 });
 $("#scrim").onclick = closeSheet;
-document.addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); closeSuggest(); } });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); closeSuggest(); if (MK.arm) mkArm(null); } });
 $("#nav").onclick = e => { const b = e.target.closest("button[data-t]"); if (b) setTab(b.dataset.t); };
 $("#packchip").onclick = () => setTab("packs");
 $("#packfile").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) importPack(f); };
@@ -914,6 +1090,7 @@ $("#q").addEventListener("focus", () => { if ($("#q").value.trim()) suggest(); }
 $("#filterBtn").onclick = () => filterSheet();
 $("#locateBtn").onclick = () => locate(true);
 $("#logBtn").onclick = () => S.db ? logForm() : toast("Load a data pack first: Packs, then Load a pack.");
+$("#mkBtn").onclick = () => markersSheet();
 $("#radius").innerHTML = RADII.map(r => `<option value="${r}">${r} mi</option>`).join("");
 $("#radius").onchange = e => { S.radius = +e.target.value; if (S.center) run(false); };  // the ring changes; the view stays (it was fitted again: review 11/11)
 addEventListener("popstate", () => { const h = readHash(); if (h.tab && h.tab !== S.tab) setTab(h.tab, false); });
@@ -921,12 +1098,20 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = 
 
 async function start() {
   DashLook.mount($("#lookSlot"), {onChange: () => drawMap(false), nav: false});  // the kit's display sheet; the phone has its own way back
-  const [base, filters, view, active, logView, bounds] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack"), kv.get("logView"), kv.get("bounds")]);
-  if (base) S.base = base;
+  const [base, filters, view, active, logView, bounds, mapNote] = await Promise.all([kv.get("base"), kv.get("filters"), kv.get("view"), kv.get("activePack"), kv.get("logView"), kv.get("bounds"), kv.get("mapNote")]);
+  // Satellite + labels ('hybrid') is gone (USGS retires its Imagery Topo map on 2026-11-16): the closest map, Satellite
+  // (USGS), as on the PC, said once (11/11 review: it became Topo with no word, and an area saved on it was blank offline)
+  // Street, gone 11/11, opens Topo; either is said once
+  if (base) S.base = base === "hybrid" ? "imagery" : BASES[base] ? base : "topo";
+  // what to do about it stays in Packs > Map without signal until the area is saved again: the note at start can be replaced
+  // at once by the pack offer's (11/11 follow-up review), and the base is saved as Satellite before it shows
+  S.mapNote = base === "hybrid" ? `${GONE.hybrid}: its saved map is gone. Save the map around the pin again for places you'll work with no signal.` : mapNote || null;
+  if (base === "hybrid") kv.set("mapNote", S.mapNote);
   if (logView) S.logView = logView;
   if (filters) { S.layerOn = new Set(filters.layers); S.fmin = filters.fmin; S.fmax = filters.fmax; S.text = filters.text || "";
     $("#filterBtn").classList.toggle("on", S.fmin != null || S.fmax != null || !!S.text || S.layerOn.size < Object.keys(LAYERS).length); }
   initMap();
+  await loadMarkers().catch(e => console.error(e));  // the markers kept on this phone, drawn before any pack opens
   if (Array.isArray(bounds)) setBounds(bounds, false);
   const h = readHash();
   S.radius = h.radius || view?.radius || 5;
@@ -945,6 +1130,8 @@ async function start() {
   // opened at a spot (a link, a reload) no loaded pack covers: offer its state, as a tap on the map does (11/7: a link to
   // Wilmington with the SC pack said "Nothing here with the layers and filters on")
   if (S.center && S.mode !== "search" && !(S.db && inPack(S.center))) offerPackFor(S.center);
+  if (GONE[base]) toast(`${GONE[base]}: showing ${BASES[S.base].label}. ` + (base === "hybrid"
+    ? "Save the map around the pin again (Packs) for places you'll work with no signal." : "DAStastic lite shows USGS maps only."));
 }
 start().catch(e => { busy(); toast(`DAStastic lite couldn't start: ${e.message}`); console.error(e); });
 

@@ -15,17 +15,29 @@
     .rf-ex-panel button { font: inherit; padding: 3px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; cursor: pointer; }
     .rf-ex-panel .hint { opacity: .75; margin-top: 4px; }`;
   document.head.appendChild(css);
-  const load = src => new Promise((ok, no) => { const i = new Image(); if(/^https?:/.test(src) && !src.startsWith(location.origin)) i.crossOrigin = "anonymous";
-    i.onload = () => ok(i); i.onerror = no; i.src = src; });
+  // tiles are fetched 6 at a time, each given 15 s: a copy that's busy (a sold copy's USGS Topo comes through it) took every tile
+  // of a 2x image at once and the report's wait ran out (towers-tab, 11/11). Images already in the page (data:, blob:) don't queue
+  let busy = 0; const waiting = [];
+  const slot = () => busy < 6 ? (busy++, Promise.resolve()) : new Promise(r => waiting.push(r));
+  const free = () => { const n = waiting.shift(); if(n) n(); else busy--; };
+  const fetchImg = src => new Promise((ok, no) => { const i = new Image(); if(/^https?:/.test(src) && !src.startsWith(location.origin)) i.crossOrigin = "anonymous";
+    const t = setTimeout(() => { i.src = ""; no(new Error("no tile in 15 s")); }, 15000);
+    i.onload = () => { clearTimeout(t); ok(i); }; i.onerror = e => { clearTimeout(t); no(e); }; i.src = src; });
+  const load = src => /^(data|blob):/.test(src) ? fetchImg(src) : slot().then(() => fetchImg(src).finally(free));
   const visible = el => { const s = getComputedStyle(el); return s.display !== "none" && s.visibility !== "hidden" && +s.opacity !== 0; };
   const opacityOf = (el, stop) => { let o = 1; for(let e = el; e && e !== stop; e = e.parentElement) o *= +getComputedStyle(e).opacity || 1; return o; };
   // local time, as the person saving it reads it (toISOString's UTC said 16:58 at 10:58 Central, 11/10)
   const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
   const rectIn = (el, box, k) => { const r = el.getBoundingClientRect(); return {x: (r.left - box.left) * k, y: (r.top - box.top) * k, w: r.width * k, h: r.height * k}; };
 
-  // one tile layer, fetched again for this view at the zoom that gives k times the pixels
-  async function drawTiles(g, map, layer, k, W, H){
+  // one tile layer, fetched again for this view at the zoom that gives k times the pixels; or (fromMap) the layer's own tiles as
+  // the map shows them, scaled k times: no fetch at all, for a copy too busy for the sharp one
+  async function drawTiles(g, map, layer, k, W, H, fromMap){
     const o = layer.options, z = map.getZoom(), off = o.zoomOffset || 0;
+    if(fromMap){ const box = map.getContainer().getBoundingClientRect(); let n = 0; g.globalAlpha = o.opacity ?? 1;
+      for(const t of Object.values(layer._tiles || {})){ const im = t.el; if(!t.current || !im || !im.complete || !im.naturalWidth) continue;
+        const r = rectIn(im, box, k); try{ g.drawImage(im, r.x, r.y, r.w, r.h); n++; }catch(e){ /* a tile the canvas can't read is left out */ } }
+      g.globalAlpha = 1; return n; }
     if(z < (o.minZoom ?? 0) || z > (o.maxZoom ?? 30)) return 0;  // hidden at this zoom (Esri over USGS starts at 17)
     const deep = o.maxNativeZoom != null ? o.maxNativeZoom + off : (o.maxZoom ?? 19);  // the deepest zoom this source is asked for
     const want = Math.round(z + Math.log2(k)), tz = Math.max(0, Math.min(want, deep)), n = 2 ** tz;
@@ -75,7 +87,7 @@
     lines.forEach((ln, i) => g.fillText(ln, r.x + pad, r.y + lh * (i + .5), Math.max(1, r.w - 2 * pad)));
   }
 
-  async function compose(map, k){
+  async function compose(map, k, opt = {}){
     const el = map.getContainer(), box = el.getBoundingClientRect(), W = Math.round(el.clientWidth * k), H = Math.round(el.clientHeight * k);
     const FOOT = Math.round(26 * k), cv = document.createElement("canvas"); cv.width = W; cv.height = H + FOOT;
     const g = cv.getContext("2d"); g.fillStyle = getComputedStyle(el).backgroundColor || "#ddd"; g.fillRect(0, 0, W, H);
@@ -84,7 +96,7 @@
     const tiles = []; map.eachLayer(l => { if(l instanceof L.TileLayer && l._url) tiles.push(l); });
     const paneZ = l => +getComputedStyle(l.getPane()).zIndex || 0;
     tiles.sort((a, b) => paneZ(a) - paneZ(b) || (a.options.zIndex || 1) - (b.options.zIndex || 1));
-    let count = 0; for(const l of tiles) count += await drawTiles(g, map, l, k, W, H);
+    let count = 0; for(const l of tiles) count += await drawTiles(g, map, l, k, W, H, !!opt.fromMap);
     // then what's drawn over them, pane by pane in stacking order, copied from the page at the same scale
     const panes = [...el.querySelectorAll(".leaflet-pane")].filter(p => !p.classList.contains("leaflet-map-pane") && !p.classList.contains("leaflet-tile-pane") && p.children.length && visible(p))
       .sort((a, b) => (+getComputedStyle(a).zIndex || 0) - (+getComputedStyle(b).zIndex || 0));

@@ -1,6 +1,6 @@
 /* DAStastic (beta) phone app: keeps the app, and the map tiles you look at, on the phone so it opens with no signal.
    VERSION changes on every publish (publish.py writes it), which swaps in the new app files. */
-const VERSION = "63a1e7367a";
+const VERSION = "d54a729035";
 const SHELL = `rfr-shell-${VERSION}`, TILES = "rfr-tiles", FONTS = "rfr-fonts";
 // the full version's Python engine (Pyodide, full/pyodide/, served from this site since 11/4): kept apart from the app
 // files, by the engine's version (publish.py writes it), so a new build doesn't download it again
@@ -17,6 +17,9 @@ const FILES = ["./", "index.html", "app.js", "manifest.webmanifest", "theme/glas
 // go through the browser's own cache (their caching headers) and are never saved here; the app shows Topo with no signal.
 const TILE_HOSTS = ["basemap.nationalmap.gov"];
 const NOT_KEPT = ["tile.openstreetmap.org"];  // saved here before 2026-11-02: removed on the next update
+// USGS's Imagery Topo (Satellite + labels), retired 2026-11-16 and gone from the app: its saved tiles can't be shown, so they
+// go on the next update, and the other saved maps stay (11/11 review: only Clear saved map, which takes them all, freed them)
+const RETIRED = ["/USGSImageryTopo/"];
 
 // Updates (Cody 11/7 item 7: "an Update button and/or auto-update with an on/off toggle"): the page keeps the choice in Cache
 // Storage (PREFS, "__prefs.json" {auto}), which this worker can read. Auto, the default and every page from before 11/8 that
@@ -32,7 +35,8 @@ self.addEventListener("install", e => {
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => (k.startsWith("rfr-shell-") && k !== SHELL) || (k.startsWith("rfr-engine-") && k !== ENGINE)
     || (k.startsWith("rfr-bounds-") && k !== BOUNDS)).map(k => caches.delete(k))))
-    .then(() => caches.open(TILES)).then(async c => { for (const r of await c.keys()) if (NOT_KEPT.includes(new URL(r.url).hostname)) await c.delete(r); })
+    .then(() => caches.open(TILES)).then(async c => { for (const r of await c.keys()) { const u = new URL(r.url);
+      if (NOT_KEPT.includes(u.hostname) || RETIRED.some(p => u.pathname.includes(p))) await c.delete(r); } })
     .catch(() => {}).then(() => self.clients.claim()));
 });
 

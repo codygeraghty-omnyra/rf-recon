@@ -14,6 +14,7 @@ import math
 import os
 import re
 import shutil
+import sqlite3
 import time
 import urllib.parse
 import urllib.request
@@ -21,6 +22,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import zipfile
 
+import build
 import carriers
 import dashist
 import geo
@@ -222,7 +224,107 @@ OVERPASS = "https://overpass-api.de/api/interpreter"
 # public Overpass servers, all asked at once; the first good answer wins (11/3: from the AWS server the main one
 # answered 502 or took 23-32 s, and asking them one after another left the DAS Plans panel on "Looking…")
 OVERPASS_MIRRORS = (OVERPASS, "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
+OVERPASS_OWN_SETTING = "overpass.url"
+OSM_UA = "DAStastic/1.0 (DAS site survey; contact via omnyra.ai)"
 OSM_WAIT_S = 45
+
+
+INSIDE = "it points inside this machine or its network"
+
+
+def _host_check(host, port=443):
+    """(why not, addresses): a name or address that points inside this machine or its network, or doesn't resolve, is never
+    fetched for a setting (a setting must not turn the server into a way to reach its own services); else its addresses."""
+    import ipaddress
+    import socket
+    h = (host or "").strip("[]").lower()
+    if not h or h == "localhost" or h.endswith(".localhost") or h.endswith(".internal"):
+        return INSIDE, []
+    try:
+        addrs = list(dict.fromkeys(ai[4][0] for ai in socket.getaddrinfo(h, port, proto=socket.IPPROTO_TCP)))
+    except OSError:
+        return f"{h} doesn't resolve (no network, or no such name)", []
+    if not addrs or any(not ipaddress.ip_address(a.split("%")[0]).is_global for a in addrs):
+        return INSIDE, []
+    return None, addrs
+
+
+def _private_host(host):
+    return _host_check(host)[0] is not None
+
+
+def _overpass_check(url):
+    """(why not, addresses, parsed url) for a value of overpass.url: https to a public host only."""
+    if not isinstance(url, str) or not url.strip():
+        return "none is set", [], None
+    try:
+        u = urllib.parse.urlparse(url.strip())
+        port = u.port or 443
+    except ValueError:
+        return "it isn't a web address", [], None
+    if u.scheme != "https" or not u.hostname:
+        return "it must be an https address", [], u
+    # never said back: it would show in the error text any login reads (11/11 follow-up review)
+    if u.username is not None or u.password is not None:
+        return "it has a user name or password in it, which isn't sent; use the service's address without them", [], u
+    # a sold copy's own server can't be one of the free public ones, whose terms don't cover it (the reason it has its own)
+    if u.hostname.lower() in {urllib.parse.urlparse(m).hostname for m in OVERPASS_MIRRORS} and not build.personal_now():
+        return "it's one of the free public servers, whose terms don't cover a copy sold to others", [], u
+    why, addrs = _host_check(u.hostname, port)
+    return why, addrs, u
+
+
+def overpass_refused(url):
+    """Why a value for overpass.url isn't asked, or None when it may be."""
+    return _overpass_check(url)[0]
+
+
+def overpass_setting():
+    """The setting overpass.url as saved ("" when none)."""
+    try:
+        con = sqlite3.connect(uls_import.DB_PATH, timeout=10)
+        try:
+            r = con.execute("SELECT v FROM setting WHERE k=?", (OVERPASS_OWN_SETTING,)).fetchone()
+        finally:
+            con.close()
+        url = json.loads(r[0]) if r else ""
+    except (sqlite3.Error, ValueError, OSError):
+        return ""
+    return url.strip() if isinstance(url, str) else ""
+
+
+def overpass_own():
+    """This copy's own Overpass server (the setting overpass.url: a paid or hosted service, Cody 11/10 "Pay for Overpass.ch
+    Small"), or "" when none is set or it isn't a public https address."""
+    url = overpass_setting()
+    return url if url and overpass_refused(url) is None else ""
+
+
+def overpass_servers():
+    """The Overpass servers this copy may ask (research 11/10, Cody's decision the same day). A copy's own server is asked
+    alone. Without one, the personal build asks the public servers; the sold build asks none, because their terms don't cover
+    a product sold to others: the Overpass wiki says commercial use "should use self-hosted or paid Overpass servers", and
+    FOSSGIS (overpass-api.de) allows commercial use only when it isn't "a substantial part of an online offering"."""
+    own = overpass_own()
+    if own:
+        return (own,)
+    return OVERPASS_MIRRORS if build.personal_now() else ()
+
+
+OVERPASS_NONE = ("This copy has no OpenStreetMap (Overpass) service of its own, and the free public servers aren't for a "
+                 "product sold to others. An admin sets one in Data & updates (overpass.url).")
+OVERPASS_REFUSED = ("This copy's own OpenStreetMap (Overpass) service isn't asked: {why}. It must be an https address on the "
+                    "internet; an admin changes it in Data & updates (overpass.url).")
+
+
+class NoOverpass(ValueError):
+    """No Overpass server may be asked from this copy: none set (OVERPASS_NONE), or the one set is refused, and why."""
+
+
+def no_overpass():
+    url = overpass_setting()
+    why = overpass_refused(url) if url else None
+    return NoOverpass(OVERPASS_REFUSED.format(why=why) if why else OVERPASS_NONE)
 OSM_KEEP_DAYS = 30  # a building found is kept this long; a busy spell after that still answers with the kept one
 
 
@@ -316,7 +418,8 @@ def building_outline(lat, lon, fresh=False):
                 raise LookupError(str(e).rstrip(".") + ". (No Overture extract covers this area yet.)") from None
             raise
         ov["fetched"] = now()
-        ov["note"] = ("OpenStreetMap's servers didn't answer" if isinstance(e, ValueError) else
+        ov["note"] = ("OpenStreetMap isn't asked on this copy" if isinstance(e, NoOverpass) else
+                      "OpenStreetMap's servers didn't answer" if isinstance(e, ValueError) else
                       "OpenStreetMap has no outline here") + ": this outline is from Overture Maps."
         return ov
     if b.get("height_m") is None and b.get("outline"):
@@ -329,11 +432,70 @@ def building_outline(lat, lon, fresh=False):
     return b
 
 
+def _https_post(host, ips, port, path, body, headers, timeout):
+    """POST over https to host, connected at the addresses checked (ips), each tried in turn as socket.create_connection
+    would (an IPv6 address that doesn't route, or one server down, 11/11 follow-up review), the certificate checked for host.
+    Through the HTTPS proxy this PC or its environment names, when there is one for host: the proxy reaches the name itself
+    (CONNECT), as urllib did. (status, body); a redirect is returned as it is, never followed."""
+    import base64
+    import http.client
+    import socket
+    import ssl
+    ctx = ssl.create_default_context()
+    proxy = urllib.request.getproxies().get("https")
+    if proxy and not urllib.request.proxy_bypass(host):
+        p = urllib.parse.urlparse(proxy if "://" in proxy else "http://" + proxy)
+        auth = ({"Proxy-Authorization": "Basic " + base64.b64encode(
+            f"{urllib.parse.unquote(p.username)}:{urllib.parse.unquote(p.password or '')}".encode()).decode()} if p.username else {})
+        conn = http.client.HTTPSConnection(p.hostname, p.port or 8080, timeout=timeout, context=ctx)
+        conn.set_tunnel(host, port, headers=auth)
+    else:
+        class Pinned(http.client.HTTPSConnection):
+            def connect(self):
+                err = OSError("no address")
+                for ip in ips:
+                    try:
+                        sock = socket.create_connection((ip, self.port), self.timeout)
+                    except OSError as e:
+                        err = e
+                        continue
+                    self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+                    return
+                raise err
+
+        conn = Pinned(host, port, timeout=timeout, context=ctx)
+    try:
+        conn.request("POST", path, body=body, headers=headers)
+        r = conn.getresponse()
+        return r.status, r.read()
+    finally:
+        conn.close()
+
+
 def _overpass(url, q):
-    req = urllib.request.Request(url, data=urllib.parse.urlencode({"data": q}).encode(),
-                                 headers={"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"})
-    with urllib.request.urlopen(req, timeout=OSM_WAIT_S) as r:
-        return json.loads(r.read().decode("utf-8"))
+    body = urllib.parse.urlencode({"data": q}).encode()
+    if url in OVERPASS_MIRRORS:
+        req = urllib.request.Request(url, data=body, headers={"User-Agent": OSM_UA})
+        with urllib.request.urlopen(req, timeout=OSM_WAIT_S) as r:
+            return json.loads(r.read().decode("utf-8"))
+    # this copy's own server (overpass.url): checked again here and asked at the address the check resolved, with no redirect
+    # followed (11/11 review: urllib followed a 302 to http:// and private addresses, and looked the name up again to
+    # connect, so a name that answered public then 127.0.0.1 went inside). Its errors say no more than that it didn't answer.
+    import http.client
+    why, addrs, u = _overpass_check(url)
+    if why:
+        raise NoOverpass(OVERPASS_REFUSED.format(why=why))
+    path = (u.path or "/") + (f"?{u.query}" if u.query else "")
+    try:
+        status, data = _https_post(u.hostname, addrs, u.port or 443, path, body,
+                                   {"User-Agent": OSM_UA, "Content-Type": "application/x-www-form-urlencoded"}, OSM_WAIT_S)
+    except (OSError, http.client.HTTPException):
+        raise ValueError("didn't answer") from None
+    if 300 <= status < 400:
+        raise ValueError(f"answered with a redirect (HTTP {status}), which isn't followed")
+    if status != 200:
+        raise ValueError(f"answered HTTP {status}")
+    return json.loads(data.decode("utf-8"))
 
 
 def osm_outline(lat, lon, fresh=False):
@@ -345,10 +507,15 @@ def osm_outline(lat, lon, fresh=False):
     if kept and not fresh and time.time() - kept["at"] < OSM_KEEP_DAYS * 86400:
         return {**kept["b"], "kept": True}
     q = (f'[out:json][timeout:40];(way(around:80,{lat},{lon})["building"];relation(around:80,{lat},{lon})["building"];);out tags geom;')
+    servers = overpass_servers()
+    if not servers:
+        if kept:
+            return {**kept["b"], "kept": True, "note": "OpenStreetMap isn't asked on this copy: this is the copy kept on " + kept["b"].get("fetched", "")[:10]}
+        raise no_overpass()
     from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as Late
     errors, data = [], None
-    ex = ThreadPoolExecutor(len(OVERPASS_MIRRORS))
-    jobs = {ex.submit(_overpass, url, q): urllib.parse.urlparse(url).netloc for url in OVERPASS_MIRRORS}
+    ex = ThreadPoolExecutor(len(servers))
+    jobs = {ex.submit(_overpass, url, q): urllib.parse.urlparse(url).hostname for url in servers}  # never a login in the text
     try:
         for f in as_completed(jobs, timeout=OSM_WAIT_S + 5):
             try:

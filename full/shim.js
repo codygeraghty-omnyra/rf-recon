@@ -965,13 +965,15 @@ async function sigwikiRange(lo, hi, limit = 400) {
 }
 /* ---------- your own work: the PC app's own server, run in this browser (pyworker.js, webhost.py) ---------- */
 // what only the PC's code answers: missions, captures, the field log, labels, DAS, talk groups, your layers, cell
-// sites, FCC ID look-ups, the unlisted-signal check and the PC's downloads
-const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|intake|talkgroups|cells|fccid|report\/signals|layers|settings|crowd\/|export\.|heatmap\.zip|coverage\.kmz)/;
+// sites, FCC ID look-ups, the unlisted-signal check and the PC's downloads; the maps' drawings and markers (markup:
+// review 11/11, here they answered "That part of DAStastic runs on the PC only", so no marker could be added)
+const PY_ROUTES = /^\/(missions|captures|observation|overlay|fieldlog|compare|das\/|intake|talkgroups|cells|fccid|report\/signals|layers|settings|markup|crowd\/|export\.|heatmap\.zip|coverage\.kmz)/;
 // once something is saved in this browser the PC's code answers the map as well, so captures, labels and layers show
 const PY_WITH_WORK = /^\/(area|heatmap|network|find|mwlinks)$/;
 // asked for at start-up: until something is saved, the empty answer, so a visit that keeps nothing never loads the engine
 const PY_EMPTY = {"/intake": {can: true, items: [], counts: {}, open: 0, kinds: {}}, "/missions": {missions: [], active: null}, "/layers": {layers: [], fetches: []}, "/report/signals": {counts: {}, rows: [], layers: []},
-  "/settings": {creds: {}, states: ""}, "/fccid/grantees": {source: "site", page: "https://apps.fcc.gov/oetcf/eas/reports/GranteeSearch.cfm"}};
+  "/settings": {creds: {}, states: ""}, "/fccid/grantees": {source: "site", page: "https://apps.fcc.gov/oetcf/eas/reports/GranteeSearch.cfm"},
+  "/markup": {items: [], edit: true}};  // every map lists its drawings: none yet, without starting the engine
 const WORK = "rfr.work";
 const hasWork = () => { try { return localStorage.getItem(WORK) === "1"; } catch (e) { return false; } };
 let PYW = null, pySeq = 0, pyStart = null, pyHist = false, pyGrantee = false;
@@ -1050,9 +1052,10 @@ window.fetch = async (input, opts) => {
 
 /* ---------- map tiles: straight from the sources (the PC fetches them through its own cache) ---------- */
 const USGS = id => `https://basemap.nationalmap.gov/arcgis/rest/services/${id}/MapServer/tile/{z}/{y}/{x}`;
-const TILES = {"osm": "https://tile.openstreetmap.org/{z}/{x}/{y}.png", "usgs-imagery": USGS("USGSImageryOnly"), "usgs-imagery-topo": USGS("USGSImageryTopo"),
-  "usgs-topo": USGS("USGSTopo"), "usgs-relief": USGS("USGSShadedReliefOnly"),
-  "esri-imagery": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?blankTile=false"};
+// USGS only (Cody 11/10): the web version is the sold build, which leaves out OpenStreetMap's own tiles and Esri's imagery
+// (build.py; core.js baseOk hides them, as the web version never says it's the personal build). USGS's Imagery Topo is
+// gone: USGS retires it on 2026-11-16.
+const TILES = {"usgs-imagery": USGS("USGSImageryOnly"), "usgs-topo": USGS("USGSTopo"), "usgs-relief": USGS("USGSShadedReliefOnly")};
 // the base maps' own tile layer (core.js RfTiles) asks this for each /tiles/ address, as the factory below does for the rest
 window.RFTileSrc = url => { const m = /^\/tiles\/([^/]+)\//.exec(url || ""); return m && TILES[m[1]] || url; };
 const WM = 20037508.342789244;

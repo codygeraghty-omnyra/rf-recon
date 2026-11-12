@@ -20,6 +20,12 @@ PERSONAL_ONLY = {
                "2026-11-02). Cody or Josh settles it with the wiki's owners first.",
     "artemis": "Artemis's database is Signal Identification Wiki content.",
     "aisstream": "aisstream.io publishes no terms.",
+    # Cody 11/10, from the research that day: OpenStreetMap's tile policy (operations.osmfoundation.org/policies/tiles) says
+    # commercial services' "access may be withdrawn at any point". The sold build's maps are USGS and Esri
+    "osm_tiles": "OpenStreetMap's own map tiles are for light, non-commercial use; a product sold to others uses other maps.",
+    # Cody 11/10 ("USGS only for now"): Esri's terms summary for World Imagery, a Living Atlas item, says you may not "Use content
+    # from ArcGIS Living Atlas for commercial use in your application or product" (esri.com tou_summary.pdf, read 2026-11-10)
+    "esri_imagery": "Esri's World Imagery isn't licensed for a product sold to others without an Esri licence; its maps are USGS.",
     "osm_towers": "OpenStreetMap's towers (ODbL) fused with the crowd's carrier cells (OpenCelliD, CC BY-SA 4.0) wait for counsel "
                   "to rule on mixing the two licences (Cody 11/10): Cody's own build only until then.",
 }
