@@ -1419,6 +1419,16 @@
       "towerfuse.py",
       "d-2026-11-12-0952"
      ]
+    },
+    {
+     "name": "Set where a tower really is",
+     "text": "On the Towers tab an estimate with no registered structure near it says it's often a rooftop or a short pole (under 200 ft and away from airports they needn't be registered). An admin or team login can put any tower on the structure it's really on: ✔ Set where it really is, a click where it is, then its type (rooftop for an estimate), the building or site's name, its height and a note. It's kept on this copy for everyone on it, with who and when and every change, and shows as ✔ confirmed on site in the estimate's place with High confidence: in the report, the print and the CSV, a DAS job's tower block (its ✓ and ✗ stay with it), Cell sites and the eNB lookup. Change and Remove (with Undo) are on it, and the map stays where it is throughout.",
+     "src": [
+      "d-2026-11-16-1139",
+      "static/towers.js",
+      "towerfix.py",
+      "towerfuse.py"
+     ]
     }
    ]
   },

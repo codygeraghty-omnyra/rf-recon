@@ -543,7 +543,7 @@
     const leg = new Legend(); leg._c = c; leg.addTo(map);
     map._rfSurvey = c;
     // a square clicked opens its viewer; not while measuring, drawing, moving the pin or placing a marker (those take the click)
-    map.on("click", ev => { if (!c.run || map._rfMeasuring || map._rfDraw?._tool || map._rfPinArmed || map._rfMarkArmed) return;
+    map.on("click", ev => { if (!c.run || map._rfMeasuring || map._rfDraw?._tool || map._rfPinArmed || map._rfMarkArmed || map._rfFixArmed) return;
       const t = c.tileAt(ev.latlng); if (t) c.openTile(t); });
     map.on("zoomend", () => { if (c.run) paintLegend(c); });
     // a run over PART is summed for the part in view: after a pan its legend (Best server's sites, the counts) is the new part's

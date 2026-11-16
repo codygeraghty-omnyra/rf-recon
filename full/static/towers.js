@@ -16,7 +16,8 @@
   const CROWD = ["opencellid", "wigle", "captures"];  // the crowd and survey readings "Show crowd readings" adds
   const KIND = {registered: ["■", "registered", "an FCC registered structure"], mapped: ["▲", "mapped", "a mast mapped in OpenStreetMap"],
     licensed: ["◆", "licensed site", "a carrier's FCC licence location, no registered structure"], cluster: ["◆", "licensed site", "land-mobile licences at one spot"],
-    estimated: ["○", "estimated", "estimated from crowd cells: the bubble is how far off it may be"]};
+    estimated: ["○", "estimated", "estimated from crowd cells: the bubble is how far off it may be"],
+    confirmed: ["✔", "confirmed on site", "a structure someone confirmed on site (✔ Set where it really is)"]};
   const kindOf = t => KIND[t.kind] || ["■", t.kind || "tower", ""];
   const LEVEL = {"in reach": ["In reach", "reach"], marginal: ["Marginal", "marginal"], far: ["Far: no off-air BDA", "far"], none: ["None found", "none"], unknown: ["Not known yet", "unknown"]};
   const TECH = {LTE: "LTE", NR: "5G NR", UMTS: "UMTS", GSM: "GSM", CDMA: "CDMA", licensed: "licensed (no cells heard)"};
@@ -65,6 +66,11 @@
   const gmaps = t => `https://www.google.com/maps/search/?api=1&query=${(+t.lat).toFixed(6)},${(+t.lon).toFixed(6)}`;
   const street = t => `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${(+t.lat).toFixed(6)},${(+t.lon).toFixed(6)}`;
   const today = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  // a structure confirmed on site (towerfix.py, Cody 11/16) in words: "confirmed on site by Andy, 2026-11-16" (no "by" on a copy with
+  // no login, as a job's marks)
+  const fixDay = fx => String((fx && fx.at) || "").slice(0, 10);
+  const fixWho = fx => `confirmed on site${fx && fx.by ? ` by ${fx.by}` : ""}, ${fixDay(fx)}`;
+  const kindWords = t => t.kind === "confirmed" && t.fix ? fixWho(t.fix) : kindOf(t)[1];
 
   /* ---------- the answer ---------- */
   const cache = new Map();  // "lat,lon" -> the promise of /api/towers there
@@ -139,7 +145,7 @@
     // never over a band detail the user has open (it reopened a viewer just closed and shut a detail just opened)
     api(`/api/spectrum?lat=${d.lat}&lon=${d.lon}`).then(s => { T.spec[k] = s;
       const v = T.map && window.RFResults && RFResults.get(T.map);
-      if (T.key === k && s && !s.empty && v && !T.closed && !v.body?.querySelector(".tw-bandinfo:not([hidden])")) showViewer(); }).catch(() => { T.spec[k] = {empty: true}; });
+      if (T.key === k && s && !s.empty && v && !T.closed && !T.fixForm && !T.fixArm && !v.body?.querySelector(".tw-bandinfo:not([hidden])")) showViewer(); }).catch(() => { T.spec[k] = {empty: true}; });
     return null;
   }
   function blockAt(carrier, mhz){
@@ -187,9 +193,11 @@
   // each tile: html(t, c) for the viewer and the printed report, cols [[header, value(t, c)]] for the CSV and a map label; c is one
   // carrier, or null for every carrier on the tower
   const TILE = {
-    type: {html: t => { const [sym, word] = kindOf(t);
-        return `${esc(t.type || "type not on file")}<br><span class="tw-k">${sym} ${esc(word)}${t.kind === "estimated" && t.uncertainty_m ? `, give or take ${num(t.uncertainty_m, 0)} m` : ""}</span>`; },
-      cols: [["Type", t => t.type || ""], ["Kind", t => kindOf(t)[1]], ["Uncertainty (m)", t => t.uncertainty_m ?? ""]]},
+    // an estimate with no registered structure near it says what it most often is (the engine's type_note, Cody 11/16: "towers can
+    // be on top of buildings"); a structure confirmed on site says who confirmed it and when
+    type: {html: t => { const sym = kindOf(t)[0];
+        return `${esc(t.type || "type not on file")}<br><span class="tw-k">${sym} ${esc(kindWords(t))}${t.kind === "estimated" && t.uncertainty_m ? `, give or take ${num(t.uncertainty_m, 0)} m` : ""}</span>${t.type_note ? `<span class="hint tw-tnote">${esc(t.type_note)}</span>` : ""}`; },
+      cols: [["Type", t => [t.type || "", t.type_note || ""].filter(Boolean).join(". ").replace(/\.\.$/, ".")], ["Kind", t => kindWords(t)], ["Uncertainty (m)", t => t.uncertainty_m ?? ""]]},
     carriers: {html: (t, c) => { const es = entries(t), stale = new Set(t.stale_for || []);
         if (!names(t).length) return none("No carrier known here");
         return names(t).map(n => { const e = es.find(x => x.carrier === n);
@@ -334,13 +342,14 @@
   }
   // a short line of the chosen tiles for a label on the map ("My tiles")
   const tileText = (t, id) => { const col = TILE[id].cols[0]; return String(col[1](t, null) ?? "").replace(/https?:\/\/\S+/g, "").trim(); };
-  const labelText = t => chosen().filter(id => !["sources", "links", "conf"].includes(id)).slice(0, 3).map(id => id === "dist" ? far(t) : tileText(t, id)).filter(Boolean).join(" · ").slice(0, 80);
+  const labelText = t => chosen().filter(id => !["sources", "links", "conf"].includes(id)).slice(0, 3).map(id => id === "dist" ? far(t) : id === "type" ? t.type || "" : tileText(t, id)).filter(Boolean).join(" · ").slice(0, 80);
 
   /* ---------- the map ---------- */
   const svgMark = (t, sel) => { const dim = t._other, f = dim ? "#8c959f" : "#24292f", s = sel ? "#ff7a1a" : "#fff", w = sel ? 3 : 2;
     const shape = t.kind === "mapped" ? `<path d="M12 3 L21 19 L3 19 Z" fill="${f}" stroke="${s}" stroke-width="${w}" stroke-linejoin="round"/>`
       : t.kind === "estimated" ? `<circle cx="12" cy="12" r="6.5" fill="#fff" fill-opacity=".9" stroke="${sel ? "#ff7a1a" : f}" stroke-width="3"/>`
       : t.kind === "licensed" || t.kind === "cluster" ? `<path d="M12 3 L21 12 L12 21 L3 12 Z" fill="${f}" stroke="${s}" stroke-width="${w}" stroke-linejoin="round"/>`
+      : t.kind === "confirmed" ? `<rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="${dim ? f : "#1a7f37"}" stroke="${s}" stroke-width="${w}"/><path d="M7.5 12.3 L10.6 15.4 L16.6 8.8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`
       : `<rect x="4.5" y="4.5" width="15" height="15" rx="1.5" fill="${f}" stroke="${s}" stroke-width="${w}"/>`;
     return `<svg width="24" height="24" viewBox="0 0 24 24" data-tw="${esc(t.id)}">${sel ? '<circle cx="12" cy="12" r="11" fill="none" stroke="#ff7a1a" stroke-width="2" opacity=".55"/>' : ""}${shape}</svg>`; };
   const markIcon = (t, sel) => L.divIcon({className: "tw-mk", html: svgMark(t, sel), iconSize: [24, 24], iconAnchor: [12, 12]});
@@ -370,9 +379,27 @@
       map.on("resize baselayerchange", () => paintCredit(map)); map.on("layeradd layerremove", e => { if (e.layer instanceof L.TileLayer) paintCredit(map); });
       map._twCrowd = L.layerGroup().addTo(map); map._twArea = L.layerGroup().addTo(map); map._twMarks = L.layerGroup().addTo(map); map._twLabels = L.layerGroup().addTo(map);
       map.on("zoomend", () => placeLabels(map));
+      // ✔ Set where it really is, armed: this click is where it goes, on a tower's mark (it goes at that tower, which doesn't open) or a
+      // dot too. Taken on its way down, before those, as Move pin's and ＋ Marker's are (core.js, markup.js); not a click that ends a
+      // drag, nor one on a control or the viewer (outside the map pane)
+      el.addEventListener("click", ev => {
+        const onPane = ev.target === el || !!ev.target.closest?.(".leaflet-map-pane");
+        // a double-click or double-tap's second click, just after the one that placed it, is that placement's too: it opened the tower
+        // under it and dropped the form (review 11/16, S3). On the viewer too, where it lands on the placing click's spot: on a phone the
+        // sheet grows to half under the finger, and the second tap closed it on its ✕ (round 2, R2C2); a click elsewhere on the viewer
+        // (Cancel, Save) is the person's. Never a tool's: Measure or Draw started at once had its first click eaten (S10)
+        const xy = map._twFixXY, same = !!xy && Math.hypot(ev.clientX - xy[0], ev.clientY - xy[1]) <= 24;
+        if (!map._rfFixArmed && (onPane || (same && ev.target.closest?.(".rf-res"))) && map._twFixAt && Date.now() - map._twFixAt < FIX_HOLD_MS
+          && !map._rfMeasuring && !map._rfDraw?._tool) { ev.stopPropagation(); ev.preventDefault(); return; }
+        if (!map._rfFixArmed || map._rfMeasuring || map._rfDraw?._tool || map.dragging?.moved() || !onPane) return;
+        ev.stopPropagation(); ev.preventDefault(); map._twFixXY = [ev.clientX, ev.clientY];
+        const mk = ev.target.closest?.("[data-tw]"), on = mk && T.data ? towersOf(T.data).find(x => x.id === mk.dataset.tw) || null : null;
+        fixPlace(on ? L.latLng(on.lat, on.lon) : map.mouseEventToLatLng(ev), on);
+      }, true);
+      map.on("rftool", () => { if (T.fixArm) fixDisarm(true); holdEnd(map); });  // Measure, Draw or ＋ Marker started: one thing at a time
       if (S.center) map.setView(S.center, 13);
       return map;
-    }, {gone: m => { if (T.map === m) T.map = null; }});
+    }, {gone: m => { if (T.map === m) { T.map = null; T.fixArm = null; } }});
   }
   // the credits beside a map: the answer's own lines that a licence asks for (OpenCelliD's, OpenStreetMap's only when the answer
   // carries it, WiGLE's), the first sentence each; the viewer, the printed report and the CSV carry every line in full
@@ -406,6 +433,10 @@
     if (!d) return;
     const sel = T.sel && findTower(d, T.sel);
     if (sel) L.polyline([siteOf(d), [sel.lat, sel.lon]], {color: "#ff7a1a", weight: 2.5, dashArray: "7 6", interactive: false}).addTo(map._twArea);
+    // where it really is, placed and not yet saved: a dashed ✔ there, a dashed line from the tower it's for
+    const ff = T.fixForm, ft = ff && ff.lat != null ? findTower(d, ff.t) : null;
+    if (ft) { L.polyline([[ft.lat, ft.lon], [ff.lat, ff.lon]], {color: "#1a7f37", weight: 2, dashArray: "3 5", interactive: false}).addTo(map._twArea);
+      L.marker([ff.lat, ff.lon], {icon: L.divIcon({className: "tw-mk tw-fixdraft", html: FIX_DRAFT, iconSize: [24, 24], iconAnchor: [12, 12]}), interactive: false, keyboard: false, zIndexOffset: 950}).addTo(map._twArea); }
     for (const t of towersOf(d)) {
       if (!onMap(t) || (T.carriers.size && t._other)) continue;
       if (t.kind === "estimated" && t.uncertainty_m)
@@ -459,9 +490,10 @@
   }
 
   /* ---------- the viewer ---------- */
-  function say(t){ T.msg = t || ""; const v = T.map && window.RFResults && RFResults.get(T.map); const m = v && v.body && v.body.querySelector(".tw-msg");
+  function say(t){ T.msg = t || ""; T.undo = null; const v = T.map && window.RFResults && RFResults.get(T.map); const m = v && v.body && v.body.querySelector(".tw-msg");
     if (m) { m.textContent = T.msg; m.hidden = !T.msg; } else showViewer(); }
-  const msgHtml = () => `<p class="tw-msg status" role="status"${T.msg ? "" : " hidden"}>${esc(T.msg)}</p>`;
+  // T.undo: a fix just removed, put back by Undo beside the words that say so
+  const msgHtml = () => `<p class="tw-msg status" role="status"${T.msg ? "" : " hidden"}>${esc(T.msg)}${T.undo ? ' <button type="button" data-twfix="undo">Undo</button>' : ""}</p>`;
   const canPost = () => !S.remote || ["full", "admin"].includes(S.remote.role);
   function topupHtml(d){
     const tp = d.topup || {}, unknown = shown(d).some(c => c.verdict?.level === "unknown");
@@ -505,7 +537,7 @@
   }
   function towerHtml(d, t){
     const cells = entries(t).filter(e => (e.sites || []).some(s => (s.cells || []).length));
-    return `${msgHtml()}${tilesHtml(t, null)}${towerActs()}
+    return `${T.fixArm && T.fixArm.t === t.id ? `<div class="tw-fix tw-fixtop">${fixBtn(true)} ${ARM_HINT}</div>` : ""}${msgHtml()}${tilesHtml(t, null)}${fixBlock(t)}${towerActs(t)}
       ${t.candidates && t.candidates.length ? `<p class="hint">Could be: ${t.candidates.map(x => `${esc(x.id)} (${num(x.dist_m, 0)} m)`).join(", ")}.</p>` : ""}
       ${cells.map(e => `<details class="tw-cells"><summary>${chip(e.carrier)} cells heard: PCI, channel, band</summary><div class="tw"><table><thead><tr><th>Site</th><th>Sector</th><th>PCI</th><th>Channel</th><th>Band</th><th>Downlink MHz</th><th>Last</th></tr></thead><tbody>
         ${e.sites.flatMap(s => (s.cells || []).map(x => `<tr><td class="mono">${esc(s.site_kind)} ${esc(s.site_id)}</td><td>${esc(x.sector ?? "")}</td><td class="mono">${esc(x.pci ?? "")}</td><td class="mono">${esc(x.channel ?? "")}</td>
@@ -525,14 +557,23 @@
       const b = e.target.closest(".tw-band");
       if (b) { const box = b.closest(".tw-tv")?.querySelector(".tw-bandinfo"); if (box) { const same = !box.hidden && box.dataset.for === b.dataset.info; box.textContent = b.dataset.info; box.dataset.for = b.dataset.info; box.hidden = same; } return; }
       const top = e.target.closest("[data-twtop]"); if (top) { topup(top); return; }
+      const fx = e.target.closest("[data-twfix]"); if (fx) { fixAct(fx); return; }
       const ta = e.target.closest("[data-twa]"); if (ta) { towerAct(ta, body); return; }
       const up = e.target.closest("[data-tup]"), dn = e.target.closest("[data-tdn]");
       if (up || dn) { const p = tilePref(), id = (up || dn).dataset[up ? "tup" : "tdn"], i = p.order.indexOf(id), j = i + (up ? -1 : 1);
         if (i >= 0 && j >= 0 && j < p.order.length) { [p.order[i], p.order[j]] = [p.order[j], p.order[i]]; saveTiles(p); } return; }
       const card = e.target.closest(".tw-card"); if (card && !e.target.closest("a,button")) pick(card.dataset.tw);
     };
-    body.onkeydown = e => { const card = e.target.closest?.(".tw-card"); if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pick(card.dataset.tw); } };
-    body.onchange = e => { const c = e.target.closest("[data-tp]"); if (!c) return; const p = tilePref();
+    body.onkeydown = e => { const card = e.target.closest?.(".tw-card"); if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pick(card.dataset.tw); return; }
+      if (e.key === "Enter" && e.target.matches?.('[data-fixf="name"], [data-fixf="height"]')) { e.preventDefault(); body.querySelector('[data-twfix="save"]')?.click(); } };
+    // the form's fields kept as they're typed, so a viewer drawn again (an answer arriving) has them, and each one typed or picked is
+    // touched (f.touched): Save posts those (typed), a move never changes them, and the join notice is drawn again to say so
+    const touch = (f, k) => { f.touched.add(k); const j = body.querySelector(".tw-fixjoin"); if (j) j.innerHTML = joinHtml(f); };
+    const typed = x => { const f = T.fixForm; f[x.dataset.fixf] = x.value; touch(f, x.dataset.fixf); };
+    body.oninput = e => { const x = e.target.closest?.("[data-fixf]"); if (x && T.fixForm) typed(x); };
+    body.onchange = e => { const x = e.target.closest?.("[data-fixf]"); if (x && T.fixForm) { typed(x); return; }
+      const fc = e.target.closest?.("[data-fixc]"); if (fc && T.fixForm) { if (fc.checked) T.fixForm.cars.add(fc.dataset.fixc); else T.fixForm.cars.delete(fc.dataset.fixc); touch(T.fixForm, "cars"); return; }
+      const c = e.target.closest("[data-tp]"); if (!c) return; const p = tilePref();
       p.on = c.checked ? [...new Set([...p.on, c.dataset.tp])] : p.on.filter(x => x !== c.dataset.tp); saveTiles(p); };
   }
   function saveTiles(p){
@@ -548,11 +589,15 @@
     print: ["⎙ Tower report", "The printable tower report: verdicts, a map, a table per carrier and what to check on site (Save as PDF works on a phone)"],
     hunt: ["🎯 Hunt", "Find a signal (Mission tab), set to this tower's band"], save: ["☆ Save", "Keep this tower as a point with the open DAS job or mission (Draw lists it)"],
     csv: ["⇩ CSV", "Each carrier's closest towers as a spreadsheet, the chosen tiles first"], share: ["🔗 Link", "A link that opens this report: the address and the carriers picked"],
-    tiles: ["⚙ Tiles", "Pick and order what each tower shows (and the report's columns)"], all: ["← All towers", "Back to the summary"]};
+    tiles: ["⚙ Tiles", "Pick and order what each tower shows (and the report's columns)"], all: ["← All towers", "Back to the summary"],
+    fix: ["✔ Set where it really is", "Put this tower on the structure it's really on (a rooftop, a short pole): saved on this copy for everyone on it"]};
   const actBtn = k => `<button type="button" data-twa="${k}" title="${esc(TACT[k][1])}">${TACT[k][0]}</button>`;
   const moreBtn = () => `<button type="button" data-twa="more" aria-expanded="${!!T.more}" title="More: ${canPost() ? "Hunt, Save, " : ""}CSV, Link, Tiles, All towers">${T.more ? "Less ▴" : "More ▾"}</button>`;
-  const towerActs = () => `<div class="tw-acts" role="group" aria-label="This tower">${["street", "gmaps", "print"].map(actBtn).join("")}${moreBtn()}</div>
-      <div class="tw-acts tw-more" role="group" aria-label="More"${T.more ? "" : " hidden"}>${[...(canPost() ? ["hunt", "save"] : []), "csv", "share", "tiles", "all"].map(actBtn).join("")}</div>`;
+  // ✔ Set where it really is sits under an estimate's tiles; on any other tower it's under More (a confirmed one has Change)
+  const towerActs = t => `<div class="tw-acts" role="group" aria-label="This tower">${["street", "gmaps", "print"].map(actBtn).join("")}${moreBtn()}</div>
+      <div class="tw-acts tw-more" role="group" aria-label="More"${T.more ? "" : " hidden"}>${[...(canPost() ? ["hunt", "save"] : []),
+        ...(t && canFix(t) && !["estimated", "confirmed"].includes(t.kind) && T.fixForm?.t !== t.id && T.fixArm?.t !== t.id ? ["fix"] : []),
+        "csv", "share", "tiles", "all"].map(actBtn).join("")}</div>`;
   function towerAct(a, body){
     const k = a.dataset.twa, t = T.data && T.sel && findTower(T.data, T.sel);
     if (k === "more") { T.more = !T.more; const m = body.querySelector(".tw-more"); if (m) m.hidden = !T.more; a.setAttribute("aria-expanded", String(T.more)); a.textContent = T.more ? "Less ▴" : "More ▾"; return; }
@@ -566,6 +611,7 @@
     else if (k === "gmaps") window.open(gmaps(t), "_blank", "noopener");
     else if (k === "hunt" && canPost()) hunt(t);
     else if (k === "save" && canPost()) saveTower(t, a);
+    else if (k === "fix" && canFix(t)) { if (T.fixArm) fixDisarm(true); else fixArm(t, T.fixForm?.t === t.id); }  // a form open: as Place again (C6)
   }
   const ACT = {
     print: {label: "⎙ Tower report", title: "The printable tower report: verdicts, a map, a table per carrier and what to check on site (Save as PDF works on a phone)", run: b => print(b)},
@@ -574,6 +620,10 @@
     tiles: {label: "⚙ Tiles", title: "Pick and order what each tower shows (and the report's columns)", run: () => { T.picker = true; showViewer(); }},
   };
   function showViewer(){
+    // armed, or a form open, for a tower the viewer isn't showing now (Back on a phone, a lookup, the tile picker, a chip that hid it):
+    // over, so a map click never places a fix nobody can see
+    if (T.fixArm && (T.enb || T.picker || T.sel !== T.fixArm.t)) fixDisarm();
+    if (T.fixForm && (T.enb || T.picker || T.sel !== T.fixForm.t)) { T.fixForm = null; if (T.map && T.data) drawMap(T.map, T.data); }
     if (T.enb) return showEnb();  // an eNB or gNB looked up: its answer is what the viewer shows
     const map = T.map, d = T.data; if (!map || !window.RFResults) return;
     if (!d) { RFResults.show(map, {key: `tw:wait:${T.key}`, title: "Towers", sub: esc(T.place || ""), html: T.err ? `<p class="status err">${esc(T.err)}</p>` : '<p class="status">Finding the towers…</p>',
@@ -593,7 +643,7 @@
         sub: `${esc(far(t))} from the site · ${esc(word)}${u ? `, give or take ${num(u, 0)} m` : ""}${names(t).length ? ` · ${names(t).map(esc).join(", ")}` : " · no carrier known"}`,
         html: towerHtml(d, t),
         zoom: u ? () => { const b = L.latLng(t.lat, t.lon).toBounds(u * 2.2); return [[b.getSouth(), b.getWest()], [b.getNorth(), b.getEast()]]; } : [t.lat, t.lon], zoomLevel: 16,
-        onClose: () => { T.sel = null; T.closed = true; T.more = false; if (T.map && T.data) drawMap(T.map, T.data); }}, [t.lat, t.lon]);
+        onClose: () => { T.sel = null; T.closed = true; T.more = false; T.fixForm = null; fixDisarm(); if (T.map && T.data) drawMap(T.map, T.data); }}, [t.lat, t.lon]);
       return wire(v?.body);
     }
     const v = RFResults.show(map, {key: `tw:sum:${T.key}`, label: "Towers near the site", title: `Towers near ${esc(placeTxt(d))}`,
@@ -614,7 +664,7 @@
     const had = !!T.enb, back = !id && !!history.state?.twTower;
     if (narrow() && id && !history.state?.twTower) history.pushState({twTower: true}, "", location.href);
     else if (back) history.back();  // closed here: the step it added goes
-    T.sel = id || null; T.enb = null; T.closed = false; T.picker = false; T.more = false; T.msg = "";
+    T.sel = id || null; T.enb = null; T.closed = false; T.picker = false; T.more = false; T.msg = ""; T.undo = null; T.fixForm = null; fixDisarm();
     if (T.map && T.data) drawMap(T.map, T.data);
     showViewer();
     if (had && !back && window.writeUrlState) window.writeUrlState();  // the link no longer opens the lookup (going back, the step before has none)
@@ -650,6 +700,266 @@
     }catch(err){ say(`Not saved: ${err.message}`); }
     finally{ if (btn && btn.isConnected) btn.disabled = false; }
   }
+  /* ---------- Set where it really is (Cody 11/16: "towers can be on top of buildings, not just actual tower sites"). Andy Masur
+     verifies towers on site; at Monroe NY his AT&T site (eNB 812442) is on a building's roof, under 200 ft, so it has no FCC
+     registration and the engine had nothing to put it on. A login that can save (admin or team, never view only) puts a tower on the
+     structure it's really on: ✔ Set where it really is arms one placement on this map (a crosshair; Esc or the button again cancels;
+     the map never moves), a click puts it there (on a tower's mark: at that tower, which doesn't open), and a short form in the viewer
+     takes its type (rooftop for an estimate), the building or site's name, its height and a note. Saved on this copy for everyone on it
+     with who and when, every change kept (towerfix.py: POST /api/towers/fix); the report comes again with the confirmed tower in the
+     estimate's place, the map where it is, and Change and Remove (with Undo) are on it. T.fixArm: armed for a tower ({t: its id});
+     T.fixForm: the form ({t, id: the fix being changed, type, name, height, note, cars, lat, lon, from, join}) ---------- */
+  const FIX_TYPES = ["rooftop", "monopole", "lattice", "guyed", "water tank", "stealth", "utility pole", "other"];
+  const FIX_DRAFT = '<svg width="24" height="24" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="#fff" fill-opacity=".85" stroke="#1a7f37" stroke-width="2.5" stroke-dasharray="3 2"/><path d="M7.5 12.3 L10.6 15.4 L16.6 8.8" fill="none" stroke="#1a7f37" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const TOUCH = !!(window.matchMedia && matchMedia("(pointer:coarse)").matches);
+  const canFix = t => canPost() && !!t && Array.isArray(t.carriers) && names(t).length > 0;
+  const guessType = t => { if (t.kind === "estimated") return "rooftop"; const w = String(t.type || "").toLowerCase();
+    return /rooftop|building/.test(w) ? "rooftop" : /monopole/.test(w) ? "monopole" : /guyed/.test(w) ? "guyed" : /lattice/.test(w) ? "lattice" : /tank|water/.test(w) ? "water tank"
+      : /stealth|tree/.test(w) ? "stealth" : /pole/.test(w) ? "utility pole" : "other"; };
+  // the carrier a site key is: the fix's own word for its keys (a regional carrier's key is its network code, "310-730|LTE|4242":
+  // review 11/16, S2), else the key's first part
+  const keyCarrier = (k, t) => (t && t.fix && t.fix.site_carriers && t.fix.site_carriers[k]) || (n => n === "T-Mobile (ex-Sprint)" ? "T-Mobile" : n)(String(k).split("|")[0]);
+  // the engine's site keys on a tower for the carriers picked, with those its fix was set from (a stub of one the crowd lost included)
+  const sitesFor = (t, cars) => [...new Set([...entries(t).filter(e => cars.has(e.carrier)).flatMap(e => (e.sites || []).map(s => s.key)),
+    ...((t.fix && t.fix.sites) || []).filter(k => cars.has(keyCarrier(k, t)))].filter(Boolean))];
+  // metres between two spots (geo.py's haversine)
+  const metres = (a, b) => { const r = Math.PI / 180, p1 = a.lat * r, p2 = b.lat * r, h = Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin((b.lon - a.lon) * r / 2) ** 2;
+    return 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h))); };
+  // A fix's words, one model per field (round 3's final check: the words were patched case by case, and a move, a typed field or a
+  // join each kept the wrong fix's words somewhere). f.touched: the fields the person typed or picked (type, name, height, note, cars).
+  // On every placement each untouched word is the words of what the spot is: the fix it joins, else the form's own (f.own, its tower's);
+  // a touched one never changes. So the form is what Save writes: it posts typed (the touched fields), and a save or Change that joins
+  // puts exactly those on the fix it joins, an empty one clearing it (towerfix._join)
+  const WORDS = ["type", "name", "height", "note"];
+  const wordsOf = fx => ({type: fx.type, name: fx.name || "", height: fx.height_ft ?? "", note: fx.note || ""});
+  function fixFormFor(t, fx){
+    if (fx) { const own = wordsOf(fx); return {t: t.id, id: fx.id, ...own, own, touched: new Set(), cars: new Set(fx.carriers || []), lat: fx.lat, lon: fx.lon, from: fx.from || t.id, join: null}; }
+    const all = names(t), one = T.carriers.size === 1 && all.includes([...T.carriers][0]) ? [...T.carriers] : all, own = {type: guessType(t), name: "", height: "", note: ""};
+    return {t: t.id, id: null, ...own, own, touched: new Set(), cars: new Set(one), lat: null, lon: null, from: t.id, join: null};
+  }
+  // The confirmed fix a placement joins: the mark clicked, else the nearest within 40 m of the spot, as the server's _near picks it. The
+  // first within 40 m by distance from the site could be another than the server's, whose words then went on the wrong fix (S3)
+  function joinAt(t, f, on){
+    const ok = x => x.kind === "confirmed" && x.fix && x.id !== t.id && x.fix.id !== f.id;
+    if (on && ok(on)) return on;
+    let best = null, near = 40;
+    for (const x of towersOf(T.data)) { if (!ok(x)) continue; const m = metres(x.fix, f); if (m <= near) { best = x; near = m; } }
+    return best;
+  }
+  const typedWords = f => andList(WORDS.filter(k => f.touched.has(k)));
+  // the join notice, from what's touched (drawn again as the person types: the wiring's touch)
+  const joinHtml = f => !f.join ? "" : `On the ${esc(f.join.type)}${f.join.name ? `, ${esc(f.join.name)}` : ""} confirmed on site: ${f.id ? "this one joins it, " : ""}${esc(andList([...f.cars]))} ${f.cars.size === 1 ? "is" : "are"} added to it, and its words are kept${typedWords(f) ? ` except what you typed: ${esc(typedWords(f))}` : ""}.`;
+  // A Save refused on a form whose tower left the answer (its eNB was set on the fix the refusal names, so the estimate went): what was
+  // typed is kept for that fix, and its ✎ Change opens with it (review 11/16, round 3, S4: it was thrown away). Only the fields typed
+  function carryDraft(f){
+    const d = T.fixDraft; if (!d || d.t !== f.t) return; T.fixDraft = null;
+    for (const k of d.touched) { if (WORDS.includes(k)) f[k] = d[k]; f.touched.add(k); }
+    for (const c of d.cars) f.cars.add(c);
+    f.carried = true;
+  }
+  // Armed, the click that places it can't move the map: box zoom (a Shift-drag) and a double-click's zoom are off. What they were is
+  // kept on the map (_twFixZ) until it's given back: at once when the arming ends any other way (Measure and Draw read the zoom as they
+  // start, and a late give-back turned it on mid-measurement, so the double-click that ends one zoomed: review 11/16, C3), FIX_HOLD_MS
+  // after the click that places it, and never read again from a map that's still holding it off (armed again at once: S4)
+  const FIX_HOLD_MS = 450;
+  function armShow(on, placing){
+    const m = T.map; if (!m) return;
+    m._rfFixArmed = !!on; m.getContainer().classList.toggle("rf-fix-arming", !!on);
+    if (on) {
+      if (m._twFixZ && m._twFixZ.timer) { clearTimeout(m._twFixZ.timer); m._twFixZ.timer = 0; }
+      else if (!m._twFixZ) m._twFixZ = {bz: m.boxZoom.enabled(), dz: m.doubleClickZoom.enabled(), timer: 0};
+      m.boxZoom.disable(); m.doubleClickZoom.disable(); return;
+    }
+    const z = m._twFixZ; if (!z || z.timer) return;
+    if (z.bz) m.boxZoom.enable();
+    const back = () => { if (m._twFixZ !== z) return; m._twFixZ = null; try{ if (z.dz) m.doubleClickZoom.enable(); }catch(e){ /* the map went meanwhile */ } };
+    if (placing) { z.back = back; z.timer = setTimeout(back, FIX_HOLD_MS); } else back();
+  }
+  // Measure, Draw or ＋ Marker started within the hold after a placing click: the zoom given back now, before the tool reads it (it gave
+  // it back mid-measurement, so the double-click that ends one zoomed), and the tool's first click is its own (review 11/16, round 2, S10)
+  function holdEnd(m){
+    if (!m) return; m._twFixAt = 0;
+    const z = m._twFixZ; if (z && z.timer) { clearTimeout(z.timer); z.timer = 0; if (z.back) z.back(); }
+  }
+  function fixArm(t, keepForm){
+    const m = T.map; if (!m || !canFix(t)) return;
+    if (m._rfMeasure?._on) m._rfMeasure.stop(); if (m._rfDraw?._tool) m._rfDraw._cancel();
+    m.fire("rftool");  // ＋ Marker and Draw's tools end (one thing at a time); this one isn't armed yet, so it stays
+    if (!keepForm) T.fixForm = null;
+    T.fixArm = {t: t.id, peeked: false}; armShow(true);
+    // a phone: the sheet to its peek so the map is there to tap, and back at half however the arming ends (fixDisarm)
+    const h = window.RFResults && RFResults.get(m); if (h && h.size && RFResults.layoutOf(m) === "sheet") { h.size("peek"); T.fixArm.peeked = true; }
+    showViewer();
+    // the armed button and what to do are first in the viewer (towerHtml), its body scrolled to them: at the peek a phone shows 44 px of
+    // it, and they sat under the tiles, so nothing said the map was waiting for a tap or how to cancel (review 11/16, round 2, S9)
+    const v = window.RFResults && RFResults.get(m); if (v && v.body) v.body.scrollTop = 0;
+  }
+  // The arming over: redraw when it's called off on its own (Esc, the button again, another tool), so the viewer says so; placing: by
+  // the click that places it (the zoom comes back a moment after). A sheet it dropped to its peek is back at half on every way it ends:
+  // Back, Summary, Cancel and a Save left it at 30% for every tower after (review 11/16, C5)
+  function fixDisarm(redraw, placing){
+    const a = T.fixArm; if (!a) return; T.fixArm = null; armShow(false, placing);
+    const h = a.peeked && T.map && window.RFResults && RFResults.get(T.map); if (h && h.size && RFResults.layoutOf(T.map) === "sheet") h.size("half");
+    if (redraw) showViewer();
+  }
+  // the click that places it: the form in the viewer (on a phone, the sheet at half), the spot drawn, the map where it is
+  function fixPlace(ll, on){
+    const a = T.fixArm; fixDisarm(false, true); if (T.map) T.map._twFixAt = Date.now();
+    const t = a && T.data && findTower(T.data, a.t); if (!t) { showViewer(); return; }
+    const f = T.fixForm && T.fixForm.t === t.id ? T.fixForm : fixFormFor(t);
+    f.lat = +(+ll.lat).toFixed(7); f.lon = +(+ll.lng).toFixed(7);
+    // on a structure confirmed on site (its mark, or the nearest within 40 m) a fix put there is that one, its sites added
+    // (towerfix.JOIN_M), a new one or a Change alike (R3C1). Each untouched word is the spot's: that fix's, else this form's own (WORDS)
+    const j = joinAt(t, f, on), w = j ? wordsOf(j.fix) : f.own;
+    f.join = j ? j.fix : null; f.msg = ""; f.named = null;
+    for (const k of WORDS) if (!f.touched.has(k)) f[k] = w[k];
+    T.fixForm = f;
+    const h = window.RFResults && T.map && RFResults.get(T.map); if (h && h.size && RFResults.layoutOf(T.map) === "sheet") h.size("half");
+    if (T.map && T.data) drawMap(T.map, T.data);
+    showViewer();
+    // the form brought into the viewer's view (its body scrolled, never the page), its name ready to type where there's a keyboard
+    const v = T.map && window.RFResults && RFResults.get(T.map), bd = v && v.body, fm = bd && bd.querySelector(".tw-fixform");
+    if (fm) { const dy = fm.getBoundingClientRect().top - bd.getBoundingClientRect().top - 6; if (dy > 0 && fm.getBoundingClientRect().bottom > bd.getBoundingClientRect().bottom) bd.scrollTop += dy;
+      if (!TOUCH) fm.querySelector('[data-fixf="name"]')?.focus({preventScroll: true}); }
+  }
+  // the form's own message line, kept on the form (msg) so a viewer drawn again has it; named: the fix a refusal names, opened by its button
+  const fixMsgInner = f => `${esc(f.msg || "")}${f.named ? ` <button type="button" data-twfix="named" title="Open the fix the message names; what's typed here isn't saved">Open ${esc(f.named.what)}</button>` : ""}`;
+  const fixMsg = t => { const f = T.fixForm; if (f) { f.msg = t || ""; f.named = null; }
+    const v = T.map && window.RFResults && RFResults.get(T.map), m = v && v.body && v.body.querySelector(".tw-fixmsg");
+    if (m) { m.innerHTML = f ? fixMsgInner(f) : esc(t); m.hidden = !t; fixMsgShow(); } else say(t); };
+  // the form's message brought into the body's view (the body scrolled, never the page): the body keeps its scroll for the same tower
+  function fixMsgShow(){
+    const v = T.map && window.RFResults && RFResults.get(T.map), bd = v && v.body, m = bd && bd.querySelector(".tw-fixmsg"); if (!m || m.hidden) return;
+    const r = m.getBoundingClientRect(), b = bd.getBoundingClientRect();
+    if (r.top < b.top || r.bottom > b.bottom) bd.scrollTop += r.top - b.top - Math.max(0, (b.height - r.height) / 2);
+  }
+  // after a fix is saved, changed, removed or put back: every answer that may have it is asked again (this report and the towers
+  // asked for when clicked, other pins' reports such as a DAS job's, Cell sites' and Topology's areas, the eNB lookups), the viewer
+  // on sel (an id, or (answer) => id) with what was done said, and the map where it is
+  async function fixReload(sel, msg, undo){
+    const d = T.data, k = T.key; if (!d) return;
+    fixDisarm();  // a save while armed (Change, Place again, Save) left the map armed: the next click made a new fix (review 11/16, C4)
+    T.fixDraft = null;
+    // fixGen: a job's Discovery report kept the towers it first read for the session; it asks again when this has moved (C8)
+    T.fixGen = (T.fixGen || 0) + 1;
+    cache.clear(); answered.clear(); areas.clear(); enbAns.clear(); T.full = {}; T.fullAsk = {};
+    let nd; try{ nd = await load(d.lat, d.lon, true); }catch(err){ say(`The report didn't come again: ${err.message}`); return; }
+    if (T.key !== k) return;
+    T.data = nd; const id = typeof sel === "function" ? sel(nd) : sel;
+    T.sel = id && findTower(nd, id) ? id : null; T.closed = false; T.picker = false; T.more = false; T.msg = msg || ""; T.undo = undo || null;
+    if (S.tab === "towers") render(); else if (T.map) { drawMap(T.map, T.data); showViewer(); }
+  }
+  // A save or Undo refused because a site is set on another fix ("eNB 810500 is already set on the monopole, Other one: Change that
+  // one."): the report is asked again (the one on screen didn't have that fix, and the same address again served it from the cache;
+  // review 11/16, round 2, S8). The server names that fix by its id (fix_id): the page guessed from shared keys and distance, and opened
+  // the fix being changed or a nearer one (round 3, S3).
+  // - A form whose tower is still in the answer (a Change's fix; an estimate with sites left) stays, with what was typed: the words in
+  //   its message line, in view, a button that opens the named fix, and each carrier whose site has left this tower unticked. The words
+  //   went to the top of a body scrolled to the form, out of sight, and a second Save kept a carrier with none of its sites (R3C3, S4).
+  // - Else (an Undo; a new fix whose estimate went with its eNB) the named fix opens with the words; what a form had typed goes into
+  //   its Change form (carryDraft, S4).
+  // Any other refusal: the viewer drawn again (a save while armed left the form saying it was armed: round 2, S7), the words where they go.
+  const TAKEN = / is already set on /;
+  const fixWhat = t => `the ${t.fix.type}${t.fix.name ? `, ${t.fix.name}` : ""}`;
+  async function fixRefused(err, sites, words, inForm){
+    const f = inForm ? T.fixForm : null;
+    if (!TAKEN.test(err.message)) { showViewer(); if (f) fixMsg(words); else say(words); return; }
+    const named = err.data && err.data.fix_id != null ? `fix:${err.data.fix_id}` : null, t0 = f && T.data && findTower(T.data, f.t);
+    const carOf = new Map(t0 ? [...entries(t0).flatMap(e => (e.sites || []).map(s => [s.key, e.carrier])), ...Object.entries((t0.fix && t0.fix.site_carriers) || {})] : []);
+    await fixReload(nd => f && findTower(nd, f.t) ? f.t : named && findTower(nd, named) ? named : f ? null : T.sel, f ? "" : words);
+    const t1 = f && T.sel === f.t && T.data && findTower(T.data, f.t);
+    if (t1) {
+      T.fixForm = f;
+      const gone = [...f.cars].filter(c => (sites || []).some(k => carOf.get(k) === c) && !sitesFor(t1, new Set([c])).length);
+      gone.forEach(c => f.cars.delete(c));
+      const nt = named && findTower(T.data, named);
+      f.msg = words + (gone.length ? ` ${andList(gone)} ${gone.length === 1 ? "is" : "are"} unticked here: ${gone.length === 1 ? "its site is" : "their sites are"} on that one now.` : "");
+      f.named = nt && nt.fix ? {id: named, what: fixWhat(nt)} : null;
+      showViewer(); fixMsgShow(); return;
+    }
+    if (f && f.touched.size && named && T.sel === named) T.fixDraft = {t: named, type: f.type, name: f.name, height: f.height, note: f.note, cars: [...f.cars], touched: [...f.touched]};
+    T.msg = words; showViewer();
+    const v = T.map && window.RFResults && RFResults.get(T.map); if (v && v.body) v.body.scrollTop = 0;
+  }
+  async function fixSave(btn){
+    const f = T.fixForm, t = f && T.data && findTower(T.data, f.t); if (!f || !canPost()) return;
+    if (f.lat == null) return fixMsg("Not placed yet: 📍 Place it, then click where it really is.");
+    if (!f.cars.size) return fixMsg("Tick the carriers that are on it.");
+    const body = {lat: f.lat, lon: f.lon, type: f.type, name: String(f.name || "").trim(), height_ft: String(f.height ?? "").trim() === "" ? null : +f.height,
+      note: String(f.note || "").trim(), sites: t ? sitesFor(t, f.cars) : [], carriers: [...f.cars], from: f.from,
+      typed: [...f.touched].map(k => ({height: "height_ft", cars: "carriers"})[k] || k)};  // what a join puts on the fix it joins (towerfix._join)
+    fixDisarm(); btn.disabled = true; btn.textContent = "Saving…"; f.msg = ""; f.named = null;
+    try{
+      const r = f.id ? await post("/api/towers/fix/change", {id: f.id, ...body}) : await post("/api/towers/fix", body);
+      T.fixForm = null;
+      await fixReload(`fix:${r.id}`, r.joined ? `Added to the ${r.type}${r.name ? `, ${r.name}` : ""} confirmed on site.` : f.id ? "Changed, for everyone on this copy." : "Saved, for everyone on this copy.");
+    }catch(err){ return fixRefused(err, body.sites, `Not saved: ${err.message}`, true); }
+  }
+  async function fixRemove(btn, t){
+    const fx = t && t.fix; if (!fx || !canPost()) return; btn.disabled = true;
+    try{ await post("/api/towers/fix/remove", {id: fx.id}); }
+    catch(err){ if (btn.isConnected) btn.disabled = false; say(`Not removed: ${err.message}`); return; }
+    // the viewer on the tower its sites are on now (the estimate back, or the structure they snap to), else the summary
+    await fixReload(nd => (towersOf(nd).find(x => markSites(x).some(k => (fx.sites || []).includes(k))) || {}).id || null,
+      `Removed the ${fx.type}${fx.name ? `, ${fx.name}` : ""} confirmed on site.`, {id: fx.id, sites: [...(fx.sites || [])]});
+  }
+  async function fixUndo(btn){
+    const u = T.undo; if (!u) return; btn.disabled = true;
+    try{ const r = await post("/api/towers/fix/restore", {id: u.id}); T.undo = null;
+      await fixReload(`fix:${r.id}`, r.joined ? `Put back on the ${r.type}${r.name ? `, ${r.name}` : ""} set there since.` : `Put back: the ${r.type}${r.name ? `, ${r.name}` : ""}.`); }
+    catch(err){ fixRefused(err, u.sites, `Not put back: ${err.message}`); }
+  }
+  function fixAct(b){
+    const k = b.dataset.twfix, t = T.data && T.sel && findTower(T.data, T.sel);
+    if (k === "undo") return fixUndo(b);
+    if (k === "named") { const n = T.fixForm && T.fixForm.named; if (n) pick(n.id); return; }  // the fix a refusal names (S3)
+    if (!t) return;
+    if (k === "set") return T.fixArm ? fixDisarm(true) : fixArm(t);
+    if (k === "again") return T.fixArm ? fixDisarm(true) : fixArm(t, true);
+    if (k === "cancel") { T.fixForm = null; fixDisarm(); if (T.map && T.data) drawMap(T.map, T.data); return showViewer(); }
+    if (k === "save") return fixSave(b);
+    if (k === "change" && t.fix && canPost()) { T.fixForm = fixFormFor(t, t.fix); carryDraft(T.fixForm); if (T.map && T.data) drawMap(T.map, T.data); return showViewer(); }
+    if (k === "remove") return fixRemove(b, t);
+  }
+  const fixBtn = armed => `<button type="button" class="primary" data-twfix="set" aria-pressed="${armed}" title="${armed ? "Click where it really is, on the map. Esc or this button cancels."
+    : "Put this tower on the structure it's really on (a rooftop, a short pole): saved on this copy for everyone on it"}">${armed ? "✔ Click where it really is…" : "✔ Set where it really is"}</button>`;
+  const ARM_HINT = '<span class="hint">Click where the real structure is; a click on a tower’s mark puts it there. Esc or the button again cancels; the map stays where it is.</span>';
+  const HIST = {set: "set", change: "changed", remove: "removed", restore: "put back", join: "joined to the one on the same spot"};
+  function fixFormHtml(t, f, armed){
+    const at = f.lat == null ? null : legOf(siteOf(T.data), [f.lat, f.lon]), cs = [...new Set([...names(t), ...f.cars])];
+    const where = !at ? '<span class="hint">not placed yet: 📍 Place it, then click where it is</span>'
+      : `<span class="mono">${(+f.lat).toFixed(5)}, ${(+f.lon).toFixed(5)}</span> <span class="hint">· ${esc(fmtMi(at.dist_mi))} mi ${esc(at.compass)} of the site</span>`;
+    return `<div class="tw-fixform" role="group" aria-label="Where it really is">
+      <p class="tw-fixwhere"><b>✔ ${f.id ? "Change where it really is" : "Where it really is"}:</b> ${where}${f.join ? `<br><span class="hint tw-fixjoin">${joinHtml(f)}</span>` : ""}${f.carried ? '<br><span class="hint">What you typed before is in it: Save puts it on this one, Cancel leaves this one as it was.</span>' : ""}</p>
+      ${armed ? `<p class="tw-fixarm">${ARM_HINT}</p>` : ""}
+      <label class="tw-ff">Type<select data-fixf="type">${FIX_TYPES.map(x => `<option value="${x}"${x === f.type ? " selected" : ""}>${x}</option>`).join("")}</select></label>
+      <label class="tw-ff">Building or site name<input data-fixf="name" maxlength="120" value="${esc(f.name)}" placeholder="e.g. Power Teach" autocomplete="off"></label>
+      <label class="tw-ff">Height in ft <span class="hint">(optional)</span><input data-fixf="height" type="number" inputmode="decimal" min="1" max="2100" step="1" value="${esc(f.height)}"></label>
+      <label class="tw-ff">Note <span class="hint">(optional)</span><textarea data-fixf="note" rows="2" maxlength="2000" placeholder="What you saw: the eNB, a PCI, where on the roof">${esc(f.note)}</textarea></label>
+      ${cs.length > 1 ? `<div class="tw-ff" role="group" aria-label="The carriers on it">The carriers on it ${cs.map(c => `<label class="inl tw-fixc"><input type="checkbox" data-fixc="${esc(c)}"${f.cars.has(c) ? " checked" : ""}> ${chip(c)}</label>`).join("")}</div>` : ""}
+      <div class="tw-fixacts"><button type="button" class="primary" data-twfix="save">Save</button><button type="button" data-twfix="again" aria-pressed="${armed}">${armed ? "📍 Click where it is…" : f.lat == null ? "📍 Place it" : "📍 Place again"}</button><button type="button" data-twfix="cancel">Cancel</button></div>
+      <p class="tw-fixmsg status" role="status"${f.msg ? "" : " hidden"}>${fixMsgInner(f)}</p>
+      <p class="hint" style="margin:4px 0 0">Saved on this copy for everyone on it, with who and when; every change is kept.</p></div>`;
+  }
+  function fixedHtml(t){
+    const fx = t.fix, h = fx.history || [];
+    const what = [`${fx.type}${fx.name ? `, ${fx.name}` : ""}`, fx.height_ft != null && fx.height_ft !== "" ? `${num(fx.height_ft, 0)} ft` : ""].filter(Boolean).join(", ");
+    return `<div class="tw-fixed"><p style="margin:0"><b>✔ ${esc(fixWho(fx).replace(/^c/, "C"))}</b>: ${esc(what)}${fx.changed_at ? ` <span class="hint">· changed${fx.changed_by ? ` by ${esc(fx.changed_by)}` : ""}, ${esc(String(fx.changed_at).slice(0, 10))}</span>` : ""}</p>
+      ${fx.note ? `<p class="tw-fixnote">${esc(fx.note)}</p>` : ""}
+      ${canPost() && T.fixDraft && T.fixDraft.t === t.id ? '<p class="hint" style="margin:4px 0 0">What you typed is kept: ✎ Change opens its form with it.</p>' : ""}
+      ${canPost() ? `<div class="tw-fixacts"><button type="button" data-twfix="change" title="Its type, name, height, note, carriers or where it is">✎ Change</button><button type="button" data-twfix="remove" title="Take it off: the report goes back to what the engine works out (Undo for a while)">Remove</button></div>` : ""}
+      ${h.length ? `<details class="tw-fixhist"><summary>History (${h.length})</summary><ul>${h.map(x => `<li>${esc(String(x.at || "").slice(0, 16))}: ${esc(HIST[x.action] || x.action)}${x.who ? ` by ${esc(x.who)}` : ""}</li>`).join("")}</ul></details>` : ""}</div>`;
+  }
+  // under a tower's tiles: the form, the armed button, what a confirmed tower says (with Change and Remove), or the button on an estimate
+  function fixBlock(t){
+    const armed = !!T.fixArm && T.fixArm.t === t.id, f = T.fixForm && T.fixForm.t === t.id ? T.fixForm : null;
+    if (f) return fixFormHtml(t, f, armed);
+    if (armed) return "";  // armed with no form: its button and hint are first in the viewer (towerHtml, S9)
+    if (t.kind === "confirmed" && t.fix) return fixedHtml(t);
+    return t.kind === "estimated" && canFix(t) ? `<div class="tw-fix">${fixBtn(false)}</div>` : "";
+  }
+  if (window.RFKeys) RFKeys.scope("towerfix", {active: () => !!T.fixArm, keys: {escape: () => fixDisarm(true), "shift+escape": () => fixDisarm(true)}});
+
   // a top-up at a spot: what it did in words, and (reload) that spot's report asked again. Without reload its cached report is
   // dropped, so the next one asked there is fresh (Cell sites reads /api/cells again, not the report)
   // OpenStreetMap's part only when it kept towers, failed, or says something a person can act on: "off on this copy" and "not in this
@@ -816,9 +1126,12 @@
     const tile = (l, h) => `<div class="tw-tile"><div class="tw-tl">${esc(l)}</div><div class="tw-tv">${h}</div></div>`;
     const btn = (k, l, why) => `<button type="button" data-twe="${k}" data-i="${i}" title="${esc(why)}">${l}</button>`;
     const canMark = many && !!T.map && typeof T.map._rfMark === "function" && (!window.RFMarkup || RFMarkup.canEdit(T.map)), name = `${s.carrier} ${s.site_kind || e.word} ${s.site_id}`;
+    // fix_only: a site the crowd has no cells for now that a fix keeps on its confirmed tower (towerfuse.site_by_id): said so, not
+    // "no cells in this copy's crowd data" beside a report with it on a ✔ tower (review 11/16, round 2, S13)
     return `<div class="tw-enbc" data-carrier="${esc(s.carrier)}" data-tw="${esc(tw ? tw.id : "")}" data-lat="${at[0]}" data-lon="${at[1]}" style="--c:${cColor(s.carrier)}">
       <div class="tw-rank">${chip(s.carrier)} ${esc(s.site_kind || e.word)} ${esc(s.site_id)}${p.rank ? ` <span class="tw-enb-r">#${p.rank}</span>` : ""} <span class="hint mono">${esc((s.plmns || []).join(", "))}</span></div>
-      <div class="tw-tiles">${tile("The site", `${num(s.cells, 0)} cell${s.cells === 1 ? "" : "s"} · ${num(s.samples, 0)} samples<br>last heard ${esc(String(s.last || "not on file").slice(0, 10))}<br><span class="hint">where the crowd puts it may be off by about ${num(s.sigma_m, 0)} m</span>`)}
+      <div class="tw-tiles">${tile("The site", s.fix_only ? `no cells in this copy's crowd data now<br><span class="hint">set on site on the confirmed tower, so it stays there</span>`
+        : `${num(s.cells, 0)} cell${s.cells === 1 ? "" : "s"} · ${num(s.samples, 0)} samples<br>last heard ${esc(String(s.last || "not on file").slice(0, 10))}<br><span class="hint">where the crowd puts it may be off by about ${num(s.sigma_m, 0)} m</span>`)}
         ${tw ? tile("Type", TILE.type.html(tw)) + tile("Owner", TILE.owner.html(tw)) + tile("Height", TILE.height.html(tw)) : tile("The tower it's on", none("Not placed on a tower: the engine puts this site on no structure"))}
         ${tile("Distance and bearing", leg ? `${TILE.dist.html(leg)}<br><span class="hint">from the pin</span>` : none("No pin yet: Run the report here puts one at it"))}
         ${tile("In this report", `${esc(p.txt)}${p.id ? `<br>${btn("open", "What's on it", "This tower's tiles from the report; the map stays where it is")}` : ""}`)}</div>
@@ -906,7 +1219,7 @@
   // fitted as a search's is. On a phone the lookup's Back step goes first, so the search's link isn't written into a step Back leaves
   function reportHere(s){
     const at = posOf(s), tw = s.tower;
-    const label = `${s.carrier} ${s.site_kind || "eNB"} ${s.site_id}${tw && tw.registration ? ` (FCC ${tw.registration.number})` : tw && tw.kind === "estimated" ? " (estimated)" : ""}`;
+    const label = `${s.carrier} ${s.site_kind || "eNB"} ${s.site_id}${tw && tw.registration ? ` (FCC ${tw.registration.number})` : tw && tw.kind === "estimated" ? " (estimated)" : tw && tw.kind === "confirmed" ? " (confirmed on site)" : ""}`;
     const go = () => { setMode("point"); $("#loc").value = `${at[0].toFixed(6)}, ${at[1].toFixed(6)}`; $("#locLabel").textContent = `📍 ${label}`; S.placeLabel = label;
       $("#locWrap")?.classList.remove("typed"); runSearch(); };
     T.enb = null; T.sel = null;
@@ -993,7 +1306,7 @@
         <div style="text-align:right"><div><b>Date:</b> ${esc(o.date || today())}</div><div><b>Prepared by:</b> ${who ? esc(who) : '<span class="box" style="min-width:140px"></span>'}</div>${o.job ? `<div><b>DAS job:</b> ${esc(o.job)}</div>` : S.mission?.name ? `<div><b>Mission:</b> ${esc(S.mission.name)}</div>` : ""}
           <div class="hint twr-cover">${esc(coverTxt(d, cs))}</div></div></div>
       <div class="twr-sec"><div class="twr-verdicts">${cs.map(c => `<div style="--c:${cColor(c.carrier)}"><b>${esc(c.carrier)}</b>: ${esc((LEVEL[c.verdict?.level] || [c.verdict?.level || ""])[0])}<br>${esc(c.verdict?.text || "")}</div>`).join("")}</div></div>
-      ${o.img ? `<div class="twr-sec" style="margin-top:8px"><img src="${o.img}" alt="Map: the site, the towers and the bearing to each"><div class="hint">The site (pin), the towers (■ registered, ▲ mapped, ◆ licensed site, ○ estimated with its uncertainty bubble) and a bearing line from the site to each carrier's 3 closest. ${(d.attribution_lines || []).map(esc).join(" ")}</div></div>` : o.imgWhy ? `<p class="hint">No map image this time: ${esc(o.imgWhy)}.</p>` : ""}
+      ${o.img ? `<div class="twr-sec" style="margin-top:8px"><img src="${o.img}" alt="Map: the site, the towers and the bearing to each"><div class="hint">The site (pin), the towers (■ registered, ▲ mapped, ◆ licensed site, ○ estimated with its uncertainty bubble, ✔ confirmed on site) and a bearing line from the site to each carrier's 3 closest. ${(d.attribution_lines || []).map(esc).join(" ")}</div></div>` : o.imgWhy ? `<p class="hint">No map image this time: ${esc(o.imgWhy)}.</p>` : ""}
       ${cs.map(c => `<div class="twr-sec"><h2 data-carrier="${esc(c.carrier)}">${esc(c.carrier)}: ${esc(headOf(c, d)[0])} <span class="hint">${esc(headOf(c, d)[1])}</span></h2>
         ${(c.towers || []).length || (c.stale_towers || []).length ? `<table class="twr-carrier" data-carrier="${esc(c.carrier)}"><thead><tr><th>#</th>${cols}${marks ? "<th>Seen on site</th>" : ""}</tr></thead><tbody>
           ${[...(c.towers || []).map((t, i) => [t, i + 1]), ...(c.stale_towers || []).map(t => [t, "old"])].map(([t, r]) => `<tr><td>${r} ${mark(t)}</td>${ids.map(id => `<td>${cell(id, t, c.carrier)}</td>`).join("")}${marks ? `<td class="twr-seen">${seen(t)}</td>` : ""}</tr>`).join("")}</tbody></table>`
@@ -1003,7 +1316,7 @@
         <p class="hint" style="margin:0 0 4px">With the test phones and the PCTEL: look for these channels and their PCIs, point the donor antenna on the ${decl != null ? `magnetic bearing with a hand compass (declination here ${esc(declTxt(decl))}, NOAA WMM2025; the true bearing is for a map)` : "bearing (true north: this copy can't work out the magnetic one here)"}, and write down what you read. ${esc((cs[0]?.verdict?.text || "").match(/A roof reading decides[^.]*\./)?.[0] || "A roof reading decides.")} Estimated towers are estimates: their bubble shows how far off they may be.</p>
         <table><thead><tr><th>Carrier</th><th>#</th><th>Tower</th><th>Look for: channel and PCIs</th><th>Donor bearing</th><th>Test phone RSRP / SINR</th><th>PCTEL RSRP / SINR</th><th>Seen</th></tr></thead><tbody>
         ${vrows.map(([c, t, r]) => { const v = verifyOf(t, c.carrier, d), m = magOf(t.bearing, decl);
-          return `<tr data-carrier="${esc(c.carrier)}" data-tw="${esc(t.id)}"><td>${esc(c.carrier)}</td><td>${r}</td><td>${esc(t.type || kindOf(t)[1])}${t.registration ? `, FCC ${esc(t.registration.number)}` : ""}<br>${esc(far(t))}</td>
+          return `<tr data-carrier="${esc(c.carrier)}" data-tw="${esc(t.id)}"><td>${esc(c.carrier)}</td><td>${r}</td><td>${esc(t.type || kindOf(t)[1])}${t.registration ? `, FCC ${esc(t.registration.number)}` : ""}${t.kind === "confirmed" ? " (confirmed on site)" : ""}<br>${esc(far(t))}</td>
             <td class="twr-look">${v.look.map(esc).join("<br>") || (v.old ? "" : '<span class="hint">nothing in the crowd data</span>')}${v.old ? `<div class="twr-old">⚠ ${esc(v.old)}</div>` : ""}</td>
             <td class="twr-brg">${m != null ? `<b>${esc(m)}° magnetic</b><br>${esc(t.bearing ?? "")}° true · ${esc(t.compass || "")}` : `<b>${esc(t.bearing ?? "")}° true</b> ${esc(t.compass || "")}`}</td>
             <td><span style="white-space:nowrap"><span class="box"></span> dBm</span><br><span style="white-space:nowrap"><span class="box"></span> dB</span></td><td><span style="white-space:nowrap"><span class="box"></span> dBm</span><br><span style="white-space:nowrap"><span class="box"></span> dB</span></td><td class="twr-seen">${seen(t) || "☐"}</td></tr>`; }).join("")}</tbody></table></div>
@@ -1123,31 +1436,58 @@
   // 11/12). markMap places the job's marks on an answer once: a mark on its own tower; a mark whose key is no tower's id in the
   // answer (carriers' lists, the map's, the structures with no carrier) on the one tower that shares the most of its site keys, none
   // on a tie. Any shared key put a mark on a second tower that shared one, and a press there wiped the first tower's (round 2)
-  const markSites = t => [...new Set((Array.isArray(t.carriers) ? t.carriers : []).flatMap(e => (e.sites || []).map(s => s.key)).filter(Boolean))].sort();
+  // A structure confirmed on site keeps the keys it was set from (its fix's sites), so a mark made on the estimate it replaced is on it,
+  // the crowd's sites there or not (Cody 11/16)
+  const markSites = t => [...new Set([...(Array.isArray(t.carriers) ? t.carriers : []).flatMap(e => (e.sites || []).map(s => s.key)), ...((t.fix && t.fix.sites) || [])].filter(Boolean))].sort();
   const fullTowers = d => [...new Map(((d && d.carriers) || []).flatMap(c => [...(c.towers || []), ...(c.stale_towers || [])]).map(t => [t.id, t])).values()];
   // every tower id the answer names, the map's and the structures with no carrier too
   const answerIds = d => new Set([...fullTowers(d).map(t => t.id), ...((d && d.towers) || []).map(t => t.id), ...((d && d.other_structures) || []).map(t => t.id)]);
   const maps = new WeakMap();
+  // A mark follows its sites when its tower is gone from the answer, or is in it with no carrier now (a registered tower whose site was
+  // set on a roof elsewhere: review 11/16, C7)
+  const markMoved = (d, k, ids = answerIds(d)) => !ids.has(k) || ((d && d.other_structures) || []).some(t => t.id === k);
+  // to the confirmed tower whose fix was set from it first, every such mark before any goes by its keys: in a join, a mark that matched
+  // by its keys took the fix before the one it was set from when it was made first (review 11/16, round 2, S11)
   function markMap(d, marks){
     const memo = d && marks && maps.get(d); if (memo && memo.marks === marks) return memo.map;
     const out = new Map(), ts = fullTowers(d), ids = answerIds(d);
     for (const t of ts) if (marks && marks[t.id]) out.set(t.id, [t.id, marks[t.id]]);
-    for (const [k, v] of Object.entries(marks || {})) {
-      if (ids.has(k) || !(v.sites || []).length) continue;
-      let best = null, most = 0, tie = false;
-      for (const t of ts) { if (out.has(t.id)) continue; const n = markSites(t).filter(s => v.sites.includes(s)).length;
-        if (n > most) { best = t; most = n; tie = false; } else if (n && n === most) tie = true; }
+    const left = Object.entries(marks || {}).filter(([k, v]) => markMoved(d, k, ids) && (v.sites || []).length), placed = new Set();
+    for (const [k, v] of left) { const from = ts.find(t => !out.has(t.id) && t.fix && t.fix.from === k); if (from) { out.set(from.id, [k, v]); placed.add(k); } }
+    for (const [k, v] of left) {
+      if (placed.has(k)) continue;
+      // the keys its fix was set from first (S5), then all its site keys; a tie on both goes on neither
+      const score = t => { const ks = markSites(t); return [(v.fix_sites || []).filter(s => ks.includes(s)).length, v.sites.filter(s => ks.includes(s)).length]; };
+      let best = null, most = [0, 0], tie = false;
+      for (const t of ts) { if (out.has(t.id)) continue; const n = score(t); if (!n[0] && !n[1]) continue;
+        const c = n[0] - most[0] || n[1] - most[1];
+        if (c > 0) { best = t; most = n; tie = false; } else if (c === 0) tie = true; }
       if (best && !tie) out.set(best.id, [k, v]);
     }
     if (d && marks) maps.set(d, {marks, map: out});
     return out;
   }
   const markOf = (t, marks, d) => (t && marks ? markMap(d || {carriers: [{towers: [t]}]}, marks).get(t.id) : null) || null;
-  // what's kept with a new mark: the tower's site keys and its words, so a mark whose tower is gone from the answer still says what it was
+  // what's kept with a new mark: the tower's site keys and its words, so a mark whose tower is gone from the answer still says what it was;
+  // on a confirmed tower also the keys its fix was set from (fix_sites), which markMap goes by first: removed, the mark goes back with
+  // them, not to a tie with another carrier's site that had snapped there (review 11/16, S5)
   function markInfo(d, id){
     for (const c of (d && d.carriers) || []) for (const t of [...(c.towers || []), ...(c.stale_towers || [])]) if (t.id === id)
-      return {sites: markSites(t), label: `${kindOf(t)[1]} ${farMag(t, declOf(d))}${t.registration ? `, FCC ${t.registration.number}` : ""} (${names(t).join(", ") || c.carrier})`};
+      return {sites: markSites(t), label: `${kindOf(t)[1]} ${farMag(t, declOf(d))}${t.registration ? `, FCC ${t.registration.number}` : ""} (${names(t).join(", ") || c.carrier})`,
+        ...(t.fix && (t.fix.sites || []).length ? {fix_sites: [...t.fix.sites]} : {})};
     return {sites: [], label: ""};
+  }
+  // A ✓, ✗ or note pressed on a card (dascell.js saves it): the job's marks after it. V0: its towers_verified now; d: the answer the card
+  // was drawn from; id: the card's tower; key: what its mark is kept under (markMap's); ch: null to clear, {ok} or {note}; info: the
+  // tower's keys and words (markInfo) read when pressed. A mark that's moved goes under the tower's id: a clear left the C7 card's mark
+  // under the registration's id, so it came back, and ✗ left two marks that said opposite things (review 11/16, round 2, R2C3).
+  // null: a note with no mark to put it on
+  function markSaved(V0, d, id, key, ch, who, day, info){
+    const V = {...(V0 || {})}, old = V[key] || V[id], now = info && (info.sites || []).length ? info : markInfo(d, id);
+    if (key && key !== id && markMoved(d, key)) delete V[key];
+    if (ch === null) { delete V[id]; return V; }
+    if ("note" in ch) { if (!old) return null; const {note, ...rest} = old; V[id] = ch.note ? {...rest, note: ch.note} : rest; return V; }
+    const {by, ...rest} = old || {}; V[id] = {...rest, ok: ch.ok, ...(who ? {by: who} : {}), at: day, ...now}; return V;
   }
   // the marks no card carries, listed apart, never dropped (the job's record of the site visit): those whose tower the answer still has
   // but not among any carrier's 3 closest (a nearer one came in), and those it doesn't place now. It called both "not in today's answer:
@@ -1203,7 +1543,8 @@
   function jobGhost(o = {}){
     // a carrier's usual three: two registered towers (one with a band held nationwide, a second bands line) and an estimate (its
     // "give or take" line), so a row is as tall as the answer's at most widths and the stacked cards on a phone average out
-    const tower = (c, i) => ({id: `ghost:${c}:${i}`, ...(i === 2 ? {kind: "estimated", uncertainty_m: 400, type: "unknown: estimated from crowd cells", height_ft: null}
+    const tower = (c, i) => ({id: `ghost:${c}:${i}`, ...(i === 2 ? {kind: "estimated", uncertainty_m: 400, type: "unknown: estimated from crowd cells", height_ft: null,
+      type_note: "Not a registered tower: often a rooftop or a short pole (under 200 ft and away from airports, they needn't be registered)."}
       : {kind: "registered", type: "monopole", height_ft: 150}), dist_mi: 1.2 + i, compass: "NE", bearing: 45,
       carrier_names: [c], carriers: [{carrier: c, sites: [], techs: ["LTE"], bands: {heard: ["B2", "B12", "B66"].map(b => ({band: b, channels: [], dl_mhz: []})),
         licensed: i === 1 ? [{band: "B14", how: "nationwide or leased"}] : []}}]});
@@ -1299,6 +1640,19 @@
 .twj-ghost button,.twj-ghost input,.twj-ghost .twr-b,.twj-ghost .tw-k{visibility:hidden}
 @media (pointer:coarse){.twj-seen button,.twj-seen input{min-height:40px}}
 @media print{.twj-seen .seg,.twj-seen input{display:none}}
+/* Set where it really is: the crosshair while armed, the button, the form and what a confirmed tower says */
+.leaflet-container.rf-fix-arming,.rf-fix-arming .leaflet-interactive,.rf-fix-arming .tw-mk{cursor:crosshair}
+.tw-tnote{display:block;margin-top:3px;font-size:12px}
+.tw-fix{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;margin:2px 0 8px}.tw-fix.tw-fixtop{margin:0 0 8px}.tw-fix .hint{font-size:12px}
+.tw-fixform,.tw-fixed{border:1px solid color-mix(in srgb,#1a7f37 45%,var(--line));border-radius:12px;padding:7px 10px;margin:2px 0 8px}.tw-fixed{border-left:5px solid #1a7f37}
+.tw-fixwhere,.tw-fixarm{margin:0 0 6px}
+.tw-ff{display:block;margin:0 0 6px;font-size:12px;color:var(--ink-2,var(--muted))}
+.tw-ff select,.tw-ff input:not([type=checkbox]),.tw-ff textarea{display:block;width:100%;box-sizing:border-box;margin-top:2px;font:inherit;font-size:13px;color:var(--ink,inherit)}
+.tw-ff input[type=number]{max-width:9em}.tw-fixc{margin-right:8px}
+.tw-fixacts{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}.tw-fixacts button{padding:4px 10px;font-size:12px}
+.tw-fixmsg{margin:4px 0 0}.tw-fixnote{margin:3px 0;white-space:pre-wrap}
+.tw-fixhist{margin-top:4px;font-size:12px}.tw-fixhist summary{cursor:pointer}.tw-fixhist ul{margin:4px 0 0;padding-left:16px}
+@media (pointer:coarse){.tw-fix button,.tw-fixacts button,.tw-ff select,.tw-ff input:not([type=checkbox]),.tw-fixhist summary,.tw-msg button{min-height:40px}.tw-fixc{display:inline-flex;align-items:center;min-height:40px}}
 </style>`);
   // on a phone a new address's report is put on screen at once: the address box lets go (its keyboard goes) and the page scrolls so
   // the map sits under the sticky header and tabs (the Map tab's search toolbar above it filled the first screen, review 11/11)
@@ -1324,7 +1678,8 @@
     if (!S.center) { v.innerHTML = '<p class="status">The tower report needs one spot: type an address (or coordinates) in the Pin box and pick it, or an eNB number.</p>';
       if (T.enb && !parseLoc($("#loc").value)) showEnb(); return; }
     const k = keyOf(S.center[0], S.center[1]);
-    if (T.key !== k) { T.key = k; T.full = {}; T.fullAsk = {}; T.place = S.placeLabel || ""; T.data = null; T.err = null; T.sel = null; T.msg = T.msgFor[k] || ""; delete T.msgFor[k]; T.closed = false; T.picker = false; T.moved = false; }
+    if (T.key !== k) { T.key = k; T.full = {}; T.fullAsk = {}; T.place = S.placeLabel || ""; T.data = null; T.err = null; T.sel = null; T.msg = T.msgFor[k] || ""; delete T.msgFor[k]; T.closed = false; T.picker = false; T.moved = false;
+      T.undo = null; T.fixForm = null; fixDisarm(); }
     // a search since the lookup (an address picked, the same one too, Run the report here): the report, not the lookup. A link's
     // lookup belongs to the link's own search (enbFromLink)
     if (T.enb && T.enbGen !== (S.searchGen || 0)) { T.enb = null; T.sel = null; }
@@ -1338,9 +1693,9 @@
         <span class="inl">Labels <span class="seg" role="group" aria-label="Labels on the map">${[["off", "Off"], ["carriers", "Carriers"], ["tiles", "My tiles"]].map(([k2, l]) => `<button type="button" data-twl="${k2}" class="${T.labels === k2 ? "on" : ""}">${l}</button>`).join("")}</span></span>
         <button type="button" id="twSum" title="The summary in the viewer: verdicts and each carrier's 3 closest">Summary</button></div>
       <div id="twMap"></div>
-      <p class="hint tw-legend">${[["registered", "■ registered (FCC)"], ["mapped", "▲ mapped (OpenStreetMap)"], ["licensed", "◆ licensed site"], ["estimated", "○ estimated, with its uncertainty bubble"]]
+      <p class="hint tw-legend">${[["registered", "■ registered (FCC)"], ["mapped", "▲ mapped (OpenStreetMap)"], ["licensed", "◆ licensed site"], ["estimated", "○ estimated, with its uncertainty bubble"], ["confirmed", "✔ confirmed on site"]]
         .filter(([kk]) => T.data ? kinds.has(kk) || (kk === "licensed" && kinds.has("cluster")) : !(kk === "mapped" && S.build?.left_out?.osm_towers)).map(x => x[1]).join(" · ")}${T.data && T.data.other_structures?.length && !T.carriers.size ? " · grey: no carrier known" : ""}.
-        Click a tower for what's on it; the map stays where it is (Zoom to in the viewer moves it).</p>`;
+        Click a tower for what's on it; the map stays where it is (Zoom to in the viewer moves it).${canPost() ? " An estimate that's really on a rooftop or a short pole: open it, ✔ Set where it really is." : ""}</p>`;
     v.querySelectorAll("[data-twc]").forEach(b => b.onclick = () => { const c = b.dataset.twc;
       if (!c) T.carriers.clear(); else if (T.carriers.has(c)) T.carriers.delete(c); else T.carriers.add(c);
       if (T.carriers.size === BIG3.length) T.carriers.clear();
@@ -1377,6 +1732,6 @@
     // an eNB or gNB by its number: what's typed read as one (search.js), the lookup, a link's, and the carriers it asks
     enbOf, enb: enbLook, enbFromLink, enbCarsTxt: () => andList(enbCars()),
     // a DAS job's tower block, its top-up and its marks; Cell sites' and Topology's towers (cells.js, cellall.js)
-    jobHtml, jobGhost, keepPlace, peek, wireJob, seenTxt, markOf, markSites, markInfo, answerIds, autoTopup, afterTopup, runAt, topupNote, canPost, errTxt, area, dropArea,
-    kind: kindOf, far, typeHtml: t => TILE.type.html(t)};
+    jobHtml, jobGhost, keepPlace, peek, wireJob, seenTxt, markOf, markSites, markInfo, markSaved, markMoved, answerIds, autoTopup, afterTopup, runAt, topupNote, canPost, errTxt, area, dropArea,
+    kind: kindOf, far, typeHtml: t => TILE.type.html(t), fixWho, fixSites: sitesFor, get fixGen(){ return T.fixGen || 0; }};
 })();

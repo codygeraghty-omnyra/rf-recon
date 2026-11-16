@@ -131,7 +131,7 @@ class Collector:
         d = decode(radio, *p)
         c = self.cells.setdefault(d["gci"], dict(d, lat=la, lon=lo, sources=[], samples=0, range_m=None, dbm=None, first=None, last=None,
                                                  channel=None, pci=None, changeable=None, points=0, crowd_points=0, crowd_samples=0, survey=0, crowd_last=None,
-                                                 _lat=0.0, _lon=0.0, _clat=0.0, _clon=0.0))
+                                                 own_last=None, _lat=0.0, _lon=0.0, _clat=0.0, _clon=0.0))
         if src not in c["sources"]:
             c["sources"].append(src)
         c["points"] += 1
@@ -139,6 +139,8 @@ class Collector:
         c["_lon"] += lo
         if str(src).startswith("Survey: "):
             c["survey"] += 1
+            if extra.get("last"):  # your own readings' date, apart from the crowd's: the tower's "Your survey" source line (review 11/16, round 3)
+                c["own_last"] = max(c["own_last"] or "", extra["last"])
         else:
             c["crowd_points"] += 1
             c["_clat"] += la

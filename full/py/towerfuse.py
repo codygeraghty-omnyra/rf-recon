@@ -12,7 +12,11 @@ structure it most likely sits on:
    other status; an OSM mast or tower tagged communication:mobile_phone (1.0), other communication tags (0.8), an untyped
    mast (0.5), a water tower (0.4); a microwave end licensed to a carrier (1.2, and the carrier is there); an 800 MHz
    cellular licence location (1.5, with its filed azimuths, and the carrier is there); two or more land-mobile licences
-   at one spot (0.3). Points within 40 m are one structure that keeps every source.
+   at one spot (0.3). Points within 40 m are one structure that keeps every source. Above them all, a structure confirmed
+   on site (towerfix.py, Cody 11/16: "towers can be on top of buildings"), set where it really is by a person who was there
+   (2.0, for the carriers ticked on it; for any other carrier it's an ordinary structure, w_fix_other 0.8 or what's merged under
+   it): the sites it was set from go to it whatever their bubble, and it stands with their carriers when the crowd loses them.
+   The bench leaves these out (fixes=False): a fix is the answer itself.
 2. Crowd sites (cells.group, the rule cells.sites uses; FirstNet folds into AT&T, ex-Sprint into T-Mobile), each with an
    uncertainty sigma = clamp(150 + 600 / sqrt(samples) + 0.5 x spread, 150, 1500) m, or 50 m where OpenCelliD says the
    position was given, not worked out. Only LTE and NR sites place towers: 2G, 3G and CDMA are off the air in the US, and
@@ -52,7 +56,7 @@ import cellspec
 import geo
 import osmtowers
 
-PARAMS_VERSION = "towerfuse 2 (2026-11-11)"  # review rounds 2-3: site_margin_km, the stale and verdict rules
+PARAMS_VERSION = "towerfuse 3 (2026-11-16)"  # a structure confirmed on site (towerfix.py) above every other source
 PARAMS = {
     # structures and their weights (cells.live_towers never returns a registration that isn't Constructed or Granted)
     "w_asr": {"Constructed": 1.0, "Granted": 0.6},
@@ -64,6 +68,11 @@ PARAMS = {
     "w_mw_carrier": 1.2,       # a microwave end licensed to a carrier
     "w_cl": 1.5,               # an 800 MHz cellular (CL) licence location
     "w_lm_cluster": 0.3,       # land-mobile licences at one spot
+    "w_fix": 2.0,              # a structure confirmed on site (towerfix.py): above every other source, for the carriers ticked on it
+    # the same structure for a carrier nobody ticked on it: an ordinary one, as a communications structure, else what's merged under
+    # it. At 2.0 for every carrier an AT&T-only roof 300 m from a Verizon eNB sitting on its registered tower took that eNB (review
+    # 11/16, C1)
+    "w_fix_other": 0.8,
     "lm_min_calls": 2,
     "merge_m": 40, "chain_max_m": 80,
     # a crowd site's uncertainty, metres
@@ -108,6 +117,11 @@ NATIONWIDE = {"AT&T": [{"band": "B14", "how": "nationwide or leased",
               "T-Mobile": [{"band": "n41", "how": "nationwide or leased",
                             "note": "2.5 GHz: mostly leased educational (EBS) licences, so not in the county's market licences"}]}
 SITE_WORD = {"LTE": "eNB", "NR": "gNB"}  # a UMTS, GSM or CDMA "site" here is one cell (cells.group, fold)
+# an estimate with no registered structure in its reach: what it most often is, in words (Cody 11/16). A structure under 200 ft
+# above ground, away from an airport's slope, needs no FAA notice and so no FCC antenna structure registration (47 CFR 17.7,
+# 14 CFR 77.9: towair.py), so a rooftop or a short pole has no registration to snap to
+NOT_REGISTERED = "Not a registered tower: often a rooftop or a short pole (under 200 ft and away from airports, they needn't be registered)."
+CONFIRMED = "confirmed on site"  # the evidence a fix gives its carriers, and its kind's word
 
 
 # ---------------------------------------------------------------- small helpers
@@ -136,8 +150,15 @@ def known_carriers():
     """Every carrier a report can be asked for, lowercased -> as the report names it: the brands cells.OPERATORS names and
     each regional carrier in the US network-code register (cells.register_name), the names crowd sites carry."""
     if not _KNOWN:
-        names = {cells.brand(v) for v in cells.OPERATORS.values()} | {cells.brand(cells.register_name(v)) for v in cells.REGISTER.values()}
-        _KNOWN.update({n.lower(): n for n in names if n})
+        # the first name in network-code order (cells.OPERATORS, then the register), the same in every process: a set's order changes
+        # with the hash seed, and three regional carriers are registered under two spellings each ("I Wireless", "I wireless"). A site's
+        # own carrier is the name its network code gives (_key_carrier), which a fix keeps (review 11/16, round 2, S6)
+        for code, v in sorted(cells.OPERATORS.items()):
+            _KNOWN.setdefault(cells.brand(v).lower(), cells.brand(v))
+        for code, v in sorted(cells.REGISTER.items()):
+            n = cells.brand(cells.register_name(v))
+            if n:
+                _KNOWN.setdefault(n.lower(), n)
     return _KNOWN
 
 
@@ -253,7 +274,8 @@ def heard_only(key, cs, ev=()):
     net, radio, sid = key
     carrier = "T-Mobile" if net == "T-Mobile (ex-Sprint)" else net if net in cells.BIG3 else cells.brand((list(cs) or list(ev))[0]["operator"])
     lasts = [c["last"] for c in cs if c.get("last")] + [x["last"] for x in ev]
-    return {"carrier": carrier, "radio": radio, "site_kind": SITE_WORD.get(radio, "cell"), "site_id": sid, "cells": len({c["gci"] for c in cs} | {x["gci"] for x in ev}),
+    return {"key": f"{net}|{radio}|{sid}", "carrier": carrier, "radio": radio, "site_kind": SITE_WORD.get(radio, "cell"), "site_id": sid,
+            "cells": len({c["gci"] for c in cs} | {x["gci"] for x in ev}),
             "readings": sum(int(c.get("survey") or 0) for c in cs) + sum(x["readings"] for x in ev), "last": max(lasts, default=None),
             "sources": sorted({x for c in cs for x in c["sources"]} | {x["source"] for x in ev})}
 
@@ -337,10 +359,11 @@ def _rows(con, q, args):
         return []
 
 
-def structure_points(con, crowd, lat, lon, km, P=PARAMS):
-    """Every structure point within km of the building, before the 40 m merge: {"src", "lat", "lon", "weight", "rec", "carrier"}."""
+def structure_points(con, crowd, lat, lon, km, P=PARAMS, fixes=()):
+    """Every structure point within km of the building, before the 40 m merge: {"src", "lat", "lon", "weight", "rec", "carrier"}.
+    fixes: the structures confirmed on site to take (towerfix.live, chosen by fuse), whatever their distance."""
     s, n, w, e = geo.bbox(lat, lon, km / geo.MI_KM)
-    pts = []
+    pts = [{"src": "fix", "lat": f["lat"], "lon": f["lon"], "weight": P["w_fix"], "rec": f} for f in fixes]
     for t in cells.live_towers(con, s, n, w, e):
         st = t.get("status")
         pts.append({"src": "asr", "lat": t["lat"], "lon": t["lon"], "weight": P["w_asr"].get(st, 0.0) if st else P["w_asr_unknown"], "rec": t})
@@ -382,7 +405,7 @@ def structure_points(con, crowd, lat, lon, km, P=PARAMS):
     return pts
 
 
-RANK = {"asr": 0, "cl": 1, "osm": 2, "mw": 3, "lm": 4}  # whose position a merged structure takes: the most precise
+RANK = {"fix": -1, "asr": 0, "cl": 1, "osm": 2, "mw": 3, "lm": 4}  # whose position a merged structure takes: the most precise
 
 
 def merge(pts, P=PARAMS):
@@ -402,7 +425,9 @@ def merge(pts, P=PARAMS):
     for p in pts:
         k = (math.floor(p["lat"] / cy), math.floor(p["lon"] / cx))
         hit, hd = None, None
-        for dy in (-1, 0, 1):
+        # a fix comes first and is always its own structure (two set 10 m apart are two people's two answers); anything else
+        # within merge_m of it joins it, so a registration under a confirmed rooftop keeps its owner and number there
+        for dy in ((-1, 0, 1) if p["src"] != "fix" else ()):
             for dx in (-1, 0, 1):
                 for q, st in grid.get((k[0] + dy, k[1] + dx), []):
                     d = _m(q["lat"], q["lon"], p["lat"], p["lon"])
@@ -418,12 +443,21 @@ def merge(pts, P=PARAMS):
     for st in out:
         first = st["members"][0]
         r = first["rec"]
-        st["id"] = {"asr": lambda: f"asr:{r.get('reg')}", "osm": lambda: f"osm:{r['id']}", "cl": lambda: f"cl:{r.get('call_sign')}:{r.get('loc_num')}",
+        st["id"] = {"fix": lambda: f"fix:{r['id']}", "asr": lambda: f"asr:{r.get('reg')}", "osm": lambda: f"osm:{r['id']}", "cl": lambda: f"cl:{r.get('call_sign')}:{r.get('loc_num')}",
                     "mw": lambda: f"mw:{r.get('call_sign')}:{first['lat']:.5f},{first['lon']:.5f}",
                     "lm": lambda: f"lm:{first['lat']:.5f},{first['lon']:.5f}"}[first["src"]]()
         srcs = {m["src"] for m in st["members"]}
-        st["kind"] = "registered" if "asr" in srcs else "mapped" if "osm" in srcs else "licensed" if srcs & {"cl", "mw"} else "cluster"
+        st["kind"] = "confirmed" if "fix" in srcs else "registered" if "asr" in srcs else "mapped" if "osm" in srcs else "licensed" if srcs & {"cl", "mw"} else "cluster"
         st["licensed_carriers"] = sorted({m["carrier"] for m in st["members"] if m.get("carrier") in CARRIERS})
+        if first["src"] == "fix":
+            st["fix"] = r
+            st["fix_carriers"] = set(r.get("carriers") or [])
+            # w_fix for a site of a carrier ticked on the fix with none of its own sites named there (the person said it's on the roof
+            # and named no eNB); a carrier whose eNB was named gets its other sites at the ordinary weight: an AT&T eNB on its own
+            # registration 250 m off moved onto the roof as High "set by Andy" (review 11/16, round 2, S1)
+            st["fix_top"] = st["fix_carriers"] - {_key_carrier(k) for k in r.get("sites") or []}
+            # never under w_fix_other: land-mobile licences on the roof (0.3) made it weaker than a roof with nothing on it (S2)
+            st["w_other"] = max([P["w_fix_other"]] + [m["weight"] for m in st["members"] if m["src"] != "fix"])
     return out
 
 
@@ -449,9 +483,17 @@ def match(sites, structs, now_s, P=PARAMS):
     high_weight: Granted, a land-mobile spot, an untyped mast, a water tower) wins only when it also scores weak_snap_min,
     what a weight-0.8 structure scores 1 sigma out: a lone 0.3 land-mobile spot 1.1 km from the crowd's position
     snapped with score 0.055 and lost the bubble (review 11/10). Recency isn't in the score: one site's candidates all share
-    it, so it never changed a match; it moves a stale tower down its carrier's list instead (report)."""
+    it, so it never changed a match; it moves a stale tower down its carrier's list instead (report).
+    A site a structure confirmed on site was set from (its fix's site keys) goes to it whatever its bubble (match "fixed");
+    every other site scores it as any structure: at w_fix for a carrier ticked on it, else as an ordinary structure (w_other).
+    A forced site counts toward the shared boost only for the carriers ticked on the fix, and a stale one for none (review 11/16,
+    C1: an AT&T-only roof pulled Verizon's eNB off the registration it sits on)."""
     deg = P["match_grid_deg"]  # a grid about the size of the reach, searched only as far as the reach's own box
     g = _grid(structs, deg)
+    forced = {}
+    for st in structs:
+        for k in (st.get("fix") or {}).get("sites") or []:
+            forced.setdefault(k, st)
     for s in sites:
         reach = min(P["match_sigmas"] * s["sigma"], P["match_max_m"])
         dlat, dlon = _reach_box(s["lat"], reach)
@@ -463,23 +505,34 @@ def match(sites, structs, now_s, P=PARAMS):
                         continue
                     d = _m(s["lat"], s["lon"], st["lat"], st["lon"])
                     if d <= reach:
-                        cands.append({"struct": st, "dist_m": d, "base": math.exp(-d * d / (2 * s["sigma"] ** 2)) * st["weight"]})
+                        w = st["weight"] if not st.get("fix") or s["carrier"] in st["fix_top"] else st["w_other"]
+                        cands.append({"struct": st, "dist_m": d, "w": w, "base": math.exp(-d * d / (2 * s["sigma"] ** 2)) * w})
         s["cands"] = cands
-    picked = {}
+    picked, forced_by = {}, {}
     for s in sites:  # pass 1: what each site would pick on its own; a site that may be gone (site_stale) says no carrier is there now
-        if s["cands"] and not site_stale(s, now_s, P):
+        if s["key"] in forced:
+            if not site_stale(s, now_s, P):
+                forced_by.setdefault(forced[s["key"]]["id"], set()).add(s["carrier"])
+        elif s["cands"] and not site_stale(s, now_s, P):
             best = max(s["cands"], key=lambda c: c["base"])
             picked.setdefault(best["struct"]["id"], set()).add(s["carrier"])
     for s in sites:  # pass 2: a structure two or more carriers pick counts for more
         for c in s["cands"]:
-            c["score"] = c["base"] * (P["shared_boost"] if len(picked.get(c["struct"]["id"], ())) >= 2 else 1.0)
+            st = c["struct"]
+            who = set(picked.get(st["id"], ())) | (forced_by.get(st["id"], set()) if st.get("fix") and s["carrier"] in st["fix_carriers"] else set())
+            c["score"] = c["base"] * (P["shared_boost"] if len(who) >= 2 else 1.0)
         ranked = sorted(s["cands"], key=lambda c: -c["score"])
         s["match"], s["candidates"] = None, []
+        st = forced.get(s["key"])
+        if st is not None:  # set on site: there, not by score
+            s["match"] = {"struct": st, "dist_m": _m(s["lat"], s["lon"], st["lat"], st["lon"]), "base": st["weight"], "score": st["weight"],
+                          "ratio": None, "runner_up": None, "fixed": True}
+            continue
         if not ranked:
             continue
         ratio = ranked[0]["score"] / ranked[1]["score"] if len(ranked) > 1 and ranked[1]["score"] > 0 else None
         clear = ratio is None or ratio >= P["snap_ratio"]
-        firm = ranked[0]["struct"]["weight"] >= P["high_weight"] or ranked[0]["score"] >= P["weak_snap_min"]
+        firm = ranked[0]["w"] >= P["high_weight"] or ranked[0]["score"] >= P["weak_snap_min"]
         if clear and firm:
             s["match"] = dict(ranked[0], ratio=ratio, runner_up=ranked[1]["struct"]["id"] if len(ranked) > 1 else None)
         else:
@@ -501,8 +554,9 @@ def _new_tower(tid, kind, lat, lon, b_lat, b_lon):
             "owner": None, "registration": None, "osm": None, "licences": [], "carriers": {}, "candidates": [], "sources": [], "links": links(lat, lon)}
 
 
-def struct_tower(st, b_lat, b_lon, dates):
-    """A tower on a structure: what each of its sources says about it."""
+def struct_tower(st, b_lat, b_lon, dates, won=None):
+    """A tower on a structure: what each of its sources says about it. won: the site keys a fix here won (fix_owners), so a key
+    two fixes kept from before the one-fix rule name is named on one tower only (review 11/16, S7)."""
     t = _new_tower(st["id"], st["kind"], st["lat"], st["lon"], b_lat, b_lon)
     by = {}
     for m in st["members"]:
@@ -546,16 +600,82 @@ def struct_tower(st, b_lat, b_lon, dates):
     for x in by.get("lm") or []:
         t["sources"].append({"name": f"FCC land-mobile licences at this spot ({len(x['calls'])})", "what": ", ".join(x["licensees"][:4]),
                              "date": dates.get("uls"), "url": None, "licence": "US government public data"})
+    f = (by.get("fix") or [None])[0]
+    if f:  # confirmed on site: its type, name and height are the person's, its source first
+        t["fix"] = fix_public(f)
+        t["type"] = f["type"] + (f", {f['name']}" if f.get("name") else "")
+        if f.get("height_ft") is not None:
+            t["height_m"] = round(float(f["height_ft"]) * 0.3048, 1)
+        what = ", ".join(str(x) for x in (t["type"], f"{f['height_ft']:g} ft" if f.get("height_ft") is not None else None) if x)
+        t["sources"].insert(0, {"name": f"Confirmed on site{' by ' + t['fix']['by'] if t['fix']['by'] else ''}, {_date(t['fix']['at'])}",
+                                "what": f"where it really is: {what}" + (f". {f['note']}" if f.get("note") else ""), "date": _date(t["fix"]["at"]),
+                                "url": None, "licence": "set on this DAStastic copy"})
     if not t["type"]:
         t["type"] = "licensed site (no registered structure)" if by.get("cl") or by.get("mw") else "land-mobile site"
     if t["height_m"] is not None:
         t["height_ft"] = round(t["height_m"] * 3.28084)
+    if f and f.get("height_ft") is not None:
+        t["height_ft"] = round(float(f["height_ft"]))  # as the person gave it, not through metres
+    for c in (f or {}).get("carriers") or []:  # the carriers it was set for are here, crowd cells or not
+        e = _entry(t, c)
+        e["evidence"].add(CONFIRMED)
+        e["fix_keys"] = [k for k in f.get("sites") or [] if _key_carrier(k) == c and (won is None or k in won)]
+        e["techs"].update(k.split("|")[1] for k in e["fix_keys"])
     for c in st["licensed_carriers"]:  # a filing says the carrier is here, crowd cells or not
         e = _entry(t, c)
         for lic in t["licences"]:
             if lic["carrier"] == c:
                 e["evidence"].add("800 MHz licence" if lic["kind"] == "800 MHz cellular" else "microwave licence")
     return t
+
+
+def _key_carrier(key):
+    """The carrier an engine site key is ("AT&T|LTE|812442" -> "AT&T"; ex-Sprint's is T-Mobile's). A carrier outside the big three
+    is keyed by its network code ("310-730|LTE|4242", cells.group): its brand, as make_site names it (review 11/16, S2)."""
+    net = str(key).split("|")[0]
+    if net == "T-Mobile (ex-Sprint)":
+        return "T-Mobile"
+    if re.fullmatch(r"\d{3}-\d{2,3}", net):
+        mcc, mnc = net.split("-")
+        return cells.brand(cells.operator(mcc, mnc))
+    return known_carriers().get(net.lower(), net)
+
+
+def _date(at):
+    return str(at or "")[:10]
+
+
+def fix_public(f):
+    """A fix as a tower answer carries it: who set it and when, who changed it last, what it says, its history."""
+    hist = f.get("history") or []
+    changed = [h for h in hist if h["action"] == "change"]
+    return {"id": f["id"], "type": f["type"], "name": f.get("name") or "", "height_ft": f.get("height_ft"), "note": f.get("note") or "",
+            "sites": list(f.get("sites") or []), "carriers": list(f.get("carriers") or []), "from": f.get("set_from") or "",
+            "by": f.get("created_by") or "", "at": f.get("created_at") or "", "changed_by": changed[-1]["who"] if changed else "",
+            "changed_at": changed[-1]["at"] if changed else "", "lat": f["lat"], "lon": f["lon"], "history": hist,
+            "site_carriers": {k: _key_carrier(k) for k in f.get("sites") or []}}
+
+
+def fix_stub(key, cs=(), ev=()):
+    """A site a fix was set from that the crowd no longer has (or has past the edge), kept on the fix's tower so it's still named
+    there and a survey's serving cells match it (Seen on site), not "heard only" (review 11/16, S6). cs: your own readings of it;
+    ev: survey evidence (survey_cells). No cells, no position: only what was heard."""
+    net, radio, sid = (str(key).split("|") + ["", "", ""])[:3]
+    s = {"key": key, "carrier": _key_carrier(key), "radio": radio, "site_kind": SITE_WORD.get(radio, "cell"), "site_id": int(sid) if sid.isdigit() else sid,
+         "plmns": sorted({c["plmn"] for c in cs} | {x["plmn"] for x in ev if x.get("plmn")}), "ex_sprint": net == "T-Mobile (ex-Sprint)", "crowd_undated": False,
+         "operators": sorted({c["operator"] for c in cs} | {x["operator"] for x in ev if x.get("operator")}), "samples": 0,
+         "last": max([c["last"] for c in cs if c.get("last")] + [x["last"] for x in ev if x.get("last")], default=None), "sigma_m": None, "crowd_at": None,
+         "offset_m": None, "match": {"score": None, "ratio": None, "runner_up": None, "attached": False, "fixed": True}, "cells": [],
+         "sources": sorted({x for c in cs for x in c["sources"]}), "heard_on_site": sum(int(c.get("survey") or 0) for c in cs), "stub": True}
+    own = max((c["own_last"] for c in cs if c.get("own_last")), default=None)
+    if own:
+        s["own_last"] = own
+    return hear(s, list(ev))
+
+
+def fix_why(fx):
+    """A confirmed carrier's confidence, in words: who set it and on what day."""
+    return f"set by {fx['by']} on {_date(fx['at'])}" if fx.get("by") else f"set on this copy on {_date(fx['at'])}"
 
 
 def _entry(t, carrier):
@@ -584,12 +704,14 @@ def add_site(t, s, P=PARAMS):
                     "az_est": az, "faces_site": None if az is None else _angle(az, to_site) <= P["faces_deg"],
                     "firstnet": c["plmn"] == "313-100", "heard_on_site": int(c.get("survey") or 0)})
     m = s.get("match") or {}
+    own = max((c["own_last"] for c in s["cells"] if c.get("own_last")), default=None)  # your own readings' last date (the "Your survey" line)
     e["sites"].append({"key": s["key"], "radio": s["radio"], "site_kind": s["site_kind"], "site_id": s["site_id"], "plmns": s["plmns"], "ex_sprint": s["ex_sprint"],
+                       **({"own_last": own} if own else {}),
                        "crowd_undated": s.get("crowd_undated", False),
                        "operators": s["operators"], "samples": s["samples"], "last": s["last"], "sigma_m": s["sigma"],
                        "crowd_at": {"lat": round(s["lat"], 6), "lon": round(s["lon"], 6)}, "offset_m": round(_m(t["lat"], t["lon"], s["lat"], s["lon"])),
                        "match": {"score": round(m["score"], 3), "ratio": None if m.get("ratio") is None else round(m["ratio"], 2),
-                                 "runner_up": m.get("runner_up"), "attached": bool(m.get("attached"))} if m else None,
+                                 "runner_up": m.get("runner_up"), "attached": bool(m.get("attached")), "fixed": bool(m.get("fixed"))} if m else None,
                        "cells": out, "sources": s["sources"], "heard_on_site": s.get("heard_on_site", 0), **({"survey": s["survey"]} if s.get("survey") else {})})
 
 
@@ -605,7 +727,7 @@ def attach_to_own(sites, structs, now_s, P=PARAMS):
         if s.get("match") and not site_stale(s, now_s, P):
             on.setdefault(s["match"]["struct"]["id"], set()).add(s["carrier"])
     for st in structs:
-        for c in st["licensed_carriers"]:
+        for c in st["licensed_carriers"] + list((st.get("fix") or {}).get("carriers") or []):
             on.setdefault(st["id"], set()).add(c)
     for s in sites:
         if s.get("match") or not s["cands"]:
@@ -681,6 +803,9 @@ def estimate_towers(unmatched, b_lat, b_lon, P=PARAMS):
                                                                          + P["sigma_spread"] * spread))
         t = _new_tower(f"est:{g['sites'][0]['key']}", "estimated", g["lat"], g["lon"], b_lat, b_lon)
         t.update(uncertainty_m=round(sigma), type="unknown: estimated from crowd cells")
+        # no registered structure in any of its sites' reach: most often a rooftop or a short pole (Cody 11/16)
+        if not any(m["src"] == "asr" for s in g["sites"] for c in s.get("cands") or [] for m in c["struct"]["members"]):
+            t["type_note"] = NOT_REGISTERED
         names = {}
         for s in g["sites"]:
             for c in s["candidates"]:
@@ -730,6 +855,8 @@ def confidence(t, e, now_s, P=PARAMS):
     sites = e["sites"]
     best = max(sites, key=lambda s: s["samples"]) if sites else None
     rc = recency(e["last"], now_s, P) if sites else None
+    if t["kind"] == "confirmed" and CONFIRMED in e["evidence"]:  # set on site: what the crowd last heard doesn't lower it
+        return {"level": "High", "why": fix_why(t["fix"])}
     if t["kind"] == "estimated":
         level = "Low"
         why.append(f"estimated from {sum(len(s['cells']) for s in sites)} crowd cells, give or take {t['uncertainty_m']} m")
@@ -743,7 +870,7 @@ def confidence(t, e, now_s, P=PARAMS):
         ratio = m.get("ratio")
         clear = ratio is None or ratio >= P["high_ratio"]
         what = {"registered": "an FCC registered structure", "mapped": "a mast mapped in OpenStreetMap", "licensed": "a licensed site",
-                "cluster": "a spot with land-mobile licences"}[t["kind"]]
+                "cluster": "a spot with land-mobile licences", "confirmed": "a structure confirmed on site"}[t["kind"]]
         why.append(f"{e['carrier']} {best['site_kind']} {best['site_id']} ({best['samples']} sample{'s' if best['samples'] != 1 else ''}) matched to {what}"
                    + (" with nothing else in reach" if ratio is None else f", {ratio:.1f}x the next candidate")
                    + (", beside the carrier's own site there" if m.get("attached") else ""))
@@ -824,7 +951,7 @@ def stale(e, now_s, P=PARAMS):
     """A carrier's entry rests only on sites that may be gone (site_stale), with no filing of its own here: like Sprint's
     LTE, off since 6/2022 and mostly taken down, which still gave T-Mobile "in reach" (review 11/10). Every site has to be
     stale: a live eNB from a top-up (no date) on a tower with an old dated one left the tower out of the verdict (round 2)."""
-    filed = bool(set(e["evidence"]) & {"800 MHz licence", "microwave licence"})
+    filed = bool(set(e["evidence"]) & {"800 MHz licence", "microwave licence", CONFIRMED})
     if filed or not e["sites"]:
         return False
     return all(site_stale(s, now_s, P) for s in e["sites"])
@@ -838,10 +965,12 @@ def finish(t, spec, now_s, P=PARAMS, memo=None):
         e["bands"] = bands(t, e, spec, memo)
         e["confidence"] = confidence(t, e, now_s, P)
         e["stale"] = stale(e, now_s, P)
-        e["techs"] = sorted(e["techs"]) or (["licensed"] if e["evidence"] else [])
+        e["techs"] = sorted(e["techs"]) or (["licensed"] if set(e["evidence"]) - {CONFIRMED} else [])
         e["evidence"] = sorted(e["evidence"])
         e["legacy"] = sorted((e.get("legacy") or {}).values(), key=lambda x: x["radio"])  # old cells, not technologies on the air
         e["site_ids"] = [f"{s['site_kind']} {s['site_id']}" for s in e["sites"]]
+        have = {s["key"] for s in e["sites"]}  # a site it was set from that the crowd no longer has: still named
+        e["site_ids"] += [f"{SITE_WORD.get(k.split('|')[1], 'cell')} {k.split('|')[2]}" for k in e.pop("fix_keys", []) if k not in have]
         if e["firstnet"]:
             e["note"] = "FirstNet (313-100) cells on AT&T's site: Band 14"
         if e["ex_sprint"]:
@@ -850,11 +979,22 @@ def finish(t, spec, now_s, P=PARAMS, memo=None):
     t["carriers"] = out
     t["carrier_names"] = [e["carrier"] for e in out]
     t["stale_for"] = [e["carrier"] for e in out if e["stale"]]  # carriers here only on readings over 3 years old
-    crowd = sorted({x for e in out for s in e["sites"] for x in s["sources"]})
+    # the crowd's line credits OpenCelliD (and WiGLE) only where their cells are, and a survey run is its own line: a confirmed tower
+    # whose only site was a survey's stub said "Crowd cells: Survey: Site walk" under OpenCelliD's licence (review 11/16, round 2, S12)
+    srcs = {x for e in out for s in e["sites"] for x in s["sources"]}
+    runs = sorted(x for x in srcs if x.startswith("Survey: "))
+    crowd = sorted(srcs - set(runs))
     if crowd:
         last = max((e["last"] for e in out if e["last"]), default=None)
+        lic = "; ".join(x for x in ("OpenCelliD: CC BY-SA 4.0" if "OpenCelliD" in crowd else "", "WiGLE: non-commercial" if "WiGLE" in crowd else "") if x)
         t["sources"].append({"name": "Crowd cells: " + ", ".join(crowd), "what": "which carriers and technologies are here",
-                             "date": last, "url": t["links"]["opencellid"], "licence": "OpenCelliD: CC BY-SA 4.0" + ("; WiGLE: non-commercial" if "WiGLE" in crowd else "")})
+                             "date": last, "url": t["links"]["opencellid"] if "OpenCelliD" in crowd else None, "licence": lic or None})
+    if runs:
+        # dated by the runs' own readings only (a survey's last, your captures' own_last): the site's last is the crowd's too, and put a walk
+        # on a day when none happened (review 11/16, round 3, R3C2)
+        heard = [d for e in out for s in e["sites"] if set(s["sources"]) & set(runs) for d in ((s.get("survey") or {}).get("last"), s.get("own_last")) if d]
+        t["sources"].append({"name": "Your survey: " + ", ".join(x[len("Survey: "):] for x in runs), "what": "its cells heard on site",
+                             "date": max(heard) if heard else None, "url": None, "licence": None})
     t["sources"].append({"name": "CellMapper (look only)", "what": "to compare by eye; DAStastic never reads it", "date": None, "url": t["links"]["cellmapper"], "licence": None})
     levels = [e["confidence"]["level"] for e in out]
     t["confidence"] = next((lv for lv in ("High", "Medium", "Low") if lv in levels), "Low") if levels else "Low"
@@ -888,10 +1028,36 @@ def gnb_split(cs, bits, plmns=None):
     return cs
 
 
-def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, mission=None, memo=None, gnb_bits=24, gnb_plmns=None, survey=None):
+def fix_owners(structs):
+    """Which fix each site key goes to: {structure id: its keys}. The first fix in merge order that lists a key has it, as match's
+    forced map does; a key on two live fixes (kept from before towerfix's one-fix rule) is named on that one only (S7)."""
+    owner = {}
+    for st in structs:
+        for k in (st.get("fix") or {}).get("sites") or []:
+            owner.setdefault(k, st["id"])
+    out = {}
+    for k, sid in owner.items():
+        out.setdefault(sid, set()).add(k)
+    return out
+
+
+def fixes_for(con, fixes, lat, lon, km, keys):
+    """The structures confirmed on site a run takes (fixes: True, this copy's (towerfix.live); a list, those; False or None,
+    none): those within km of the building, and wherever they are, those set from one of its sites (keys)."""
+    if not fixes:
+        return []
+    if fixes is True:
+        import towerfix
+        fixes = towerfix.live(con)
+    s, n, w, e = geo.bbox(lat, lon, km / geo.MI_KM)
+    return [f for f in fixes if (s <= f["lat"] <= n and w <= f["lon"] <= e) or set(f.get("sites") or []) & keys]
+
+
+def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, mission=None, memo=None, gnb_bits=24, gnb_plmns=None, survey=None, fixes=True):
     """Every tower within radius_mi of the building, nearest first, and what went into them. memo: the licensed bands,
     shared across a report's runs (bands). gnb_bits: the gNB ID length gnb_plmns' NR cells are split at (gnb_split).
-    survey: whose survey runs count as heard on site (survey_cells); None, none."""
+    survey: whose survey runs count as heard on site (survey_cells); None, none. fixes: the structures confirmed on site
+    (fixes_for): this copy's by default; False leaves them out (the bench, whose scores are the engine's own)."""
     memo = {} if memo is None else memo
     now_s = now_s or time.time()
     lim = radius_mi * geo.MI_KM
@@ -903,27 +1069,33 @@ def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, missi
     cs = [c for c in allc if c["dist_mi"] * geo.MI_KM <= lim]
     # survey runs' evidence heard within the radius, by the engine's site keys: heard on site, never a place (survey_cells)
     ev = cells.group(gnb_split(survey_cells(con, lat, lon, lim, survey, mission), gnb_bits, gnb_plmns), fold=True)
-    sites, legacy, heard = [], [], []
+    # heard (key, your readings, survey evidence): named under its carrier, never placed, once the towers are known: a key a fix was
+    # set from is kept on the fix's tower instead (fix_stub)
+    sites, legacy, heard, mine_of = [], [], [], {}
     for k, v in cells.group(allc, fold=True).items():
         e = ev.pop(k, [])
         if not any(_placed(c) for c in v):
             if e or any(c["dist_mi"] * geo.MI_KM <= lim for c in v):
-                heard.append(heard_only(k, [c for c in v if c["dist_mi"] * geo.MI_KM <= lim], e))  # only your own readings: not placed
+                heard.append((k, [c for c in v if c["dist_mi"] * geo.MI_KM <= lim], e))  # only your own readings: not placed
             continue
         s = make_site(k, v, P)
         if geo.haversine_km(lat, lon, s["lat"], s["lon"]) <= lim + P["site_margin_km"]:
+            # your own readings as they are before hear() adds the survey's to its cells: for a fix past the radius (S1 below)
+            mine_of[s["key"]] = (k, [dict(c) for c in v if c.get("survey") and c["dist_mi"] * geo.MI_KM <= lim], e)
             (sites if s["radio"] in P["placing_radios"] else legacy).append(hear(s, e))
         else:  # placed past the edge: what you heard of it here is still named (round 3: a walk's 30 readings of it vanished)
             mine = [c for c in v if c.get("survey") and c["dist_mi"] * geo.MI_KM <= lim]
             if mine or e:
-                heard.append(heard_only(k, mine, e))
+                heard.append((k, mine, e))
     for k, e in ev.items():  # a site only a survey run heard: named under its carrier, never placed
-        heard.append(heard_only(k, [], e))
+        heard.append((k, [], e))
     # every candidate of a site kept (match_max_m round it) is among the structures
-    structs = merge(structure_points(con, crowd, lat, lon, lim + max(P["struct_margin_km"], P["site_margin_km"] + P["match_max_m"] / 1000.0), P), P)
+    km = lim + max(P["struct_margin_km"], P["site_margin_km"] + P["match_max_m"] / 1000.0)
+    structs = merge(structure_points(con, crowd, lat, lon, km, P, fixes_for(con, fixes, lat, lon, km, {s["key"] for s in sites})), P)
     match(sites, structs, now_s, P)
     dates = _dates(con)
     attach_to_own(sites, structs, now_s, P)
+    won = fix_owners(structs)
     towers, unmatched = {}, []
     for s in sites:
         st = (s.get("match") or {}).get("struct")
@@ -932,13 +1104,40 @@ def fuse(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, missi
             continue
         t = towers.get(st["id"])
         if t is None:
-            t = towers[st["id"]] = struct_tower(st, lat, lon, dates)
+            t = towers[st["id"]] = struct_tower(st, lat, lon, dates, won.get(st["id"], set()))
             t["_members"] = st["members"]
         add_site(t, s, P)
-    for st in structs:  # a carrier's own filing puts it on a structure no crowd site matched
-        if st["licensed_carriers"] and st["id"] not in towers:
-            t = towers[st["id"]] = struct_tower(st, lat, lon, dates)
+    for st in structs:  # a carrier's own filing, or a fix, puts it on a structure no crowd site matched
+        if (st["licensed_carriers"] or st.get("fix")) and st["id"] not in towers:
+            t = towers[st["id"]] = struct_tower(st, lat, lon, dates, won.get(st["id"], set()))
             t["_members"] = st["members"]
+    # a key a fix won that no site here carries (the crowd lost it, or has it past the edge): kept on the fix's tower, with what was
+    # heard of it, so it's still named and Seen on site matches it (review 11/16, S6)
+    have, pending = {s["key"] for s in sites}, {"|".join(map(str, k)): (k, cs, e) for k, cs, e in heard}
+    for sid, keys in won.items():
+        t = towers.get(sid)
+        # only on a tower this answer keeps: a fix just past the radius took the walk's readings with it (review 11/16, round 2, R2C1)
+        if not t or t["dist_km"] > lim + 1e-9:
+            continue
+        for k in sorted(keys - have):
+            if _key_carrier(k) not in t["carriers"]:
+                continue
+            _k, cs, e = pending.pop(k, (None, (), ()))
+            x = fix_stub(k, cs, e)
+            ent = t["carriers"][x["carrier"]]
+            ent["sites"].append(x)
+            ent["techs"].add(x["radio"])
+    # a fix past the radius leaves the answer with the sites it took, so what was heard of them here stays named (heard only), as a site
+    # placed past the edge's does: a fix 8.6 km out took a crowd site 7.7 km out and the walk's readings of it out of the answer (review
+    # 11/16, round 3, S1)
+    for t in towers.values():
+        if t.get("fix") and t["dist_km"] > lim + 1e-9:
+            for ent in t["carriers"].values():
+                for s in ent["sites"]:
+                    k, mine, e = mine_of.get(s["key"], (None, [], []))
+                    if k and (mine or e):
+                        pending.setdefault(s["key"], (k, mine, e))
+    heard = [heard_only(k, cs, e) for k, cs, e in pending.values()]
     placed = list(towers.values()) + estimate_towers(unmatched, lat, lon, P)
     old = add_legacy(placed, legacy, P)
     out = [finish(t, spec, now_s, P, memo) for t in placed]
@@ -1041,7 +1240,7 @@ def _theirs(t, c):
     return next(e for e in t["carriers"] if e["carrier"] == c)
 
 
-def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=None, spec=None, data_dir=None, now_s=None, P=PARAMS, survey=None):
+def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=None, spec=None, data_dir=None, now_s=None, P=PARAMS, survey=None, fixes=True):
     """The tower report for a building: per carrier, the n nearest current towers carrying it and a verdict, the stale ones
     after them; every tower in the area for the map. No network calls. A carrier's tower known only from readings over
     stale_days old is listed apart (stale_towers) and never counts toward n or the verdict. The area asked for runs first;
@@ -1062,14 +1261,14 @@ def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=N
         mine = [t for t in run["towers"] if c in t["carrier_names"]]
         return [t for t in mine if not _theirs(t, c)["stale"]], [t for t in mine if _theirs(t, c)["stale"]]
 
-    first = fuse(con, crowd, lat, lon, steps[0], spec, now_s, P, memo=memo, survey=survey)
+    first = fuse(con, crowd, lat, lon, steps[0], spec, now_s, P, memo=memo, survey=survey, fixes=fixes)
     runs, wigle = [steps[0]], first["wigle"]
     for c in want:
         cur, old = split(first, c)
         if len(cur) >= n or len(steps) == 1:
             per[c] = (steps[0], cur[:n], old[:n])
     if len(per) < len(want):
-        wide = fuse(con, crowd, lat, lon, steps[-1], spec, now_s, P, memo=memo, survey=survey)
+        wide = fuse(con, crowd, lat, lon, steps[-1], spec, now_s, P, memo=memo, survey=survey, fixes=fixes)
         runs.append(steps[-1])
         wigle = wigle or wide["wigle"]
         for c in want:
@@ -1088,14 +1287,18 @@ def report(con, crowd, lat, lon, radius_mi=None, carriers=None, n=None, far_mi=N
     out_carriers = []
     for c in want:
         r, ts, old = per[c]
+        # heard only, not where a wider run put it on one of this carrier's towers: a fix just past the radius took the site out of the
+        # first run (heard only there), and the 20 mi run lists it on the confirmed tower, so the walk was counted twice (round 3's final
+        # check, S2). A site placed past the edge is the same case
+        on = {s["key"] for t in ts + old for e in t["carriers"] for s in e["sites"]}
         st = {"dist_mi": old[0]["dist_mi"], "last": _theirs(old[0], c)["last"],
               "ex_sprint": all(x.get("ex_sprint") for x in _theirs(old[0], c)["sites"])} if old else None
         out_carriers.append({"carrier": c, "searched_mi": r, "towers": ts, "stale_towers": old,
                              "verdict": verdict(c, ts[0]["dist_mi"] if ts else None, far_mi, P, stale=st, reach_mi=reach_mi,
                                                         crowd_here=here, topup_due=due["due"], kept_states=kept),
-                             "heard_only": [h for h in first["heard_only"] if h["carrier"] == c]})
-    compact = lambda t: {k: t[k] for k in ("id", "kind", "lat", "lon", "dist_mi", "dist_km", "bearing", "compass", "uncertainty_m", "type",  # noqa: E731
-                                           "height_ft", "owner", "carrier_names", "stale_for", "confidence")}
+                             "heard_only": [h for h in first["heard_only"] if h["carrier"] == c and h["key"] not in on]})
+    compact = lambda t: {**{k: t[k] for k in ("id", "kind", "lat", "lon", "dist_mi", "dist_km", "bearing", "compass", "uncertainty_m", "type",  # noqa: E731
+                                              "height_ft", "owner", "carrier_names", "stale_for", "confidence")}, **{k: t[k] for k in ("fix", "type_note") if t.get(k)}}
     area = first["towers"][:P["towers_max"]]
     return {"lat": lat, "lon": lon, "params_version": PARAMS_VERSION, "radius_mi": radius_mi, "searched_mi": [x for x in steps if x <= max(runs)],
             "n": n, "far_mi": far_mi,
@@ -1146,13 +1349,14 @@ def area(con, crowd, lat, lon, radius_mi, spec=None, now_s=None, P=PARAMS, missi
     out, placed = [], 0
     for t in run["towers"]:
         sites = [x for x in ({"carrier": e["carrier"], "radio": s["radio"], "site_kind": s["site_kind"], "site_id": s["site_id"], "keys": site_keys(s),
-                              "cells": len(s["cells"]), "stale": bool(e["stale"])} for e in t["carriers"] for s in e["sites"]) if wanted_site(x)]
+                              "cells": len(s["cells"]), "stale": bool(e["stale"])} for e in t["carriers"] for s in e["sites"] if not s.get("stub")) if wanted_site(x)]
         if not sites:
             continue
         placed += 1
         if len(out) >= AREA_MAX:
             continue
         x = {k: t.get(k) for k in keep}
+        x.update({k: t[k] for k in ("fix", "type_note") if t.get(k)})
         x["registration"] = (t.get("registration") or {}).get("number")
         x["osm"] = (t.get("osm") or {}).get("id")
         x["sites"] = sites
@@ -1244,12 +1448,35 @@ def site_by_id(con, crowd, q, carrier="AT&T", radio="LTE", gnb_bits=24, now_s=No
     for key, cs in cells.group(found, fold=True).items():
         s = make_site(key, cs, P)
         near = fuse(con, crowd, s["lat"], s["lon"], max(1.0, (2 * s["sigma"] + 500) / 1609.344), None, now_s, P, gnb_bits=bits if radio == "NR" else 24, gnb_plmns=plmns)
-        t = next((t for t in near["towers"] if any(x["key"] == s["key"] for e in t["carriers"] for x in e["sites"])), None)
+        carries = lambda t, k=s["key"]: any(x["key"] == k for e in t["carriers"] for x in e["sites"]) or k in ((t.get("fix") or {}).get("sites") or [])  # noqa: E731
+        t = next((t for t in near["towers"] if carries(t)), None)
+        if t is None:  # set on a structure past that run: the run round the fix itself (review 11/16, C2)
+            import towerfix
+            f = next((f for f in towerfix.live(con) if s["key"] in (f.get("sites") or [])), None)
+            if f:
+                there = fuse(con, crowd, f["lat"], f["lon"], 0.5, None, now_s, P, gnb_bits=bits if radio == "NR" else 24, gnb_plmns=plmns)
+                t = next((t for t in there["towers"] if carries(t)), None)
         out.append({"key": s["key"], "carrier": s["carrier"], "radio": s["radio"], "site_kind": s["site_kind"], "site_id": s["site_id"],
                     "plmns": s["plmns"], "cells": len(cs), "samples": s["samples"], "last": s["last"], "sigma_m": s["sigma"],
                     "crowd_at": {"lat": round(s["lat"], 6), "lon": round(s["lon"], 6)},
-                    "tower": {k: t[k] for k in ("id", "kind", "lat", "lon", "type", "height_ft", "owner", "registration", "osm", "uncertainty_m",
-                                                "candidates", "carrier_names", "confidence", "links")} if t else None})
+                    "tower": {**{k: t[k] for k in ("id", "kind", "lat", "lon", "type", "height_ft", "owner", "registration", "osm", "uncertainty_m",
+                                                   "candidates", "carrier_names", "confidence", "links")}, **{k: t[k] for k in ("fix", "type_note") if t.get(k)}} if t else None})
+    # a site of this number a live fix keeps that the crowd has no cells for now (the report keeps it on the confirmed tower): answered
+    # from the fix, with the tower from a run round it, never "no cells in this copy's crowd data" (review 11/16, round 2, S13)
+    import towerfix
+    have = {x["key"] for x in out}
+    for f in towerfix.live(con):
+        for k in f.get("sites") or []:
+            net, rad, num = (k.split("|") + ["", "", ""])[:3]
+            if k in have or rad != radio or not num.isdigit() or int(num) != sid or _key_carrier(k).lower() != carrier.lower():
+                continue
+            have.add(k)
+            there = fuse(con, crowd, f["lat"], f["lon"], 0.5, None, now_s, P, gnb_bits=bits if radio == "NR" else 24, gnb_plmns=plmns)
+            t = next((t for t in there["towers"] if k in ((t.get("fix") or {}).get("sites") or [])), None)
+            out.append({"key": k, "carrier": carrier, "radio": radio, "site_kind": SITE_WORD.get(radio, "cell"), "site_id": sid, "plmns": [], "cells": 0,
+                        "samples": 0, "last": None, "sigma_m": None, "crowd_at": {"lat": round(f["lat"], 6), "lon": round(f["lon"], 6)}, "fix_only": True,
+                        "tower": {**{k2: t[k2] for k2 in ("id", "kind", "lat", "lon", "type", "height_ft", "owner", "registration", "osm", "uncertainty_m",
+                                                          "candidates", "carrier_names", "confidence", "links")}, **{k2: t[k2] for k2 in ("fix", "type_note") if t.get(k2)}} if t else None})
     text, lines = attribution(any("WiGLE" in c["sources"] for c in found))
     return {"q": str(q), "carrier": carrier, "radio": radio, "site_id": sid, "range": [lo, hi], "plmns": plmns, "params_version": PARAMS_VERSION,
             "cells": [{k: c.get(k) for k in ("gci", "plmn", "operator", "area", "cid", "sector", "pci", "lat", "lon", "samples", "last", "sources")}

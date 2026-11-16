@@ -542,6 +542,11 @@ async function stepDiscovery(el, j) {
   el.innerHTML = `<div class="panel" id="stDisc"><p class="status">Working out what this building needs. This reads FCC licences, towers, carriers and fire departments, and can take a few seconds.</p></div>`;
   if (G.disc[j.id]?.noPin && d.lat != null) G.disc[j.id] = null;  // the pin went on since, on the Overview
   const R = G.disc[j.id] || (G.disc[j.id] = await discoveryData(j));
+  // a tower set where it really is (or a fix changed or removed) since these towers were read: asked again, so the block and its print
+  // show the report from after it. They were kept for the session (review 11/16 of tower-fix, C8); RFTowers.fixGen counts the changes
+  if (window.RFTowers && d.lat != null && d.lon != null && (R.fixGen ?? 0) !== RFTowers.fixGen) {
+    R.fixGen = RFTowers.fixGen; R.towers = await RFTowers.load(d.lat, d.lon).catch(e => ({_error: e.message}));
+  }
   R.code = await api(`/api/das/x/code/${j.id}`).catch(() => ({}));  // not kept with the rest: it says who at the AHJ confirmed it
   if (!el.isConnected) return;
   // a cellular job's towers: a top-up runs by itself where the engine says one is due (never for a view-only login), and the

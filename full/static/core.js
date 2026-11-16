@@ -12,7 +12,7 @@ const api = async (path, opts) => { if(window.dasJobApi && !opts?.dasRaw && /^\/
   // with an error line wherever they were). The PC's own copy never answers 401.
   if(r.status===401){ location.href="/remote/login"; throw new Error("Signed out."); }
   const t = await r.text(); let j; try { j = JSON.parse(t); } catch(e){ throw new Error(t.slice(0,200) || r.statusText); }
-  if(!r.ok || j.error) throw new Error(j.error || r.statusText); rfSort.soon(); return j; };  // a table drawn from the answer keeps its sort (rfSort)
+  if(!r.ok || j.error) throw Object.assign(new Error(j.error || r.statusText), {status: r.status, data: j}); rfSort.soon(); return j; };  // a table drawn from the answer keeps its sort (rfSort)
 const post = (path, body) => api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{})});
 
 // rfSort, the sort every table and list shares (static/rfsort.js, loaded before this file)

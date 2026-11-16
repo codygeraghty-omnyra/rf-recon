@@ -166,6 +166,13 @@ const HELP = [
     <li>An <b>eNB or gNB number</b> in the box ("eNB 812442", "gNB 1234567", or a bare 6 or 7 digits; 5 digits is a ZIP) finds that site in
       this copy's crowd data for the carrier picked, or all three: the tower it's on, how far and which way from the pin, and whether it's one of
       the report's 3 closest (picked out on the map, which stays where it is), with Run the report here, Street View and a CellMapper link.</li>
+    <li><b>✔ Set where it really is</b> (admin and team logins): an estimate with no registered structure near it says so, since a rooftop or a
+      short pole under 200 ft (away from airports) needn't be registered with the FCC. Open the tower, press ✔ Set where it really is (under
+      More on any other tower), click where the real structure is on the map (on a tower's mark it goes at that tower; Esc cancels; the map stays
+      where it is), then give its type (rooftop for an estimate), the building or site's name, its height and a note, and Save. It's kept on
+      this copy for everyone on it, with who and when and every change: the tower shows as <b>✔ confirmed on site</b> in the estimate's
+      place, with High confidence, in the report, the print and CSV, a DAS job's tower block (its ✓ and ✗ stay with it), Cell sites and the
+      eNB lookup. ✎ Change and Remove (with Undo) are on it; a view-only login sees it but can't change it.</li>
     <li>Under a tower's tiles: Street View, Google Maps and ⎙ Tower report (print or save as PDF, with a map and what to check on site:
       each channel with its PCIs, and old cells apart, "check it's still on the air"); <b>More</b> has 🎯 Hunt (Find a signal), ☆ Save
       (with the open DAS job or mission, where the map's ✎ Draw lists it), CSV, 🔗 a link that opens this report, ⚙ Tiles and All towers.

@@ -87,6 +87,7 @@ import geo  # noqa: E402
 import course  # noqa: E402
 import markup  # noqa: E402
 import survey  # noqa: E402
+import towerfix  # noqa: E402
 import network  # noqa: E402
 import serverfiles  # noqa: E402
 import notes  # noqa: E402
@@ -820,7 +821,9 @@ EXTRA_ROUTES = {"/api/coverage", "/api/coverage.kmz", "/api/network", "/api/talk
                 "/api/cells", "/api/cells/import", "/api/cells/fetch", "/api/spectrum", "/api/basemaps", "/api/basemaps/import", "/api/basemaps/delete",
                 "/api/tak/push", "/api/tak/settings", "/api/mwlinks", "/api/ais", "/api/fccid", "/api/fccid/grantees", "/api/fccid/grants",
                 "/api/fccid/boosters", "/api/fccid/parts", "/api/find", "/api/radioid", "/api/uls/pending",
-                "/api/towers", "/api/towers/topup", "/api/towers/enb", "/api/towers/area"}  # the tower report (towerfuse.py, 11/10)
+                "/api/towers", "/api/towers/topup", "/api/towers/enb", "/api/towers/area",  # the tower report (towerfuse.py, 11/10)
+                # where a tower really is, set on site (towerfix.py, Cody 11/16)
+                "/api/towers/fixes", "/api/towers/fix", "/api/towers/fix/change", "/api/towers/fix/remove", "/api/towers/fix/restore"}
 
 
 def coverage_args(qs):
@@ -839,7 +842,7 @@ def coverage_args(qs):
 # ---------------------------------------------------------------- backup of your own work
 
 BACKUP_DIR = os.environ.get("RF_RECON_BACKUP")  # the launcher points this at DAStastic\backups in Drive (shared)
-USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES + markup.TABLES + survey.TABLES
+USER_TABLES = ("mission", "mission_log", "observation", "capture", "capture_point", "track_point", "overlay", "setting", "note") + das.TABLES + network.TABLES + course.TABLES + markup.TABLES + survey.TABLES + towerfix.TABLES
 NOTES_DIR = notes.notes_dir(uls_import.DATA_DIR)  # the notes' own files (the launcher: DAStastic\notes in Drive)
 
 
@@ -866,7 +869,8 @@ def backup_user_data():
             # "Backup of your work failed: no such column: deleted_at")
             markup.ensure(con)
             markup.purge(con)  # drawings deleted over a day ago go for good; those deleted since stay out (markup.BACKUP_WHERE)
-            wheres = {**survey.BACKUP_WHERE, **markup.BACKUP_WHERE}
+            towerfix.purge(con)  # the same for towers set where they really are; their history is kept whole
+            wheres = {**survey.BACKUP_WHERE, **markup.BACKUP_WHERE, **towerfix.BACKUP_WHERE}
             con.execute("ATTACH DATABASE ? AS b", (tmp,))
             for t in USER_TABLES:
                 ddl = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()
@@ -2420,7 +2424,14 @@ class H(BaseHTTPRequestHandler):
         GET /api/towers/enb?q=812442&carrier=AT%26T(&radio=NR&bits=24): one eNB or gNB by number, wherever the crowd has it.
         POST /api/towers/topup {lat, lon}: fresh OpenCelliD cells when a top-up is due and the day's budget has room, and
         OpenStreetMap's towers when osm_towers is switched on. A view-only login can't POST (remote.refused), so it can't spend
-        the copy's key. Every answer carries the credit lines (attribution)."""
+        the copy's key. Every answer carries the credit lines (attribution).
+        Where a tower really is, set on site (towerfix.py, Cody 11/16), shared by every login on this copy: GET /api/towers/fixes
+        (history=1 with each one's changes) lists them, with edit: whether this login may change them; POST /api/towers/fix sets
+        one {lat, lon, type, name, height_ft, note, sites, carriers, from}, /fix/change {id, the fields to change}, /fix/remove
+        {id} (kept a day) and /fix/restore {id} (Undo). One refused because a site is set on another fix answers 400 with that fix's
+        id (fix_id) beside the words. Who did it is the login (none on the PC's own window). A view-only login
+        can't POST (remote.refused); on a framed copy the door refuses another site's POST. GET /api/towers?fixes=0 leaves them
+        out (the bench's scores: a fix is the answer itself)."""
         import towerfuse
         cc = cdb()
         try:
@@ -2431,7 +2442,7 @@ class H(BaseHTTPRequestHandler):
                 # survey runs count as heard on site for this login only where it may see them: a job's run never past its access list
                 r = towerfuse.report(con, cc, lat, lon, max(0.5, min(fnum(qs, "radius", 5.0), 20.0)), fstr(qs, "carriers") or None,
                                      int(max(1, min(fnum(qs, "n", 3), 10))), far_mi=get_setting("towers.far_mi", 10), data_dir=uls_import.DATA_DIR,
-                                     survey={"jobs": dashist.visible(con, *self.team())})
+                                     survey={"jobs": dashist.visible(con, *self.team())}, fixes=fstr(qs, "fixes") != "0")
                 # what every login needs from the copy's settings (a team login can't read /api/settings): the Towers tab's crowd
                 # readings default (map.crowd_default), and whether a top-up can fetch at all (an OpenCelliD key; never the key)
                 r["crowd_default"] = bool(get_setting("map.crowd_default", False))
@@ -2451,6 +2462,25 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/towers/enb" and method == "GET":
                 return self.send(200, towerfuse.site_by_id(con, cc, fstr(qs, "q"), fstr(qs, "carrier") or "AT&T", fstr(qs, "radio") or "LTE",
                                                            int(max(22, min(fnum(qs, "bits", 24), 32)))))
+            if p == "/api/towers/fixes" and method == "GET":
+                towerfix.ensure(con)
+                who, role = self.team()
+                return self.send(200, {"fixes": towerfix.listing(con, history=fstr(qs, "history") == "1"), "edit": not who or remote.writer(role),
+                                       "types": list(towerfix.TYPES)})
+            if p.startswith("/api/towers/fix") and method == "POST":
+                towerfix.ensure(con)
+                d, by = self.body_json() or {}, getattr(remote.ON, "login", None) or ""
+                try:
+                    if p == "/api/towers/fix":
+                        return self.send(200, towerfix.save(con, d, by))
+                    if p == "/api/towers/fix/change":
+                        return self.send(200, towerfix.change(con, d.get("id"), {k: v for k, v in d.items() if k != "id"}, by))
+                    if p == "/api/towers/fix/remove":
+                        return self.send(200, towerfix.remove(con, d.get("id"), by))
+                    if p == "/api/towers/fix/restore":
+                        return self.send(200, towerfix.restore(con, d.get("id"), by))
+                except towerfix.Taken as e:  # a site set on another fix: which one, so the page opens it (review 11/16, round 3, S3)
+                    return self.send(400, {"error": str(e), "fix_id": e.fix_id})
             if p == "/api/towers/topup" and method == "POST":
                 a = self.body_json() or {}
                 try:

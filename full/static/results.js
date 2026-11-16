@@ -155,8 +155,9 @@
   }
   // Esc closes the newest viewer (RFKeys "results"), but not while measuring or drawing on its map: Esc ends those first
   let keyed = false;
-  const busy = v => !!(v.map && (v.map._rfMeasuring || v.map._rfDraw?._tool || v.map._rfPinArmed || v.map._rfMarkArmed
-    || v.box.querySelector(":scope > .rf-pinmenu:not([hidden])")));  // Esc ends those first, the Move pin here menu too (it sits over the viewer)
+  // Esc ends those first (Set where it really is armed too: towers.js), the Move pin here menu too (it sits over the viewer)
+  const busy = v => !!(v.map && (v.map._rfMeasuring || v.map._rfDraw?._tool || v.map._rfPinArmed || v.map._rfMarkArmed || v.map._rfFixArmed
+    || v.box.querySelector(":scope > .rf-pinmenu:not([hidden])")));
   const newest = () => [...open].reverse().find(v => v.el.isConnected && !busy(v));
   function keys(){
     if(keyed) return; keyed = true;
@@ -369,6 +370,8 @@
       close: () => close(v, true), zoomTo: () => zoomTo(v), set: o => show(v.map || v.box, {...v.o, ...o}, v.anchor),
       // new actions (or title) only: the body, and a draft typed in it, stay as they are
       setFrame: o => { v.o = {...v.o, ...o}; frame(v); },
+      // a sheet to one of its steps (peek, half, full), the body as it is: Set where it really is drops it to its peek to place
+      size: s => { if(!STEPS.includes(s)) return; v.size = s; layout(v); },
       // a new title only, in place: the actions and what's under the pointer stay (markup.js renames a marker from a change
       // event, and a frame drawn again there took the button a click had started on)
       retitle: (title, label) => { v.o = {...v.o, title, ...(label != null ? {label} : {})}; const t = v.top?.querySelector(".rf-res-t"); if(t) t.innerHTML = title;

@@ -179,13 +179,12 @@ function dcTowers(box, j, save, alive){
     const who=S.remote?.user||S.me?.user||"";
     // read when pressed, from the tower as drawn: a top-up landing before the save went could re-key the tower, and the mark was saved
     // with no site keys or words (round 2). Another tower's id the mark was never kept under is never wiped (round 2)
-    const info=TW.markInfo(shown, id), ids=TW.answerIds(shown);
-    const fn=cur=>{ const C=((cur.data||{}).cellular)||{}, V={...(C.towers_verified||{})}, old=V[key]||V[id];
-      if(key!==id&&!ids.has(key)) delete V[key];  // kept under the tower's id from now on, with its site keys: an older id it was found under goes
-      if(ch===null) delete V[id];
-      else if("note" in ch){ if(!old) return false; const {note, ...rest}=old; V[id]=ch.note?{...rest, note:ch.note}:rest; }
-      else { const {by, ...rest}=old||{}, now=TW.markInfo(shown, id); V[id]={...rest, ok:ch.ok, ...(who?{by:who}:{}), at:today(), ...(info.sites.length?info:now)}; }
-      return {cellular:{...C, towers_verified:V}}; };
+    // Kept under the tower's id from now on, with its site keys: one found under an older id, or following its sites from a structure
+    // with no carrier now (the C7 card), goes from there (RFTowers.markSaved: a clear left that one, and it came back, review 11/16 round 2)
+    const info=TW.markInfo(shown, id), at=shown;
+    const fn=cur=>{ const C=((cur.data||{}).cellular)||{};
+      const V=TW.markSaved(C.towers_verified||{}, at, id, key, ch, who, today(), info.sites.length?info:TW.markInfo(shown, id));
+      return V?{cellular:{...C, towers_verified:V}}:false; };
     const car=btn&&btn.closest(".twj-t")?.dataset.carrier;
     try{
       const got=window.dasJobPatch?await window.dasJobPatch(j.id, fn):await save(fn(j));
