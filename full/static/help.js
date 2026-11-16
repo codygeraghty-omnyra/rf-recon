@@ -156,7 +156,7 @@ const HELP = [
     <ul><li>Type an address in the box and pick it, or press <b>◎ GPS</b> beside it for where you stand ("Your location"): the report
       runs by itself (the tab has no other search fields; on a phone it comes straight on screen). AT&amp;T, Verizon and T-Mobile, each with a verdict (in reach, marginal, far: no off-air BDA, or not known yet
       where this copy's crowd cells don't reach) and its 3 closest towers. Every verdict says a roof reading decides.</li>
-    <li>The map shows towers only: <b>■</b> registered with the FCC, <b>▲</b> mapped in OpenStreetMap (Cody's own build), <b>◆</b> a carrier's
+    <li>The map shows towers only: <b>■</b> registered with the FCC, <b>▲</b> mapped in OpenStreetMap (Omnyra's own copy only), <b>◆</b> a carrier's
       licensed site, <b>○</b> estimated from crowd cells, with a bubble for how far off it may be. Grey: no carrier known there.
       The credit line under the scale bar names the licences; <b>Credits</b> shows them in full.</li>
     <li>Click a tower for its tiles; the map stays where it is (<b>Zoom to</b> moves it). A tower outside every carrier's 3 closest is

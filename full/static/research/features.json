@@ -152,7 +152,8 @@
       "d-2026-11-06-0100",
       "static/start.js",
       "static/das.js",
-      "static/towers.js"
+      "static/towers.js",
+      "d-2026-11-12-0827"
      ]
     },
     {
@@ -292,11 +293,21 @@
      ]
     },
     {
-     "name": "Dots, pop-ups, list and table",
-     "text": "One dot per site, coloured by signal type. Its pop-up lists up to 14 entries with coverage, network, cell site and measured links; beside the map, a list under distance headings or a sortable table.",
+     "name": "Dots, list and table",
+     "text": "One dot per site, coloured by signal type. A dot, a list row or a table row shows that spot in the results viewer inside the map, with no pop-up and no pan; beside the map, a list under distance headings or a sortable table.",
      "src": [
       "d-2026-10-27",
-      "static/core.js"
+      "static/core.js",
+      "d-2026-11-11-2046",
+      "static/results.js"
+     ]
+    },
+    {
+     "name": "The results viewer",
+     "text": "What a dot or a row holds opens inside the map: a side panel (Wider for more) on a map 700 px wide or more, a bottom sheet below that, or a card beside the item, picked in its header (Automatic, Side panel, Bottom sheet, Card) and kept for every map. Nothing in it pans the map but Zoom to, and Esc closes it. Cell sites and Topology rows open it on their own tab.",
+     "src": [
+      "d-2026-11-11-2046",
+      "static/results.js"
      ]
     },
     {
@@ -304,7 +315,8 @@
      "text": "Press Move pin, then click where it goes, or right-click the map (a long press on a touch screen) and pick Move pin here; it searches there. A plain click leaves the pin where it is, and the pin lets clicks through to the dots under it.",
      "src": [
       "d-2026-10-28",
-      "static/core.js"
+      "static/core.js",
+      "d-2026-11-11-2046"
      ]
     },
     {
@@ -313,7 +325,33 @@
      "src": [
       "static/markup.js",
       "static/results.js",
-      "phone/app.js"
+      "phone/app.js",
+      "d-2026-11-11-2315"
+     ]
+    },
+    {
+     "name": "Measure",
+     "text": "A ruler on every map, DAStastic lite's too: click or tap points for each leg's length and true bearing and the running total, or close an area for its size and perimeter. Copy puts the numbers and the points on the clipboard. It works with no signal and nothing is saved or sent; while measuring, a click is a point, never the pin.",
+     "src": [
+      "d-2026-11-10-1215",
+      "static/measure.js"
+     ]
+    },
+    {
+     "name": "Draw and mark up",
+     "text": "The pen under the ruler draws points, lines and areas, each with a name, a colour, a note and its length or area, kept with the open mission, the DAS job whose map it is, or this copy, and exported as KML or GeoJSON. Click one to rename it, recolour it, add a note, zoom to it or delete it. A view-only login sees them and can't change them.",
+     "src": [
+      "d-2026-11-10-1215",
+      "static/markup.js",
+      "markup.py"
+     ]
+    },
+    {
+     "name": "Save the map as an image",
+     "text": "The camera under the pen saves the view as a PNG at 2, 3 or 4 times its size on screen, its tiles fetched again at that resolution, with the drawings and labels drawn on and a footer giving the place, local date and time, scale and the map's credits. The map doesn't move.",
+     "src": [
+      "d-2026-11-10-1215",
+      "static/mapexport.js"
      ]
     },
     {
@@ -339,7 +377,8 @@
      "src": [
       "d-2026-11-02",
       "d-2026-10-27",
-      "static/core.js"
+      "static/core.js",
+      "d-2026-11-11-2118"
      ]
     },
     {
@@ -503,7 +542,8 @@
      "src": [
       "static/surveymap.js",
       "static/survey.js",
-      "static/rfscale.js"
+      "static/rfscale.js",
+      "d-2026-11-12-1605"
      ]
     },
     {
@@ -512,7 +552,8 @@
      "where": "server, pc",
      "src": [
       "static/surveymap.js",
-      "static/survey.js"
+      "static/survey.js",
+      "d-2026-11-12-1605"
      ]
     },
     {
@@ -521,7 +562,8 @@
      "where": "server, pc",
      "src": [
       "static/surveymap.js",
-      "static/survey.js"
+      "static/survey.js",
+      "d-2026-11-12-1605"
      ]
     },
     {
@@ -531,7 +573,8 @@
      "src": [
       "static/surveymap.js",
       "survey.py",
-      "app.py"
+      "app.py",
+      "d-2026-11-12-1605"
      ]
     },
     {
@@ -550,7 +593,8 @@
      "src": [
       "static/towers.js",
       "static/survey.js",
-      "static/surveymap.js"
+      "static/surveymap.js",
+      "d-2026-11-12-1605"
      ]
     },
     {
@@ -558,7 +602,8 @@
      "text": "Sample survey (not a real site) loads made-up readings where the map is, for a demo on any copy. It's labelled SAMPLE, never saved, never listed with the real runs, and never marks a tower seen.",
      "src": [
       "static/survey.js",
-      "static/surveymap.js"
+      "static/surveymap.js",
+      "d-2026-11-12-1605"
      ]
     },
     {
@@ -566,7 +611,71 @@
      "text": "A map saved as an image draws the survey squares again at its own resolution and carries their legend.",
      "src": [
       "static/mapexport.js",
-      "static/surveymap.js"
+      "static/surveymap.js",
+      "d-2026-11-12-1605"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "towers",
+   "name": "Towers",
+   "summary": "Each carrier's 3 closest towers to an address, what's on each, and a printed tower report.",
+   "features": [
+    {
+     "name": "Towers by address",
+     "text": "Type an address and pick it, or press ◎ GPS for where you stand: AT&T, Verizon and T-Mobile each get a verdict (in reach under 5 mi, marginal to 10, far past that: no off-air BDA, or not known yet where this copy's crowd cells don't reach) and their 3 closest towers, searched to 5 mi and wider only while fewer are found. Every verdict says a roof reading decides.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-12-0017",
+      "static/towers.js",
+      "towerfuse.py"
+     ]
+    },
+    {
+     "name": "Towers only on the map",
+     "text": "■ registered with the FCC, ◆ a carrier's licensed site, ○ estimated from crowd cells with a bubble for how far off it may be, and ▲ mapped in OpenStreetMap on Omnyra's own copy only; grey where no carrier is known. The carrier chips pick which carriers show, and the map holds still: Zoom to is the one thing that moves it.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-12-0017",
+      "static/towers.js"
+     ]
+    },
+    {
+     "name": "What's on a tower",
+     "text": "Click a tower or a card for its tiles and the cells heard (PCI, channel and band), with a bearing line from the site. A tower outside every carrier's 3 closest is looked up when clicked; a band tapped gives its downlink MHz and the carrier's licensed block. Bearings are true, and the distance tile adds the magnetic one.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-12-0017",
+      "static/towers.js"
+     ]
+    },
+    {
+     "name": "Your tiles",
+     "text": "⚙ Tiles picks and orders 12 tiles (Type, Carriers, Bands, Tech, Distance and bearing, Height, Sectors, Site IDs, Owner, Confidence, Sources, Links), kept in this browser. They set the printed report's columns and the CSV's first columns, and My tiles labels each tower on the map with the first three.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-12-0017",
+      "static/towers.js"
+     ]
+    },
+    {
+     "name": "Tower report, CSV and link",
+     "text": "⎙ Tower report prints or saves as PDF the report on screen, with a map and Verify on site: each channel on the air with its PCIs, older cells apart, and the donor bearing in degrees magnetic for a hand compass. ⇩ CSV opens right in Excel, 🔗 Link opens the same report, ☆ Save keeps a tower with the open DAS job, mission or this copy, and 🎯 Hunt opens Find a signal on its band.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-12-0017",
+      "static/towers.js"
+     ]
+    },
+    {
+     "name": "Crowd readings and top-ups",
+     "text": "Show crowd readings adds the crowd's points (where phones were, not towers), off unless the copy's admin turns it on in Data & updates. Where the report says a top-up is due, Top up this area asks OpenCelliD for fresh cells; never for a view-only login, and a copy with no OpenCelliD key is told so.",
+     "where": "server, pc",
+     "src": [
+      "d-2026-11-12-0017",
+      "static/towers.js",
+      "static/mission.js"
      ]
     }
    ]
@@ -945,7 +1054,8 @@
       "static/cellall.js",
       "static/cells.js",
       "d-2026-11-07-1225",
-      "towerfuse.py"
+      "towerfuse.py",
+      "d-2026-11-12-0827"
      ]
     }
    ]
@@ -1175,7 +1285,8 @@
       "d-2026-11-06-1500",
       "static/cells.js",
       "cells.py",
-      "static/towers.js"
+      "static/towers.js",
+      "d-2026-11-12-0827"
      ]
     },
     {
@@ -1192,7 +1303,8 @@
      "src": [
       "d-2026-11-06-1700",
       "static/cells.js",
-      "towerfuse.py"
+      "towerfuse.py",
+      "d-2026-11-12-0827"
      ]
     },
     {
@@ -1304,7 +1416,8 @@
      "src": [
       "static/towers.js",
       "static/search.js",
-      "towerfuse.py"
+      "towerfuse.py",
+      "d-2026-11-12-0952"
      ]
     }
    ]
@@ -1968,7 +2081,8 @@
       "d-2026-11-05-0300",
       "d-2026-11-02",
       "static/dascell.js",
-      "static/towers.js"
+      "static/towers.js",
+      "d-2026-11-12-0827"
      ]
     },
     {
@@ -2014,7 +2128,8 @@
      "src": [
       "d-2026-11-05-0300",
       "static/dascell.js",
-      "static/towers.js"
+      "static/towers.js",
+      "d-2026-11-12-0827"
      ]
     },
     {
@@ -4311,11 +4426,12 @@
     },
     {
      "name": "Links carry the view",
-     "text": "The address bar holds the tab, pin and radius or county, text, frequency, FCC fields, filters, the switch, Fixed sites only, the Analyzer expression and the heatmap, so a reload or a shared link opens the same view.",
+     "text": "The address bar holds the tab, pin and radius or county, text, frequency, FCC fields, filters, the switch, Fixed sites only, the Analyzer expression and the heatmap, so a reload or a shared link opens the same view. The Map tab's own view, its centre and zoom, goes in the link as the map stops moving, without adding a Back step.",
      "src": [
       "d-2026-11-05-2200",
       "d-2026-10-27",
-      "static/search.js"
+      "static/search.js",
+      "d-2026-11-11-2046"
      ]
     },
     {
@@ -5042,7 +5158,8 @@
      "src": [
       "d-2026-11-03",
       "updater.py",
-      "tilecache.py"
+      "tilecache.py",
+      "d-2026-11-11-2118"
      ]
     },
     {
@@ -5102,7 +5219,8 @@
       "d-2026-11-02",
       "d-2026-10-27",
       "static/core.js",
-      "reference/data_sources.json"
+      "reference/data_sources.json",
+      "d-2026-11-11-2118"
      ]
     },
     {
@@ -5205,6 +5323,25 @@
       "d-2026-11-08-1810",
       "licence.py",
       "remote.py"
+     ]
+    },
+    {
+     "name": "Admins only",
+     "text": "A copy can be set to admins only: only its admin logins sign in or stay signed in, by password or with Google. Anyone else is told, once their password is right, that it's open to admins only for now, and their open sessions end; their logins keep their passwords, roles and Google links for when it opens again.",
+     "where": "server",
+     "src": [
+      "d-2026-11-09-0506",
+      "remote.py"
+     ]
+    },
+    {
+     "name": "Shown inside a dashboard",
+     "text": "A licensed copy can be shown inside the business's own dashboard: only the pages named for it may show it, a sign-in made there stays signed in, and a change sent from another site is refused. With none named, no other site's page can show it.",
+     "where": "server",
+     "src": [
+      "d-2026-11-09-0506",
+      "remote.py",
+      "app.py"
      ]
     },
     {
