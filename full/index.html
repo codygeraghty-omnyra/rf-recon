@@ -107,6 +107,9 @@ h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;c
 .pr-tab td{vertical-align:top}.pr-tab td .hint{font-size:11.5px}.pr-dnc{opacity:.55}
 /* Prospects (UX review 11/8 #6): a permit's description is two lines, the rest on the row's Why; + Job beside the Status picker */
 .pr-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+/* on a phone the description (a tap opens its row's Why) is a finger's tap at least, its line in the middle: one line was a 17 px
+   target (QA 11/12, permits@390). align-content, as a clamped box lays out as a block: -webkit-box-pack doesn't centre it */
+@media (max-width:600px){ .pr-desc{min-height:32px;align-content:center} }
 .pr-st{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
 .pr-st button{flex:none;white-space:nowrap}
 .pr-tab td.pr-contact{max-width:230px;white-space:normal}
@@ -565,7 +568,10 @@ body.rail-none .filter-line{display:none}
 .bar-mi{display:none}
 #go.stale{background:var(--accent);color:var(--on-accent,var(--inv-ink))}
 @media (min-width:700px){
-  #searchPanel{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 10px;margin-bottom:6px}
+  /* the status line's room (19 px, #status: review 11/11) is the gap under the bar, not added to its margins and the bar's:
+     with them the map started 19 px lower, at 312 px at 1366 (the 11/5 layout check wants it under 300; 293 on 11/10) */
+  #searchPanel{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:7px 10px;margin-bottom:0}
+  #status{margin:0}
   #searchPanel>.row{display:contents}
   #searchPanel .lb{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   #searchPanel label{flex-direction:row;align-items:center;gap:5px}

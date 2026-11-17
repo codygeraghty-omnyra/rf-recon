@@ -25,6 +25,7 @@ import sqlite3
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -655,10 +656,76 @@ def build_places(con):
 UA = {"User-Agent": "RF-Recon/2.0 (personal site-survey tool)"}
 
 
+# ---- FCC files relayed from Cody's PC (Cody 11/16: "PC copies them over"). The FCC answers the 24/7 server's address with
+# HTTP 403 (every licence, tower, spectrum and pending-microwave download failed from 11/4 to 11/7 on; the Data desk's
+# a_micro.zip task, 11/12) while it answers the PC. ops/fcc_relay.py downloads the same files on the PC with this module's
+# own downloader and puts each in <data>/fcc-relay/ with a record: the FCC's date for it, its size and SHA-256. Nothing
+# here goes round the FCC's answer: the server still asks first, and only when that fails uses a relayed copy whose size
+# and SHA-256 match its record.
+RELAY_DIRNAME = "fcc-relay"
+
+
+def relay_dir():
+    return os.path.join(DATA_DIR, RELAY_DIRNAME)
+
+
+def relay_record(url):
+    """The record of the relayed copy of url's file ({"file", "url", "last_modified", "bytes", "sha256", "relayed_at"}), or
+    None when none was relayed."""
+    import json
+    name = os.path.basename(urllib.parse.urlparse(url).path)
+    try:
+        with open(os.path.join(relay_dir(), name + ".json"), encoding="utf-8") as fh:
+            rec = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    ok = isinstance(rec, dict) and rec.get("file") == name and isinstance(rec.get("bytes"), int) and \
+        re.fullmatch(r"[0-9a-f]{64}", str(rec.get("sha256") or "")) and re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d", str(rec.get("last_modified") or ""))
+    return rec if ok else None
+
+
+def sha256_of(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def from_relay(url, path, log=print):
+    """Put the relayed copy of url's file at path and return path, or None when there's no whole one. A copy already moved
+    to path (an earlier run took it) counts when it still matches the record: spectrum.py asks for l_cell.zip again after
+    the licences took it."""
+    rec = relay_record(url)
+    if not rec:
+        return None
+    src = os.path.join(relay_dir(), rec["file"])
+    for cand in (src, path):
+        if os.path.isfile(cand) and os.path.getsize(cand) == rec["bytes"] and sha256_of(cand) == rec["sha256"]:
+            if cand == src:
+                os.replace(src, path)
+            log(f"  the FCC didn't answer this server: used {rec['file']} as relayed from Cody's PC (the FCC's copy of {rec['last_modified']})")
+            return path
+    return None
+
+
 def http_get(url, path, log=print, timeout=1800):
-    """Download url to path with DAStastic's own downloader. A refusal (HTTP 403 and the like) stops here: no second try
-    by another client or route (Cody 11/5, no bot-check bypass; until 11/8 a 403 fell back to curl). The source's run
-    fails with the FCC's answer, and the Data desk files it for a person, who can download the file in a browser."""
+    """Download url to path with DAStastic's own downloader. A refusal (HTTP 403 and the like) is never tried again by
+    another client or route (Cody 11/5, no bot-check bypass; until 11/8 a 403 fell back to curl). When the FCC doesn't
+    answer, a copy relayed from Cody's PC is used if one matches its record (from_relay); else the source's run fails with
+    the FCC's answer, and the Data desk files it for a person."""
+    try:
+        return _http_get(url, path, log)
+    except dlstop.Stopped:
+        raise
+    except Exception:
+        if from_relay(url, path, log):
+            return path
+        raise
+
+
+def _http_get(url, path, log=print):
     tmp = path + ".part"
     try:
         try:
@@ -688,14 +755,16 @@ def http_get(url, path, log=print, timeout=1800):
 def last_modified(url):
     """The server's Last-Modified date as 'YYYY-MM-DD HH:MM', or None if it can't be read. Read from a one-byte GET by
     DAStastic's own downloader: the FCC's servers refuse HEAD (403) and answer GET with the file's date (206). A refusal
-    is None, never a second try another way (until 11/8 a 403 fell back to curl)."""
+    is None, never a second try another way (until 11/8 a 403 fell back to curl). When the FCC doesn't answer, the date of
+    the copy relayed from Cody's PC, as the FCC gave it to the PC (relay_record), so a relayed newer file reads as newer."""
     from email.utils import parsedate_to_datetime
     try:
         req = urllib.request.Request(url, headers={**UA, "Range": "bytes=0-0"})
         with urllib.request.urlopen(req, timeout=20) as r:
             lm = r.headers.get("Last-Modified")
     except Exception:
-        return None
+        rec = relay_record(url)
+        return rec["last_modified"] if rec else None
     try:
         return parsedate_to_datetime(lm).strftime("%Y-%m-%d %H:%M") if lm else None
     except (TypeError, ValueError):
