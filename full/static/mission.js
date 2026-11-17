@@ -448,8 +448,8 @@ S.views.data = async (v) => {
       ${dasNote("the cellular pre-survey shows carriers only for buildings in these states")}
       <div class="row" style="align-items:center;margin-top:10px"><label class="switch"><input type="checkbox" id="uCrowdDef" ${settings.map_crowd_default?"checked":""}><span></span></label><b>Towers tab: show crowd readings at first</b></div>
       <p class="hint" style="margin:2px 0 0">Off, the Towers tab's map shows towers only; its <i>Show crowd readings</i> box adds the OpenCelliD and survey points when ticked.</p>
-      ${"overpass_url" in settings?`<label style="margin-top:8px">This copy's own OpenStreetMap (Overpass) server, for building outlines and tunnels (overpass.url; blank = none)<input id="uOverpass" value="${esc(settings.overpass_url||"")}" placeholder="https://overpass.example.com/api/interpreter"></label>
-      <p class="hint" id="uOverpassMsg" style="margin:4px 0 0">${settings.overpass_refused?`Not asked: ${esc(settings.overpass_refused)}.`:settings.overpass_url?"Asked alone, in place of the public servers.":S.build?.build==="personal"?"None: this copy asks the free public servers.":"None: a sold copy doesn't ask the free public servers (their terms), so building outlines come from Overture and tunnels need one."}</p>`:""}
+      ${"overpass_url" in settings?`<label style="margin-top:8px">This copy's own OpenStreetMap (Overpass) server, for building outlines and tunnels (overpass.url; blank = none)<input id="uOverpass" value="" autocomplete="off" placeholder="${esc(settings.overpass_url||"https://overpass.example.com/api/interpreter")}"></label>
+      <div class="row" style="align-items:center;margin-top:4px"><p class="hint" id="uOverpassMsg" style="margin:0">${settings.overpass_refused?`Not asked: ${esc(settings.overpass_refused)}.`:settings.overpass_url?"Asked alone, in place of the public servers.":S.build?.build==="personal"?"None: this copy asks the free public servers.":"None: a sold copy doesn't ask the free public servers (their terms), so building outlines come from Overture and tunnels need one."}${settings.overpass_url?" Its key stays hidden: type a whole new address to replace it.":""}</p><button id="uOverpassClear" ${settings.overpass_url?"":"hidden"} title="Remove this copy's own Overpass server">Clear</button></div>`:""}
       <p class="hint">Checks every 10 minutes; each source runs when its interval has passed and the FCC file has actually changed. Selected sources run in parallel. Crowd sources refresh for the active mission's area${S.mission?` (${esc(S.mission.name)})`:""} and any mission set to keep them refreshed.</p></div>
   </div>
   <div class="panel" id="waysPanel" hidden><h3>Ways in: who can use this version and its data</h3>
@@ -728,9 +728,14 @@ S.views.data = async (v) => {
   $("#uStates").onchange=e=>post("/api/settings",{states:e.target.value.toUpperCase().replace(/\s/g,"")});
   $("#uBdcStates").onchange=e=>post("/api/settings",{bdc_states:e.target.value});
   $("#uCrowdDef").onchange=e=>post("/api/settings",{map_crowd_default:e.target.checked});
-  if($("#uOverpass")) $("#uOverpass").onchange=async e=>{ const m=$("#uOverpassMsg");
-    try{ await post("/api/settings",{overpass_url:e.target.value.trim()}); m.textContent=e.target.value.trim()?"Saved: asked alone, in place of the public servers.":"Saved: none set."; }
+  // The box starts empty and shows the saved one as its placeholder, server and "•••• set" only (Cody 11/16: the key in the
+  // address stays hidden like the other keys). Typing a new address saves it; Clear removes it; an emptied box changes nothing.
+  const opSave=async url=>{ const i=$("#uOverpass"), m=$("#uOverpassMsg"), c=$("#uOverpassClear");
+    try{ const r=await post("/api/settings",{overpass_url:url}); i.value=""; i.placeholder=r.overpass_url||"https://overpass.example.com/api/interpreter";
+      c.hidden=!url; m.textContent=url?"Saved: asked alone, in place of the public servers. Its key stays hidden.":"Saved: none set."; }
     catch(err){ m.textContent=err.message; } };
+  if($("#uOverpass")) $("#uOverpass").onchange=e=>{ const url=e.target.value.trim(); if(url) opSave(url); };
+  if($("#uOverpassClear")) $("#uOverpassClear").onclick=()=>opSave("");
   // Only a box a person typed, pasted or dropped into is saved (Cody 11/10): the browser's autofill put the sign-in email into
   // every plain-text box (WiGLE's API name, Digi-Key's Client ID) and Save sent them all. Autofill fires input events but
   // never a trusted keydown, paste or drop, so those mark a box as the person's own.

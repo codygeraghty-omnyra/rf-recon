@@ -293,6 +293,22 @@ def overpass_setting():
     return url.strip() if isinstance(url, str) else ""
 
 
+def overpass_shown(url):
+    """overpass.url as Data & updates shows it: the server's address and "•••• set", never its path or query. A paid service
+    puts the account's key there (Overpass.ch: /v1/<key>/interpreter), and the other keys a page reads show only as set."""
+    if not url:
+        return ""
+    try:
+        u = urllib.parse.urlparse(url)
+        host, port = u.hostname, u.port
+    except ValueError:
+        return "•••• set"
+    if not host:
+        return "•••• set"
+    host = f"[{host}]" if ":" in host else host
+    return f"{u.scheme}://{host}{f':{port}' if port else ''}/•••• set"
+
+
 def overpass_own():
     """This copy's own Overpass server (the setting overpass.url: a paid or hosted service, Cody 11/10 "Pay for Overpass.ch
     Small"), or "" when none is set or it isn't a public https address."""

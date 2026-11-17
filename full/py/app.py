@@ -1900,7 +1900,26 @@ def tile_allowed(src):
     a sold copy; its maps are USGS)."""
     return build.allowed(TILE_BUILD[src]) if src in TILE_BUILD else True
 TILE_UA = "DAStastic/1.0 (site survey map; contact via omnyra.ai)"  # OSM's tile policy asks a proxy to name itself and a contact
+# A tile's whole fetch, from connecting to its last byte. It was 15 s for each read, so a slow source (OpenStreetMap, about
+# 33 s a tile on 11/11) held one of the six connections a browser opens to this copy for half a minute, and the app's own
+# saves and lookups waited behind the tiles (Cody 11/16: cap the wait). A tile past it is a 404: the map draws the zoom above.
+TILE_WAIT_S = 6
+TILE_READ_S = 3  # each connect or read inside it, so the last one ends by TILE_WAIT_S + TILE_READ_S at the latest
 WEB_MERCATOR = 20037508.342789244
+
+
+def tile_fetch(url, headers):
+    """(bytes, the response's headers) of one tile, or TimeoutError when it isn't all here within TILE_WAIT_S."""
+    end = time.monotonic() + TILE_WAIT_S
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=TILE_READ_S) as r:
+        parts = []
+        while True:
+            if time.monotonic() > end:
+                raise TimeoutError(f"the tile took over {TILE_WAIT_S} s")
+            part = r.read1(65536)  # one read at most, so a slow trickle can't run past the cap inside a single call
+            if not part:
+                return b"".join(parts), r.headers
+            parts.append(part)
 
 
 def tile_url(template, z, x, y):
@@ -3582,7 +3601,9 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"creds": {k: ("•••• set" if v else "") for k, v in creds.items()},
                                        "states": get_setting("update.states", ""), "bdc_states": get_setting("bdc.states", ""),
                                        "map_crowd_default": bool(get_setting("map.crowd_default", False)),
-                                       "overpass_url": own, "overpass_refused": das.overpass_refused(own) if own else None})
+                                       # its server only, never the key in its path (Cody 11/16: hidden like the other keys)
+                                       "overpass_url": das.overpass_shown(own),
+                                       "overpass_refused": das.overpass_refused(own) if own else None})
             if p == "/api/build":  # personal or sold, what the sold build leaves out and why, and the data notices
                 return self.send(200, build.info())
             if p in ("/api/crowd/pull/queue", "/api/crowd/pull/status"):  # the PC fetcher's work list, and how it stands (crowdpull.py)
@@ -3649,9 +3670,8 @@ class H(BaseHTTPRequestHandler):
                 hdr = {"User-Agent": TILE_UA}
                 if src == "osm" and self.headers.get("Referer"):  # the policy: a proxy keeps the page's Referer, never strips it
                     hdr["Referer"] = self.headers["Referer"]
-                req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)), headers=hdr)
-                with urllib.request.urlopen(req, timeout=15) as r:
-                    data, cc = r.read(), r.headers.get("Cache-Control") or "max-age=86400"
+                data, rh = tile_fetch(tile_url(url, int(z), int(x), int(y)), hdr)
+                cc = rh.get("Cache-Control") or "max-age=86400"
                 if tile_type(data) == "application/octet-stream":
                     return self.send(404, b"", "image/png")
                 return self.send(200, data, tile_type(data), {"Cache-Control": cc})
@@ -3663,9 +3683,7 @@ class H(BaseHTTPRequestHandler):
                 data = fh.read()
             return self.send(200, data, tile_type(data), {"Cache-Control": "max-age=604800"})
         try:
-            req = urllib.request.Request(tile_url(url, int(z), int(x), int(y)), headers={"User-Agent": TILE_UA})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                data = r.read()
+            data = tile_fetch(tile_url(url, int(z), int(x), int(y)), {"User-Agent": TILE_UA})[0]
             if tile_type(data) == "application/octet-stream":  # an error page, not an image: don't cache it
                 return self.send(404, b"", "image/png")
             os.makedirs(os.path.dirname(fp), exist_ok=True)
@@ -3925,7 +3943,7 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, {"ok": True, "rows": n})
             if p == "/api/settings":
                 d = self.body_json()
-                srv = None
+                srv, saved = None, {"ok": True}
                 if "osm_towers_server" in d:  # checked before anything is saved: a bad one answered 500 with the key and states already saved (review 11/10 round 2)
                     import osmtowers
                     srv, why = osmtowers.server_of(d["osm_towers_server"] or "")
@@ -3937,6 +3955,7 @@ class H(BaseHTTPRequestHandler):
                     if why:
                         return self.send(400, {"error": f"Not saved: {why}. It must be an https address on the internet."})
                     set_setting(das.OVERPASS_OWN_SETTING, url)
+                    saved["overpass_url"] = das.overpass_shown(url)  # the page shows the new one as it shows a saved one
                 creds = get_setting("creds", {}) or {}
                 for k, v in (d.get("creds") or {}).items():
                     if v == "__clear__":
@@ -3952,7 +3971,7 @@ class H(BaseHTTPRequestHandler):
                     set_setting("map.crowd_default", bool(d["map_crowd_default"]))
                 if "osm_towers_server" in d:  # the Overpass server a copy's own or paid account gives (osmtowers.server_of): https, public
                     set_setting("osm_towers.server", srv or "")
-                return self.send(200, {"ok": True})
+                return self.send(200, saved)
             if p == "/api/update/config":
                 d = self.body_json()
                 if "auto" in d:
